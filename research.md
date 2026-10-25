@@ -1,215 +1,215 @@
-# HelloNear — Research Notes (DRAFT)
+# HelloNear — Hasil Riset (DRAFT)
 
-> **Status: DRAFT, not final.** This document is brainstorming material for the team (Ancung, Nabil, Axel, James).
-> Every recommendation here is a proposal and may change after discussion.
-> Research done on 25 Oct 2026. Package versions, prices, and product status may change; re-check before relying on them.
+> **Status: DRAFT, belum final.** Dokumen ini adalah bahan brainstorm tim (Ancung, Nabil, Axel, James).
+> Semua rekomendasi di sini masih usulan dan bisa berubah setelah diskusi.
+> Riset dilakukan 25 Okt 2026. Versi paket, harga, dan status produk bisa berubah. Cek ulang sebelum dipakai.
 
-## Contents
+## Daftar isi
 
-1. [Summary](#1-summary)
-2. [NEAR HACKATHON: facts and rules](#2-near-hackathon-facts-and-rules)
-3. [HelloMinds: what we are modelling](#3-hellominds-what-we-are-modelling)
-4. [HelloMinds gaps NEAR can fill](#4-hellominds-gaps-near-can-fill)
-5. [NEAR ecosystem for agents](#5-near-ecosystem-for-agents)
-6. [Official github.com/near repos and Agent Skills](#6-official-githubcomnear-repos-and-agent-skills)
-7. [AI engine options](#7-ai-engine-options)
-8. [Proposed architecture](#8-proposed-architecture)
-9. [Proposed team split and timeline](#9-proposed-team-split-and-timeline)
-10. [Unproven, must test](#10-unproven-must-test)
-11. [Open questions for the team](#11-open-questions-for-the-team)
-12. [Sources](#12-sources)
+1. [Ringkasan](#1-ringkasan)
+2. [NEAR HACKATHON: fakta dan aturan](#2-near-hackathon-fakta-dan-aturan)
+3. [HelloMinds: apa yang kita tiru](#3-hellominds-apa-yang-kita-tiru)
+4. [Celah HelloMinds yang bisa diisi NEAR](#4-celah-hellominds-yang-bisa-diisi-near)
+5. [Ekosistem NEAR untuk agent](#5-ekosistem-near-untuk-agent)
+6. [Repo resmi github.com/near dan Agent Skills](#6-repo-resmi-githubcomnear-dan-agent-skills)
+7. [Pilihan AI engine](#7-pilihan-ai-engine)
+8. [Usulan arsitektur](#8-usulan-arsitektur)
+9. [Usulan pembagian tim dan timeline](#9-usulan-pembagian-tim-dan-timeline)
+10. [Belum terbukti, wajib dites](#10-belum-terbukti-wajib-dites)
+11. [Pertanyaan terbuka untuk tim](#11-pertanyaan-terbuka-untuk-tim)
+12. [Sumber](#12-sumber)
 
-Claim status legend:
+Legenda status klaim:
 
-- **[V]** verified: the source was read directly during research (via r.jina.ai, raw docs markdown, `gh api`, `npm view`, or crates.io).
-- **[UV]** unverified: from third-party articles, prior knowledge, or pages that could not be fully read.
+- **[V]** terverifikasi: sumbernya dibaca langsung saat riset (lewat r.jina.ai, markdown mentah docs, `gh api`, `npm view`, atau crates.io).
+- **[BV]** belum terverifikasi: dari artikel pihak ketiga, pengetahuan sebelumnya, atau halaman yang tidak terbaca penuh.
 
 ---
 
-## 1. Summary
+## 1. Ringkasan
 
-**Idea:** an AI agent persona platform in the style of [HelloMinds](https://www.hellominds.ai/). A user picks or creates a "Mind" (Sales, Trader, General Assistant, Email Manager, Game Designer, and so on). Each Mind has an identity, memory, skills equipped from a marketplace, app connections, and **a wallet on NEAR**.
+**Ide:** platform AI agent persona ala [HelloMinds](https://www.hellominds.ai/). User memilih atau membuat "Mind" (Sales, Trader, General Assistant, Email Manager, Game Designer, dan seterusnya). Tiap Mind punya identitas, memori, skill yang bisa di-equip dari marketplace, koneksi ke app, dan **wallet di NEAR**.
 
-**Working pitch (draft):**
+**Pitch kerja (draft):**
 
-> HelloMinds, but the guardrails are enforced on-chain, the wallet is non-custodial, and the thinking is private and provable.
+> HelloMinds, tetapi guardrail-nya ditegakkan on-chain, wallet-nya non-custodial, dan pikirannya privat serta bisa dibuktikan.
 
-**Proposed stack (not final):**
+**Usulan stack (belum final):**
 
-| Layer | Proposal | Short reason |
+| Lapisan | Usulan | Alasan singkat |
 |---|---|---|
-| AI engine | **Mastra** (TypeScript) | Per-Mind dynamic agents, `SKILL.md` skills, memory, scheduler, multi-agent, and custom model baseURL in one Apache-2.0 package |
-| n8n-style workflows | **Not used in the product** | The Sustainable Use license does not cover a multi-tenant product, and Mastra already covers the features |
-| App integrations | **Composio** | Managed OAuth for Gmail/Calendar/Drive and more; HelloMinds also uses Composio |
-| LLM | **NEAR AI Cloud** | Private inference in a TEE, OpenAI-compatible, verifiable |
-| Per-Mind wallet | **OutLayer** | Keys in a TEE via MPC, on-chain spending policy, approvals, freeze |
-| On-chain identity | Small registry contract (Rust `near-sdk`) | Mind ↔ owner ↔ wallet ↔ skills |
-| Agent economy | **NEAR AI Agent Market** (x402 USDC) | Minds can take jobs and get paid |
-| Frontend | Next.js + `@hot-labs/near-connect` | What the NEAR docs currently recommend |
+| AI engine | **Mastra** (TypeScript) | Dynamic agent per Mind, skill `SKILL.md`, memori, scheduler, multi-agent, dan custom model baseURL dalam satu paket Apache-2.0 |
+| Workflow seperti n8n | **Tidak dipakai di produk** | Lisensi Sustainable Use tidak mencakup produk multi-tenant, dan fiturnya sudah tercakup Mastra |
+| Integrasi app | **Composio** | OAuth Gmail/Calendar/Drive dan lainnya sudah dikelola; HelloMinds juga memakai Composio |
+| LLM | **NEAR AI Cloud** | Inference privat di TEE, OpenAI-compatible, bisa diverifikasi |
+| Wallet per Mind | **OutLayer** | Kunci di TEE via MPC, policy limit on-chain, approval, freeze |
+| Identitas on-chain | Contract registry kecil (Rust `near-sdk`) | Mind ↔ owner ↔ wallet ↔ skill |
+| Ekonomi agent | **NEAR AI Agent Market** (x402 USDC) | Mind bisa mencari job dan dapat bayaran |
+| Frontend | Next.js + `@hot-labs/near-connect` | Rekomendasi docs NEAR saat ini |
 
-**Candidate tracks:** `agents` (primary), `security`, `privacy`, `swarms`.
+**Track kandidat:** `agents` (utama), `security`, `privacy`, `swarms`.
 
 ---
 
-## 2. NEAR HACKATHON: facts and rules
+## 2. NEAR HACKATHON: fakta dan aturan
 
-Source: https://nearhackathon.com/HACKATHON.md **[V]**. Re-read before submitting, as the rules may change.
+Sumber: https://nearhackathon.com/HACKATHON.md **[V]**. Baca ulang sebelum submit karena aturannya bisa berubah.
 
-### Schedule (UTC)
+### Jadwal (UTC)
 
-| Phase | Time |
+| Fase | Waktu |
 |---|---|
-| Start | 2026-11-01 00:00 |
-| **Development ends = submission deadline** | **2026-11-14 23:59** |
-| Judging | starts 2026-11-16 |
-| Results | by 2026-11-18 23:59 |
+| Mulai | 2026-11-01 00:00 |
+| **Development selesai = deadline submit** | **2026-11-14 23:59** |
+| Penjurian | mulai 2026-11-16 |
+| Pengumuman | paling lambat 2026-11-18 23:59 |
 
-### Requirements
+### Syarat
 
-- No up-front registration. The only form is the final submission.
-- **The repo must be public** before the deadline. It may stay private during development.
-- **A demo post on X** saying the project was built at NEAR HACKATHON, with a video or screenshots attached. Written and posted by the team.
-- **One submission per team**, not editable, via `POST https://nearhackathon.com/api/applications` or the form at https://nearhackathon.com/#apply. Project name and email must be unique.
-- Submission fields: `projectName`, `leadName`, `email`, `size` (`2 - 4` / `4 - 6`; our team has 4 people), `tracks[]`, `nearAddress` (a **mainnet** account for the prize, created by the team), `projectUrl`, `demoUrl`, `idea` (20–2000 characters), and `consent`.
-- The `website` field is a spam trap. Never fill it.
-- **The jury includes AI judges.** The README must be machine-readable: what the product is, what problem it solves, and how to try it as "do X, see Y" steps. No marketing language.
-- Never commit secrets.
+- Tidak ada pendaftaran di awal. Satu-satunya form adalah submission akhir.
+- **Repo harus publik** sebelum deadline. Selama development boleh privat.
+- **Post demo di X**, yang menyebut proyek ini dibuat di NEAR HACKATHON dan menyertakan video atau screenshot. Ditulis dan dipost sendiri oleh tim.
+- **Submit hanya sekali per tim** dan tidak bisa diedit, lewat `POST https://nearhackathon.com/api/applications` atau form di https://nearhackathon.com/#apply. Nama proyek dan email harus unik.
+- Field submit: `projectName`, `leadName`, `email`, `size` (`2 - 4` / `4 - 6`, tim kita 4 orang), `tracks[]`, `nearAddress` (akun **mainnet** untuk hadiah, dibuat sendiri oleh tim), `projectUrl`, `demoUrl`, `idea` (20–2000 karakter), dan `consent`.
+- Field `website` adalah jebakan spam. Jangan diisi.
+- **Juri termasuk AI.** README harus bisa dibaca mesin: apa produknya, masalah apa yang diselesaikan, dan cara mencoba dalam format "lakukan X, lihat Y". Tanpa bahasa marketing.
+- Jangan commit secret.
 
-### Relevant tracks
+### Track yang relevan
 
-| id | Track | Organizer hints | Fit |
+| id | Track | Hint organizer | Kecocokan |
 |---|---|---|---|
-| `agents` | Agent Economy | agent commerce, NEAR Intents, chain signatures | **Primary**: Minds that earn, spend, and hire other agents |
-| `security` | AI Security & Defense | spending limits, policy engines, sandboxed wallets, function call keys, TEE attestation | **Strong**: on-chain guardrails via OutLayer + TEE verification |
-| `privacy` | Privacy & Private AI | private AI, TEE, NEAR AI Cloud | **Strong**: all inference on NEAR AI Cloud |
-| `swarms` | AI Swarms | multi-agent, NEAR Intents, sub-accounts | Circles (Minds collaborating) |
-| `business` | Autonomous Business | treasury, sales, procurement | Sales Mind (optional) |
+| `agents` | Agent Economy | agent commerce, NEAR Intents, chain signatures | **Utama**: Mind yang earn, spend, dan hire agent lain |
+| `security` | AI Security & Defense | spending limits, policy engines, sandboxed wallets, function call keys, TEE attestation | **Kuat**: guardrail on-chain via OutLayer + verifikasi TEE |
+| `privacy` | Privacy & Private AI | private AI, TEE, NEAR AI Cloud | **Kuat**: semua inference di NEAR AI Cloud |
+| `swarms` | AI Swarms | multi-agent, NEAR Intents, sub-accounts | Circles (Mind berkolaborasi) |
+| `business` | Autonomous Business | treasury, sales, procurement | Sales Mind (opsional) |
 
-Partners named by the organizers: NEAR Intents, Aurora, HOT, Rhea, meme.cooking, HEX, NEAR.AI, SVRN, Trezu, SputnikDAO, **OutLayer**, GoMining.
+Partner yang disebut organizer: NEAR Intents, Aurora, HOT, Rhea, meme.cooking, HEX, NEAR.AI, SVRN, Trezu, SputnikDAO, **OutLayer**, GoMining.
 
 ---
 
-## 3. HelloMinds: what we are modelling
+## 3. HelloMinds: apa yang kita tiru
 
-Sources: hellominds.ai, build.hellominds.ai (docs, guides, FAQ), and their agent markdown files at `build.hellominds.ai/agent-md/...` **[V]**. The FAQ answers were extracted from the page payload because they are hidden inside accordions.
+Sumber: hellominds.ai, build.hellominds.ai (docs, guides, FAQ), dan file markdown agent mereka di `build.hellominds.ai/agent-md/...` **[V]**. Isi FAQ diambil dari payload halaman karena jawabannya tersembunyi di accordion.
 
-Built by Animoca Brands. There is a Minds investment programme of up to US$10 million for teams building on Minds.
+Pembuatnya Animoca Brands. Ada program investasi Minds sampai US$10 juta untuk tim yang membangun di atas Minds.
 
-### 3.1 Core concepts
+### 3.1 Konsep inti
 
-| Concept | Explanation (from their docs/FAQ) | HelloNear equivalent |
+| Konsep | Penjelasan (dari docs/FAQ mereka) | Padanan di HelloNear |
 |---|---|---|
-| **Mind** | A persistent, always-on agent with an identity, long-term memory, and a platform wallet. *"A chatbot is a vending machine; a Mind is a person you've hired."* | Mind record in the DB + NEAR account/wallet |
-| **Steward** | The Mind's creator and owner. Cannot be removed or transferred via the UI | `owner` in the registry contract |
-| **Soul** | The permanent core: Identity (DNA), Memory, State, and Wallet. Holds the Tenets | Soul builder → system prompt + config |
-| **Constitution** | The technical and moral floor. Situations that conflict with the Soul are refused (invariants) | Guardrails + on-chain policy |
-| **Tenet** | A permanently stored rule, value, or fact. Two kinds: **Invariant** (Guardrail, set by the Steward, unbreakable) and **Prior** (preferences the Mind learns) | `tenets` table (type: invariant/prior) |
-| **Guardrail** | A Tenet marked as invariant. FAQ examples: privacy ("Never share the Steward's email"), **budget ("Never spend more than 500 Credits in a single session")**, language style | Prompt guardrail **+ enforced on-chain for money** |
-| **Brain** | The LLM layer, auto-routed per task type (OpenAI, Gemini, Grok). The Soul stays intact when the model changes | Model router (NEAR AI Cloud) |
-| **Memory** | Hierarchical: **RAM** (session context), **Episodes** (past sessions), **Tenets** (durable layer). There is a skill for selective forgetting | Mastra memory (history, semantic recall, working memory) |
-| **Artifact** | Passive files (PDF, CSV, knowledge base) used as context | File upload + RAG |
-| **Tool** | A single action, e.g. "Send Email" | Mastra tool / Composio |
-| **Skill** | A multi-step playbook that sequences Tools. Made of a **Registry Offering** (listing), **App Manifest** (connections), **Tool Schemas** (allowed actions), and **Skill Playbook** (routine). One Skill can be used by many Minds. A Mind's set of skills is its "Armory" | `SKILL.md` + tool bindings |
-| **Bazaar** | Marketplace of Skills and Apps. Skill creators earn when their skill is equipped. 4,000+ skills | HelloNear Bazaar (paid in NEAR/USDC) |
-| **Circles** | Trust gate. Unknown Minds or people are **silently blocked** (no error). One Circle per Mind. Members are added via the dialog, email CC, or a Telegram group | ACL + multi-agent supervisor |
-| **Internal Channels** | A Lead Mind delegates to Expert Minds, all spending the Steward's credits | Mastra supervisor/subagents |
-| **Cognition Credits** | Cost unit for reasoning, tools, and autonomous work | Token balance in the Mind's wallet |
-| **Brain Pulse** | Self-monitoring when a skill fails: retry, pivot, or explain to the user | Engine error handling + retries |
-| **Built-in skills** | Mind Architect, Skill Architect, Standard Hygiene (context management), Passive Autonomous Mode (scheduled work) | Built-in skill templates |
+| **Mind** | Agent persisten yang selalu aktif, dengan identitas, memori jangka panjang, dan wallet platform. *"Chatbot itu vending machine; Mind itu orang yang kamu rekrut."* | Record Mind di DB + akun/wallet NEAR |
+| **Steward** | Pembuat atau pemilik Mind. Tidak bisa dihapus dan tidak bisa dipindahkan lewat UI | `owner` di contract registry |
+| **Soul** | Inti permanen yang terdiri dari Identity (DNA), Memory, State, dan Wallet. Berisi Tenets | Soul builder → system prompt + config |
+| **Constitution** | Batas teknis dan moral. Situasi yang bertentangan dengan Soul akan ditolak (invariants) | Guardrail + policy on-chain |
+| **Tenet** | Aturan, nilai, atau fakta yang tersimpan permanen. Ada dua jenis: **Invariant** (Guardrail, ditetapkan Steward, tidak bisa dilanggar) dan **Prior** (preferensi yang dipelajari Mind) | Tabel `tenets` (type: invariant/prior) |
+| **Guardrail** | Tenet yang bersifat invariant. Contoh di FAQ: privasi ("Never share the Steward's email"), **budget ("Never spend more than 500 Credits in a single session")**, gaya bahasa | Prompt guardrail **+ ditegakkan on-chain untuk uang** |
+| **Brain** | Lapisan LLM dengan auto-routing per jenis tugas (OpenAI, Gemini, Grok). Soul tetap utuh saat model diganti | Model router (NEAR AI Cloud) |
+| **Memory** | Bertingkat: **RAM** (konteks sesi), **Episodes** (sesi-sesi lalu), **Tenets** (lapisan permanen). Ada skill untuk "lupa" secara selektif | Mastra memory (history, semantic recall, working memory) |
+| **Artifact** | File pasif (PDF, CSV, knowledge base) yang dipakai sebagai konteks | Upload file + RAG |
+| **Tool** | Satu aksi, misalnya "Send Email" | Tool Mastra / Composio |
+| **Skill** | Playbook multi-langkah yang merangkai Tool. Isinya **Registry Offering** (listing), **App Manifest** (koneksi), **Tool Schemas** (aksi yang diizinkan), dan **Skill Playbook** (rutinitas). Skill yang sama bisa dipakai banyak Mind. Kumpulan skill sebuah Mind disebut "Armory" | `SKILL.md` + tool bindings |
+| **Bazaar** | Marketplace Skill dan App. Pembuat skill dapat bayaran saat skill di-equip. Ada lebih dari 4.000 skill | Bazaar HelloNear (bayar pakai NEAR/USDC) |
+| **Circles** | Gerbang kepercayaan. Mind atau orang yang belum dikenal **diblokir diam-diam** (tanpa error). Satu Circle per Mind. Cara menambah anggota: dialog, CC email, atau grup Telegram | ACL + supervisor multi-agent |
+| **Internal Channels** | Lead Mind mendelegasikan tugas ke Expert Mind, semua memakai kredit Steward | Mastra supervisor/subagents |
+| **Cognition Credits** | Satuan biaya untuk reasoning, tool, dan kerja otonom | Saldo token di wallet Mind |
+| **Brain Pulse** | Pemantauan mandiri saat skill gagal: retry, pivot, atau jelaskan ke user | Error handling + retry di engine |
+| **Built-in skills** | Mind Architect, Skill Architect, Standard Hygiene (manajemen konteks), Passive Autonomous Mode (kerja terjadwal) | Template skill bawaan |
 
-### 3.2 How skills are built (Skill Building Guide)
+### 3.2 Cara membuat skill (Skill Building Guide)
 
-Six conversational steps over Telegram or email: **Describe → Refine → Connect** (the platform stores the API key; the Mind never holds it) **→ Run → Inspect** (check access and scope) **→ Publish** to the Bazaar. Published skills are updated via `REGISTRY_Update` and `SKILL_Update`. Sessions already running keep the old version.
+Enam langkah lewat percakapan di Telegram atau email: **Describe → Refine → Connect** (API key disimpan platform, Mind tidak pernah memegang kunci) **→ Run → Inspect** (cek akses dan scope) **→ Publish** ke Bazaar. Skill yang sudah terbit diperbarui lewat `REGISTRY_Update` dan `SKILL_Update`. Sesi yang sedang berjalan tetap memakai versi lama.
 
-### 3.3 Integrations and channels
+### 3.3 Integrasi dan channel
 
-- **Live integrations:** Telegram, Gmail, Google Calendar, Discord, Slack, GitHub, Nansen, Dune, Perplexity, Spotify, Strava, and `HTTP_Execute` (call any REST endpoint).
-- **Apps on the landing page:** CoinGlass, Duffel, Google Drive, OpenRouter, SerpAPI, Steam, and more.
-- **Channels:** web chat, email, Telegram (the Mind becomes a bot and can message first, e.g. price alerts). AgentMail (`@agentmail.ai`) is listed as "coming soon".
-- **App provider in the Bazaar:** Composio (seen in the CLI example `--provider composio`).
+- **Integrasi live:** Telegram, Gmail, Google Calendar, Discord, Slack, GitHub, Nansen, Dune, Perplexity, Spotify, Strava, dan `HTTP_Execute` (memanggil REST endpoint apa saja).
+- **App di landing page:** CoinGlass, Duffel, Google Drive, OpenRouter, SerpAPI, Steam, dan lainnya.
+- **Channel:** web chat, email, Telegram (Mind menjadi bot dan bisa mengirim pesan duluan, misalnya alert harga). AgentMail (`@agentmail.ai`) disebut "segera hadir".
+- **Provider app di Bazaar:** Composio (terlihat di contoh CLI `--provider composio`).
 
 ### 3.4 Developer surface
 
-- **Minds CLI** (`@animocabrands/minds-cli`, Node 22+). JSON output, designed for coding agents. Commands include `minds mind awaken --id sales`, `minds circle add`, `minds bazaar search`, `minds mind skills equip`, `minds send`, `minds usage by-tool`.
-- **Minds Client Library** (`@animocabrands/minds-client-lib` 0.1.7), using a Builder API key.
-- **Minds Connect SDK** (`@animocabrands/minds-connect` 0.1.2), "Sign in with Minds" OAuth.
-- Mind templates are activated via `--id` (e.g. `sales`).
+- **Minds CLI** (`@animocabrands/minds-cli`, Node 22+). Output JSON, dirancang untuk dipakai coding agent. Perintahnya: `minds mind awaken --id sales`, `minds circle add`, `minds bazaar search`, `minds mind skills equip`, `minds send`, `minds usage by-tool`.
+- **Minds Client Library** (`@animocabrands/minds-client-lib` 0.1.7), memakai Builder API key.
+- **Minds Connect SDK** (`@animocabrands/minds-connect` 0.1.2), OAuth "Sign in with Minds".
+- Template Mind diaktifkan lewat `--id` (contoh: `sales`).
 
-### 3.5 Templates in the UI (from the screenshot)
+### 3.5 Template di UI (dari screenshot)
 
-General Assistant, Sales Mind, Bizz Mind, Superior Trader, Game Designer, Email Manager, and more. Each template has:
+General Assistant, Sales Mind, Bizz Mind, Superior Trader, Game Designer, Email Manager, dan lainnya. Tiap template punya:
 
-- a 3D character in a "collector series" toy-box style;
-- a short description and a "Customizable" label;
-- **Apps Equipped** (Sales example: Calendar, Tasks, Gmail, Drive, Sheets);
-- **What it does** (example outputs);
-- **Skills Equipped** (Sales example: Passive Autonomous Soul, Event and Deal Flow Scout, Sales and Negotiation);
-- "Use default settings" and "Customize" buttons.
+- karakter 3D bergaya "collector series" toy box;
+- deskripsi singkat dan label "Customizable";
+- **Apps Equipped** (contoh untuk Sales: Calendar, Tasks, Gmail, Drive, Sheets);
+- **What it does** (contoh output);
+- **Skills Equipped** (contoh untuk Sales: Passive Autonomous Soul, Event and Deal Flow Scout, Sales and Negotiation);
+- tombol "Use default settings" dan "Customize".
 
-### 3.6 Case study: Superior Trade Intern
+### 3.6 Studi kasus: Superior Trade Intern
 
-One Mind, in one session, handled two unrelated jobs: planning a Bali trip, then trading BTC overnight with the Superior Trade skill (signal, position, take-profit, +$818). The architectural lesson, in their own words: **a general-purpose Mind for context and coordination, plus specialised Skills for precise work.**
+Satu Mind dalam satu sesi menyelesaikan dua tugas yang tidak berhubungan: merencanakan liburan ke Bali, lalu trading BTC semalaman dengan skill Superior Trade (sinyal, posisi, take-profit, +$818). Pelajaran arsitekturnya menurut mereka sendiri: **Mind serbaguna untuk konteks dan koordinasi, ditambah Skill spesialis untuk pekerjaan yang presisi.**
 
 ---
 
-## 4. HelloMinds gaps NEAR can fill
+## 4. Celah HelloMinds yang bisa diisi NEAR
 
-Taken directly from the HelloMinds FAQ **[V]**:
+Diambil langsung dari FAQ HelloMinds **[V]**:
 
-| HelloMinds today | Quote or fact | Opportunity on NEAR |
+| HelloMinds hari ini | Kutipan atau fakta | Peluang di NEAR |
 |---|---|---|
-| **Custodial wallet** | *"Keys are encrypted and stored in a secure database managed by the platform backend. When a sensitive operation needs to be signed, the backend decrypts and signs on the Mind's behalf."* | Keys in a TEE via MPC (OutLayer). Even the platform cannot use the key outside the policy |
-| **Budget guardrail is only a prompt** | *"Budget Guardrail — 'Never spend more than 500 Credits in a single session'"* is a Tenet in the prompt | Limits **enforced on-chain** (per transaction, daily, whitelist, approval, freeze). Prompt injection cannot break them |
-| **Data sent to many providers** | *"We also send your inputs to third-party AI providers (currently including OpenAI, Google, Qwen, and xAI) and infrastructure services (such as LangChain…)"* | Inference in **NEAR AI Cloud TEEs**, with attestation and per-response signatures users can verify |
-| **Closed marketplace** | The Bazaar and credits only exist inside their platform | Minds can **earn on the NEAR AI Agent Market** (x402, on-chain USDC); skill payments on-chain |
-| **Identity lives in the platform DB** | Minds and Stewards only exist in their system | Minds as on-chain entities (registry / sub-account), portable |
+| **Wallet custodial** | *"Keys are encrypted and stored in a secure database managed by the platform backend. When a sensitive operation needs to be signed, the backend decrypts and signs on the Mind's behalf."* | Kunci di TEE via MPC (OutLayer). Platform pun tidak bisa memakai kunci di luar policy |
+| **Guardrail budget hanya prompt** | *"Budget Guardrail — 'Never spend more than 500 Credits in a single session'"* adalah Tenet di prompt | Limit **ditegakkan on-chain** (per transaksi, harian, whitelist, approval, freeze). Prompt injection tidak bisa membobolnya |
+| **Data dikirim ke banyak provider** | *"We also send your inputs to third-party AI providers (currently including OpenAI, Google, Qwen, and xAI) and infrastructure services (such as LangChain…)"* | Inference di **TEE NEAR AI Cloud** dengan attestation dan signature per respons yang bisa diverifikasi user |
+| **Marketplace tertutup** | Bazaar dan kredit hanya ada di dalam platform mereka | Mind bisa **earn di NEAR AI Agent Market** (x402, USDC on-chain); pembayaran skill on-chain |
+| **Identitas di DB platform** | Mind dan Steward hanya ada di sistem mereka | Mind sebagai entitas on-chain (registry / sub-account), portabel |
 
-Note: HelloMinds names LangChain as part of its infrastructure. That hints at their stack; it is not a requirement for ours.
+Catatan: HelloMinds menyebut LangChain sebagai bagian infrastrukturnya. Itu petunjuk stack mereka, bukan keharusan bagi kita.
 
 ---
 
-## 5. NEAR ecosystem for agents
+## 5. Ekosistem NEAR untuk agent
 
-### 5.1 NEAR AI Cloud — status: production → **proposal: the brain of every Mind**
+### 5.1 NEAR AI Cloud — status: production → **usulan: otak semua Mind**
 
-- Private inference in a TEE (Intel TDX + NVIDIA confidential GPU). OpenAI-compatible gateway: `https://cloud-api.near.ai/v1`. Supports chat completions, streaming, and the Responses API (stateless). **[V]**
-- 61 models at `GET https://cloud-api.near.ai/v1/model/list` **[V]**, in three tiers:
-  - **Confidential TEE** (fully verifiable). Price per million tokens **[V]** (note: the docs quickstart example also uses `zai-org/GLM-5.1-FP8`):
+- Inference privat di TEE (Intel TDX + NVIDIA confidential GPU). Gateway OpenAI-compatible: `https://cloud-api.near.ai/v1`. Mendukung chat completions, streaming, dan Responses API (stateless). **[V]**
+- Ada 61 model di `GET https://cloud-api.near.ai/v1/model/list` **[V]**, dalam tiga tier:
+  - **Confidential TEE** (bisa diverifikasi penuh). Harga per juta token **[V]** (catatan: contoh di quickstart docs juga menyebut `zai-org/GLM-5.1-FP8`):
 
-    | Model | Input | Output | Notes |
+    | Model | Input | Output | Catatan |
     |---|---|---|---|
-    | `z-ai/glm-5.3-flash` | $0.08 | $0.50 | 1M context; candidate for cheap everyday chat |
-    | `z-ai/glm-5.3` | $1.8 | $5.75 | |
-    | `Qwen/Qwen3.6-35B-A3B-FP8` | $0.17 | $1.1 | |
-    | `qwen/qwen3.5-397b-a17b` | $0.5 | $3.3 | |
-    | `deepseek/deepseek-v3.2` | $1.1 | $1.1 | |
-    | `moonshotai/kimi-k2.6` | $0.81 | $3.85 | |
-    | `moonshotai/kimi-k3` | $3.3 | $16.5 | |
+    | `z-ai/glm-5.3-flash` | $0,08 | $0,50 | context 1M; kandidat chat harian yang murah |
+    | `z-ai/glm-5.3` | $1,8 | $5,75 | |
+    | `Qwen/Qwen3.6-35B-A3B-FP8` | $0,17 | $1,1 | |
+    | `qwen/qwen3.5-397b-a17b` | $0,5 | $3,3 | |
+    | `deepseek/deepseek-v3.2` | $1,1 | $1,1 | |
+    | `moonshotai/kimi-k2.6` | $0,81 | $3,85 | |
+    | `moonshotai/kimi-k3` | $3,3 | $16,5 | |
 
-    Besides chat: `Qwen3-Embedding-0.6B` embeddings, a reranker, Whisper, FLUX.2, and PII redaction.
-  - **3P Confidential TEE:** models in third-party TEEs.
-  - **Incognito:** Claude, GPT, and Gemini through a TEE gateway. The models themselves do **not** run in a TEE.
-- **API key:** sign up at cloud.near.ai → buy Credits → create a key. **[V]**
-  - **There is a credit request form for hackathon projects**, linked from https://docs.near.org/getting-started/hackathons. **Apply right away.** **[V]**
-  - Another option: staking for inference, where staking rewards become credits (1 credit = 1 USD). **[V]**
-- **Verification SDK:** `@nearai/inference-sdk` (npm 0.1.0, 23 Oct 2026, Node ≥24). Supports E2EE and `verifyResponse(id)` to check the signature and attestation. **[V]**
+    Selain chat ada embeddings `Qwen3-Embedding-0.6B`, reranker, Whisper, FLUX.2, dan PII redaction.
+  - **3P Confidential TEE:** model di TEE milik pihak ketiga.
+  - **Incognito:** Claude, GPT, dan Gemini lewat gateway TEE. Modelnya sendiri **tidak** jalan di TEE.
+- **API key:** daftar di cloud.near.ai → beli Credits → buat key. **[V]**
+  - **Ada form permintaan credit untuk proyek hackathon**, linknya di https://docs.near.org/getting-started/hackathons. **Ajukan segera.** **[V]**
+  - Opsi lain: staking for inference, di mana reward staking menjadi credit (1 credit = 1 USD). **[V]**
+- **SDK verifikasi:** `@nearai/inference-sdk` (npm 0.1.0, 23 Okt 2026, Node ≥24). Mendukung E2EE dan `verifyResponse(id)` untuk mengecek signature dan attestation. **[V]**
   ```js
   import { InferenceClient } from '@nearai/inference-sdk/node';
   const c = new InferenceClient({ baseUrl: 'https://cloud-api.near.ai/v1', apiKey, e2ee: true });
   const r = await c.chat.completions.create({ model: 'z-ai/glm-5.3-flash', messages });
   await c.verifyResponse(r.id);
   ```
-- **Attestation:** gateway attestation, model attestation (NVIDIA NRAS), TLS binding, response signatures, and a browser Verification Center. **[V]**
-- UI idea: a "Verified private" badge on each message, driven by `verifyResponse()`.
-- ⚠️ **The old NEAR AI agent framework (Hub, registry, app.near.ai) is DEPRECATED.** Its servers were shut down on 31 Oct 2025. What remains is Cloud (inference) and the Agent Market. **[V]**
+- **Attestation:** gateway attestation, model attestation (NVIDIA NRAS), TLS binding, response signature, dan Verification Center di browser. **[V]**
+- Ide UI: badge "Verified private" per pesan, diambil dari hasil `verifyResponse()`.
+- ⚠️ **Framework agent lama NEAR AI (Hub, registry, app.near.ai) sudah DEPRECATED.** Server-nya dimatikan 31 Okt 2025. Yang tersisa adalah Cloud (inference) dan Agent Market. **[V]**
 
-### 5.2 OutLayer — status: live on mainnet → **proposal: per-Mind wallet**
+### 5.2 OutLayer — status: live di mainnet → **usulan: wallet per Mind**
 
-- Describes itself as a "secure transaction layer for AI agents". **[V]**
-- Wallet keys are issued by NEAR MPC (CKD) into an Intel TDX enclave. NEAR, EVM, and Solana keys are derived inside the enclave. **The agent only receives signatures and never holds keys.** **[V]**
-- **On-chain policy:** per-transaction, hourly, daily, and monthly limits; address whitelist; 2-of-3 multisig approval; `freeze_wallet()`. **[V]**
-- **Connectors:** Gmail, GitHub, Mercury, Hyperliquid, Polymarket. Swaps and cross-chain via NEAR Intents. **[V]**
-- **Agent wallet API** **[V]** (from `skills.outlayer.ai/agent-custody/SKILL.md`):
+- Menyebut dirinya "secure transaction layer for AI agents". **[V]**
+- Kunci wallet diterbitkan NEAR MPC (CKD) ke dalam enclave Intel TDX. Kunci NEAR, EVM, dan Solana diturunkan di dalam enclave. **Agent hanya menerima signature, tidak pernah memegang kunci.** **[V]**
+- **Policy on-chain:** limit per transaksi, per jam, harian, dan bulanan; whitelist alamat; approval multisig 2-of-3; `freeze_wallet()`. **[V]**
+- **Connectors:** Gmail, GitHub, Mercury, Hyperliquid, Polymarket. Swap dan cross-chain lewat NEAR Intents. **[V]**
+- **API wallet agent** **[V]** (dari `skills.outlayer.ai/agent-custody/SKILL.md`):
   ```
   POST https://testnet-api.outlayer.ai/register          -> api_key wk_..., handoff_url
   GET  /wallet/v1/balance?chain=near   (Authorization: Bearer wk_...)
@@ -217,228 +217,228 @@ Note: HelloMinds names LangChain as part of its infrastructure. That hints at th
   POST /wallet/v1/transfer
   POST /wallet/v1/intents/swap
   POST /wallet/v1/intents/withdraw
-  PUT  /wallet/v1/api-key                                 -> derived key per sub-agent
+  PUT  /wallet/v1/api-key                                 -> key turunan per sub-agent
   ```
-- The **sub-agent key** pattern fits "one Mind = one policy-bound wallet, owned by one user". **[V]**
-- **Verifiable compute:** WASI (Rust `wasm32-wasip2`), called from a contract (`outlayer.near` / `outlayer.testnet`, yield/resume) or via HTTPS `POST https://api.outlayer.ai/call/{owner}/{project}`. **[V]**
-- **Note:** swaps via Intents are mainnet-only. **[V]**
-- OutLayer is an official hackathon partner.
+- Pola **sub-agent key** cocok untuk "satu Mind = satu wallet ber-policy, dimiliki satu user". **[V]**
+- **Compute terverifikasi:** WASI (Rust `wasm32-wasip2`), dipanggil dari contract (`outlayer.near` / `outlayer.testnet`, yield/resume) atau lewat HTTPS `POST https://api.outlayer.ai/call/{owner}/{project}`. **[V]**
+- **Catatan:** swap via Intents hanya ada di mainnet. **[V]**
+- OutLayer termasuk partner resmi hackathon.
 
-### 5.3 NEAR Intents / 1Click API — status: production, **mainnet only**
+### 5.3 NEAR Intents / 1Click API — status: production, **mainnet saja**
 
-- The user states the desired outcome and solvers execute it. 1Click is a REST API for cross-chain swaps (EVM, Solana, NEAR, TON, Stellar, Tron, BTC, and more). **No testnet.** **[V]**
-- **Endpoints:** `https://1click.chaindefuser.com/v0/quote`, plus `tokens`, `status`, `submit deposit tx`, and *signed intent execution*. **[V]**
-- **Auth:** a JWT from partners.near-intents.org, sent in the `X-API-Key` header. **[V]**
-- **Fees** **[V]**:
-  - Protocol: 0.0001%.
-  - Without an API key: +25 bps.
-  - With a key: 20 bps, or 1 bp for stablecoin pairs.
-  - **`appFees`** lets us take our own fee, a possible business model.
-- **SDKs** **[V]**: `@defuse-protocol/one-click-sdk-typescript` 0.1.26, `@defuse-protocol/intents-sdk` 0.93.0, a React swap widget.
-- The verifier contract lives in `near/intents` (old name "defuse"), deployed on mainnet as `intents.near`.
-- **Use for us:** the Superior Trader Mind and cross-chain payments. Easiest through OutLayer, which already wraps Intents.
+- User menyatakan hasil yang diinginkan, lalu solver mengeksekusi. 1Click adalah REST API untuk swap cross-chain (EVM, Solana, NEAR, TON, Stellar, Tron, BTC, dan lainnya). **Tidak ada testnet.** **[V]**
+- **Endpoint:** `https://1click.chaindefuser.com/v0/quote`, plus `tokens`, `status`, `submit deposit tx`, dan *signed intent execution*. **[V]**
+- **Auth:** JWT dari partners.near-intents.org, dikirim di header `X-API-Key`. **[V]**
+- **Fee** **[V]**:
+  - Protokol: 0,0001%.
+  - Tanpa API key: +25 bps.
+  - Dengan key: 20 bps, atau 1 bp untuk pasangan stablecoin.
+  - **`appFees`** memungkinkan kita mengambil fee sendiri, yang bisa jadi model bisnis.
+- **SDK** **[V]**: `@defuse-protocol/one-click-sdk-typescript` 0.1.26, `@defuse-protocol/intents-sdk` 0.93.0, React swap widget.
+- Contract verifier-nya ada di `near/intents` (nama lama "defuse"), di mainnet sebagai `intents.near`.
+- **Kegunaan untuk kita:** Superior Trader Mind dan pembayaran lintas chain. Paling mudah lewat OutLayer yang sudah membungkus Intents.
 
-### 5.4 Shade Agents — ⚠️ **DEPRECATED, do not use**
+### 5.4 Shade Agents — ⚠️ **DEPRECATED, jangan dipakai**
 
-- Official docs: *"After April 19th, 2026, the Shade Agent Framework will no longer be maintained… Teams that choose to use it should plan to assume responsibility for maintenance."* **[V]**
-- Architecture: agent in a TEE (Phala Cloud, Docker), an agent contract that verifies attestation, and signing via Chain Signatures. Package: `@neardefi/shade-agent-js` 2.2.0. **[V]**
-- Too heavy for two weeks (Docker, Phala, Rust contract, attestation), especially with no maintenance.
+- Docs resmi: *"After April 19th, 2026, the Shade Agent Framework will no longer be maintained… Teams that choose to use it should plan to assume responsibility for maintenance."* **[V]**
+- Arsitekturnya: agent di TEE (Phala Cloud, Docker), agent contract memverifikasi attestation, dan agent menandatangani lewat Chain Signatures. Paket: `@neardefi/shade-agent-js` 2.2.0. **[V]**
+- Untuk dua minggu terlalu berat (Docker, Phala, contract Rust, attestation), apalagi tanpa maintenance.
 
-### 5.5 NEAR AI Agent Market — status: live → **proposal: Minds can earn**
+### 5.5 NEAR AI Agent Market — status: live → **usulan: Mind bisa earn**
 
-- https://market.near.ai: 500 agents, 717 jobs, 441 deliveries at the time of reading. **[V]**
-- Flow: escrow → bid → deliver → accept, plus competitions with USDC prizes. **[V]**
-- `/v1/*` API, MCP at `/mcp`, webhooks, agent tokens `aat_...`. **[V]**
-- **A2A + x402 v2** (scheme `exact`). `/.well-known/x402` returns `network: "near:mainnet"` with native NEAR USDC as the asset. **[V]**
-- Skills for agents: https://market.near.ai/llms.txt and https://market.near.ai/skill/flows/a2a-x402.md. **[V]**
-- Launched 4 Feb 2026. The old version is still at market-legacy.near.ai. **[V]**
-- **Our position:** the Agent Market is where agents get hired per job. We build persistent personas that can work there. Complementary, not a competitor.
+- https://market.near.ai: 500 agent, 717 job, 441 hasil terkirim saat dibaca. **[V]**
+- Alur: escrow → bid → deliver → accept, plus kompetisi berhadiah USDC. **[V]**
+- API `/v1/*`, MCP di `/mcp`, webhook, token agent `aat_...`. **[V]**
+- **A2A + x402 v2** (scheme `exact`). `/.well-known/x402` mengembalikan `network: "near:mainnet"` dengan asset USDC native NEAR. **[V]**
+- Skill-nya untuk agent: https://market.near.ai/llms.txt dan https://market.near.ai/skill/flows/a2a-x402.md. **[V]**
+- Diluncurkan 4 Feb 2026. Versi lama masih ada di market-legacy.near.ai. **[V]**
+- **Posisi kita:** Agent Market adalah tempat agent di-hire per job. Kita membangun persona persisten yang bisa ikut bekerja di sana. Komplementer, bukan pesaing.
 
-### 5.6 NEAR account primitives
+### 5.6 Primitif akun NEAR
 
-| Primitive | Fact | Use |
+| Primitif | Fakta | Kegunaan |
 |---|---|---|
-| **Function-call access key** | Restricted to a `receiver_id` and `method_names`, with an optional `allowance`. ⚠️ **The allowance only covers gas, and the key cannot transfer NEAR** **[V]** | **Not** a spending limit. Useful to let the backend or agent call only specific methods on our contract |
-| **Gas Keys** (NEP-611, nearcore 2.13) | Keys with a prepaid gas balance and 1,024 parallel nonce lanes. The docs call them ideal for *"a fleet of agents operating one account"* **[V]** | Many Minds operating from one platform account |
-| **Sub-account** (`mind.platform.near`) | Standard NEAR. Caveat: a sub-account holding only an FCK cannot be recovered without a contract method for it **[V]** | On-chain Mind identity (optional) |
-| **Chain Signatures** | Contract `v1.signer` (mainnet), `sign` method with a derivation path; library `chainsig.js` 1.1.16 **[V]** | Minds holding addresses on other chains (already wrapped by OutLayer) |
-| **Meta transactions** (NEP-366) | Need a self-run off-chain relayer **[V]**; public relayers **[UV]** | Gasless onboarding (optional) |
-| Universal / Deterministic Accounts | Only the titles were seen in the docs llms.txt **[UV]** | Needs checking |
+| **Function-call access key** | Dibatasi ke `receiver_id` dan `method_names`, dengan `allowance` opsional. ⚠️ **Allowance hanya untuk gas, dan key ini tidak bisa mentransfer NEAR** **[V]** | **Bukan** spending limit. Bisa dipakai supaya backend atau agent hanya boleh memanggil method tertentu di contract kita |
+| **Gas Keys** (NEP-611, nearcore 2.13) | Key dengan saldo gas prepaid dan 1.024 nonce lane paralel. Docs menyebutnya ideal untuk *"a fleet of agents operating one account"* **[V]** | Banyak Mind beroperasi dari satu akun platform |
+| **Sub-account** (`mind.platform.near`) | Standar NEAR. Hati-hati: sub-account yang hanya punya FCK tidak bisa ditarik kembali tanpa method di contract **[V]** | Identitas Mind on-chain (opsional) |
+| **Chain Signatures** | Contract `v1.signer` (mainnet), method `sign` dengan derivation path; library `chainsig.js` 1.1.16 **[V]** | Mind memegang alamat di chain lain (sudah dibungkus OutLayer) |
+| **Meta transactions** (NEP-366) | Butuh relayer off-chain sendiri **[V]**; relayer publik **[BV]** | Gasless untuk user baru (opsional) |
+| Universal / Deterministic Accounts | Hanya terlihat judulnya di llms.txt docs **[BV]** | Perlu dicek |
 
-Conclusion: a real spending limit needs a **vault contract** (the key may only call a `spend()` method that enforces the limit) **or OutLayer policy**. Proposal: use OutLayer so we don't write custody logic ourselves.
+Kesimpulannya: spending limit yang sesungguhnya harus dibuat lewat **contract vault** (key hanya boleh memanggil `spend()` yang menegakkan limit) **atau OutLayer policy**. Usulan: pakai OutLayer supaya kita tidak menulis logika custody sendiri.
 
-### 5.7 JS/TS toolkit
+### 5.7 Toolkit JS/TS
 
-| Need | Proposal | Notes |
+| Kebutuhan | Usulan | Catatan |
 |---|---|---|
-| NEAR backend | `near-api-js` **7.4.0** (23 Oct 2026) **[V]** | Now a single package; `@near-js/*` is the legacy path |
-| Concise alternative | `near-kit` 0.20.2 **[V]** | fetch-style API, with React hooks and sandbox |
-| New alternative | `near-api-ts` / `react-near-ts` (repo `near/near-api-ts`) **[V]** | Result-based, TanStack Query; repo is still young (7 stars) |
-| Frontend wallet | **`@hot-labs/near-connect`** 0.11.4 + `near-connect-hooks` **[V]** | Current docs recommendation: HOT, Meteor, Nightly, WalletConnect, and more |
-| Legacy Wallet Selector | `@near-wallet-selector/core` 10.1.4 | Last updated Dec 2025; no longer used in the docs |
-| Backend auth | `near-sign-verify` (NEP-413), `better-near-auth` **[V]** | Sign in with a wallet signature |
-| Social login / Intear | **[UV]** | Not found on the pages read |
-| Local tests | `near-sandbox` (npm, repo `near/near-sandbox-js`) **[V]** | For local integration tests |
+| Backend NEAR | `near-api-js` **7.4.0** (23 Okt 2026) **[V]** | Sekarang satu paket; `@near-js/*` adalah jalur lama |
+| Alternatif ringkas | `near-kit` 0.20.2 **[V]** | API ala fetch, ada React hooks dan sandbox |
+| Alternatif baru | `near-api-ts` / `react-near-ts` (repo `near/near-api-ts`) **[V]** | Result-based, TanStack Query; repo masih muda (7 star) |
+| Wallet frontend | **`@hot-labs/near-connect`** 0.11.4 + `near-connect-hooks` **[V]** | Rekomendasi docs saat ini: HOT, Meteor, Nightly, WalletConnect, dan lainnya |
+| Wallet Selector lama | `@near-wallet-selector/core` 10.1.4 | Update terakhir Des 2025; tidak lagi dipakai di docs |
+| Auth backend | `near-sign-verify` (NEP-413), `better-near-auth` **[V]** | Login dengan tanda tangan wallet |
+| Social login / Intear | **[BV]** | Belum ditemukan di halaman yang dibaca |
+| Test lokal | `near-sandbox` (npm, repo `near/near-sandbox-js`) **[V]** | Untuk integration test lokal |
 
-### 5.8 Smart contracts
+### 5.8 Smart contract
 
-- **`near-sdk` (Rust) 5.29.1** and **`cargo-near` 0.22.0** (both 19 Oct 2026) **[V]**. The only official SDK.
-- `near-sdk-js` is now only a "Community SDK… not covered in this documentation" (last version 2.0.0, Jun 2024) **[V]**. Do not use it.
-- `create-near-app` has also dropped the TS contract template. Only Rust templates remain (auction / auction-adv) with `near-sandbox` tests. **[V]**
+- **`near-sdk` (Rust) 5.29.1** dan **`cargo-near` 0.22.0** (keduanya 19 Okt 2026) **[V]**. Ini satu-satunya SDK resmi.
+- `near-sdk-js` sekarang hanya "Community SDK… not covered in this documentation" (versi terakhir 2.0.0, Jun 2024) **[V]**. Jangan dipakai.
+- `create-near-app` juga sudah menghapus template contract TS. Template yang tersisa hanya Rust (auction / auction-adv) dengan test `near-sandbox`. **[V]**
 
 ---
 
-## 6. Official github.com/near repos and Agent Skills
+## 6. Repo resmi github.com/near dan Agent Skills
 
-### 6.1 `near/agent-skills` ⭐ — official skills
+### 6.1 `near/agent-skills` ⭐ — skill resmi
 
-https://github.com/near/agent-skills (last commit 28 Sep 2026) **[V]**. Format: `SKILL.md` (Agent Skills specification).
+https://github.com/near/agent-skills (commit terakhir 28 Sep 2026) **[V]**. Formatnya `SKILL.md` (spesifikasi Agent Skills).
 
-**Already installed globally on Axel's machine** (`~/.claude/skills/near-*`) via `npx skills add near/agent-skills -g -a claude-code -s '*'`.
+**Sudah terpasang global di mesin Axel** (`~/.claude/skills/near-*`) lewat `npx skills add near/agent-skills -g -a claude-code -s '*'`.
 
-| Skill | Contents | Used by |
+| Skill | Isi | Dipakai siapa |
 |---|---|---|
-| `near-smart-contracts` | Rust near-sdk 5.x: structure, state, cross-contract calls, yield/resume, chain signatures, upgrades, integration tests | Axel (registry contract) |
-| `near-contract-audit` | Contract security checklist (high/medium/low) | Axel, before submission |
-| `near-ai-cloud` | OpenAI-compatible API, E2EE chat, TEE attestation verification (gateway, model, signature), embeddings/rerank/PII redaction endpoints | Axel (AI engine) |
-| `near-api-js` | v7: transactions, key management, NEP-413 auth, meta-tx/relayer, FT/NFT | James (backend) |
-| `near-kit` | More concise TS alternative, plus React hooks and sandbox testing | James / Ancung |
+| `near-smart-contracts` | Rust near-sdk 5.x: struktur, state, cross-contract call, yield/resume, chain signatures, upgrade, integration test | Axel (contract registry) |
+| `near-contract-audit` | Checklist keamanan contract (high/medium/low) | Axel, sebelum submit |
+| `near-ai-cloud` | API OpenAI-compatible, E2EE chat, verifikasi attestation TEE (gateway, model, signature), endpoint embeddings/rerank/PII redaction | Axel (AI engine) |
+| `near-api-js` | v7: transaksi, key management, NEP-413 auth, meta-tx/relayer, FT/NFT | James (backend) |
+| `near-kit` | Alternatif TS yang lebih ringkas, plus React hooks dan sandbox testing | James / Ancung |
 | `near-dapp` | `create-near-app`, `@hot-labs/near-connect`, `near-connect-hooks` | Ancung (FE) |
-| `near-intents` | 1Click API: quote, per-chain deposits, status, swap widget, confidential swaps, Hyperliquid | Trader Mind / wallet |
-| `near-cli-rs` | CLI commands: accounts, deploy, staking, signing (Ledger/MPC) | Everyone |
+| `near-intents` | 1Click API: quote, deposit per chain, status, swap widget, confidential swaps, Hyperliquid | Trader Mind / wallet |
+| `near-cli-rs` | Perintah CLI: akun, deploy, staking, signing (Ledger/MPC) | Semua |
 
-Note: the repo README lists only 6 skills. `near-cli-rs` and `near-contract-audit` exist in the folder but are not mentioned in the README.
+Catatan: README repo hanya mencantumkan 6 skill. `near-cli-rs` dan `near-contract-audit` ada di folder tapi tidak disebut di README.
 
-**How other team members install them:**
+**Cara anggota tim lain memasang:**
 ```bash
-npx skills add near/agent-skills -g                  # all, global
-npx skills add near/agent-skills --skill near-dapp   # a single skill
+npx skills add near/agent-skills -g                  # semua, global
+npx skills add near/agent-skills --skill near-dapp   # satu skill saja
 ```
 
-### 6.2 Idea: NEAR skills as runtime skills for Minds
+### 6.2 Ide: skill NEAR sebagai skill runtime untuk Mind
 
-Mastra supports `SKILL.md` natively. That means NEAR skills could be adapted into skills a Mind equips, not only tools for the dev team:
+Mastra mendukung `SKILL.md` secara native. Artinya skill NEAR bisa diadaptasi menjadi skill yang di-equip Mind, bukan hanya alat untuk tim developer:
 
-- `near-intents` → a "Cross-chain Swap" skill for the Superior Trader Mind.
-- `near-ai-cloud` → reference for "Verified Private" (an engine feature, not a Mind skill).
+- `near-intents` → skill "Cross-chain Swap" untuk Superior Trader Mind.
+- `near-ai-cloud` → acuan untuk "Verified Private" (fitur engine, bukan skill Mind).
 
-These skills are written for coding agents, so they need adapting (trimming, adding tool bindings to the OutLayer/1Click APIs).
+Skill-skill ini ditulis untuk coding agent, jadi perlu diadaptasi (dipangkas, ditambah tool binding ke API OutLayer/1Click).
 
-Third-party skills outside the `near` org that also fit Mind runtime:
+Skill pihak ketiga di luar org `near` yang juga cocok untuk runtime Mind:
 
-- `https://skills.outlayer.ai/agent-custody/SKILL.md`: policy-bound agent wallet. **[V]**
-- `https://market.near.ai/skill/...`: A2A + x402 flows on the Agent Market. **[V]**
+- `https://skills.outlayer.ai/agent-custody/SKILL.md`: wallet agent dengan policy. **[V]**
+- `https://market.near.ai/skill/...`: alur A2A + x402 di Agent Market. **[V]**
 
-### 6.3 Other relevant `near` repos
+### 6.3 Repo `near` lain yang relevan
 
-| Repo | Use |
+| Repo | Kegunaan |
 |---|---|
-| `create-near-app` | FE scaffold: Next.js App Router or Vite React + NEAR Connect + near-api-js. Contract scaffold: Rust + near-sandbox. Node 22.22.2+/24.15+/26+ |
-| `near-sandbox-js` | Local node for integration tests |
-| `near-sdk-rs`, `cargo-near` | Contract SDK and build tooling |
-| `near-api-js`, `near-api-ts` | Client libraries |
-| `intents` | NEAR Intents contracts (verifier `intents.near`) |
-| `mpc` | MPC node for chain signatures (reference only) |
+| `create-near-app` | Scaffold FE: Next.js App Router atau Vite React + NEAR Connect + near-api-js. Scaffold contract: Rust + near-sandbox. Node 22.22.2+/24.15+/26+ |
+| `near-sandbox-js` | Node lokal untuk integration test |
+| `near-sdk-rs`, `cargo-near` | SDK dan build contract |
+| `near-api-js`, `near-api-ts` | Library klien |
+| `intents` | Contract NEAR Intents (verifier `intents.near`) |
+| `mpc` | Node MPC untuk chain signatures (referensi saja) |
 | `near-cli-rs` | CLI |
-| `docs` | Source of docs.near.org |
+| `docs` | Sumber docs.near.org |
 
-**Not** relevant:
+Yang **tidak** relevan:
 
-- `near/near-intents`: just the NEAR Intents marketing landing page.
-- Internal dev skills in `nearcore/.claude/skills/*`, `near-api-ts/skills/*`, `docs/.agents/skills/mintlify`.
+- `near/near-intents`: hanya landing page marketing NEAR Intents.
+- Skill internal developer di `nearcore/.claude/skills/*`, `near-api-ts/skills/*`, `docs/.agents/skills/mintlify`.
 
 ---
 
-## 7. AI engine options
+## 7. Pilihan AI engine
 
-Repo: `hellonear-ai-engine` (still empty).
+Repo: `hellonear-ai-engine` (masih kosong).
 
-### 7.1 Mastra — **primary proposal**
+### 7.1 Mastra — **usulan utama**
 
-- **Versions** **[V]**: `@mastra/core` 1.79.0 (25 Oct 2026), `@mastra/memory` 1.39.0, `@mastra/mcp` 2.5.0, `@mastra/pg` 1.32.0, `@mastra/libsql` 1.27.0, `@mastra/ai-sdk` 1.11.2.
-- **Activity** **[V]**: ~29k stars, near-daily releases.
-- **License** **[V]**: Apache-2.0, **except the `ee/` folders** (auth ee, agent-builder ee, editor ee) under an enterprise license. Don't depend on the Editor or Agent Builder.
+- **Versi** **[V]**: `@mastra/core` 1.79.0 (25 Okt 2026), `@mastra/memory` 1.39.0, `@mastra/mcp` 2.5.0, `@mastra/pg` 1.32.0, `@mastra/libsql` 1.27.0, `@mastra/ai-sdk` 1.11.2.
+- **Aktivitas** **[V]**: sekitar 29k stars, rilis hampir setiap hari.
+- **Lisensi** **[V]**: Apache-2.0, **kecuali folder `ee/`** (auth ee, agent-builder ee, editor ee) yang berlisensi enterprise. Jangan bergantung pada Editor dan Agent Builder.
 
-Features that map directly onto HelloMinds concepts **[V]**:
+Fitur yang memetakan langsung ke konsep HelloMinds **[V]**:
 
-| HelloMinds need | Mastra feature |
+| Kebutuhan HelloMinds | Fitur Mastra |
 |---|---|
-| Mind templates + per-user customisation | **Dynamic agents**: `instructions`, `model`, `tools`, `memory`, `agents`, `scorers` can be async functions receiving `requestContext`. One generic Agent, config loaded from the DB per request |
-| Equipped skills | **Skills** per the Agent Skills spec (`SKILL.md`): `createSkill()` for DB-backed skills, filesystem skills, and dynamic skills. The agent gets `skill`, `skill_read`, `skill_search` tools so playbooks load only when needed |
-| Memory (RAM/Episodes/Tenets) | Message history (RAM), vector **semantic recall** (Episodes), **working memory** as a structured profile (Tenets/Priors), and Observational Memory. `resource` and `thread` scopes. Storage: Postgres, LibSQL, MySQL, MongoDB |
-| Passive Autonomous Mode | **`mastra.schedules.create({ agentId, cron, prompt, threadId, resourceId, timezone })`** with CRUD (pause, resume, run, delete), persisted in storage. Available since core 1.50 |
-| Circles / Lead + Expert Mind | **Supervisor agents**: subagents as tools, with delegation hooks, memory isolation, tool-approval propagation, and background subagents. ⚠️ `.network()` is **deprecated**; don't use it |
+| Template Mind + kustomisasi per user | **Dynamic agent**: `instructions`, `model`, `tools`, `memory`, `agents`, `scorers` bisa berupa fungsi async yang menerima `requestContext`. Satu Agent generik, config dari DB per request |
+| Skill yang di-equip | **Skills** sesuai spesifikasi Agent Skills (`SKILL.md`): `createSkill()` untuk skill dari DB, skill dari filesystem, dan dynamic skills. Agent mendapat tool `skill`, `skill_read`, `skill_search` sehingga playbook dimuat hanya saat dibutuhkan |
+| Memory (RAM/Episodes/Tenets) | Message history (RAM), **semantic recall** via vector (Episodes), **working memory** sebagai profil terstruktur (Tenets/Priors), dan Observational Memory. Scope `resource` dan `thread`. Storage: Postgres, LibSQL, MySQL, MongoDB |
+| Passive Autonomous Mode | **`mastra.schedules.create({ agentId, cron, prompt, threadId, resourceId, timezone })`** dengan CRUD (pause, resume, run, delete), tersimpan di storage. Tersedia sejak core 1.50 |
+| Circles / Lead + Expert Mind | **Supervisor agents**: subagent sebagai tool, dengan delegation hooks, isolasi memori, propagasi tool approval, dan subagent di background. ⚠️ `.network()` sudah **deprecated**, jangan dipakai |
 | Guardrails | Input/output processors + tool approval (human-in-the-loop) |
-| Third-party skills | **MCPClient** (stdio, Streamable HTTP, OAuth) and **MCPServer** |
-| Telegram | **Channels**: Telegram, Slack, Discord, WhatsApp adapters, with in-chat approvals |
-| Brain / model routing | `model: { id: 'custom/<model>', url: 'https://cloud-api.near.ai/v1' }` or a custom `MastraModelGateway`. The model can be chosen dynamically per Mind |
-| Deterministic workflows | Workflows with suspend/resume, snapshots, HITL, cron |
+| Skill pihak ketiga | **MCPClient** (stdio, Streamable HTTP, OAuth) dan **MCPServer** |
+| Telegram | **Channels**: adapter Telegram, Slack, Discord, WhatsApp, dengan approval di dalam chat |
+| Brain / model routing | `model: { id: 'custom/<model>', url: 'https://cloud-api.near.ai/v1' }` atau custom gateway `MastraModelGateway`. Model bisa ditentukan dinamis per Mind |
+| Workflow deterministik | Workflows dengan suspend/resume, snapshot, HITL, cron |
 | Observability | Tracing, evals/scorers, Studio |
-| FE integration | AI SDK UI (`chatRoute()`, `handleChatStream()`) |
-| Deployment | Node server, Vercel, Cloudflare, Lambda, EC2, Inngest, Temporal |
+| Integrasi FE | AI SDK UI (`chatRoute()`, `handleChatStream()`) |
+| Deploy | Node server, Vercel, Cloudflare, Lambda, EC2, Inngest, Temporal |
 
-**Weaknesses:**
+**Kelemahan:**
 
-- The API moves fast (e.g. network deprecated, MCP bumped to v2). **Pin versions** during the hackathon.
-- TypeScript only.
+- API berubah cepat; contohnya network deprecated dan MCP naik ke v2. **Pin versi** selama hackathon.
+- Hanya TypeScript.
 
-### 7.2 n8n — **proposal: don't use it in the product**
+### 7.2 n8n — **usulan: jangan dipakai di produk**
 
-- n8n 2.44.6 (23 Oct 2026), ~208k stars. **[V]**
-- **Sustainable Use License** **[V]**: *"You may use or modify the software only for your own internal business purposes or for non-commercial or personal use."* `.ee.` files require an enterprise license.
-- In practice: running n8n as the engine of a multi-tenant product, where users run Minds with their own credentials, is **not covered by the free license**. That path needs an Embed/OEM license. The docs show the path exists **[V]**; pricing and terms **[UV]**.
-- Its data model is workflow-centric and single-tenant. No concept of a Soul, per-user memory, or a skill marketplace.
-- What makes n8n attractive (scheduling, app integrations, workflows) is already covered by Mastra (schedules, workflows) and Composio (integrations).
-- **If the team still wants it:** only for internal team automation (alerts, ops), outside the engine repo.
+- n8n 2.44.6 (23 Okt 2026), sekitar 208k stars. **[V]**
+- **Lisensi Sustainable Use** **[V]**: *"You may use or modify the software only for your own internal business purposes or for non-commercial or personal use."* File `.ee.` butuh lisensi enterprise.
+- Artinya: n8n sebagai engine produk multi-tenant, di mana user menjalankan Mind dengan kredensial sendiri, **tidak tercakup lisensi gratis**. Jalur itu butuh lisensi Embed/OEM. Bahwa jalur ini ada terlihat dari docs **[V]**; harga dan syaratnya **[BV]**.
+- Model datanya workflow-centric dan single-tenant. Tidak ada konsep Soul, memori per user, atau skill marketplace.
+- Fungsi yang menarik dari n8n (schedule, integrasi app, workflow) sudah tercakup Mastra (schedules, workflows) dan Composio (integrasi).
+- **Kalau tetap mau dipakai:** hanya untuk otomasi internal tim (alert, ops), di luar repo engine.
 
-**Answer to the original question "Mastra, n8n-style workflows, or combine?":** the proposal is **Mastra only**. Mastra workflows already give us the "n8n-like" part (deterministic steps, suspend/resume, cron) inside one TS codebase. If the team wants a visual n8n-style editor for a "skill builder" demo, that can be a UI feature on top of Mastra workflows, not n8n.
+**Jawaban untuk pertanyaan awal "Mastra, workflow seperti n8n, atau combine?":** usulannya **Mastra saja**. Workflow Mastra sudah memberi bagian "seperti n8n" (langkah deterministik, suspend/resume, cron) di dalam satu codebase TS. Kalau tim ingin editor visual seperti n8n untuk demo "skill builder", itu bisa jadi fitur UI di atas workflow Mastra, bukan n8n.
 
-### 7.3 Other frameworks (considered, not proposed)
+### 7.3 Framework lain (dipertimbangkan, tidak diusulkan)
 
-| Option | Version | Why not |
+| Opsi | Versi | Kenapa tidak |
 |---|---|---|
-| Vercel AI SDK | `ai` 7.0.153, has `ToolLoopAgent` **[V]** | Primitives only (no memory, scheduler, storage). Mastra is built on top of it |
-| LangGraph | JS 1.5.2 / Py 1.2.17 **[V]** | Strong for graphs and checkpoints **[UV]**, but long-term memory and scheduling must be assembled or come from LangGraph Platform |
-| OpenAI Agents SDK | JS 0.21.0 / Py 0.24.0 **[V]** | Still pre-1.0, no persistent memory or scheduler **[UV]** |
-| Claude Agent SDK | TS 0.3.310 **[V]** | Claude-model oriented, a poor fit for OpenAI-compatible NEAR AI |
-| Google ADK | TS 2.3.0 / Py 2.13.0 **[V]** | Gemini/Vertex-centric **[UV]** |
-| VoltAgent | core 2.11.0, MIT **[V]** | Similar to Mastra, smaller ecosystem; last activity a month ago |
-| ElizaOS | 1.7.2 (Jun 2026), v2 still alpha **[V]** | Popular for crypto agents and character files, but stable releases have stalled and its plugin model fits a per-user skill marketplace poorly |
-| Letta | client 1.12.1 **[V]** | Good stateful memory, but needs a separate server; Mastra memory already covers it |
+| Vercel AI SDK | `ai` 7.0.153, ada `ToolLoopAgent` **[V]** | Hanya primitif (tanpa memory, scheduler, storage). Mastra sudah dibangun di atasnya |
+| LangGraph | JS 1.5.2 / Py 1.2.17 **[V]** | Kuat untuk graph dan checkpoint **[BV]**, tapi memori jangka panjang dan scheduler harus dirakit atau memakai LangGraph Platform |
+| OpenAI Agents SDK | JS 0.21.0 / Py 0.24.0 **[V]** | Masih pra-1.0, tanpa memori persisten dan scheduler **[BV]** |
+| Claude Agent SDK | TS 0.3.310 **[V]** | Berorientasi model Claude, kurang cocok untuk NEAR AI yang OpenAI-compatible |
+| Google ADK | TS 2.3.0 / Py 2.13.0 **[V]** | Gemini/Vertex-centric **[BV]** |
+| VoltAgent | core 2.11.0, MIT **[V]** | Mirip Mastra, ekosistem lebih kecil; aktivitas terakhir sebulan lalu |
+| ElizaOS | 1.7.2 (Jun 2026), v2 masih alpha **[V]** | Populer untuk crypto agent dan character file, tapi rilis stabilnya stagnan dan plugin model-nya kurang pas untuk skill marketplace per user |
+| Letta | client 1.12.1 **[V]** | Bagus untuk stateful memory, tapi butuh server terpisah; fungsinya sudah tercakup memory Mastra |
 
-### 7.4 Third-party app integrations
+### 7.4 Integrasi app pihak ketiga
 
-| Option | Free tier | Notes |
+| Opsi | Free tier | Catatan |
 |---|---|---|
-| **Composio** (proposed) | 100K tool calls + 50K triggers per month, unlimited connected accounts; Composio-owned OAuth apps limited to the first 20K calls / 1K connections **[V]** | Official `@composio/mastra` 0.10.6 provider (per-`userId` sessions). Used by HelloMinds |
-| Arcade | 2,000 auths + 2,000 tool calls per month **[V]** | Too small for a demo |
-| Pipedream Connect | Free tier is development-only **[V]** | Startup plan $99/month |
-| Nango | Free, then $50/month **[V]** | Better suited to data sync |
+| **Composio** (usulan) | 100K tool call + 50K trigger per bulan, connected accounts tanpa batas; OAuth app milik Composio dibatasi 20K panggilan / 1K koneksi pertama **[V]** | Provider resmi `@composio/mastra` 0.10.6 (sesi per `userId`). Dipakai HelloMinds |
+| Arcade | 2.000 auth + 2.000 tool call per bulan **[V]** | Terlalu kecil untuk demo |
+| Pipedream Connect | Free hanya untuk development **[V]** | Startup $99 per bulan |
+| Nango | Free, lalu $50 per bulan **[V]** | Lebih cocok untuk sync data |
 
-### 7.5 Shape of a HelloNear Bazaar skill (proposal)
+### 7.5 Bentuk skill di Bazaar HelloNear (usulan)
 
-Following the Agent Skills spec (https://agentskills.io/specification) **[V]**: a folder with `SKILL.md` (frontmatter `name`, `description`, optional `license`, `compatibility`, `metadata`, `allowed-tools`) + `references/` + scripts.
+Mengikuti spesifikasi Agent Skills (https://agentskills.io/specification) **[V]**: folder berisi `SKILL.md` (frontmatter `name`, `description`, opsional `license`, `compatibility`, `metadata`, `allowed-tools`) + `references/` + scripts.
 
-Mapping to the four HelloMinds skill components:
+Padanan dengan empat komponen skill HelloMinds:
 
 ```
 skill = {
-  SKILL.md            # Skill Playbook (how it behaves)
-  listing             # Registry Offering (name, description, price, author, version)
+  SKILL.md            # Skill Playbook (cara berperilaku)
+  listing             # Registry Offering (nama, deskripsi, harga, pembuat, versi)
   toolBindings        # Tool Schemas: composio actions | MCP server URL | native tool id
   requiredConnections # App Manifest: gmail, calendar, near-wallet, ...
 }
 ```
 
-When equipped, `SKILL.md` is loaded via `createSkill()` and `toolBindings` are resolved by the tool registry.
+Saat di-equip, `SKILL.md` dimuat lewat `createSkill()` dan `toolBindings` di-resolve oleh tool registry.
 
 ---
 
-## 8. Proposed architecture
+## 8. Usulan arsitektur
 
-> Draft, to be discussed with James (backend/devops).
+> Draft untuk didiskusikan bersama James (backend/devops).
 
-### 8.1 Big picture
+### 8.1 Gambaran besar
 
 ```
 ┌────────────── Frontend (Next.js, Ancung) ───────────────┐
@@ -453,114 +453,114 @@ When equipped, `SKILL.md` is loaded via `createSkill()` and `toolBindings` are r
 └───────┬───────────────────────────────┬──────────────────┘
         │ {userId, mindId, threadId}    │ near-api-js
 ┌───────▼──── hellonear-ai-engine ────┐ │
-│ Mastra server (see 8.2)             │ │
+│ Mastra server (lihat 8.2)           │ │
 └──┬───────────┬───────────┬──────────┘ │
    │           │           │            │
-NEAR AI     Composio    OutLayer API   NEAR registry contract (Axel)
+NEAR AI     Composio    OutLayer API   NEAR contract registry (Axel)
 Cloud (TEE) (Gmail..)   (wallet+policy) Mind↔owner↔wallet↔skills
                             │
                      NEAR Intents (swap) · Agent Market (x402 earn)
 ```
 
-### 8.2 `hellonear-ai-engine` modules
+### 8.2 Modul `hellonear-ai-engine`
 
 ```
-HTTP (Mastra server / chatRoute) ← backend sends {userId, mindId, threadId}
+HTTP (Mastra server / chatRoute) ← backend kirim {userId, mindId, threadId}
  └─ middleware → requestContext.set(userId, mindId, mindConfig)
 
-mind-registry  : minds table (template_id, soul, model, equipped_skills, connections, wallet_id)
+mind-registry  : tabel minds (template_id, soul, model, equipped_skills, connections, wallet_id)
                  + seed templates: Sales, Superior Trader, General Assistant, Email Manager, Game Designer
-soul-builder   : instructions: async ({requestContext}) => identity + invariants (guardrails)
-                 + priors + active skill summary; guardrails via input/output processors
-skill-loader   : skills: async ctx => mind.skills.map(s => createSkill(SKILL.md from DB))
+soul-builder   : instructions: async ({requestContext}) => identity + invariants (guardrail)
+                 + priors + ringkasan skill aktif; guardrail lewat input/output processors
+skill-loader   : skills: async ctx => mind.skills.map(s => createSkill(SKILL.md dari DB))
 tool-registry  : tools: async ctx => merge(
-                   composio.tools(userId) filtered per skill,
+                   composio.tools(userId) difilter per skill,
                    MCPClient per skill,
                    native: memory, wallet (OutLayer), delegate, agent-market)
 memory         : Memory({ storage: PgStore, vector: PgVector,
                    workingMemory (resource = userId:mindId), semanticRecall, observational })
                  embeddings: NEAR AI Qwen3-Embedding
-scheduler      : mastra.schedules.create(...) from the "Autopilot" UI (Passive Autonomous Mode)
-circles        : dynamic supervisor agent; members = other Minds in the Circle; ACL checked before delegating
+scheduler      : mastra.schedules.create(...) dari UI "Autopilot" (Passive Autonomous Mode)
+circles        : supervisor agent dinamis; anggota = Mind lain di Circle; ACL dicek sebelum delegasi
 wallet-tool    : near_balance / near_transfer / swap via OutLayer API;
-                 mandatory tool approval (HITL) + OutLayer on-chain policy
-brain          : per-Mind model router (glm-5.3-flash default, kimi/glm-5.3 for reasoning),
-                 fallback provider if needed
-verify         : store response id → verifyResponse() → badge in the UI
-observability  : Mastra tracing + a simple scorer for the demo
+                 wajib tool approval (HITL) + policy on-chain OutLayer
+brain          : model router per Mind (glm-5.3-flash default, kimi/glm-5.3 untuk reasoning),
+                 fallback provider lain kalau perlu
+verify         : simpan response id → verifyResponse() → badge di UI
+observability  : tracing Mastra + scorer sederhana untuk demo
 ```
 
-### 8.3 Registry contract (Axel, Rust near-sdk) — draft
+### 8.3 Contract registry (Axel, Rust near-sdk) — draft
 
 - `register_mind(mind_id, metadata_uri, wallet_address)` → owner = `predecessor`.
 - `equip_skill(mind_id, skill_id)` / `unequip_skill`.
-- `publish_skill(skill_id, metadata_uri, price)`. Skill payments can come later (optional).
-- Views: `get_mind`, `minds_of(owner)`, `get_skill`.
-- Custody logic is **not** written by us (use OutLayer).
-- Run the `near-contract-audit` skill before submission.
+- `publish_skill(skill_id, metadata_uri, price)`. Pembayaran skill bisa ditambahkan nanti (opsional).
+- View: `get_mind`, `minds_of(owner)`, `get_skill`.
+- Logika custody **tidak** ditulis sendiri (pakai OutLayer).
+- Sebelum submit, jalankan skill `near-contract-audit`.
 
-### 8.4 Candidate demo flow (draft)
+### 8.4 Alur demo kandidat (draft)
 
-1. Log in with a NEAR wallet → pick the "Superior Trader" template → name it → the Mind is registered on-chain and gets an OutLayer wallet.
-2. Set a policy: max 5 USDC per day, whitelist only. The policy is visible on-chain.
-3. Chat → every reply shows a "Verified private (TEE)" badge.
-4. Ask the Mind to swap → succeeds under the limit. Then ask for more than the limit → **rejected on-chain** even when the prompt tries to force it. This is the key moment for the security track.
-5. The Mind takes a job on the NEAR AI Agent Market → earns USDC (agent-economy proof).
-6. Bonus: a Circle — a Research Mind delegates to a Writer Mind.
+1. Login dengan wallet NEAR → pilih template "Superior Trader" → beri nama → Mind terdaftar on-chain dan dapat wallet OutLayer.
+2. Set policy: maks 5 USDC per hari, hanya ke whitelist. Policy terlihat on-chain.
+3. Chat → setiap jawaban punya badge "Verified private (TEE)".
+4. Minta Mind swap → berhasil di bawah limit. Lalu minta melebihi limit → **ditolak on-chain** walaupun prompt mencoba memaksa. Ini momen utama untuk track security.
+5. Mind mengambil job di NEAR AI Agent Market → dapat USDC (bukti agent economy).
+6. Bonus: Circle — Research Mind mendelegasikan tugas ke Writer Mind.
 
 ---
 
-## 9. Proposed team split and timeline
+## 9. Usulan pembagian tim dan timeline
 
-| Person | Role | Focus |
+| Orang | Peran | Fokus |
 |---|---|---|
-| **Ancung** | FE | Next.js app: Choose a Mind, chat (AI SDK UI), Bazaar, wallet/policy panel, Circles. Start from `create-near-app --frontend next-app` |
-| **Nabil** | Landing + design | Landing page, Mind characters (collector toy-box style), design system, demo video assets |
-| **Axel** | SC + AI engine | Registry contract; Mastra engine (mind registry, soul, skills, memory, scheduler, circles); adapting NEAR skills |
-| **James** | BE + devops + engine decision | API, Postgres+pgvector, NEP-413 auth, OutLayer and Composio integration, deployment, CI, integration/load tests |
+| **Ancung** | FE | Next.js app: Choose a Mind, chat (AI SDK UI), Bazaar, panel wallet/policy, Circles. Mulai dari `create-near-app --frontend next-app` |
+| **Nabil** | Landing + design | Landing page, karakter Mind (gaya collector toy box), design system, aset video demo |
+| **Axel** | SC + AI engine | Contract registry; engine Mastra (mind registry, soul, skills, memory, scheduler, circles); adaptasi skill NEAR |
+| **James** | BE + devops + keputusan engine | API, Postgres+pgvector, auth NEP-413, integrasi OutLayer dan Composio, deploy, CI, integration/load test |
 
-Rough timeline (still a draft):
+Timeline kasar (masih draft):
 
-- **Before 1 Nov:** lock the idea and scope, apply for NEAR AI Cloud credits, request a 1Click API key, try OutLayer on testnet, smoke-test Mastra + NEAR AI.
-- **Week 1 (1–7 Nov):** basic engine (registry, soul, memory, one model), registry contract on testnet, FE login + chat, landing page.
-- **Week 2 (8–14 Nov):** skills + Bazaar, wallet + policy, scheduler, Circles (if time allows), Agent Market, local integration/load tests, README for AI judges, demo video, X post, submission.
+- **Sebelum 1 Nov:** finalisasi ide dan scope, ajukan credit NEAR AI Cloud, minta API key 1Click, coba OutLayer testnet, smoke test Mastra + NEAR AI.
+- **Minggu 1 (1–7 Nov):** engine dasar (registry, soul, memory, 1 model), contract registry di testnet, login + chat FE, landing.
+- **Minggu 2 (8–14 Nov):** skills + Bazaar, wallet + policy, scheduler, Circles (kalau sempat), Agent Market, integration/load test lokal, README untuk juri AI, video demo, post X, submit.
 
-Reminder: no push to main, merge, deploy, PR, or submission without Axel's approval.
+Ingat: tidak ada push ke main, merge, deploy, PR, atau submit tanpa acc Axel.
 
 ---
 
-## 10. Unproven, must test
+## 10. Belum terbukti, wajib dites
 
-| Item | Why it matters | How to test |
+| Hal | Kenapa penting | Cara tes |
 |---|---|---|
-| Tool calling of NEAR AI models (GLM/Kimi/Qwen) through Mastra | Every skill depends on tool calling | Smoke test: agent + 2 tools, check correct calls |
-| Mastra's handling of `reasoning_content` (reasoning models) | Could break the stream or output | Test with glm-5.3 |
-| How to pass the API key with the `{id, url}` form vs a custom gateway | Basic configuration | Try both |
-| Whether `mastra.schedules` passes `requestContext` to dynamic agents | Per-Mind autonomous work | Create a schedule, check which Mind config is used |
-| OutLayer flow on testnet: register, policy, transfer rejected above the limit | Core of the security demo | Manual curl test |
-| Intents swaps are mainnet-only | The demo needs (small) real money | Decide as a team |
-| Requirements for registering a worker on the Agent Market | The "earn" demo | Read `market.near.ai/llms.txt`, try registering |
-| Quality of `@nearai/inference-sdk` (0.1.0, Node ≥24) | Very new SDK | Test `verifyResponse` |
-| n8n Embed license terms | Only if the team still wants n8n | Ask n8n |
-| Hackathon details from a third-party article ($250K prizes, 13 tracks) **[UV]** | The official HACKATHON.md does not mention prizes | Check the official site |
+| Tool calling model NEAR AI (GLM/Kimi/Qwen) lewat Mastra | Semua skill bergantung pada tool calling | Smoke test: agent + 2 tool, cek panggilan yang benar |
+| Penanganan `reasoning_content` (model reasoning) oleh Mastra | Bisa merusak stream atau output | Tes dengan glm-5.3 |
+| Cara memberi API key pada bentuk `{id, url}` vs custom gateway | Konfigurasi dasar | Coba keduanya |
+| `mastra.schedules` meneruskan `requestContext` ke dynamic agent | Kerja otonom per Mind | Buat schedule, cek config Mind yang dipakai |
+| Alur OutLayer di testnet: register, policy, transfer ditolak saat melebihi limit | Inti demo security | Tes manual dengan curl |
+| Swap Intents hanya di mainnet | Demo butuh uang sungguhan (kecil) | Putuskan bersama tim |
+| Persyaratan pendaftaran worker di Agent Market | Demo "earn" | Baca `market.near.ai/llms.txt`, coba daftar |
+| Kualitas `@nearai/inference-sdk` (0.1.0, Node ≥24) | SDK masih sangat baru | Tes `verifyResponse` |
+| Syarat lisensi Embed n8n | Hanya kalau tim tetap mau n8n | Tanya n8n |
+| Info hackathon dari artikel pihak ketiga (hadiah $250K, 13 track) **[BV]** | Sumber resmi (HACKATHON.md) tidak menyebut hadiah | Cek website resmi |
 
 ---
 
-## 11. Open questions for the team
+## 11. Pertanyaan terbuka untuk tim
 
-1. **Demo focus:** a consumer persona app like HelloMinds, or the agent economy (Minds earning on the Agent Market)? Or both with one main flow?
-2. **Wallet:** OutLayer (fast, hackathon partner), or our own vault contract (more SC work, full control)?
-3. **Demo network:** mainnet with small amounts (Intents is mainnet-only), or testnet only?
-4. **Starting templates:** which ones do we build? Proposal of 3: General Assistant, Superior Trader, Sales/Email.
-5. **Channels:** web chat only, or add Telegram (Mastra has an adapter)?
-6. **Bazaar:** paid skills on-chain (NEAR/USDC), or a free catalog for the hackathon?
-7. **Project name:** "HelloNear" or something else? (Must be unique in the hackathon; avoid looking like a copy of the HelloMinds/Animoca brand.)
-8. **n8n:** does anyone still want it for something? If so, for what?
-9. **Hosting:** where are the engine and backend deployed (James)?
+1. **Fokus demo:** consumer persona seperti HelloMinds, atau agent economy (Mind yang earn di Agent Market)? Atau gabungan dengan satu alur utama?
+2. **Wallet:** OutLayer (cepat, partner hackathon), atau contract vault sendiri (lebih banyak kerja SC, kontrol penuh)?
+3. **Network demo:** mainnet dengan nominal kecil (Intents hanya ada di mainnet), atau testnet saja?
+4. **Template awal:** template mana yang dibangun? Usulan 3: General Assistant, Superior Trader, Sales/Email.
+5. **Channel:** web chat saja, atau tambah Telegram (Mastra punya adapter)?
+6. **Bazaar:** skill dibayar on-chain (NEAR/USDC), atau cukup katalog gratis untuk hackathon?
+7. **Nama proyek:** "HelloNear" atau nama lain? (Harus unik di hackathon; hindari kesan meniru merek HelloMinds/Animoca.)
+8. **n8n:** ada yang tetap mau memakainya untuk sesuatu? Kalau ya, untuk apa?
+9. **Hosting:** di mana engine dan backend di-deploy (James)?
 
 ---
 
-## 12. Sources
+## 12. Sumber
 
 **Hackathon**
 - https://nearhackathon.com/HACKATHON.md
@@ -569,7 +569,7 @@ Reminder: no push to main, merge, deploy, PR, or submission without Axel's appro
 - https://www.hellominds.ai/
 - https://build.hellominds.ai/en, https://build.hellominds.ai/llms.txt
 - https://build.hellominds.ai/en/faq
-- https://build.hellominds.ai/agent-md/en/docs/get-started/cli.md (also `client-library.md`, `connect.md`)
+- https://build.hellominds.ai/agent-md/en/docs/get-started/cli.md (juga `client-library.md`, `connect.md`)
 - https://build.hellominds.ai/agent-md/en/docs/guides/building-skills.md, `.../guides/circles.md`
 - https://build.hellominds.ai/en/inspirations/superior-trade-intern
 
@@ -597,4 +597,4 @@ Reminder: no push to main, merge, deploy, PR, or submission without Axel's appro
 
 ---
 
-*Method note:* the HelloMinds pages and the contents of the `github.com/near` repos were read directly. The NEAR and AI-engine research was done by two research subagents that read every URL above (via r.jina.ai, docs markdown, `gh api`, `npm view`, crates.io). The version numbers and prices they reported have not been individually re-checked. Verify before making final decisions.
+*Catatan metode:* halaman HelloMinds dan isi repo `github.com/near` dibaca langsung. Riset NEAR dan AI engine dikerjakan dua subagen riset yang membaca setiap URL di atas (lewat r.jina.ai, markdown docs, `gh api`, `npm view`, crates.io). Angka versi dan harga yang mereka laporkan belum dicek ulang satu per satu. Verifikasi dulu sebelum keputusan final.
