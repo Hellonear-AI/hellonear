@@ -18,5 +18,7 @@ Mind registry contract: Mind ↔ owner ↔ wallet ↔ skill. Owner: Axel. Issue:
 - No custody logic here; wallets live in OutLayer.
 - **Deployed contract: `hellonear-registry.testnet` (testnet, 3 Nov 2026).** Env name for consumers: `REGISTRY_CONTRACT_ID` (with `NEAR_NETWORK=testnet`). Details and tx links in `README.md`. Its full-access key is only in Axel's keychain; ask Axel before any redeploy or migration.
 - Deploy with the `new` init call in the same transaction (front-running protection).
+- **State is versioned** (`src/versioned.rs`): never change a stored struct in place. Add a new enum variant and convert on read. Top-level layout changes need a `#[private] #[init(ignore_state)] migrate`, the old layout kept in `src/migrate.rs`, a sandbox upgrade test from the previous WASM (`tests/fixtures/`), and the deploy + migrate in one transaction. `StorageKey` is append-only. Follow https://docs.near.org/smart-contracts/release/upgrade.
+- Source verification (NEP-330 + SourceScan) needs a reproducible build from a public repo; do it before submission (#22). See `README.md`.
 - Commands and the interface are in `README.md`; run unit tests, the sandbox test and clippy before every push/merge that touches `sc/`.
 - Use `CARGO_BUILD_JOBS=4` on laptops.
