@@ -6,6 +6,27 @@ Guidance for AI coding agents (Claude Code, Codex, Cursor, …) working in this 
 
 **When you change how a folder works (setup, commands, structure, env vars, conventions, a decision), update that folder's `CLAUDE.md` in the same PR.** Update this root file when the change affects the whole repo. A PR that changes behaviour but leaves the relevant `CLAUDE.md` stale is not done.
 
+## Required skills (check first, every session)
+
+Before writing code or answering NEAR/Mastra questions, check that these skills are available to you:
+
+- the 8 NEAR skills from `near/agent-skills`: `near-ai-cloud`, `near-api-js`, `near-kit`, `near-dapp`, `near-intents`, `near-smart-contracts`, `near-contract-audit`, `near-cli-rs`;
+- `near-intents-agent-api` (Claude Code plugin from `NEAR-Intents-Agent-API/skills`);
+- `mastra` (from `mastra-ai/skills`).
+
+If any are missing, **stop and tell the user to install them before continuing**, pointing to issue #23 with these commands:
+
+```sh
+npx skills add near/agent-skills -g -a claude-code -s '*' -y
+npx skills add mastra-ai/skills -g -a claude-code -s mastra -y
+```
+```text
+/plugin marketplace add NEAR-Intents-Agent-API/skills
+/plugin install near-intents-agent-api@near-intents-agent-api
+```
+
+When they are installed, use the relevant skill for every NEAR or Mastra task instead of relying on memory.
+
 ## What this is
 
 HelloNear is an AI agent persona platform on NEAR, built for NEAR HACKATHON (1–14 Nov 2026, deadline 14 Nov 23:59 UTC). Users pick a "Mind" template (General Assistant, Payments Mind, Email Manager), and each Mind has a persona, memory, equippable skills, and a NEAR wallet whose spending limits are enforced outside the AI's reach.

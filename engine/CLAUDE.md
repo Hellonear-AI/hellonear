@@ -22,6 +22,10 @@ AI engine: a Mastra server that runs each Mind (soul, skills, tools, memory, sch
 - Wallet tools: require approval (`requireApproval`); never expose owner actions (policy changes, freeze) as LLM tools.
 - Emit stream events in the shape agreed in `docs/api-contract.md` (#7); the Mind Graph depends on them.
 
+## Skill feedback
+
+The `mastra` skill can report bugs and doc defects to the Mastra team. Never let a report include code from this repo, secrets, or user data; decline if unsure.
+
 ## Env
 
 See `.env.example`. `.env` is gitignored; never commit it.

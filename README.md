@@ -18,6 +18,10 @@ An AI agent persona ("Mind") platform on NEAR: each Mind has an identity, memory
 
 Plan: #3. Decisions: #4. Guidance for AI coding agents: `CLAUDE.md` (root and per folder).
 
+## Setup (required)
+
+Every member installs the NEAR agent skills, the NEAR Intents Agent API plugin, and the Mastra skill before starting any issue: see #23. Claude Code is told to check for them (root `CLAUDE.md`).
+
 ## Working rules
 
 - No push to `main`, merge, deploy, PR, or submission without Axel's approval.
