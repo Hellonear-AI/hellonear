@@ -7,7 +7,8 @@ AI engine: a Mastra server that runs each Mind (soul, skills, tools, memory, sch
 ## Stack
 
 - `@mastra/core` **1.81.0, pinned.** Do not upgrade during the hackathon (dynamic workflows are Beta and the API moves fast).
-- Models via the built-in `nearai` provider (`NEARAI_API_KEY`): default `nearai/z-ai/glm-5.3-flash`, reasoning `nearai/deepseek-ai/DeepSeek-V4.1-Flash-1017`, embeddings `nearai/Qwen/Qwen3-Embedding-0.6B`. Never fall back to a model without `tools` in `supportedFeatures` (e.g. GPT-6 Luna).
+- Models: NEAR AI Cloud (`NEARAI_API_KEY`). Default `z-ai/glm-5.3-flash`, reasoning `deepseek-ai/DeepSeek-V4.1-Flash-1017`, embeddings `Qwen/Qwen3-Embedding-0.6B`. Tool calling through Mastra is proven for both chat models (spike `spikes/01-tool-calling`, #5). Never fall back to a model without `tools` in `supportedFeatures` (e.g. GPT-6 Luna).
+- **Build streaming chat models with `@ai-sdk/openai-compatible` and `includeUsage: true`** (`nearai.chatModel('<id>')`), not the `nearai/<id>` router string: the router string streams with empty token usage, and we need usage for per-step cost. See the spike README.
 - Storage and memory: Postgres + pgvector.
 
 ## Conventions
@@ -21,6 +22,8 @@ AI engine: a Mastra server that runs each Mind (soul, skills, tools, memory, sch
 - Secrets: never put secret values in prompts. Inject them at tool execution via `RequestContext`, check `allowedHosts`, and redact by **value** in streams and traces (`SensitiveDataFilter` only matches field names).
 - Wallet tools: require approval (`requireApproval`); never expose owner actions (policy changes, freeze) as LLM tools.
 - Emit stream events in the shape agreed in `docs/api-contract.md` (#7); the Mind Graph depends on them.
+- In stream chunks, `payload.toolName` is the **key** in the agent's `tools` object, not the tool's `id`. Use the same string for both to avoid mismatches.
+- Spikes live in `spikes/<nn>-<name>/` with a README stating the result, how to run it, and what it does not cover.
 
 ## Skill feedback
 

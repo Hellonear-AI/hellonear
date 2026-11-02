@@ -1,0 +1,3216 @@
+[
+  {
+    "model": "nearai/z-ai/glm-5.3-flash",
+    "ms": 4433,
+    "finishReason": "stop",
+    "usage": {
+      "raw": {
+        "inputTokens": {},
+        "outputTokens": {}
+      }
+    },
+    "chunkCounts": {
+      "start": 1,
+      "step-start": 2,
+      "reasoning-start": 1,
+      "reasoning-delta": 8,
+      "reasoning-end": 1,
+      "tool-call-input-streaming-start": 2,
+      "tool-call-delta": 5,
+      "tool-call-input-streaming-end": 2,
+      "tool-call": 2,
+      "tool-result": 2,
+      "step-finish": 2,
+      "text-start": 1,
+      "text-delta": 7,
+      "text-end": 1,
+      "finish": 1
+    },
+    "toolCalls": [
+      {
+        "toolName": "addNumbers",
+        "args": {
+          "a": 17,
+          "b": 25
+        }
+      },
+      {
+        "toolName": "getTime",
+        "args": {}
+      }
+    ],
+    "toolResults": [
+      {
+        "toolName": "addNumbers",
+        "result": {
+          "sum": 42
+        }
+      },
+      {
+        "toolName": "getTime",
+        "result": {
+          "utc": "2026-11-02T16:31:47.977Z"
+        }
+      }
+    ],
+    "executed": [
+      {
+        "tool": "add_numbers",
+        "input": {
+          "a": 17,
+          "b": 25
+        }
+      },
+      {
+        "tool": "get_time",
+        "input": {}
+      }
+    ],
+    "reasoningChars": 121,
+    "text": "17 + 25 = 42, and the current UTC time is 2026-11-02T16:31:47Z.",
+    "samples": {
+      "start": {
+        "type": "start",
+        "runId": "2ffde944-ac24-437a-8d0c-cf7cea25ffa5",
+        "from": "AGENT",
+        "payload": {
+          "id": "spike-agent",
+          "messageId": "fbe68ada-73da-4b26-9563-4865cedb69e3"
+        }
+      },
+      "step-start": {
+        "runId": "2ffde944-ac24-437a-8d0c-cf7cea25ffa5",
+        "from": "AGENT",
+        "type": "step-start",
+        "payload": {
+          "request": {
+            "body": {
+              "model": "z-ai/glm-5.3-flash",
+              "max_tokens": 2048,
+              "messages": [
+                {
+                  "role": "system",
+                  "content": "You are a precise assistant. Always use the provided tools for arithmetic and for the current time. Answer in one short sentence."
+                },
+                {
+                  "role": "user",
+                  "content": "What is 17 + 25, and what time is it right now in UTC? Use your tools."
+                }
+              ],
+              "tools": [
+                {
+                  "type": "function",
+                  "function": {
+                    "name": "addNumbers",
+                    "description": "Add two numbers and return the sum.",
+                    "parameters": {
+                      "$schema": "http://json-schema.org/draft-07/schema#",
+                      "type": "object",
+                      "properties": {
+                        "a": {
+                          "type": "number"
+                        },
+                        "b": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "a",
+                        "b"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                {
+                  "type": "function",
+                  "function": {
+                    "name": "getTime",
+                    "description": "Get the current time in UTC as an ISO 8601 string.",
+                    "parameters": {
+                      "$schema": "http://json-schema.org/draft-07/schema#",
+                      "type": "object",
+                      "properties": {},
+                      "additionalProperties": false
+                    }
+                  }
+                }
+              ],
+              "tool_choice": "auto",
+              "stream": true
+            }
+          },
+          "warnings": [],
+          "messageId": "fbe68ada-73da-4b26-9563-4865cedb69e3",
+          "startedAt": 1793637104974,
+          "modelId": "z-ai/glm-5.3-flash",
+          "provider": "nearai"
+        }
+      },
+      "reasoning-start": {
+        "type": "reasoning-start",
+        "runId": "2ffde944-ac24-437a-8d0c-cf7cea25ffa5",
+        "from": "AGENT",
+        "payload": {
+          "id": "reasoning-0"
+        }
+      },
+      "reasoning-delta": {
+        "type": "reasoning-delta",
+        "runId": "2ffde944-ac24-437a-8d0c-cf7cea25ffa5",
+        "from": "AGENT",
+        "payload": {
+          "id": "reasoning-0",
+          "text": "The"
+        }
+      },
+      "reasoning-end": {
+        "type": "reasoning-end",
+        "runId": "2ffde944-ac24-437a-8d0c-cf7cea25ffa5",
+        "from": "AGENT",
+        "payload": {
+          "id": "reasoning-0"
+        }
+      },
+      "tool-call-input-streaming-start": {
+        "type": "tool-call-input-streaming-start",
+        "runId": "2ffde944-ac24-437a-8d0c-cf7cea25ffa5",
+        "from": "AGENT",
+        "payload": {
+          "toolCallId": "call_d6f6a58e532b4dcd95188fb4",
+          "toolName": "addNumbers"
+        }
+      },
+      "tool-call-delta": {
+        "type": "tool-call-delta",
+        "runId": "2ffde944-ac24-437a-8d0c-cf7cea25ffa5",
+        "from": "AGENT",
+        "payload": {
+          "argsTextDelta": "{",
+          "toolCallId": "call_d6f6a58e532b4dcd95188fb4",
+          "toolName": "addNumbers"
+        }
+      },
+      "tool-call-input-streaming-end": {
+        "type": "tool-call-input-streaming-end",
+        "runId": "2ffde944-ac24-437a-8d0c-cf7cea25ffa5",
+        "from": "AGENT",
+        "payload": {
+          "toolCallId": "call_d6f6a58e532b4dcd95188fb4"
+        }
+      },
+      "tool-call": {
+        "type": "tool-call",
+        "runId": "2ffde944-ac24-437a-8d0c-cf7cea25ffa5",
+        "from": "AGENT",
+        "payload": {
+          "toolCallId": "call_d6f6a58e532b4dcd95188fb4",
+          "toolName": "addNumbers",
+          "args": {
+            "a": 17,
+            "b": 25
+          }
+        }
+      },
+      "tool-result": {
+        "type": "tool-result",
+        "runId": "2ffde944-ac24-437a-8d0c-cf7cea25ffa5",
+        "from": "AGENT",
+        "payload": {
+          "args": {
+            "a": 17,
+            "b": 25
+          },
+          "toolCallId": "call_d6f6a58e532b4dcd95188fb4",
+          "toolName": "addNumbers",
+          "result": {
+            "sum": 42
+          }
+        }
+      },
+      "step-finish": {
+        "type": "step-finish",
+        "runId": "2ffde944-ac24-437a-8d0c-cf7cea25ffa5",
+        "from": "AGENT",
+        "payload": {
+          "messageId": "fbe68ada-73da-4b26-9563-4865cedb69e3",
+          "stepResult": {
+            "reason": "tool-calls",
+            "rawReason": "tool_calls",
+            "isContinued": true
+          },
+          "metadata": {
+            "providerMetadata": {
+              "nearai": {}
+            },
+            "id": "3b30dce41ba145769034016fcb4fe9cf",
+            "timestamp": "2026-11-02T16:31:46.000Z",
+            "modelId": "z-ai/glm-5.3-flash",
+            "headers": {
+              "access-control-expose-headers": "*",
+              "alt-svc": "h3=\":8443\"; ma=86400",
+              "cache-control": "no-store",
+              "connection": "keep-alive",
+              "content-type": "text/event-stream",
+              "date": "Mon, 02 Nov 2026 16:31:46 GMT",
+              "inference-id": "9d55dcc3-9556-5f9c-8d0e-c3600539f47f",
+              "server": "nginx/1.29.1",
+              "transfer-encoding": "chunked",
+              "vary": "origin, access-control-request-headers",
+              "x-request-id": "b4e9bec2-6b48-4b2a-ac55-1c475182a591",
+              "x-serving-provider": "near"
+            },
+            "modelMetadata": {
+              "modelId": "z-ai/glm-5.3-flash",
+              "modelVersion": "v2",
+              "modelProvider": "nearai"
+            },
+            "request": {
+              "body": {
+                "model": "z-ai/glm-5.3-flash",
+                "max_tokens": 2048,
+                "messages": [
+                  {
+                    "role": "system",
+                    "content": "You are a precise assistant. Always use the provided tools for arithmetic and for the current time. Answer in one short sentence."
+                  },
+                  {
+                    "role": "user",
+                    "content": "What is 17 + 25, and what time is it right now in UTC? Use your tools."
+                  }
+                ],
+                "tools": [
+                  {
+                    "type": "function",
+                    "function": {
+                      "name": "addNumbers",
+                      "description": "Add two numbers and return the sum.",
+                      "parameters": {
+                        "$schema": "http://json-schema.org/draft-07/schema#",
+                        "type": "object",
+                        "properties": {
+                          "a": {
+                            "type": "number"
+                          },
+                          "b": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "a",
+                          "b"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  {
+                    "type": "function",
+                    "function": {
+                      "name": "getTime",
+                      "description": "Get the current time in UTC as an ISO 8601 string.",
+                      "parameters": {
+                        "$schema": "http://json-schema.org/draft-07/schema#",
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": false
+                      }
+                    }
+                  }
+                ],
+                "tool_choice": "auto",
+                "stream": true
+              }
+            }
+          },
+          "output": {
+            "text": "",
+            "toolCalls": [
+              {
+                "toolCallId": "call_d6f6a58e532b4dcd95188fb4",
+                "toolName": "addNumbers",
+                "args": {
+                  "a": 17,
+                  "b": 25
+                }
+              },
+              {
+                "toolCallId": "call_65fdf573608c457a93960e8a",
+                "toolName": "getTime",
+                "args": {}
+              }
+            ],
+            "usage": {
+              "raw": {
+                "inputTokens": {},
+                "outputTokens": {}
+              }
+            },
+            "steps": [
+              {
+                "content": [
+                  {
+                    "type": "reasoning",
+                    "text": "The user asks for 17 + 25 and the current UTC time. These are independent calls, so I should make both in the same block.",
+                    "providerOptions": {
+                      "mastra": {
+                        "createdAt": 1793637107974
+                      }
+                    }
+                  },
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "call_d6f6a58e532b4dcd95188fb4",
+                    "toolName": "addNumbers",
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    }
+                  },
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "call_65fdf573608c457a93960e8a",
+                    "toolName": "getTime",
+                    "input": {}
+                  },
+                  {
+                    "type": "tool-result",
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    },
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "sum": 42
+                      }
+                    },
+                    "toolCallId": "call_d6f6a58e532b4dcd95188fb4",
+                    "toolName": "addNumbers"
+                  },
+                  {
+                    "type": "tool-result",
+                    "input": {},
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "utc": "2026-11-02T16:31:47.977Z"
+                      }
+                    },
+                    "toolCallId": "call_65fdf573608c457a93960e8a",
+                    "toolName": "getTime"
+                  }
+                ],
+                "usage": {
+                  "raw": {
+                    "inputTokens": {},
+                    "outputTokens": {}
+                  }
+                },
+                "warnings": [],
+                "request": {
+                  "body": {
+                    "model": "z-ai/glm-5.3-flash",
+                    "max_tokens": 2048,
+                    "messages": [
+                      {
+                        "role": "system",
+                        "content": "You are a precise assistant. Always use the provided tools for arithmetic and for the current time. Answer in one short sentence."
+                      },
+                      {
+                        "role": "user",
+                        "content": "What is 17 + 25, and what time is it right now in UTC? Use your tools."
+                      }
+                    ],
+                    "tools": [
+                      {
+                        "type": "function",
+                        "function": {
+                          "name": "addNumbers",
+                          "description": "Add two numbers and return the sum.",
+                          "parameters": {
+                            "$schema": "http://json-schema.org/draft-07/schema#",
+                            "type": "object",
+                            "properties": {
+                              "a": {
+                                "type": "number"
+                              },
+                              "b": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "a",
+                              "b"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      {
+                        "type": "function",
+                        "function": {
+                          "name": "getTime",
+                          "description": "Get the current time in UTC as an ISO 8601 string.",
+                          "parameters": {
+                            "$schema": "http://json-schema.org/draft-07/schema#",
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": false
+                          }
+                        }
+                      }
+                    ],
+                    "tool_choice": "auto",
+                    "stream": true
+                  }
+                },
+                "response": {
+                  "id": "3b30dce41ba145769034016fcb4fe9cf",
+                  "timestamp": "2026-11-02T16:31:46.000Z",
+                  "modelId": "z-ai/glm-5.3-flash",
+                  "headers": {
+                    "access-control-expose-headers": "*",
+                    "alt-svc": "h3=\":8443\"; ma=86400",
+                    "cache-control": "no-store",
+                    "connection": "keep-alive",
+                    "content-type": "text/event-stream",
+                    "date": "Mon, 02 Nov 2026 16:31:46 GMT",
+                    "inference-id": "9d55dcc3-9556-5f9c-8d0e-c3600539f47f",
+                    "server": "nginx/1.29.1",
+                    "transfer-encoding": "chunked",
+                    "vary": "origin, access-control-request-headers",
+                    "x-request-id": "b4e9bec2-6b48-4b2a-ac55-1c475182a591",
+                    "x-serving-provider": "near"
+                  },
+                  "messages": [
+                    {
+                      "role": "assistant",
+                      "content": [
+                        {
+                          "type": "reasoning",
+                          "text": "The user asks for 17 + 25 and the current UTC time. These are independent calls, so I should make both in the same block.",
+                          "providerOptions": {
+                            "mastra": {
+                              "createdAt": 1793637107974
+                            }
+                          }
+                        },
+                        {
+                          "type": "tool-call",
+                          "toolCallId": "call_d6f6a58e532b4dcd95188fb4",
+                          "toolName": "addNumbers",
+                          "input": {
+                            "a": 17,
+                            "b": 25
+                          },
+                          "providerOptions": {
+                            "mastra": {
+                              "createdAt": 1793637107974
+                            }
+                          }
+                        },
+                        {
+                          "type": "tool-call",
+                          "toolCallId": "call_65fdf573608c457a93960e8a",
+                          "toolName": "getTime",
+                          "input": {},
+                          "providerOptions": {
+                            "mastra": {
+                              "createdAt": 1793637107974
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "role": "tool",
+                      "content": []
+                    }
+                  ]
+                },
+                "providerMetadata": {
+                  "nearai": {}
+                }
+              },
+              {
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "17 + 25 = 42, and the current UTC time is 2026-11-02T16:31:47Z.",
+                    "providerOptions": {
+                      "mastra": {
+                        "createdAt": 1793637109384
+                      }
+                    }
+                  }
+                ],
+                "usage": {
+                  "raw": {
+                    "inputTokens": {},
+                    "outputTokens": {}
+                  }
+                },
+                "warnings": [],
+                "request": {
+                  "body": {
+                    "model": "z-ai/glm-5.3-flash",
+                    "max_tokens": 2048,
+                    "messages": [
+                      {
+                        "role": "system",
+                        "content": "You are a precise assistant. Always use the provided tools for arithmetic and for the current time. Answer in one short sentence."
+                      },
+                      {
+                        "role": "user",
+                        "content": "What is 17 + 25, and what time is it right now in UTC? Use your tools."
+                      },
+                      {
+                        "role": "assistant",
+                        "content": null,
+                        "reasoning_content": "The user asks for 17 + 25 and the current UTC time. These are independent calls, so I should make both in the same block.",
+                        "tool_calls": [
+                          {
+                            "id": "call_d6f6a58e532b4dcd95188fb4",
+                            "type": "function",
+                            "function": {
+                              "name": "addNumbers",
+                              "arguments": "{\"a\":17,\"b\":25}"
+                            }
+                          },
+                          {
+                            "id": "call_65fdf573608c457a93960e8a",
+                            "type": "function",
+                            "function": {
+                              "name": "getTime",
+                              "arguments": "{}"
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "role": "tool",
+                        "tool_call_id": "call_d6f6a58e532b4dcd95188fb4",
+                        "content": "{\"sum\":42}"
+                      },
+                      {
+                        "role": "tool",
+                        "tool_call_id": "call_65fdf573608c457a93960e8a",
+                        "content": "{\"utc\":\"2026-11-02T16:31:47.977Z\"}"
+                      }
+                    ],
+                    "tools": [
+                      {
+                        "type": "function",
+                        "function": {
+                          "name": "addNumbers",
+                          "description": "Add two numbers and return the sum.",
+                          "parameters": {
+                            "$schema": "http://json-schema.org/draft-07/schema#",
+                            "type": "object",
+                            "properties": {
+                              "a": {
+                                "type": "number"
+                              },
+                              "b": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "a",
+                              "b"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      {
+                        "type": "function",
+                        "function": {
+                          "name": "getTime",
+                          "description": "Get the current time in UTC as an ISO 8601 string.",
+                          "parameters": {
+                            "$schema": "http://json-schema.org/draft-07/schema#",
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": false
+                          }
+                        }
+                      }
+                    ],
+                    "tool_choice": "auto",
+                    "stream": true
+                  }
+                },
+                "response": {
+                  "id": "9b66fc10a31e459ab00f18847265acb9",
+                  "timestamp": "2026-11-02T16:31:48.000Z",
+                  "modelId": "z-ai/glm-5.3-flash",
+                  "headers": {
+                    "access-control-expose-headers": "*",
+                    "alt-svc": "h3=\":8443\"; ma=86400",
+                    "cache-control": "no-store",
+                    "connection": "keep-alive",
+                    "content-type": "text/event-stream",
+                    "date": "Mon, 02 Nov 2026 16:31:48 GMT",
+                    "inference-id": "bef3c1aa-1010-5a31-8a42-531fa9ea6848",
+                    "server": "nginx/1.29.1",
+                    "transfer-encoding": "chunked",
+                    "vary": "origin, access-control-request-headers",
+                    "x-request-id": "dfe5bfc6-edae-4fc6-9a2c-f055f9e31560",
+                    "x-serving-provider": "near"
+                  },
+                  "messages": [
+                    {
+                      "role": "assistant",
+                      "content": [
+                        {
+                          "type": "reasoning",
+                          "text": "The user asks for 17 + 25 and the current UTC time. These are independent calls, so I should make both in the same block.",
+                          "providerOptions": {
+                            "mastra": {
+                              "createdAt": 1793637107974
+                            }
+                          }
+                        },
+                        {
+                          "type": "tool-call",
+                          "toolCallId": "call_d6f6a58e532b4dcd95188fb4",
+                          "toolName": "addNumbers",
+                          "input": {
+                            "a": 17,
+                            "b": 25
+                          }
+                        },
+                        {
+                          "type": "tool-call",
+                          "toolCallId": "call_65fdf573608c457a93960e8a",
+                          "toolName": "getTime",
+                          "input": {}
+                        }
+                      ]
+                    },
+                    {
+                      "role": "tool",
+                      "content": [
+                        {
+                          "type": "tool-result",
+                          "toolCallId": "call_d6f6a58e532b4dcd95188fb4",
+                          "toolName": "addNumbers",
+                          "output": {
+                            "type": "json",
+                            "value": {
+                              "sum": 42
+                            }
+                          },
+                          "input": {
+                            "a": 17,
+                            "b": 25
+                          }
+                        },
+                        {
+                          "type": "tool-result",
+                          "toolCallId": "call_65fdf573608c457a93960e8a",
+                          "toolName": "getTime",
+                          "output": {
+                            "type": "json",
+                            "value": {
+                              "utc": "2026-11-02T16:31:47.977Z"
+                            }
+                          },
+                          "input": {}
+                        }
+                      ]
+                    },
+                    {
+                      "role": "assistant",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "17 + 25 = 42, and the current UTC time is 2026-11-02T16:31:47Z.",
+                          "providerOptions": {
+                            "mastra": {
+                              "createdAt": 1793637109384
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "providerMetadata": {
+                  "nearai": {}
+                }
+              }
+            ]
+          },
+          "messages": {
+            "all": [
+              {
+                "role": "user",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "What is 17 + 25, and what time is it right now in UTC? Use your tools.",
+                    "providerOptions": {
+                      "mastra": {
+                        "createdAt": 1793637104959
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "assistant",
+                "content": [
+                  {
+                    "type": "reasoning",
+                    "text": "The user asks for 17 + 25 and the current UTC time. These are independent calls, so I should make both in the same block.",
+                    "providerOptions": {
+                      "mastra": {
+                        "createdAt": 1793637107974
+                      }
+                    }
+                  },
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "call_d6f6a58e532b4dcd95188fb4",
+                    "toolName": "addNumbers",
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    }
+                  },
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "call_65fdf573608c457a93960e8a",
+                    "toolName": "getTime",
+                    "input": {}
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "content": [
+                  {
+                    "type": "tool-result",
+                    "toolCallId": "call_d6f6a58e532b4dcd95188fb4",
+                    "toolName": "addNumbers",
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "sum": 42
+                      }
+                    },
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    }
+                  },
+                  {
+                    "type": "tool-result",
+                    "toolCallId": "call_65fdf573608c457a93960e8a",
+                    "toolName": "getTime",
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "utc": "2026-11-02T16:31:47.977Z"
+                      }
+                    },
+                    "input": {}
+                  }
+                ]
+              }
+            ],
+            "user": [
+              {
+                "role": "user",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "What is 17 + 25, and what time is it right now in UTC? Use your tools.",
+                    "providerOptions": {
+                      "mastra": {
+                        "createdAt": 1793637104959
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "nonUser": [
+              {
+                "role": "assistant",
+                "content": [
+                  {
+                    "type": "reasoning",
+                    "text": "The user asks for 17 + 25 and the current UTC time. These are independent calls, so I should make both in the same block.",
+                    "providerOptions": {
+                      "mastra": {
+                        "createdAt": 1793637107974
+                      }
+                    }
+                  },
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "call_d6f6a58e532b4dcd95188fb4",
+                    "toolName": "addNumbers",
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    }
+                  },
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "call_65fdf573608c457a93960e8a",
+                    "toolName": "getTime",
+                    "input": {}
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "content": [
+                  {
+                    "type": "tool-result",
+                    "toolCallId": "call_d6f6a58e532b4dcd95188fb4",
+                    "toolName": "addNumbers",
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "sum": 42
+                      }
+                    },
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    }
+                  },
+                  {
+                    "type": "tool-result",
+                    "toolCallId": "call_65fdf573608c457a93960e8a",
+                    "toolName": "getTime",
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "utc": "2026-11-02T16:31:47.977Z"
+                      }
+                    },
+                    "input": {}
+                  }
+                ]
+              }
+            ]
+          },
+          "processorRetryCount": 0
+        }
+      },
+      "text-start": {
+        "type": "text-start",
+        "runId": "2ffde944-ac24-437a-8d0c-cf7cea25ffa5",
+        "from": "AGENT",
+        "payload": {
+          "id": "txt-0"
+        }
+      },
+      "text-delta": {
+        "type": "text-delta",
+        "runId": "2ffde944-ac24-437a-8d0c-cf7cea25ffa5",
+        "from": "AGENT",
+        "payload": {
+          "id": "txt-0",
+          "text": "17 +"
+        }
+      },
+      "text-end": {
+        "type": "text-end",
+        "runId": "2ffde944-ac24-437a-8d0c-cf7cea25ffa5",
+        "from": "AGENT",
+        "payload": {
+          "type": "text-end",
+          "id": "txt-0"
+        }
+      },
+      "finish": {
+        "type": "finish",
+        "runId": "2ffde944-ac24-437a-8d0c-cf7cea25ffa5",
+        "from": "AGENT",
+        "payload": {
+          "messageId": "fbe68ada-73da-4b26-9563-4865cedb69e3",
+          "stepResult": {
+            "reason": "stop",
+            "rawReason": "stop",
+            "isContinued": false
+          },
+          "metadata": {
+            "providerMetadata": {
+              "nearai": {}
+            },
+            "id": "9b66fc10a31e459ab00f18847265acb9",
+            "timestamp": "2026-11-02T16:31:48.000Z",
+            "modelId": "z-ai/glm-5.3-flash",
+            "headers": {
+              "access-control-expose-headers": "*",
+              "alt-svc": "h3=\":8443\"; ma=86400",
+              "cache-control": "no-store",
+              "connection": "keep-alive",
+              "content-type": "text/event-stream",
+              "date": "Mon, 02 Nov 2026 16:31:48 GMT",
+              "inference-id": "bef3c1aa-1010-5a31-8a42-531fa9ea6848",
+              "server": "nginx/1.29.1",
+              "transfer-encoding": "chunked",
+              "vary": "origin, access-control-request-headers",
+              "x-request-id": "dfe5bfc6-edae-4fc6-9a2c-f055f9e31560",
+              "x-serving-provider": "near"
+            },
+            "modelMetadata": {
+              "modelId": "z-ai/glm-5.3-flash",
+              "modelVersion": "v2",
+              "modelProvider": "nearai"
+            },
+            "request": {
+              "body": {
+                "model": "z-ai/glm-5.3-flash",
+                "max_tokens": 2048,
+                "messages": [
+                  {
+                    "role": "system",
+                    "content": "You are a precise assistant. Always use the provided tools for arithmetic and for the current time. Answer in one short sentence."
+                  },
+                  {
+                    "role": "user",
+                    "content": "What is 17 + 25, and what time is it right now in UTC? Use your tools."
+                  },
+                  {
+                    "role": "assistant",
+                    "content": null,
+                    "reasoning_content": "The user asks for 17 + 25 and the current UTC time. These are independent calls, so I should make both in the same block.",
+                    "tool_calls": [
+                      {
+                        "id": "call_d6f6a58e532b4dcd95188fb4",
+                        "type": "function",
+                        "function": {
+                          "name": "addNumbers",
+                          "arguments": "{\"a\":17,\"b\":25}"
+                        }
+                      },
+                      {
+                        "id": "call_65fdf573608c457a93960e8a",
+                        "type": "function",
+                        "function": {
+                          "name": "getTime",
+                          "arguments": "{}"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "role": "tool",
+                    "tool_call_id": "call_d6f6a58e532b4dcd95188fb4",
+                    "content": "{\"sum\":42}"
+                  },
+                  {
+                    "role": "tool",
+                    "tool_call_id": "call_65fdf573608c457a93960e8a",
+                    "content": "{\"utc\":\"2026-11-02T16:31:47.977Z\"}"
+                  }
+                ],
+                "tools": [
+                  {
+                    "type": "function",
+                    "function": {
+                      "name": "addNumbers",
+                      "description": "Add two numbers and return the sum.",
+                      "parameters": {
+                        "$schema": "http://json-schema.org/draft-07/schema#",
+                        "type": "object",
+                        "properties": {
+                          "a": {
+                            "type": "number"
+                          },
+                          "b": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "a",
+                          "b"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  {
+                    "type": "function",
+                    "function": {
+                      "name": "getTime",
+                      "description": "Get the current time in UTC as an ISO 8601 string.",
+                      "parameters": {
+                        "$schema": "http://json-schema.org/draft-07/schema#",
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": false
+                      }
+                    }
+                  }
+                ],
+                "tool_choice": "auto",
+                "stream": true
+              }
+            }
+          },
+          "output": {
+            "text": "17 + 25 = 42, and the current UTC time is 2026-11-02T16:31:47Z.",
+            "toolCalls": [],
+            "usage": {
+              "raw": {
+                "inputTokens": {},
+                "outputTokens": {}
+              }
+            },
+            "steps": [
+              {
+                "content": [
+                  {
+                    "type": "reasoning",
+                    "text": "The user asks for 17 + 25 and the current UTC time. These are independent calls, so I should make both in the same block.",
+                    "providerOptions": {
+                      "mastra": {
+                        "createdAt": 1793637107974
+                      }
+                    }
+                  },
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "call_d6f6a58e532b4dcd95188fb4",
+                    "toolName": "addNumbers",
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    }
+                  },
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "call_65fdf573608c457a93960e8a",
+                    "toolName": "getTime",
+                    "input": {}
+                  },
+                  {
+                    "type": "tool-result",
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    },
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "sum": 42
+                      }
+                    },
+                    "toolCallId": "call_d6f6a58e532b4dcd95188fb4",
+                    "toolName": "addNumbers"
+                  },
+                  {
+                    "type": "tool-result",
+                    "input": {},
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "utc": "2026-11-02T16:31:47.977Z"
+                      }
+                    },
+                    "toolCallId": "call_65fdf573608c457a93960e8a",
+                    "toolName": "getTime"
+                  }
+                ],
+                "usage": {
+                  "raw": {
+                    "inputTokens": {},
+                    "outputTokens": {}
+                  }
+                },
+                "warnings": [],
+                "request": {
+                  "body": {
+                    "model": "z-ai/glm-5.3-flash",
+                    "max_tokens": 2048,
+                    "messages": [
+                      {
+                        "role": "system",
+                        "content": "You are a precise assistant. Always use the provided tools for arithmetic and for the current time. Answer in one short sentence."
+                      },
+                      {
+                        "role": "user",
+                        "content": "What is 17 + 25, and what time is it right now in UTC? Use your tools."
+                      }
+                    ],
+                    "tools": [
+                      {
+                        "type": "function",
+                        "function": {
+                          "name": "addNumbers",
+                          "description": "Add two numbers and return the sum.",
+                          "parameters": {
+                            "$schema": "http://json-schema.org/draft-07/schema#",
+                            "type": "object",
+                            "properties": {
+                              "a": {
+                                "type": "number"
+                              },
+                              "b": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "a",
+                              "b"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      {
+                        "type": "function",
+                        "function": {
+                          "name": "getTime",
+                          "description": "Get the current time in UTC as an ISO 8601 string.",
+                          "parameters": {
+                            "$schema": "http://json-schema.org/draft-07/schema#",
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": false
+                          }
+                        }
+                      }
+                    ],
+                    "tool_choice": "auto",
+                    "stream": true
+                  }
+                },
+                "response": {
+                  "id": "3b30dce41ba145769034016fcb4fe9cf",
+                  "timestamp": "2026-11-02T16:31:46.000Z",
+                  "modelId": "z-ai/glm-5.3-flash",
+                  "headers": {
+                    "access-control-expose-headers": "*",
+                    "alt-svc": "h3=\":8443\"; ma=86400",
+                    "cache-control": "no-store",
+                    "connection": "keep-alive",
+                    "content-type": "text/event-stream",
+                    "date": "Mon, 02 Nov 2026 16:31:46 GMT",
+                    "inference-id": "9d55dcc3-9556-5f9c-8d0e-c3600539f47f",
+                    "server": "nginx/1.29.1",
+                    "transfer-encoding": "chunked",
+                    "vary": "origin, access-control-request-headers",
+                    "x-request-id": "b4e9bec2-6b48-4b2a-ac55-1c475182a591",
+                    "x-serving-provider": "near"
+                  },
+                  "messages": [
+                    {
+                      "role": "assistant",
+                      "content": [
+                        {
+                          "type": "reasoning",
+                          "text": "The user asks for 17 + 25 and the current UTC time. These are independent calls, so I should make both in the same block.",
+                          "providerOptions": {
+                            "mastra": {
+                              "createdAt": 1793637107974
+                            }
+                          }
+                        },
+                        {
+                          "type": "tool-call",
+                          "toolCallId": "call_d6f6a58e532b4dcd95188fb4",
+                          "toolName": "addNumbers",
+                          "input": {
+                            "a": 17,
+                            "b": 25
+                          },
+                          "providerOptions": {
+                            "mastra": {
+                              "createdAt": 1793637107974
+                            }
+                          }
+                        },
+                        {
+                          "type": "tool-call",
+                          "toolCallId": "call_65fdf573608c457a93960e8a",
+                          "toolName": "getTime",
+                          "input": {},
+                          "providerOptions": {
+                            "mastra": {
+                              "createdAt": 1793637107974
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "role": "tool",
+                      "content": []
+                    }
+                  ]
+                },
+                "providerMetadata": {
+                  "nearai": {}
+                }
+              },
+              {
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "17 + 25 = 42, and the current UTC time is 2026-11-02T16:31:47Z.",
+                    "providerOptions": {
+                      "mastra": {
+                        "createdAt": 1793637109384
+                      }
+                    }
+                  }
+                ],
+                "usage": {
+                  "raw": {
+                    "inputTokens": {},
+                    "outputTokens": {}
+                  }
+                },
+                "warnings": [],
+                "request": {
+                  "body": {
+                    "model": "z-ai/glm-5.3-flash",
+                    "max_tokens": 2048,
+                    "messages": [
+                      {
+                        "role": "system",
+                        "content": "You are a precise assistant. Always use the provided tools for arithmetic and for the current time. Answer in one short sentence."
+                      },
+                      {
+                        "role": "user",
+                        "content": "What is 17 + 25, and what time is it right now in UTC? Use your tools."
+                      },
+                      {
+                        "role": "assistant",
+                        "content": null,
+                        "reasoning_content": "The user asks for 17 + 25 and the current UTC time. These are independent calls, so I should make both in the same block.",
+                        "tool_calls": [
+                          {
+                            "id": "call_d6f6a58e532b4dcd95188fb4",
+                            "type": "function",
+                            "function": {
+                              "name": "addNumbers",
+                              "arguments": "{\"a\":17,\"b\":25}"
+                            }
+                          },
+                          {
+                            "id": "call_65fdf573608c457a93960e8a",
+                            "type": "function",
+                            "function": {
+                              "name": "getTime",
+                              "arguments": "{}"
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "role": "tool",
+                        "tool_call_id": "call_d6f6a58e532b4dcd95188fb4",
+                        "content": "{\"sum\":42}"
+                      },
+                      {
+                        "role": "tool",
+                        "tool_call_id": "call_65fdf573608c457a93960e8a",
+                        "content": "{\"utc\":\"2026-11-02T16:31:47.977Z\"}"
+                      }
+                    ],
+                    "tools": [
+                      {
+                        "type": "function",
+                        "function": {
+                          "name": "addNumbers",
+                          "description": "Add two numbers and return the sum.",
+                          "parameters": {
+                            "$schema": "http://json-schema.org/draft-07/schema#",
+                            "type": "object",
+                            "properties": {
+                              "a": {
+                                "type": "number"
+                              },
+                              "b": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "a",
+                              "b"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      {
+                        "type": "function",
+                        "function": {
+                          "name": "getTime",
+                          "description": "Get the current time in UTC as an ISO 8601 string.",
+                          "parameters": {
+                            "$schema": "http://json-schema.org/draft-07/schema#",
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": false
+                          }
+                        }
+                      }
+                    ],
+                    "tool_choice": "auto",
+                    "stream": true
+                  }
+                },
+                "response": {
+                  "id": "9b66fc10a31e459ab00f18847265acb9",
+                  "timestamp": "2026-11-02T16:31:48.000Z",
+                  "modelId": "z-ai/glm-5.3-flash",
+                  "headers": {
+                    "access-control-expose-headers": "*",
+                    "alt-svc": "h3=\":8443\"; ma=86400",
+                    "cache-control": "no-store",
+                    "connection": "keep-alive",
+                    "content-type": "text/event-stream",
+                    "date": "Mon, 02 Nov 2026 16:31:48 GMT",
+                    "inference-id": "bef3c1aa-1010-5a31-8a42-531fa9ea6848",
+                    "server": "nginx/1.29.1",
+                    "transfer-encoding": "chunked",
+                    "vary": "origin, access-control-request-headers",
+                    "x-request-id": "dfe5bfc6-edae-4fc6-9a2c-f055f9e31560",
+                    "x-serving-provider": "near"
+                  },
+                  "messages": [
+                    {
+                      "role": "assistant",
+                      "content": [
+                        {
+                          "type": "reasoning",
+                          "text": "The user asks for 17 + 25 and the current UTC time. These are independent calls, so I should make both in the same block.",
+                          "providerOptions": {
+                            "mastra": {
+                              "createdAt": 1793637107974
+                            }
+                          }
+                        },
+                        {
+                          "type": "tool-call",
+                          "toolCallId": "call_d6f6a58e532b4dcd95188fb4",
+                          "toolName": "addNumbers",
+                          "input": {
+                            "a": 17,
+                            "b": 25
+                          }
+                        },
+                        {
+                          "type": "tool-call",
+                          "toolCallId": "call_65fdf573608c457a93960e8a",
+                          "toolName": "getTime",
+                          "input": {}
+                        }
+                      ]
+                    },
+                    {
+                      "role": "tool",
+                      "content": [
+                        {
+                          "type": "tool-result",
+                          "toolCallId": "call_d6f6a58e532b4dcd95188fb4",
+                          "toolName": "addNumbers",
+                          "output": {
+                            "type": "json",
+                            "value": {
+                              "sum": 42
+                            }
+                          },
+                          "input": {
+                            "a": 17,
+                            "b": 25
+                          }
+                        },
+                        {
+                          "type": "tool-result",
+                          "toolCallId": "call_65fdf573608c457a93960e8a",
+                          "toolName": "getTime",
+                          "output": {
+                            "type": "json",
+                            "value": {
+                              "utc": "2026-11-02T16:31:47.977Z"
+                            }
+                          },
+                          "input": {}
+                        }
+                      ]
+                    },
+                    {
+                      "role": "assistant",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "17 + 25 = 42, and the current UTC time is 2026-11-02T16:31:47Z.",
+                          "providerOptions": {
+                            "mastra": {
+                              "createdAt": 1793637109384
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "providerMetadata": {
+                  "nearai": {}
+                }
+              }
+            ]
+          },
+          "messages": {
+            "all": [
+              {
+                "role": "user",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "What is 17 + 25, and what time is it right now in UTC? Use your tools.",
+                    "providerOptions": {
+                      "mastra": {
+                        "createdAt": 1793637104959
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "assistant",
+                "content": [
+                  {
+                    "type": "reasoning",
+                    "text": "The user asks for 17 + 25 and the current UTC time. These are independent calls, so I should make both in the same block.",
+                    "providerOptions": {
+                      "mastra": {
+                        "createdAt": 1793637107974
+                      }
+                    }
+                  },
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "call_d6f6a58e532b4dcd95188fb4",
+                    "toolName": "addNumbers",
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    }
+                  },
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "call_65fdf573608c457a93960e8a",
+                    "toolName": "getTime",
+                    "input": {}
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "content": [
+                  {
+                    "type": "tool-result",
+                    "toolCallId": "call_d6f6a58e532b4dcd95188fb4",
+                    "toolName": "addNumbers",
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "sum": 42
+                      }
+                    },
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    }
+                  },
+                  {
+                    "type": "tool-result",
+                    "toolCallId": "call_65fdf573608c457a93960e8a",
+                    "toolName": "getTime",
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "utc": "2026-11-02T16:31:47.977Z"
+                      }
+                    },
+                    "input": {}
+                  }
+                ]
+              },
+              {
+                "role": "assistant",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "17 + 25 = 42, and the current UTC time is 2026-11-02T16:31:47Z.",
+                    "providerOptions": {
+                      "mastra": {
+                        "createdAt": 1793637109384
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "user": [
+              {
+                "role": "user",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "What is 17 + 25, and what time is it right now in UTC? Use your tools.",
+                    "providerOptions": {
+                      "mastra": {
+                        "createdAt": 1793637104959
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "nonUser": [
+              {
+                "role": "assistant",
+                "content": [
+                  {
+                    "type": "reasoning",
+                    "text": "The user asks for 17 + 25 and the current UTC time. These are independent calls, so I should make both in the same block.",
+                    "providerOptions": {
+                      "mastra": {
+                        "createdAt": 1793637107974
+                      }
+                    }
+                  },
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "call_d6f6a58e532b4dcd95188fb4",
+                    "toolName": "addNumbers",
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    }
+                  },
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "call_65fdf573608c457a93960e8a",
+                    "toolName": "getTime",
+                    "input": {}
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "content": [
+                  {
+                    "type": "tool-result",
+                    "toolCallId": "call_d6f6a58e532b4dcd95188fb4",
+                    "toolName": "addNumbers",
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "sum": 42
+                      }
+                    },
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    }
+                  },
+                  {
+                    "type": "tool-result",
+                    "toolCallId": "call_65fdf573608c457a93960e8a",
+                    "toolName": "getTime",
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "utc": "2026-11-02T16:31:47.977Z"
+                      }
+                    },
+                    "input": {}
+                  }
+                ]
+              },
+              {
+                "role": "assistant",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "17 + 25 = 42, and the current UTC time is 2026-11-02T16:31:47Z.",
+                    "providerOptions": {
+                      "mastra": {
+                        "createdAt": 1793637109384
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "processorRetryCount": 0
+        }
+      }
+    },
+    "verdict": {
+      "addOk": true,
+      "timeOk": true,
+      "answerOk": true,
+      "pass": true
+    }
+  },
+  {
+    "model": "nearai/deepseek-ai/DeepSeek-V4.1-Flash-1017",
+    "ms": 3408,
+    "finishReason": "stop",
+    "usage": {
+      "raw": {
+        "inputTokens": {},
+        "outputTokens": {}
+      }
+    },
+    "chunkCounts": {
+      "start": 1,
+      "step-start": 2,
+      "tool-call-input-streaming-start": 2,
+      "tool-call-delta": 4,
+      "tool-call-input-streaming-end": 2,
+      "tool-call": 2,
+      "tool-result": 2,
+      "step-finish": 2,
+      "text-start": 1,
+      "text-delta": 8,
+      "text-end": 1,
+      "finish": 1
+    },
+    "toolCalls": [
+      {
+        "toolName": "addNumbers",
+        "args": {
+          "a": 17,
+          "b": 25
+        }
+      },
+      {
+        "toolName": "getTime",
+        "args": {}
+      }
+    ],
+    "toolResults": [
+      {
+        "toolName": "addNumbers",
+        "result": {
+          "sum": 42
+        }
+      },
+      {
+        "toolName": "getTime",
+        "result": {
+          "utc": "2026-11-02T16:31:51.886Z"
+        }
+      }
+    ],
+    "executed": [
+      {
+        "tool": "add_numbers",
+        "input": {
+          "a": 17,
+          "b": 25
+        }
+      },
+      {
+        "tool": "get_time",
+        "input": {}
+      }
+    ],
+    "reasoningChars": 0,
+    "text": "17 + 25 = 42, and the current UTC time is 2026-11-02T16:31:51.886Z.",
+    "samples": {
+      "start": {
+        "type": "start",
+        "runId": "655a53be-21fd-46ef-bcae-29dfe243f2f9",
+        "from": "AGENT",
+        "payload": {
+          "id": "spike-agent",
+          "messageId": "27918c56-efcd-4a82-8a9f-f6bd377dd847"
+        }
+      },
+      "step-start": {
+        "runId": "655a53be-21fd-46ef-bcae-29dfe243f2f9",
+        "from": "AGENT",
+        "type": "step-start",
+        "payload": {
+          "request": {
+            "body": {
+              "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+              "max_tokens": 2048,
+              "messages": [
+                {
+                  "role": "system",
+                  "content": "You are a precise assistant. Always use the provided tools for arithmetic and for the current time. Answer in one short sentence."
+                },
+                {
+                  "role": "user",
+                  "content": "What is 17 + 25, and what time is it right now in UTC? Use your tools."
+                }
+              ],
+              "tools": [
+                {
+                  "type": "function",
+                  "function": {
+                    "name": "addNumbers",
+                    "description": "Add two numbers and return the sum.",
+                    "parameters": {
+                      "$schema": "http://json-schema.org/draft-07/schema#",
+                      "type": "object",
+                      "properties": {
+                        "a": {
+                          "type": "number"
+                        },
+                        "b": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "a",
+                        "b"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                {
+                  "type": "function",
+                  "function": {
+                    "name": "getTime",
+                    "description": "Get the current time in UTC as an ISO 8601 string.",
+                    "parameters": {
+                      "$schema": "http://json-schema.org/draft-07/schema#",
+                      "type": "object",
+                      "properties": {},
+                      "additionalProperties": false,
+                      "required": []
+                    }
+                  }
+                }
+              ],
+              "tool_choice": "auto",
+              "stream": true
+            }
+          },
+          "warnings": [],
+          "messageId": "27918c56-efcd-4a82-8a9f-f6bd377dd847",
+          "startedAt": 1793637109391,
+          "modelId": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+          "provider": "nearai"
+        }
+      },
+      "tool-call-input-streaming-start": {
+        "type": "tool-call-input-streaming-start",
+        "runId": "655a53be-21fd-46ef-bcae-29dfe243f2f9",
+        "from": "AGENT",
+        "payload": {
+          "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0",
+          "toolName": "addNumbers"
+        }
+      },
+      "tool-call-delta": {
+        "type": "tool-call-delta",
+        "runId": "655a53be-21fd-46ef-bcae-29dfe243f2f9",
+        "from": "AGENT",
+        "payload": {
+          "argsTextDelta": "{\"a\": ",
+          "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0",
+          "toolName": "addNumbers"
+        }
+      },
+      "tool-call-input-streaming-end": {
+        "type": "tool-call-input-streaming-end",
+        "runId": "655a53be-21fd-46ef-bcae-29dfe243f2f9",
+        "from": "AGENT",
+        "payload": {
+          "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0"
+        }
+      },
+      "tool-call": {
+        "type": "tool-call",
+        "runId": "655a53be-21fd-46ef-bcae-29dfe243f2f9",
+        "from": "AGENT",
+        "payload": {
+          "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0",
+          "toolName": "addNumbers",
+          "args": {
+            "a": 17,
+            "b": 25
+          }
+        }
+      },
+      "tool-result": {
+        "type": "tool-result",
+        "runId": "655a53be-21fd-46ef-bcae-29dfe243f2f9",
+        "from": "AGENT",
+        "payload": {
+          "args": {
+            "a": 17,
+            "b": 25
+          },
+          "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0",
+          "toolName": "addNumbers",
+          "result": {
+            "sum": 42
+          }
+        }
+      },
+      "step-finish": {
+        "type": "step-finish",
+        "runId": "655a53be-21fd-46ef-bcae-29dfe243f2f9",
+        "from": "AGENT",
+        "payload": {
+          "messageId": "27918c56-efcd-4a82-8a9f-f6bd377dd847",
+          "stepResult": {
+            "reason": "tool-calls",
+            "rawReason": "tool_calls",
+            "isContinued": true
+          },
+          "metadata": {
+            "providerMetadata": {
+              "nearai": {}
+            },
+            "id": "chatcmpl-df80fac8-6729-4d70-a741-121316174b3a",
+            "timestamp": "2026-11-02T16:31:50.000Z",
+            "modelId": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+            "headers": {
+              "access-control-expose-headers": "*",
+              "alt-svc": "h3=\":8443\"; ma=86400",
+              "cache-control": "no-store",
+              "connection": "keep-alive",
+              "content-type": "text/event-stream",
+              "date": "Mon, 02 Nov 2026 16:31:51 GMT",
+              "inference-id": "cd792cd5-1a4a-5149-b5cc-6e71d6b9dade",
+              "server": "nginx/1.29.1",
+              "transfer-encoding": "chunked",
+              "vary": "origin, access-control-request-headers",
+              "x-request-id": "df80fac8-6729-4d70-a741-121316174b3a",
+              "x-serving-provider": "near"
+            },
+            "modelMetadata": {
+              "modelId": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+              "modelVersion": "v2",
+              "modelProvider": "nearai"
+            },
+            "request": {
+              "body": {
+                "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+                "max_tokens": 2048,
+                "messages": [
+                  {
+                    "role": "system",
+                    "content": "You are a precise assistant. Always use the provided tools for arithmetic and for the current time. Answer in one short sentence."
+                  },
+                  {
+                    "role": "user",
+                    "content": "What is 17 + 25, and what time is it right now in UTC? Use your tools."
+                  }
+                ],
+                "tools": [
+                  {
+                    "type": "function",
+                    "function": {
+                      "name": "addNumbers",
+                      "description": "Add two numbers and return the sum.",
+                      "parameters": {
+                        "$schema": "http://json-schema.org/draft-07/schema#",
+                        "type": "object",
+                        "properties": {
+                          "a": {
+                            "type": "number"
+                          },
+                          "b": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "a",
+                          "b"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  {
+                    "type": "function",
+                    "function": {
+                      "name": "getTime",
+                      "description": "Get the current time in UTC as an ISO 8601 string.",
+                      "parameters": {
+                        "$schema": "http://json-schema.org/draft-07/schema#",
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": false,
+                        "required": []
+                      }
+                    }
+                  }
+                ],
+                "tool_choice": "auto",
+                "stream": true
+              }
+            }
+          },
+          "output": {
+            "text": "",
+            "toolCalls": [
+              {
+                "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0",
+                "toolName": "addNumbers",
+                "args": {
+                  "a": 17,
+                  "b": 25
+                }
+              },
+              {
+                "toolCallId": "chatcmpl-tool-908150b279710a39",
+                "toolName": "getTime",
+                "args": {}
+              }
+            ],
+            "usage": {
+              "raw": {
+                "inputTokens": {},
+                "outputTokens": {}
+              }
+            },
+            "steps": [
+              {
+                "content": [
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0",
+                    "toolName": "addNumbers",
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    }
+                  },
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "chatcmpl-tool-908150b279710a39",
+                    "toolName": "getTime",
+                    "input": {}
+                  },
+                  {
+                    "type": "tool-result",
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    },
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "sum": 42
+                      }
+                    },
+                    "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0",
+                    "toolName": "addNumbers"
+                  },
+                  {
+                    "type": "tool-result",
+                    "input": {},
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "utc": "2026-11-02T16:31:51.886Z"
+                      }
+                    },
+                    "toolCallId": "chatcmpl-tool-908150b279710a39",
+                    "toolName": "getTime"
+                  }
+                ],
+                "usage": {
+                  "raw": {
+                    "inputTokens": {},
+                    "outputTokens": {}
+                  }
+                },
+                "warnings": [],
+                "request": {
+                  "body": {
+                    "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+                    "max_tokens": 2048,
+                    "messages": [
+                      {
+                        "role": "system",
+                        "content": "You are a precise assistant. Always use the provided tools for arithmetic and for the current time. Answer in one short sentence."
+                      },
+                      {
+                        "role": "user",
+                        "content": "What is 17 + 25, and what time is it right now in UTC? Use your tools."
+                      }
+                    ],
+                    "tools": [
+                      {
+                        "type": "function",
+                        "function": {
+                          "name": "addNumbers",
+                          "description": "Add two numbers and return the sum.",
+                          "parameters": {
+                            "$schema": "http://json-schema.org/draft-07/schema#",
+                            "type": "object",
+                            "properties": {
+                              "a": {
+                                "type": "number"
+                              },
+                              "b": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "a",
+                              "b"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      {
+                        "type": "function",
+                        "function": {
+                          "name": "getTime",
+                          "description": "Get the current time in UTC as an ISO 8601 string.",
+                          "parameters": {
+                            "$schema": "http://json-schema.org/draft-07/schema#",
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": false,
+                            "required": []
+                          }
+                        }
+                      }
+                    ],
+                    "tool_choice": "auto",
+                    "stream": true
+                  }
+                },
+                "response": {
+                  "id": "chatcmpl-df80fac8-6729-4d70-a741-121316174b3a",
+                  "timestamp": "2026-11-02T16:31:50.000Z",
+                  "modelId": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+                  "headers": {
+                    "access-control-expose-headers": "*",
+                    "alt-svc": "h3=\":8443\"; ma=86400",
+                    "cache-control": "no-store",
+                    "connection": "keep-alive",
+                    "content-type": "text/event-stream",
+                    "date": "Mon, 02 Nov 2026 16:31:51 GMT",
+                    "inference-id": "cd792cd5-1a4a-5149-b5cc-6e71d6b9dade",
+                    "server": "nginx/1.29.1",
+                    "transfer-encoding": "chunked",
+                    "vary": "origin, access-control-request-headers",
+                    "x-request-id": "df80fac8-6729-4d70-a741-121316174b3a",
+                    "x-serving-provider": "near"
+                  },
+                  "messages": [
+                    {
+                      "role": "assistant",
+                      "content": [
+                        {
+                          "type": "tool-call",
+                          "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0",
+                          "toolName": "addNumbers",
+                          "input": {
+                            "a": 17,
+                            "b": 25
+                          },
+                          "providerOptions": {
+                            "mastra": {
+                              "createdAt": 1793637111885
+                            }
+                          }
+                        },
+                        {
+                          "type": "tool-call",
+                          "toolCallId": "chatcmpl-tool-908150b279710a39",
+                          "toolName": "getTime",
+                          "input": {},
+                          "providerOptions": {
+                            "mastra": {
+                              "createdAt": 1793637111885
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "role": "tool",
+                      "content": []
+                    }
+                  ]
+                },
+                "providerMetadata": {
+                  "nearai": {}
+                }
+              },
+              {
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "17 + 25 = 42, and the current UTC time is 2026-11-02T16:31:51.886Z.",
+                    "providerOptions": {
+                      "mastra": {
+                        "createdAt": 1793637112794
+                      }
+                    }
+                  }
+                ],
+                "usage": {
+                  "raw": {
+                    "inputTokens": {},
+                    "outputTokens": {}
+                  }
+                },
+                "warnings": [],
+                "request": {
+                  "body": {
+                    "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+                    "max_tokens": 2048,
+                    "messages": [
+                      {
+                        "role": "system",
+                        "content": "You are a precise assistant. Always use the provided tools for arithmetic and for the current time. Answer in one short sentence."
+                      },
+                      {
+                        "role": "user",
+                        "content": "What is 17 + 25, and what time is it right now in UTC? Use your tools."
+                      },
+                      {
+                        "role": "assistant",
+                        "content": null,
+                        "tool_calls": [
+                          {
+                            "id": "chatcmpl-tool-bc3ae65543f02fd0",
+                            "type": "function",
+                            "function": {
+                              "name": "addNumbers",
+                              "arguments": "{\"a\":17,\"b\":25}"
+                            }
+                          },
+                          {
+                            "id": "chatcmpl-tool-908150b279710a39",
+                            "type": "function",
+                            "function": {
+                              "name": "getTime",
+                              "arguments": "{}"
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "role": "tool",
+                        "tool_call_id": "chatcmpl-tool-bc3ae65543f02fd0",
+                        "content": "{\"sum\":42}"
+                      },
+                      {
+                        "role": "tool",
+                        "tool_call_id": "chatcmpl-tool-908150b279710a39",
+                        "content": "{\"utc\":\"2026-11-02T16:31:51.886Z\"}"
+                      }
+                    ],
+                    "tools": [
+                      {
+                        "type": "function",
+                        "function": {
+                          "name": "addNumbers",
+                          "description": "Add two numbers and return the sum.",
+                          "parameters": {
+                            "$schema": "http://json-schema.org/draft-07/schema#",
+                            "type": "object",
+                            "properties": {
+                              "a": {
+                                "type": "number"
+                              },
+                              "b": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "a",
+                              "b"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      {
+                        "type": "function",
+                        "function": {
+                          "name": "getTime",
+                          "description": "Get the current time in UTC as an ISO 8601 string.",
+                          "parameters": {
+                            "$schema": "http://json-schema.org/draft-07/schema#",
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": false,
+                            "required": []
+                          }
+                        }
+                      }
+                    ],
+                    "tool_choice": "auto",
+                    "stream": true
+                  }
+                },
+                "response": {
+                  "id": "chatcmpl-10ba29ce-693c-464c-bb7a-4c22629621d6",
+                  "timestamp": "2026-11-02T16:31:52.000Z",
+                  "modelId": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+                  "headers": {
+                    "access-control-expose-headers": "*",
+                    "alt-svc": "h3=\":8443\"; ma=86400",
+                    "cache-control": "no-store",
+                    "connection": "keep-alive",
+                    "content-type": "text/event-stream",
+                    "date": "Mon, 02 Nov 2026 16:31:52 GMT",
+                    "inference-id": "c5bc8967-4c28-54c5-8aed-0cb35347a756",
+                    "server": "nginx/1.29.1",
+                    "transfer-encoding": "chunked",
+                    "vary": "origin, access-control-request-headers",
+                    "x-request-id": "10ba29ce-693c-464c-bb7a-4c22629621d6",
+                    "x-serving-provider": "near"
+                  },
+                  "messages": [
+                    {
+                      "role": "assistant",
+                      "content": [
+                        {
+                          "type": "tool-call",
+                          "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0",
+                          "toolName": "addNumbers",
+                          "input": {
+                            "a": 17,
+                            "b": 25
+                          }
+                        },
+                        {
+                          "type": "tool-call",
+                          "toolCallId": "chatcmpl-tool-908150b279710a39",
+                          "toolName": "getTime",
+                          "input": {}
+                        }
+                      ]
+                    },
+                    {
+                      "role": "tool",
+                      "content": [
+                        {
+                          "type": "tool-result",
+                          "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0",
+                          "toolName": "addNumbers",
+                          "output": {
+                            "type": "json",
+                            "value": {
+                              "sum": 42
+                            }
+                          },
+                          "input": {
+                            "a": 17,
+                            "b": 25
+                          }
+                        },
+                        {
+                          "type": "tool-result",
+                          "toolCallId": "chatcmpl-tool-908150b279710a39",
+                          "toolName": "getTime",
+                          "output": {
+                            "type": "json",
+                            "value": {
+                              "utc": "2026-11-02T16:31:51.886Z"
+                            }
+                          },
+                          "input": {}
+                        }
+                      ]
+                    },
+                    {
+                      "role": "assistant",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "17 + 25 = 42, and the current UTC time is 2026-11-02T16:31:51.886Z.",
+                          "providerOptions": {
+                            "mastra": {
+                              "createdAt": 1793637112794
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "providerMetadata": {
+                  "nearai": {}
+                }
+              }
+            ]
+          },
+          "messages": {
+            "all": [
+              {
+                "role": "user",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "What is 17 + 25, and what time is it right now in UTC? Use your tools.",
+                    "providerOptions": {
+                      "mastra": {
+                        "createdAt": 1793637109389
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "assistant",
+                "content": [
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0",
+                    "toolName": "addNumbers",
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    }
+                  },
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "chatcmpl-tool-908150b279710a39",
+                    "toolName": "getTime",
+                    "input": {}
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "content": [
+                  {
+                    "type": "tool-result",
+                    "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0",
+                    "toolName": "addNumbers",
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "sum": 42
+                      }
+                    },
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    }
+                  },
+                  {
+                    "type": "tool-result",
+                    "toolCallId": "chatcmpl-tool-908150b279710a39",
+                    "toolName": "getTime",
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "utc": "2026-11-02T16:31:51.886Z"
+                      }
+                    },
+                    "input": {}
+                  }
+                ]
+              }
+            ],
+            "user": [
+              {
+                "role": "user",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "What is 17 + 25, and what time is it right now in UTC? Use your tools.",
+                    "providerOptions": {
+                      "mastra": {
+                        "createdAt": 1793637109389
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "nonUser": [
+              {
+                "role": "assistant",
+                "content": [
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0",
+                    "toolName": "addNumbers",
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    }
+                  },
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "chatcmpl-tool-908150b279710a39",
+                    "toolName": "getTime",
+                    "input": {}
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "content": [
+                  {
+                    "type": "tool-result",
+                    "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0",
+                    "toolName": "addNumbers",
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "sum": 42
+                      }
+                    },
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    }
+                  },
+                  {
+                    "type": "tool-result",
+                    "toolCallId": "chatcmpl-tool-908150b279710a39",
+                    "toolName": "getTime",
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "utc": "2026-11-02T16:31:51.886Z"
+                      }
+                    },
+                    "input": {}
+                  }
+                ]
+              }
+            ]
+          },
+          "processorRetryCount": 0
+        }
+      },
+      "text-start": {
+        "type": "text-start",
+        "runId": "655a53be-21fd-46ef-bcae-29dfe243f2f9",
+        "from": "AGENT",
+        "payload": {
+          "id": "txt-0"
+        }
+      },
+      "text-delta": {
+        "type": "text-delta",
+        "runId": "655a53be-21fd-46ef-bcae-29dfe243f2f9",
+        "from": "AGENT",
+        "payload": {
+          "id": "txt-0",
+          "text": "17 + 25"
+        }
+      },
+      "text-end": {
+        "type": "text-end",
+        "runId": "655a53be-21fd-46ef-bcae-29dfe243f2f9",
+        "from": "AGENT",
+        "payload": {
+          "type": "text-end",
+          "id": "txt-0"
+        }
+      },
+      "finish": {
+        "type": "finish",
+        "runId": "655a53be-21fd-46ef-bcae-29dfe243f2f9",
+        "from": "AGENT",
+        "payload": {
+          "messageId": "27918c56-efcd-4a82-8a9f-f6bd377dd847",
+          "stepResult": {
+            "reason": "stop",
+            "rawReason": "stop",
+            "isContinued": false
+          },
+          "metadata": {
+            "providerMetadata": {
+              "nearai": {}
+            },
+            "id": "chatcmpl-10ba29ce-693c-464c-bb7a-4c22629621d6",
+            "timestamp": "2026-11-02T16:31:52.000Z",
+            "modelId": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+            "headers": {
+              "access-control-expose-headers": "*",
+              "alt-svc": "h3=\":8443\"; ma=86400",
+              "cache-control": "no-store",
+              "connection": "keep-alive",
+              "content-type": "text/event-stream",
+              "date": "Mon, 02 Nov 2026 16:31:52 GMT",
+              "inference-id": "c5bc8967-4c28-54c5-8aed-0cb35347a756",
+              "server": "nginx/1.29.1",
+              "transfer-encoding": "chunked",
+              "vary": "origin, access-control-request-headers",
+              "x-request-id": "10ba29ce-693c-464c-bb7a-4c22629621d6",
+              "x-serving-provider": "near"
+            },
+            "modelMetadata": {
+              "modelId": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+              "modelVersion": "v2",
+              "modelProvider": "nearai"
+            },
+            "request": {
+              "body": {
+                "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+                "max_tokens": 2048,
+                "messages": [
+                  {
+                    "role": "system",
+                    "content": "You are a precise assistant. Always use the provided tools for arithmetic and for the current time. Answer in one short sentence."
+                  },
+                  {
+                    "role": "user",
+                    "content": "What is 17 + 25, and what time is it right now in UTC? Use your tools."
+                  },
+                  {
+                    "role": "assistant",
+                    "content": null,
+                    "tool_calls": [
+                      {
+                        "id": "chatcmpl-tool-bc3ae65543f02fd0",
+                        "type": "function",
+                        "function": {
+                          "name": "addNumbers",
+                          "arguments": "{\"a\":17,\"b\":25}"
+                        }
+                      },
+                      {
+                        "id": "chatcmpl-tool-908150b279710a39",
+                        "type": "function",
+                        "function": {
+                          "name": "getTime",
+                          "arguments": "{}"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "role": "tool",
+                    "tool_call_id": "chatcmpl-tool-bc3ae65543f02fd0",
+                    "content": "{\"sum\":42}"
+                  },
+                  {
+                    "role": "tool",
+                    "tool_call_id": "chatcmpl-tool-908150b279710a39",
+                    "content": "{\"utc\":\"2026-11-02T16:31:51.886Z\"}"
+                  }
+                ],
+                "tools": [
+                  {
+                    "type": "function",
+                    "function": {
+                      "name": "addNumbers",
+                      "description": "Add two numbers and return the sum.",
+                      "parameters": {
+                        "$schema": "http://json-schema.org/draft-07/schema#",
+                        "type": "object",
+                        "properties": {
+                          "a": {
+                            "type": "number"
+                          },
+                          "b": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "a",
+                          "b"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  {
+                    "type": "function",
+                    "function": {
+                      "name": "getTime",
+                      "description": "Get the current time in UTC as an ISO 8601 string.",
+                      "parameters": {
+                        "$schema": "http://json-schema.org/draft-07/schema#",
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": false,
+                        "required": []
+                      }
+                    }
+                  }
+                ],
+                "tool_choice": "auto",
+                "stream": true
+              }
+            }
+          },
+          "output": {
+            "text": "17 + 25 = 42, and the current UTC time is 2026-11-02T16:31:51.886Z.",
+            "toolCalls": [],
+            "usage": {
+              "raw": {
+                "inputTokens": {},
+                "outputTokens": {}
+              }
+            },
+            "steps": [
+              {
+                "content": [
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0",
+                    "toolName": "addNumbers",
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    }
+                  },
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "chatcmpl-tool-908150b279710a39",
+                    "toolName": "getTime",
+                    "input": {}
+                  },
+                  {
+                    "type": "tool-result",
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    },
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "sum": 42
+                      }
+                    },
+                    "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0",
+                    "toolName": "addNumbers"
+                  },
+                  {
+                    "type": "tool-result",
+                    "input": {},
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "utc": "2026-11-02T16:31:51.886Z"
+                      }
+                    },
+                    "toolCallId": "chatcmpl-tool-908150b279710a39",
+                    "toolName": "getTime"
+                  }
+                ],
+                "usage": {
+                  "raw": {
+                    "inputTokens": {},
+                    "outputTokens": {}
+                  }
+                },
+                "warnings": [],
+                "request": {
+                  "body": {
+                    "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+                    "max_tokens": 2048,
+                    "messages": [
+                      {
+                        "role": "system",
+                        "content": "You are a precise assistant. Always use the provided tools for arithmetic and for the current time. Answer in one short sentence."
+                      },
+                      {
+                        "role": "user",
+                        "content": "What is 17 + 25, and what time is it right now in UTC? Use your tools."
+                      }
+                    ],
+                    "tools": [
+                      {
+                        "type": "function",
+                        "function": {
+                          "name": "addNumbers",
+                          "description": "Add two numbers and return the sum.",
+                          "parameters": {
+                            "$schema": "http://json-schema.org/draft-07/schema#",
+                            "type": "object",
+                            "properties": {
+                              "a": {
+                                "type": "number"
+                              },
+                              "b": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "a",
+                              "b"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      {
+                        "type": "function",
+                        "function": {
+                          "name": "getTime",
+                          "description": "Get the current time in UTC as an ISO 8601 string.",
+                          "parameters": {
+                            "$schema": "http://json-schema.org/draft-07/schema#",
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": false,
+                            "required": []
+                          }
+                        }
+                      }
+                    ],
+                    "tool_choice": "auto",
+                    "stream": true
+                  }
+                },
+                "response": {
+                  "id": "chatcmpl-df80fac8-6729-4d70-a741-121316174b3a",
+                  "timestamp": "2026-11-02T16:31:50.000Z",
+                  "modelId": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+                  "headers": {
+                    "access-control-expose-headers": "*",
+                    "alt-svc": "h3=\":8443\"; ma=86400",
+                    "cache-control": "no-store",
+                    "connection": "keep-alive",
+                    "content-type": "text/event-stream",
+                    "date": "Mon, 02 Nov 2026 16:31:51 GMT",
+                    "inference-id": "cd792cd5-1a4a-5149-b5cc-6e71d6b9dade",
+                    "server": "nginx/1.29.1",
+                    "transfer-encoding": "chunked",
+                    "vary": "origin, access-control-request-headers",
+                    "x-request-id": "df80fac8-6729-4d70-a741-121316174b3a",
+                    "x-serving-provider": "near"
+                  },
+                  "messages": [
+                    {
+                      "role": "assistant",
+                      "content": [
+                        {
+                          "type": "tool-call",
+                          "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0",
+                          "toolName": "addNumbers",
+                          "input": {
+                            "a": 17,
+                            "b": 25
+                          },
+                          "providerOptions": {
+                            "mastra": {
+                              "createdAt": 1793637111885
+                            }
+                          }
+                        },
+                        {
+                          "type": "tool-call",
+                          "toolCallId": "chatcmpl-tool-908150b279710a39",
+                          "toolName": "getTime",
+                          "input": {},
+                          "providerOptions": {
+                            "mastra": {
+                              "createdAt": 1793637111885
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "role": "tool",
+                      "content": []
+                    }
+                  ]
+                },
+                "providerMetadata": {
+                  "nearai": {}
+                }
+              },
+              {
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "17 + 25 = 42, and the current UTC time is 2026-11-02T16:31:51.886Z.",
+                    "providerOptions": {
+                      "mastra": {
+                        "createdAt": 1793637112794
+                      }
+                    }
+                  }
+                ],
+                "usage": {
+                  "raw": {
+                    "inputTokens": {},
+                    "outputTokens": {}
+                  }
+                },
+                "warnings": [],
+                "request": {
+                  "body": {
+                    "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+                    "max_tokens": 2048,
+                    "messages": [
+                      {
+                        "role": "system",
+                        "content": "You are a precise assistant. Always use the provided tools for arithmetic and for the current time. Answer in one short sentence."
+                      },
+                      {
+                        "role": "user",
+                        "content": "What is 17 + 25, and what time is it right now in UTC? Use your tools."
+                      },
+                      {
+                        "role": "assistant",
+                        "content": null,
+                        "tool_calls": [
+                          {
+                            "id": "chatcmpl-tool-bc3ae65543f02fd0",
+                            "type": "function",
+                            "function": {
+                              "name": "addNumbers",
+                              "arguments": "{\"a\":17,\"b\":25}"
+                            }
+                          },
+                          {
+                            "id": "chatcmpl-tool-908150b279710a39",
+                            "type": "function",
+                            "function": {
+                              "name": "getTime",
+                              "arguments": "{}"
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "role": "tool",
+                        "tool_call_id": "chatcmpl-tool-bc3ae65543f02fd0",
+                        "content": "{\"sum\":42}"
+                      },
+                      {
+                        "role": "tool",
+                        "tool_call_id": "chatcmpl-tool-908150b279710a39",
+                        "content": "{\"utc\":\"2026-11-02T16:31:51.886Z\"}"
+                      }
+                    ],
+                    "tools": [
+                      {
+                        "type": "function",
+                        "function": {
+                          "name": "addNumbers",
+                          "description": "Add two numbers and return the sum.",
+                          "parameters": {
+                            "$schema": "http://json-schema.org/draft-07/schema#",
+                            "type": "object",
+                            "properties": {
+                              "a": {
+                                "type": "number"
+                              },
+                              "b": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "a",
+                              "b"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      {
+                        "type": "function",
+                        "function": {
+                          "name": "getTime",
+                          "description": "Get the current time in UTC as an ISO 8601 string.",
+                          "parameters": {
+                            "$schema": "http://json-schema.org/draft-07/schema#",
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": false,
+                            "required": []
+                          }
+                        }
+                      }
+                    ],
+                    "tool_choice": "auto",
+                    "stream": true
+                  }
+                },
+                "response": {
+                  "id": "chatcmpl-10ba29ce-693c-464c-bb7a-4c22629621d6",
+                  "timestamp": "2026-11-02T16:31:52.000Z",
+                  "modelId": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+                  "headers": {
+                    "access-control-expose-headers": "*",
+                    "alt-svc": "h3=\":8443\"; ma=86400",
+                    "cache-control": "no-store",
+                    "connection": "keep-alive",
+                    "content-type": "text/event-stream",
+                    "date": "Mon, 02 Nov 2026 16:31:52 GMT",
+                    "inference-id": "c5bc8967-4c28-54c5-8aed-0cb35347a756",
+                    "server": "nginx/1.29.1",
+                    "transfer-encoding": "chunked",
+                    "vary": "origin, access-control-request-headers",
+                    "x-request-id": "10ba29ce-693c-464c-bb7a-4c22629621d6",
+                    "x-serving-provider": "near"
+                  },
+                  "messages": [
+                    {
+                      "role": "assistant",
+                      "content": [
+                        {
+                          "type": "tool-call",
+                          "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0",
+                          "toolName": "addNumbers",
+                          "input": {
+                            "a": 17,
+                            "b": 25
+                          }
+                        },
+                        {
+                          "type": "tool-call",
+                          "toolCallId": "chatcmpl-tool-908150b279710a39",
+                          "toolName": "getTime",
+                          "input": {}
+                        }
+                      ]
+                    },
+                    {
+                      "role": "tool",
+                      "content": [
+                        {
+                          "type": "tool-result",
+                          "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0",
+                          "toolName": "addNumbers",
+                          "output": {
+                            "type": "json",
+                            "value": {
+                              "sum": 42
+                            }
+                          },
+                          "input": {
+                            "a": 17,
+                            "b": 25
+                          }
+                        },
+                        {
+                          "type": "tool-result",
+                          "toolCallId": "chatcmpl-tool-908150b279710a39",
+                          "toolName": "getTime",
+                          "output": {
+                            "type": "json",
+                            "value": {
+                              "utc": "2026-11-02T16:31:51.886Z"
+                            }
+                          },
+                          "input": {}
+                        }
+                      ]
+                    },
+                    {
+                      "role": "assistant",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "17 + 25 = 42, and the current UTC time is 2026-11-02T16:31:51.886Z.",
+                          "providerOptions": {
+                            "mastra": {
+                              "createdAt": 1793637112794
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "providerMetadata": {
+                  "nearai": {}
+                }
+              }
+            ]
+          },
+          "messages": {
+            "all": [
+              {
+                "role": "user",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "What is 17 + 25, and what time is it right now in UTC? Use your tools.",
+                    "providerOptions": {
+                      "mastra": {
+                        "createdAt": 1793637109389
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "role": "assistant",
+                "content": [
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0",
+                    "toolName": "addNumbers",
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    }
+                  },
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "chatcmpl-tool-908150b279710a39",
+                    "toolName": "getTime",
+                    "input": {}
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "content": [
+                  {
+                    "type": "tool-result",
+                    "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0",
+                    "toolName": "addNumbers",
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "sum": 42
+                      }
+                    },
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    }
+                  },
+                  {
+                    "type": "tool-result",
+                    "toolCallId": "chatcmpl-tool-908150b279710a39",
+                    "toolName": "getTime",
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "utc": "2026-11-02T16:31:51.886Z"
+                      }
+                    },
+                    "input": {}
+                  }
+                ]
+              },
+              {
+                "role": "assistant",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "17 + 25 = 42, and the current UTC time is 2026-11-02T16:31:51.886Z.",
+                    "providerOptions": {
+                      "mastra": {
+                        "createdAt": 1793637112794
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "user": [
+              {
+                "role": "user",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "What is 17 + 25, and what time is it right now in UTC? Use your tools.",
+                    "providerOptions": {
+                      "mastra": {
+                        "createdAt": 1793637109389
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "nonUser": [
+              {
+                "role": "assistant",
+                "content": [
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0",
+                    "toolName": "addNumbers",
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    }
+                  },
+                  {
+                    "type": "tool-call",
+                    "toolCallId": "chatcmpl-tool-908150b279710a39",
+                    "toolName": "getTime",
+                    "input": {}
+                  }
+                ]
+              },
+              {
+                "role": "tool",
+                "content": [
+                  {
+                    "type": "tool-result",
+                    "toolCallId": "chatcmpl-tool-bc3ae65543f02fd0",
+                    "toolName": "addNumbers",
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "sum": 42
+                      }
+                    },
+                    "input": {
+                      "a": 17,
+                      "b": 25
+                    }
+                  },
+                  {
+                    "type": "tool-result",
+                    "toolCallId": "chatcmpl-tool-908150b279710a39",
+                    "toolName": "getTime",
+                    "output": {
+                      "type": "json",
+                      "value": {
+                        "utc": "2026-11-02T16:31:51.886Z"
+                      }
+                    },
+                    "input": {}
+                  }
+                ]
+              },
+              {
+                "role": "assistant",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "17 + 25 = 42, and the current UTC time is 2026-11-02T16:31:51.886Z.",
+                    "providerOptions": {
+                      "mastra": {
+                        "createdAt": 1793637112794
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "processorRetryCount": 0
+        }
+      }
+    },
+    "verdict": {
+      "addOk": true,
+      "timeOk": true,
+      "answerOk": true,
+      "pass": true
+    }
+  }
+]

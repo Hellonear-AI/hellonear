@@ -7,6 +7,6 @@ HelloNear AI engine: a Mastra server that runs each Mind (soul, skills, memory, 
 ## Setup
 
 1. `cp .env.example .env` and set `NEARAI_API_KEY` (from https://cloud.near.ai or the NEAR Builders credit).
-2. Planned stack: `@mastra/core` 1.81.0 (pinned), built-in `nearai` provider (e.g. `model: 'nearai/z-ai/glm-5.3-flash'`), Postgres + pgvector.
+2. Stack: `@mastra/core` 1.81.0 (pinned), NEAR AI models built with `@ai-sdk/openai-compatible` + `includeUsage: true` (see `spikes/01-tool-calling`), Postgres + pgvector.
 
 Note: NEAR AI reasoning models spend part of `max_tokens` on reasoning, so keep the limit generous.
