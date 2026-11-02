@@ -321,7 +321,7 @@ Kesimpulannya: spending limit yang sesungguhnya harus dibuat lewat **contract va
 
 ### 5.8 Smart contract
 
-- **`near-sdk` (Rust) 5.30.0** (27 Okt 2026) dan **`cargo-near` 0.22.0** (19 Okt 2026) **[V]**. Docs: *"NEAR's only official smart-contract SDK is near-sdk-rs."*
+- **`near-sdk` (Rust) 5.30.0** (27 Okt 2026) dan **`cargo-near` 0.22.0** (19 Okt 2026) **[V]**. ⚠️ `near-sdk` 5.30.0 butuh rustc 1.95, sedangkan template `cargo near new` mem-pin Rust 1.93 + `near-sdk` 5.29; `sc/` memakai 5.29.1 (dicek 3 Nov). Docs: *"NEAR's only official smart-contract SDK is near-sdk-rs."*
 - `near-sdk-js` sekarang hanya "Community SDK… not covered in this documentation" (versi terakhir 2.0.0, Jun 2024) **[V]**. Jangan dipakai.
 - `create-near-app` v10.0.0 (24 Okt 2026) sudah menghapus template contract TS dan frontend `next-page`. Template contract yang tersisa hanya Rust (auction / auction-adv) dengan test `near-sandbox`. FE dan contract di-scaffold terpisah: pilih salah satu `--contract` atau `--frontend`. **[V]**
 
