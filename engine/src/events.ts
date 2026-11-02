@@ -59,8 +59,51 @@ export function createNormalizer(opts: { mindId: string; threadId: string; model
     }
   }
   return Object.assign(normalize, {
+    event: emit,
+    text: () => text,
     completionIds: () => [...completionIds],
     // Emits the run's last event: the badge result, after the stream has been fully read.
     verified: (runId: string, verification: Verification) => emit(runId, 'run.verified', { nodeId: `model:${opts.model}`, model: opts.model, verification }),
+  })
+}
+
+type BuilderStep = { node: string; type: 'agent' | 'tool' | 'http'; tool?: string }
+
+// Workflow runs from the Visual Builder (#20). Workflow chunks become node.* events for the
+// canvas and the Mind Graph; chunks from inside an agent step go through the chat normalizer,
+// so tool calls, text and the badge work exactly as in chat.
+export function createWorkflowNormalizer(opts: { mindId: string; workflowId: string; model: string; skills: string[]; secretValues: string[]; steps: Record<string, BuilderStep> }) {
+  const inner = createNormalizer({ mindId: opts.mindId, threadId: '', model: opts.model, skills: opts.skills, secretValues: opts.secretValues })
+  const graphNode = (s: BuilderStep) => (s.type === 'agent' ? `mind:${opts.mindId}` : nodeIdFor(opts.mindId, s.tool!))
+  const node = (s: BuilderStep) => ({ node: s.node, nodeType: s.type, nodeId: graphNode(s) })
+
+  const normalize = async function normalize(chunk: { type: string; runId: string; payload?: any }): Promise<HelloNearEvent[]> {
+    const p = chunk.payload ?? {}
+    const step = typeof p.id === 'string' ? opts.steps[p.id] : undefined
+    switch (chunk.type) {
+      case 'workflow-start':
+        return [inner.event(chunk.runId, 'workflow.started', { workflowId: opts.workflowId, nodeId: `workflow:${opts.workflowId}`, model: opts.model, skills: opts.skills })]
+      // Mapping steps (in:<node>) are internal and have no canvas node.
+      case 'workflow-step-start':
+        return step ? [inner.event(chunk.runId, 'node.started', node(step))] : []
+      case 'workflow-step-result':
+        if (!step) return []
+        return [inner.event(chunk.runId, 'node.finished', { ...node(step), ...(p.status === 'success' ? { status: 'ok', output: p.output } : { status: 'error', error: String(p.error?.message ?? p.error ?? p.status) }) })]
+      case 'workflow-step-output': {
+        const c = p.output
+        // The agent's own start/finish would look like a second run; node.* already frames it.
+        if (!c?.type || c.type === 'start' || c.type === 'finish') return []
+        return inner({ ...c, runId: chunk.runId })
+      }
+      case 'workflow-finish':
+        return [inner.event(chunk.runId, 'workflow.finished', { workflowId: opts.workflowId, status: p.workflowStatus })]
+      default:
+        return []
+    }
+  }
+  return Object.assign(normalize, {
+    event: inner.event,
+    completionIds: inner.completionIds,
+    verified: inner.verified,
   })
 }

@@ -21,7 +21,7 @@ Browser (apps/fe) ──HTTPS + session cookie──► Backend (apps/be) ──
 
 ## 2. Engine HTTP API (called by the backend)
 
-All bodies are JSON. All ids are strings.
+All bodies are JSON (at most 256 KB, else `413 { error: "body_too_large" }`; unparseable JSON → `400 { error: "invalid_json" }`). All ids are strings.
 
 ### `POST /v1/minds/{mindId}/chat`
 
@@ -70,6 +70,46 @@ Resumes a run paused on `tool.approval_required`. Streams the remaining events a
 
 `{ "ok": true, "mastra": "1.81.0", "attestation": { "<modelId>": { "ok": true, "checkedAt": "…", "ms": 17558 } } }`: attestation is warmed at startup and every 50 minutes.
 
+### Visual Builder workflows (#20)
+
+A workflow belongs to one Mind. The canvas is saved by the engine (Mastra stores it in Postgres, schema `mastra`), so the backend only proxies these calls; ids: `workflowId` is lowercase words joined by single dashes (max 48), `mindId` letters/digits/`_` joined by single dashes.
+
+| Method and path | Body | Response |
+|---|---|---|
+| `PUT /v1/minds/{mindId}/workflows/{workflowId}` | canvas (below) | `200 { workflowId, tools, steps, schedule }`, or `400 { error: "invalid_workflow", issues: [{ path, message }] }`. Saving again replaces it; runs already started keep the old graph **[tested]** |
+| `GET /v1/minds/{mindId}/workflows` | | `{ workflows: [{ workflowId, name, tools, schedule, updatedAt }] }` |
+| `GET /v1/minds/{mindId}/workflows/{workflowId}` | | `{ workflowId, name, tools, schedule, updatedAt, canvas, steps }` (the canvas as saved, positions included) or `404` |
+| `DELETE /v1/minds/{mindId}/workflows/{workflowId}` | | `204` or `404` |
+| `POST /v1/minds/{mindId}/workflows/{workflowId}/runs` | `{ userId, mind, secrets?, input? }` | SSE events (§3). `409 { error: "missing_tools", tools }` if the Mind no longer has a skill granting a tool the workflow uses. "Run again" = the same call again (new `runId`) **[tested]** |
+
+Canvas (React Flow shape; `position` and extra fields are kept for the editor):
+
+```json
+{
+  "name": "Low balance alert",
+  "nodes": [
+    { "id": "start", "type": "trigger", "position": { "x": 0, "y": 0 }, "data": { "schedule": { "cron": "0 * * * *" }, "inputs": [{ "name": "account", "type": "string" }] } },
+    { "id": "balance", "type": "tool", "data": { "tool": "near_view_account", "args": { "accountId": "{{input.account}}" } } },
+    { "id": "low", "type": "condition", "data": { "left": "{{steps.balance.balanceNear}}", "op": "lt", "right": 1000 } },
+    { "id": "notify", "type": "http", "data": { "method": "POST", "url": "https://hooks.example.com/x", "headers": { "Authorization": "{{secrets.HOOK_TOKEN}}" }, "body": "{{steps.balance.accountId}} has {{steps.balance.balanceNear}} NEAR" } },
+    { "id": "chill", "type": "agent", "data": { "prompt": "Say in five words that {{steps.balance.accountId}} is fine." } }
+  ],
+  "edges": [
+    { "source": "start", "target": "balance" },
+    { "source": "balance", "target": "low" },
+    { "source": "low", "target": "notify", "sourceHandle": "then" },
+    { "source": "low", "target": "chill", "sourceHandle": "else" }
+  ]
+}
+```
+
+Rules (the engine answers `400` with `issues` otherwise) **[tested]**:
+- Node types: `trigger` (exactly one; optional `inputs` and `schedule`), `agent` (the Mind itself, `{ prompt }`), `tool` (`{ tool, args }`, `tool` = a tool key such as `near_view_account`, `add_numbers`, `get_time`), `http` (the `http_request` tool), `condition` (`left` is one reference, `op` is `eq | ne | lt | lte | gt | gte`, `right` a literal). At most 20 nodes.
+- Shape: trigger → a chain of agent/tool/http nodes → optionally one condition whose `then` edge (required) and `else` edge each lead to one last node. No cycles, no unreachable nodes. Both branches may not need the same input with different values (e.g. two agent branches).
+- References: `{{steps.<nodeId>.<field>}}` (a node that runs earlier), `{{input.<name>}}` (a trigger input), `{{secrets.NAME}}` (filled by the tool at execution, as in chat). A field that is only one reference keeps its type (numbers stay numbers). `${` is refused. Headers may hold secrets but not step references. Fields must exist in the tool's output schema (checked by Mastra).
+- Tools needing approval (wallet actions) are refused: a workflow runs unattended and Mastra would execute them without asking. Agent steps in a workflow also never get approval tools.
+- `schedule` is stored only; running it on a timer is Autopilot (#21).
+
 ## 3. HelloNear events (engine → backend → browser)
 
 The engine **normalizes** Mastra stream chunks into these events. The browser and the Mind Graph depend on this format, not on raw Mastra chunks, so a Mastra upgrade cannot break the UI.
@@ -101,6 +141,10 @@ Common fields on every event:
 | `run.finished` | `finishReason`, `text`, `usage`, `costUsd`, `verification: { status: "pending" }` | `finish` **[tested]** |
 | `run.verified` | `model`, `nodeId`, `verification` (see below). Always the run's **last** event | engine, after the stream is read **[tested, #19]** |
 | `run.error` | `error` | `error` chunk or a thrown error |
+| `workflow.started` | `workflowId`, `nodeId` (`workflow:{workflowId}`), `model`, `skills` | `workflow-start`; first event of a builder run **[tested, #20]** |
+| `node.started` | `node` (canvas node id), `nodeType` (`agent \| tool \| http`), `nodeId` (Mind Graph) | `workflow-step-start` **[tested, #20]** |
+| `node.finished` | `node`, `nodeType`, `nodeId`, `status: "ok"` + `output`, or `status: "error"` + `error` | `workflow-step-result` **[tested, #20]** |
+| `workflow.finished` | `workflowId`, `status` (`success`, `failed`, …) | `workflow-finish`; followed by `run.verified` as the last event **[tested, #20]** |
 
 `usage` = `{ "inputTokens": 441, "outputTokens": 28, "reasoningTokens": 2, "totalTokens": 469 }`. It is only filled while streaming when the engine builds models with `@ai-sdk/openai-compatible` + `includeUsage: true` **[tested]**; with the `nearai/<id>` router string it is empty **[tested]**.
 
@@ -112,6 +156,8 @@ Common fields on every event:
 - `{ "status": "failed", "completionIds": [...], "errors": [...] }`: show no badge.
 
 UI wording: `model_tee` → "Verified private (model TEE)"; `gateway_tee` → "Verified via NEAR AI TEE gateway"; anything else → no badge.
+
+Builder runs (#20) send `workflow.started → node.started/node.finished… → workflow.finished → run.verified`. Inside an `agent` node the chat events appear between its `node.started` and `node.finished` (`step.*`, `reasoning.delta`, `text.delta`, `tool.*`), but no `run.started` / `run.finished`. A run with no agent node ends with `run.verified` `{ status: "not_applicable", reason: "no_completions" }`. Condition nodes emit nothing; only the branch that ran appears.
 
 Example sequence for one tool call **[tested shape]**:
 
@@ -142,6 +188,7 @@ Each event with a `nodeId` lights up one node. Node ids are stable across runs s
 | Model | `model:{modelId}` | `run.started` |
 | Memory | `memory:{mindId}` | memory tools |
 | Other Mind | `mind:{otherMindId}` | subagent delegation |
+| Workflow | `workflow:{workflowId}` | `workflow.started` (#20); its `agent` nodes light up `mind:{mindId}`, `tool`/`http` nodes light up their `tool:{toolKey}` |
 
 **`toolKey` is the key in the agent's `tools` object, which is what Mastra puts in `payload.toolName`, not the tool's `id` [tested].** The engine registers each tool under a key equal to its `id` so the two never differ.
 

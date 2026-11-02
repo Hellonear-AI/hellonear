@@ -17,3 +17,4 @@ Web app (Next.js App Router + NEAR Connect). Owner: Ancung. Design comes from Na
 - "Verified private" badge only for replies the backend marks as verified (Confidential TEE models).
 - Redacted secrets render as `••••`; never try to unredact.
 - Use the event shapes in `docs/api-contract.md` (#7); do not invent fields.
+- Visual Builder (#20): save the React Flow `{ nodes, edges }` in the canvas format of `docs/api-contract.md` §2 "Visual Builder workflows" (node types `trigger`, `agent`, `tool`, `http`, `condition`; condition edges use `sourceHandle: "then" | "else"`). Show the engine's `issues` on a 400. Light nodes up from `node.started` / `node.finished` (`node` = your canvas node id).
