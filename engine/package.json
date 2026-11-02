@@ -9,7 +9,7 @@
     "dev": "node --env-file=.env --import tsx src/server.ts",
     "test": "node --env-file=.env --import tsx --test test/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "test:unit": "node --import tsx --test test/skills.test.ts test/templates.test.ts test/graph.test.ts"
+    "test:unit": "node --import tsx --test test/skills.test.ts test/templates.test.ts test/graph.test.ts test/secrets.test.ts"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "3.0.82",
@@ -21,6 +21,8 @@
   },
   "devDependencies": {
     "@types/node": "26.6.6",
+    "@types/pg": "8.23.1",
+    "pg": "8.23.1",
     "tsx": "4.23.15",
     "typescript": "7.0.2"
   }

@@ -29,4 +29,5 @@ Load test (small, real NEAR AI calls): `k6 run -e BASE=http://localhost:4100 -e 
 - `skills/<name>/SKILL.md` + `src/skills.ts`: skill catalog (daily-planner available, payments simulated until OutLayer #6, email-triage blocked until Composio).
 - `templates/*.json` + `src/templates.ts`: General Assistant, Payments Mind, Email Manager; served at `GET /v1/templates`.
 - `src/graph.ts`: Mind Graph node ids.
+- `src/secrets.ts` + `http_request` tool + `skills/http-request`: Connections & Secrets (#18): placeholders, host allowlist, SSRF guard, redaction.
 - `src/models.ts`: NEAR AI chat/embedding models via `@ai-sdk/openai-compatible` with `includeUsage`.

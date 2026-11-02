@@ -7,6 +7,7 @@ import { config } from './config.ts'
 import { createNormalizer } from './events.ts'
 import { MIND_KEY, mastra } from './mastra.ts'
 import { resourceId, runRequestSchema, type Mind } from './mind.ts'
+import { SECRETS_KEY, redact, type Secret } from './secrets.ts'
 import { usableSkills } from './skills.ts'
 import { templateSummaries } from './templates.ts'
 
@@ -33,13 +34,15 @@ function sendJson(res: ServerResponse, status: number, body: unknown) {
   res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body))
 }
 
-function contextFor(mind: Mind) {
+function contextFor(mind: Mind, secrets: Secret[]) {
   const requestContext = new RequestContext()
   requestContext.set(MIND_KEY, mind)
+  // Not registered as a tracing requestContextKey, so tracing never records it.
+  requestContext.set(SECRETS_KEY, new Map(secrets.map((s) => [s.name, s])))
   return requestContext
 }
 
-async function pipeRun(res: ServerResponse, stream: { fullStream: AsyncIterable<any> }, opts: { mindId: string; threadId: string; model: string; skills: string[]; runId?: string }) {
+async function pipeRun(res: ServerResponse, stream: { fullStream: AsyncIterable<any> }, opts: { mindId: string; threadId: string; model: string; skills: string[]; secretValues: string[]; runId?: string }) {
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' })
   const normalize = createNormalizer({ ...opts, startSeq: opts.runId ? nextSeq.get(opts.runId) : 0 })
   let runId = opts.runId
@@ -52,15 +55,16 @@ async function pipeRun(res: ServerResponse, stream: { fullStream: AsyncIterable<
       }
     }
   } catch (e) {
-    res.write(`data: ${JSON.stringify({ v: 1, type: 'run.error', runId, mindId: opts.mindId, seq: runId ? nextSeq.get(runId) ?? 0 : 0, ts: new Date().toISOString(), error: e instanceof Error ? e.message : String(e) })}\n\n`)
+    const event = { v: 1, type: 'run.error', runId, mindId: opts.mindId, seq: runId ? nextSeq.get(runId) ?? 0 : 0, ts: new Date().toISOString(), error: e instanceof Error ? e.message : String(e) }
+    res.write(`data: ${JSON.stringify(redact(event, opts.secretValues))}\n\n`)
   }
   res.end()
 }
 
 const loadedSkills = (mind: Mind) => usableSkills(mind.skills.map((s) => s.skillId)).map((s) => s.name)
 
-const agentOptions = (mind: Mind, userId: string, mindId: string, threadId: string) => ({
-  requestContext: contextFor(mind),
+const agentOptions = (mind: Mind, secrets: Secret[], userId: string, mindId: string, threadId: string) => ({
+  requestContext: contextFor(mind, secrets),
   memory: { resource: resourceId(userId, mindId), thread: threadId },
   maxSteps: 8,
   modelSettings: { maxOutputTokens: config.maxOutputTokens, timeout: { totalMs: config.runTimeoutMs } },
@@ -80,23 +84,23 @@ export const server = createServer(async (req, res) => {
     if (req.method === 'POST' && chat) {
       const parsed = chatSchema.safeParse(await readJson(req))
       if (!parsed.success) return sendJson(res, 400, { error: 'invalid_body', issues: parsed.error.issues })
-      const { userId, threadId, message, mind } = parsed.data
+      const { userId, threadId, message, mind, secrets } = parsed.data
       const mindId = decodeURIComponent(chat[1])
-      const stream = await agent.stream(message, agentOptions(mind, userId, mindId, threadId))
-      return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind) })
+      const stream = await agent.stream(message, agentOptions(mind, secrets, userId, mindId, threadId))
+      return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secretValues: secrets.map((s) => s.value) })
     }
 
     const resume = url.pathname.match(/^\/v1\/runs\/([^/]+)\/(approve|decline)$/)
     if (req.method === 'POST' && resume) {
       const parsed = resumeSchema.safeParse(await readJson(req))
       if (!parsed.success) return sendJson(res, 400, { error: 'invalid_body', issues: parsed.error.issues })
-      const { userId, threadId, mind, toolCallId, reason } = parsed.data
+      const { userId, threadId, mind, secrets, toolCallId, reason } = parsed.data
       const runId = decodeURIComponent(resume[1])
       const mindId = String(url.searchParams.get('mindId') ?? '')
       if (!mindId) return sendJson(res, 400, { error: 'mindId query parameter is required' })
-      const options = { ...agentOptions(mind, userId, mindId, threadId), runId, toolCallId }
+      const options = { ...agentOptions(mind, secrets, userId, mindId, threadId), runId, toolCallId }
       const stream = resume[2] === 'approve' ? await agent.approveToolCall(options) : await agent.declineToolCall({ ...options, reason })
-      return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), runId })
+      return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secretValues: secrets.map((s) => s.value), runId })
     }
 
     return sendJson(res, 404, { error: 'not_found' })

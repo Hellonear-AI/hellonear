@@ -1,5 +1,6 @@
 // A Mind's config as sent by the backend (docs/api-contract.md §2), and the system prompt built from it.
 import { z } from 'zod'
+import { secretSchema } from './secrets.ts'
 import { skillCatalog } from './skills.ts'
 
 export const mindSchema = z.object({
@@ -20,6 +21,8 @@ export const runRequestSchema = z.object({
   userId: z.string().min(1),
   threadId: z.string().min(1),
   mind: mindSchema,
+  // The owner's secrets for this run (#18). Values reach tools only, never the model or events.
+  secrets: z.array(secretSchema).default([]),
 })
 
 export function buildInstructions(mind: Mind): string {
