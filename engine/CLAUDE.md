@@ -29,6 +29,8 @@ AI engine: a Mastra server that runs each Mind (soul, skills, tools, memory, sch
 - **Skills** live in `skills/<name>/SKILL.md` (YAML frontmatter: `name` = folder, `description`, `metadata.hellonear.{tools, connections, status, note?}`). `tools` must be keys of `toolRegistry` in `src/tools.ts`; `status` is `available`, `simulated` (works but fakes a side effect, say how in `note`) or `blocked` (never loaded). The loader fails fast on any mistake.
 - **Templates** live in `templates/<templateId>.json` and may only use skills from the catalog. Keep guardrails (`soul.invariants`) in every template.
 - Never let the backend choose tools: it sends skill ids, the catalog maps them to tools.
+- **Visual Builder (#20, `src/builder.ts`, `src/workflows.ts`):** canvases compile to Mastra dynamic workflows (Beta). Rules from spike 02, keep them: never allow a `requireApproval` tool as a workflow step (Mastra runs it without asking); workflow runs set `UNATTENDED_KEY` so agent steps never see approval tools; never let user text reach a Mastra `${...}` template (templates can read `requestContext`, which holds the secrets), so the compiler only emits templates it built from `{{steps.…}}` / `{{input.…}}`; mappings are top-level only, so condition branches share one mapping. Tools must be registered on the `Mastra` instance (`tools`) to be usable in workflows. Call `mastra.startWorkers()` at boot or saved workflows are not loaded. Agent run limits live in the agent's `defaultOptions` because workflow agent steps take no per-call options.
+- Each workflow run stores a Mastra snapshot (~8 KB, measured: 5,000 runs ≈ 39 MB in `mastra_workflow_snapshot`). Add retention before Autopilot (#21) runs things on a timer for long.
 - Spikes live in `spikes/<nn>-<name>/` with a README stating the result, how to run it, and what it does not cover.
 
 ## Skill feedback
@@ -37,9 +39,9 @@ The `mastra` skill can report bugs and doc defects to the Mastra team. Never let
 
 ## Commands
 
-- `npm run dev` (port 4100), `npm run test:unit` (offline: skills, templates, graph), `npm test` (unit + integration, real NEAR AI + local Postgres), `npm run typecheck`.
+- `npm run dev` (port 4100), `npm run test:unit` (offline), `npm test` (unit + integration: real NEAR AI, local Postgres, NEAR testnet RPC, httpbin), `npm run typecheck`.
 - Postgres: `docker compose up -d postgres` from the repo root; `docker compose stop` when done.
-- Load test: `k6 run -e BASE=http://localhost:4100 -e KEY=$ENGINE_API_KEY load/chat.js` (keep it small; it spends NEAR AI credit).
+- Load tests: `load/chat.js` (spends NEAR AI credit, keep it small) and `load/workflow.js` (builder; local tools only by default, `-e AGENT=1` adds an agent step). Never load test a public endpoint (NEAR RPC, httpbin): docs.near.org forbids it for shared RPCs.
 - Run `npm test` and the load test before every push/merge that touches the engine, and report results in the PR.
 
 ## Testing notes
@@ -50,4 +52,4 @@ The `mastra` skill can report bugs and doc defects to the Mastra team. Never let
 
 ## Env
 
-See `.env.example` (`NEARAI_API_KEY`, `DATABASE_URL`, `ENGINE_API_KEY`, optional `PORT`). `.env` is gitignored; never commit it.
+See `.env.example` (`NEARAI_API_KEY`, `DATABASE_URL`, `ENGINE_API_KEY`, optional `PORT`, optional `NEAR_RPC_URL` for `near_view_account`, default `https://rpc.testnet.near.org`). `.env` is gitignored; never commit it.
