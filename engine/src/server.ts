@@ -9,9 +9,9 @@ import { MIND_KEY, mastra } from './mastra.ts'
 import { resourceId, runRequestSchema, type Mind } from './mind.ts'
 import { SECRETS_KEY, redact, type Secret } from './secrets.ts'
 import { usableSkills } from './skills.ts'
-import { modelInfo, verifyCompletions } from './models.ts'
+import { attestationStatus, modelInfo, verifyCompletions, warmAttestation } from './models.ts'
 import { summarize } from './verify.ts'
-import { templateSummaries } from './templates.ts'
+import { templateSummaries, templates } from './templates.ts'
 
 const chatSchema = runRequestSchema.extend({ message: z.string().min(1) })
 const resumeSchema = runRequestSchema.extend({ toolCallId: z.string().min(1), reason: z.string().optional() })
@@ -85,7 +85,7 @@ const agentOptions = (mind: Mind, secrets: Secret[], userId: string, mindId: str
 export const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url ?? '/', 'http://engine')
-    if (req.method === 'GET' && url.pathname === '/v1/health') return sendJson(res, 200, { ok: true, mastra: '1.81.0' })
+    if (req.method === 'GET' && url.pathname === '/v1/health') return sendJson(res, 200, { ok: true, mastra: '1.81.0', attestation: attestationStatus() })
     if (!authorized(req)) return sendJson(res, 401, { error: 'unauthorized' })
 
     if (req.method === 'GET' && url.pathname === '/v1/templates') return sendJson(res, 200, { templates: templateSummaries() })
@@ -122,6 +122,12 @@ export const server = createServer(async (req, res) => {
   }
 })
 
+// Models whose attestation the engine keeps warm: the default and every template's model.
+export const warmModels = () => [config.defaultModel, ...templates.map((t) => t.model)]
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   server.listen(config.port, () => console.log(`engine listening on :${config.port}`))
+  const warm = () => warmAttestation(warmModels()).then(() => console.log('attestation', JSON.stringify(attestationStatus())))
+  void warm()
+  setInterval(warm, 50 * 60 * 1000).unref()
 }

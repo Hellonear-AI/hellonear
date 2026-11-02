@@ -55,3 +55,26 @@ export async function verifyCompletions(ids: string[]): Promise<StepResult[]> {
     }),
   )
 }
+
+// Attestation is verified once per model and cached by the SDK for 60 minutes. The first
+// (cold) check takes over 10 s and every parallel request waits for it (measured 3 Nov), so
+// the engine warms it at startup and refreshes it before the cache expires.
+type AttestationState = { ok: boolean; checkedAt: string; ms: number; error?: string }
+const attestation = new Map<string, AttestationState>()
+
+export async function warmAttestation(modelIds: string[]): Promise<void> {
+  await Promise.all(
+    [...new Set(modelIds)].map(async (id) => {
+      const started = Date.now()
+      try {
+        await inferenceClient.verify(id)
+        attestation.set(id, { ok: true, checkedAt: new Date().toISOString(), ms: Date.now() - started })
+      } catch (e) {
+        const err = e as { code?: string; message?: string }
+        attestation.set(id, { ok: false, checkedAt: new Date().toISOString(), ms: Date.now() - started, error: err.code ?? err.message ?? String(e) })
+      }
+    }),
+  )
+}
+
+export const attestationStatus = () => Object.fromEntries(attestation)

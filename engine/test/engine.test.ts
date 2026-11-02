@@ -102,6 +102,14 @@ describe('engine HTTP API', () => {
   })
 
   describe('verified private badge (#19)', () => {
+    test('attestation can be warmed and is reported by /v1/health', async () => {
+      const { warmAttestation } = await import('../src/models.ts')
+      const { warmModels } = await import('../src/server.ts')
+      await warmAttestation(warmModels())
+      const health = await (await fetch(base + '/v1/health')).json()
+      assert.equal(health.attestation['z-ai/glm-5.3-flash']?.ok, true, JSON.stringify(health.attestation))
+    })
+
     test('a Confidential TEE model gets a verified badge covering every model step', async () => {
       const evs = await events(await post('/v1/minds/badge/chat', { userId, threadId: randomUUID(), message: 'Use your tool: what is 4 + 5?', mind: mind('Vee', { skills: [{ skillId: 'daily-planner' }] }) }))
       assert.equal(evs.find((e) => e.type === 'run.finished')?.verification?.status, 'pending')
