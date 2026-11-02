@@ -225,6 +225,7 @@ Catatan: HelloMinds menyebut LangChain sebagai bagian infrastrukturnya. Itu petu
   ```
 - **Attestation:** gateway attestation, model attestation (NVIDIA NRAS), TLS binding, response signature, dan Verification Center di browser. **[V]**
 - Ide UI: badge "Verified private" per pesan, diambil dari hasil `verifyResponse()`. Badge hanya untuk model Confidential TEE dan 3P Chutes yang verifikasinya terbukti; model Incognito tidak pernah diberi badge.
+- ⚠️ **Diukur 3 Nov (#19):** untuk `glm-5.3-flash`, request **non-streaming** mendapat signature `provider_tee` (ditandatangani di TEE model), sedangkan **streaming** (dengan maupun tanpa `include_usage`) mendapat signature `gateway` (ditandatangani di TEE gateway, tidak membuktikan sendiri bahwa model berjalan di TEE). Engine memakai streaming, jadi badge-nya bertingkat `gateway_tee`. Verifikasi attestation pertama (cold) sekitar 17–20 detik, lalu di-cache 60 menit; engine memanaskannya saat start.
 - ⚠️ **Framework agent lama NEAR AI (Hub, registry, app.near.ai) sudah DEPRECATED.** Server-nya dimatikan 31 Okt 2025. Yang tersisa adalah Cloud (inference) dan Agent Market. **[V]**
 
 ### 5.2 OutLayer — status: live di mainnet → **usulan: wallet per Mind**

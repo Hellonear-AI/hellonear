@@ -52,7 +52,7 @@ HelloNear is an AI agent persona platform on NEAR, built for NEAR HACKATHON (1â€
 - Network: **testnet only**. NEAR Intents / 1Click has no testnet and was down on 2 Nov; do not build core features on it.
 - Wallet: **OutLayer** on testnet (per-skill sub-wallets, per-transaction policy, multisig, freeze). Policy is **stored on-chain and enforced in a TEE before signing**; never claim "rejected on-chain" or show a tx link for a rejected transfer.
 - User/owner wallet: **Meteor Wallet** (testnet) is the team's primary wallet. Every flow is tested with it and it is shown first in NEAR Connect; other NEAR Connect wallets stay available. Meteor signs login (NEP-413), policy changes, approvals and freeze; OutLayer is the Mind's own wallet.
-- LLM: NEAR AI Cloud through Mastra; tool calling is proven (#5). Build chat models with `@ai-sdk/openai-compatible` + `includeUsage: true` so streaming reports token usage (details in `engine/CLAUDE.md`). Only Confidential TEE models get a "Verified private" badge.
+- LLM: NEAR AI Cloud through Mastra; tool calling is proven (#5). Build chat models with `@ai-sdk/openai-compatible` + `includeUsage: true` so streaming reports token usage (details in `engine/CLAUDE.md`). Only verifiable (Confidential / 3P TEE) models get a badge, at the level the NEAR AI SDK proves: `model_tee` or `gateway_tee` (streaming); Incognito models never (#19).
 
 ## Local machines
 
