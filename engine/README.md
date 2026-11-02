@@ -10,11 +10,11 @@ HelloNear AI engine: an HTTP service (Mastra 1.81.0) that runs each Mind on NEAR
 docker compose up -d postgres      # from the repo root; Postgres + pgvector, capped at 1 CPU / 512 MB
 cd engine
 cp .env.example .env               # set NEARAI_API_KEY and ENGINE_API_KEY
-npm install
-npm run dev                        # http://localhost:4100/v1/health
-npm run test:unit                  # offline unit tests (skills, templates, graph, secrets, verify, tools, builder)
-npm test                           # unit + integration tests (real NEAR AI, local Postgres, testnet RPC, httpbin; ~6 min)
-npm run typecheck
+bun install                        # Bun is the package manager; the runtime stays Node ≥ 24.22.1
+bun run dev                        # http://localhost:4100/v1/health
+bun run test:unit                  # offline unit tests (skills, templates, graph, secrets, verify, tools, builder)
+bun run test                       # unit + integration tests (real NEAR AI, local Postgres, testnet RPC, httpbin; ~6 min)
+bun run typecheck
 docker compose stop                # when done, to keep the laptop cool
 ```
 
