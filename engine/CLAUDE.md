@@ -40,6 +40,7 @@ The `mastra` skill can report bugs and doc defects to the Mastra team. Never let
 
 - LLM output varies. Assert on what the engine guarantees (events, seq, tool execution, approval gating), not on exact wording, and only on the tool under test (after a decline the model may call other tools).
 - Tools needing approval require Mastra storage (snapshots); tests use the local Postgres.
+- Changing a Mind's persona mid-thread: the instructions do change per request, but the model tends to copy its own earlier replies in that thread (verified 3 Nov). Start a new thread after a persona change, and test persona switches on a new thread.
 
 ## Env
 

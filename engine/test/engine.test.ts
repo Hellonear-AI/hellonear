@@ -43,10 +43,11 @@ describe('engine HTTP API', () => {
   })
 
   test('persona comes from the request and can change without a restart', async () => {
-    const threadId = randomUUID()
-    const a = await events(await post('/v1/minds/persona/chat', { userId, threadId, message: 'Say hello in one short sentence.', mind: mind('Penny') }))
+    const a = await events(await post('/v1/minds/persona/chat', { userId, threadId: randomUUID(), message: 'Say hello in one short sentence.', mind: mind('Penny') }))
     assert.match(finalText(a), /Penny/)
-    const b = await events(await post('/v1/minds/persona/chat', { userId, threadId, message: 'Say hello again in one short sentence.', mind: mind('Rex') }))
+    // A new thread: within the same thread the model tends to copy its earlier replies
+    // ("— Penny") even though the instructions already say Rex (verified 3 Nov).
+    const b = await events(await post('/v1/minds/persona/chat', { userId, threadId: randomUUID(), message: 'Say hello again in one short sentence.', mind: mind('Rex') }))
     assert.match(finalText(b), /Rex/)
   })
 
