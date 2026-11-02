@@ -54,6 +54,10 @@ HelloNear is an AI agent persona platform on NEAR, built for NEAR HACKATHON (1â€
 - User/owner wallet: **Meteor Wallet** (testnet) is the team's primary wallet. Every flow is tested with it and it is shown first in NEAR Connect; other NEAR Connect wallets stay available. Meteor signs login (NEP-413), policy changes, approvals and freeze; OutLayer is the Mind's own wallet.
 - LLM: NEAR AI Cloud through Mastra; tool calling is proven (#5). Build chat models with `@ai-sdk/openai-compatible` + `includeUsage: true` so streaming reports token usage (details in `engine/CLAUDE.md`). Only Confidential TEE models get a "Verified private" badge.
 
+## Local machines
+
+The team uses macOS with **OrbStack** as the Docker runtime. Keep local services light: `docker-compose.yml` caps Postgres at 1 CPU / 512 MB, run tests sequentially, keep load tests short, and `docker compose stop` when you are done.
+
 ## Rules (non-negotiable)
 
 1. **Use data, not assumptions.** Claims like "safe", "done", or "X causes Y" must be backed by something seen in this session (test output, logs, responses, diffs). Otherwise write "not proven yet". Do not act on an unproven cause.

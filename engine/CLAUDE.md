@@ -29,6 +29,18 @@ AI engine: a Mastra server that runs each Mind (soul, skills, tools, memory, sch
 
 The `mastra` skill can report bugs and doc defects to the Mastra team. Never let a report include code from this repo, secrets, or user data; decline if unsure.
 
+## Commands
+
+- `npm run dev` (port 4100), `npm test` (integration, real NEAR AI + local Postgres), `npm run typecheck`.
+- Postgres: `docker compose up -d postgres` from the repo root; `docker compose stop` when done.
+- Load test: `k6 run -e BASE=http://localhost:4100 -e KEY=$ENGINE_API_KEY load/chat.js` (keep it small; it spends NEAR AI credit).
+- Run `npm test` and the load test before every push/merge that touches the engine, and report results in the PR.
+
+## Testing notes
+
+- LLM output varies. Assert on what the engine guarantees (events, seq, tool execution, approval gating), not on exact wording, and only on the tool under test (after a decline the model may call other tools).
+- Tools needing approval require Mastra storage (snapshots); tests use the local Postgres.
+
 ## Env
 
-See `.env.example`. `.env` is gitignored; never commit it.
+See `.env.example` (`NEARAI_API_KEY`, `DATABASE_URL`, `ENGINE_API_KEY`, optional `PORT`). `.env` is gitignored; never commit it.
