@@ -16,7 +16,7 @@ Mind registry contract: Mind ↔ owner ↔ wallet ↔ skill. Owner: Axel. Issue:
 - `assert_one_yocto()` on sensitive methods (unequip, ownership changes); `set_wallet` requires at least 1 yoctoNEAR because it may also need to pay for storage. Either way a function-call key cannot call them.
 - `U128` for prices; `near_sdk::store` collections with unique `BorshStorageKey` prefixes; `#[derive(PanicOnDefault)]`; `overflow-checks = true`; paginate list views (`minds_of`).
 - No custody logic here; wallets live in OutLayer.
-- Record the deployed testnet account id in this file.
+- **Deployed contract: `hellonear-registry.testnet` (testnet, 3 Nov 2026).** Env name for consumers: `REGISTRY_CONTRACT_ID` (with `NEAR_NETWORK=testnet`). Details and tx links in `README.md`. Its full-access key is only in Axel's keychain; ask Axel before any redeploy or migration.
 - Deploy with the `new` init call in the same transaction (front-running protection).
 - Commands and the interface are in `README.md`; run unit tests, the sandbox test and clippy before every push/merge that touches `sc/`.
 - Use `CARGO_BUILD_JOBS=4` on laptops.

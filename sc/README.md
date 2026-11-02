@@ -35,4 +35,9 @@ Set `CARGO_BUILD_JOBS=4` on laptops to keep builds cool.
 cargo near deploy build-non-reproducible-wasm <account>.testnet with-init-call new json-args '{}' prepaid-gas '30 Tgas' attached-deposit '0 NEAR' network-config testnet sign-with-keychain send
 ```
 
-Deployed account: _not deployed yet_.
+**Deployed (testnet, 3 Nov 2026): `hellonear-registry.testnet`**
+
+- Deploy + `new` init in one transaction: [`ALEtdSpw…`](https://explorer.testnet.near.org/transactions/ALEtdSpwWYJyw63dZPKPBUKvk3tEqrJe2GycEZMjEn2x)
+- On-chain `code_hash` `7Xp6eabRy8NTfAdg3WMfuWpMpoQgZSxLewTudwCouwV9` = SHA-256 (base58) of the tested WASM.
+- Smoke test on testnet: `publish_skill` "pay" ([`EyGivqUT…`](https://explorer.testnet.near.org/transactions/EyGivqUTDcwDPtDVRAKBc5nVG7cWafXYFxLca8F5y7fe)), `register_mind` "penny-demo" ([`uEHrkTvu…`](https://explorer.testnet.near.org/transactions/uEHrkTvuGyE3kRaPAVMs2VHuekvZEuHPQprMGYRYjM3)), `equip_skill` ([`DB85q43g…`](https://explorer.testnet.near.org/transactions/DB85q43gveaA2HvNujhftw9bguSWN9WtKa3wYYPbM4A3)), each with its NEP-297 event; `unequip_skill` without 1 yoctoNEAR rejected on-chain. `penny-demo` and `pay` stay as demo data.
+- The account's full-access key is in Axel's macOS keychain only; redeploys go through Axel.
