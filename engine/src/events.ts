@@ -10,7 +10,7 @@ type Usage = { inputTokens?: number; outputTokens?: number; reasoningTokens?: nu
 const pickUsage = (u: Usage | undefined) =>
   u ? { inputTokens: u.inputTokens ?? 0, outputTokens: u.outputTokens ?? 0, reasoningTokens: u.reasoningTokens ?? 0, totalTokens: u.totalTokens ?? 0 } : undefined
 
-export function createNormalizer(opts: { mindId: string; threadId: string; model: string; startSeq?: number }) {
+export function createNormalizer(opts: { mindId: string; threadId: string; model: string; skills?: string[]; startSeq?: number }) {
   let seq = opts.startSeq ?? 0
   let step = 0
   let text = ''
@@ -22,7 +22,7 @@ export function createNormalizer(opts: { mindId: string; threadId: string; model
     const tool = p.toolName as string | undefined
     switch (chunk.type) {
       case 'start':
-        return [emit(chunk.runId, 'run.started', { threadId: opts.threadId, model: opts.model, nodeId: `model:${opts.model}` })]
+        return [emit(chunk.runId, 'run.started', { threadId: opts.threadId, model: opts.model, nodeId: `model:${opts.model}`, skills: opts.skills ?? [] })]
       case 'step-start':
         return [emit(chunk.runId, 'step.started', { step: ++step })]
       case 'reasoning-delta':

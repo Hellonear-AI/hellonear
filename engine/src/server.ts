@@ -7,6 +7,7 @@ import { config } from './config.ts'
 import { createNormalizer } from './events.ts'
 import { MIND_KEY, mastra } from './mastra.ts'
 import { resourceId, runRequestSchema, type Mind } from './mind.ts'
+import { usableSkills } from './skills.ts'
 import { templateSummaries } from './templates.ts'
 
 const chatSchema = runRequestSchema.extend({ message: z.string().min(1) })
@@ -38,7 +39,7 @@ function contextFor(mind: Mind) {
   return requestContext
 }
 
-async function pipeRun(res: ServerResponse, stream: { fullStream: AsyncIterable<any> }, opts: { mindId: string; threadId: string; model: string; runId?: string }) {
+async function pipeRun(res: ServerResponse, stream: { fullStream: AsyncIterable<any> }, opts: { mindId: string; threadId: string; model: string; skills: string[]; runId?: string }) {
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' })
   const normalize = createNormalizer({ ...opts, startSeq: opts.runId ? nextSeq.get(opts.runId) : 0 })
   let runId = opts.runId
@@ -55,6 +56,8 @@ async function pipeRun(res: ServerResponse, stream: { fullStream: AsyncIterable<
   }
   res.end()
 }
+
+const loadedSkills = (mind: Mind) => usableSkills(mind.skills.map((s) => s.skillId)).map((s) => s.name)
 
 const agentOptions = (mind: Mind, userId: string, mindId: string, threadId: string) => ({
   requestContext: contextFor(mind),
@@ -80,7 +83,7 @@ export const server = createServer(async (req, res) => {
       const { userId, threadId, message, mind } = parsed.data
       const mindId = decodeURIComponent(chat[1])
       const stream = await agent.stream(message, agentOptions(mind, userId, mindId, threadId))
-      return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel })
+      return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind) })
     }
 
     const resume = url.pathname.match(/^\/v1\/runs\/([^/]+)\/(approve|decline)$/)
@@ -93,7 +96,7 @@ export const server = createServer(async (req, res) => {
       if (!mindId) return sendJson(res, 400, { error: 'mindId query parameter is required' })
       const options = { ...agentOptions(mind, userId, mindId, threadId), runId, toolCallId }
       const stream = resume[2] === 'approve' ? await agent.approveToolCall(options) : await agent.declineToolCall({ ...options, reason })
-      return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, runId })
+      return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), runId })
     }
 
     return sendJson(res, 404, { error: 'not_found' })

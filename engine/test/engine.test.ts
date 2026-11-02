@@ -40,6 +40,16 @@ describe('engine HTTP API', () => {
     assert.equal((await post('/v1/minds/m1/chat', {}, {})).status, 401)
     assert.equal((await post('/v1/minds/m1/chat', {}, { 'x-engine-key': 'wrong' })).status, 401)
     assert.equal((await post('/v1/minds/m1/chat', { userId })).status, 400)
+    const unknown = await post('/v1/minds/m1/chat', { userId, threadId: 't', message: 'hi', mind: mind('X', { skills: [{ skillId: 'rm-rf' }] }) })
+    assert.equal(unknown.status, 400, 'unknown skillId is rejected')
+  })
+
+  test('blocked skills are not loaded; run.started lists the skills that are', async () => {
+    const evs = await events(await post('/v1/minds/inbox/chat', {
+      userId, threadId: randomUUID(), message: 'Say hi in three words.',
+      mind: mind('Ivy', { skills: [{ skillId: 'email-triage' }, { skillId: 'daily-planner' }] }),
+    }))
+    assert.deepEqual(evs[0].skills, ['daily-planner'])
   })
 
   test('templates endpoint lists the starter Minds with skill status', async () => {
@@ -71,7 +81,7 @@ describe('engine HTTP API', () => {
   test('tool calls become normalized events with usage, cost and contiguous seq', async () => {
     const evs = await events(await post('/v1/minds/tools/chat', {
       userId, threadId: randomUUID(), message: 'Use your tool: what is 17 + 25?',
-      mind: mind('Tess', { skills: [{ skillId: 'skl_math', toolKeys: ['add_numbers'] }] }),
+      mind: mind('Tess', { skills: [{ skillId: 'daily-planner' }] }),
     }))
     assert.deepEqual(evs.map((e) => e.seq), evs.map((_, i) => i), 'seq is 0..n-1')
     assert.equal(evs[0].type, 'run.started')
@@ -91,12 +101,13 @@ describe('engine HTTP API', () => {
   for (const action of ['approve', 'decline'] as const) {
     test(`a tool that requires approval pauses, then ${action} resumes the run`, async () => {
       const threadId = randomUUID()
-      const m = mind('Pay', { skills: [{ skillId: 'skl_pay', toolKeys: ['demo_transfer'] }] })
+      const m = mind('Pay', { skills: [{ skillId: 'payments' }] })
       const first = await events(await post('/v1/minds/pay/chat', { userId, threadId, message: 'Send 3 USDC to alice.testnet using demo_transfer.', mind: m }))
       const ask = first.find((e) => e.type === 'tool.approval_required')
       assert.ok(ask, 'tool.approval_required emitted')
       assert.equal(ask.nodeId, 'wallet:pay')
-      assert.ok(!first.some((e) => e.type === 'tool.result'), 'tool did not run before approval')
+      // The Mind may load the payments skill first (tool `skill`); only the transfer must wait.
+      assert.ok(!first.some((e) => e.type === 'tool.result' && e.tool === 'demo_transfer'), 'transfer did not run before approval')
 
       const res = await post(`/v1/runs/${ask.runId}/${action}?mindId=pay`, { userId, threadId, mind: m, toolCallId: ask.toolCallId, reason: action === 'decline' ? 'Owner declined' : undefined })
       const rest = await events(res)

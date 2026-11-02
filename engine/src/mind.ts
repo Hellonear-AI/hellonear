@@ -1,5 +1,6 @@
 // A Mind's config as sent by the backend (docs/api-contract.md §2), and the system prompt built from it.
 import { z } from 'zod'
+import { skillCatalog } from './skills.ts'
 
 export const mindSchema = z.object({
   templateId: z.string(),
@@ -10,7 +11,8 @@ export const mindSchema = z.object({
     priors: z.array(z.string()).default([]),
   }),
   model: z.string().optional(),
-  skills: z.array(z.object({ skillId: z.string(), toolKeys: z.array(z.string()) })).default([]),
+  // Equipped skills by id. The engine's catalog decides which tools each skill grants.
+  skills: z.array(z.object({ skillId: z.string().refine((id) => skillCatalog.has(id), { message: 'unknown skillId' }) })).default([]),
 })
 export type Mind = z.infer<typeof mindSchema>
 
