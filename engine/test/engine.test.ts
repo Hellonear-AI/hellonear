@@ -86,11 +86,12 @@ describe('engine HTTP API', () => {
     assert.deepEqual(evs.map((e) => e.seq), evs.map((_, i) => i), 'seq is 0..n-1')
     assert.equal(evs[0].type, 'run.started')
     assert.ok(evs.every((e) => e.v === 1 && e.runId === evs[0].runId && e.mindId === 'tools'))
-    const call = evs.find((e) => e.type === 'tool.called')
-    assert.equal(call?.tool, 'add_numbers')
+    // The Mind may activate the daily-planner skill (tool `skill`) first; look for the add_numbers call itself.
+    const call = evs.find((e) => e.type === 'tool.called' && e.tool === 'add_numbers')
+    assert.ok(call, 'add_numbers was called')
     assert.equal(call?.nodeId, 'tool:add_numbers')
     assert.deepEqual(call?.args, { a: 17, b: 25 })
-    assert.deepEqual(evs.find((e) => e.type === 'tool.result')?.result, { sum: 42 })
+    assert.deepEqual(evs.find((e) => e.type === 'tool.result' && e.tool === 'add_numbers')?.result, { sum: 42 })
     const fin = evs.at(-1)!
     assert.equal(fin.type, 'run.finished')
     assert.ok(fin.usage.totalTokens > 0, 'usage is reported while streaming')
