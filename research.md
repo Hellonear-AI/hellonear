@@ -516,7 +516,7 @@ Fitur yang disebut di sini dijelaskan di [section 9](#9-usulan-fitur).
 8. **Buat skill sendiri (9.3).** Susun skill sederhana di canvas (cron → cek harga → kirim alert) → publish ke Bazaar.
 9. **Penutup (opsional).** Mind mengambil job di Agent Market dan dapat USDC, atau tampilan graf Circles saat Lead Mind mendelegasikan tugas.
 
-Langkah 2, 4, 5, dan 6 mendapat porsi terbesar di video. Mode coba untuk juri (9.8) masuk ke README, bukan video.
+Langkah 2, 4, 5, dan 6 mendapat porsi terbesar di video. Mode coba untuk juri (9.9) masuk ke README, bukan video.
 
 ---
 
@@ -565,6 +565,7 @@ Sumber datanya adalah event stream dan tracing Mastra (tool call, langkah workfl
 
 - Saat skill di-equip, muncul layar persetujuan mirip OAuth: app yang diakses, aksi yang diizinkan, dan limit wallet (contoh: "maks 2 USDC/hari, hanya ke `intents.near`").
 - Setiap skill yang menyentuh wallet mendapat **sub-key OutLayer sendiri** (`PUT /wallet/v1/api-key`) dengan limitnya sendiri. Skill dari Bazaar yang jahat atau bug hanya bisa menghabiskan jatahnya sendiri.
+- Layar yang sama juga menampilkan secret yang diminta skill dan host tujuannya (9.8).
 - Izin bisa dicabut kapan saja dari halaman Mind. Key-nya dicabut, skill tetap terpasang tapi tidak bisa memakai wallet.
 - Apakah sub-key OutLayer bisa diberi policy terpisah belum dipastikan (section 11).
 
@@ -585,13 +586,56 @@ Sumber datanya adalah event stream dan tracing Mastra (tool call, langkah workfl
 - Transaksi di atas ambang masuk antrean approval di web (dan Telegram kalau channel itu dipakai), memakai approval multisig OutLayer.
 - Tombol freeze per Mind memanggil `freeze_wallet()`.
 
-### 9.8 Fitur pendukung
+### 9.8 Connections & Secrets
+
+Untuk kustomisasi yang lebih luas, user perlu menyambungkan service miliknya sendiri. Bentuknya bukan environment variable di proses server: engine melayani banyak user sekaligus, jadi secret user tidak boleh bercampur di env proses dan tidak boleh butuh restart saat diganti. Yang dibutuhkan adalah **secret store per user**, terenkripsi di database dan baru dibuka saat tool dijalankan. Di UI terasa seperti env.
+
+| Jenis koneksi | Contoh | Yang disimpan |
+|---|---|---|
+| App OAuth umum | Gmail, Calendar, Slack | Tidak ada. Dikelola Composio, user cukup klik "Connect" |
+| Service sendiri via API | API internal toko, webhook | **Secret:** API key, token, header |
+| MCP server sendiri | MCP server milik user | **Secret:** URL + token |
+| Konfigurasi non-rahasia | Mata uang default, ID spreadsheet, zona waktu | **Variable** |
+
+**Scope: disimpan di akun, dipakai per skill per Mind.**
+
+- Secret dan variable disimpan **di level akun**, cukup dimasukkan sekali.
+- Skill menyebutkan secret dan variable yang dibutuhkan di manifest-nya. Saat equip, user memilih secret mana yang boleh dipakai skill itu **di Mind itu**. Skill tanpa izin tidak bisa membacanya.
+- Variable bisa di-override bertingkat: skill di Mind ini > Mind > akun.
+
+```yaml
+requires:
+  secrets:
+    - name: TOKO_API_KEY
+      description: API key toko kamu
+      allowedHosts: [api.tokosaya.com]   # secret hanya boleh dikirim ke host ini
+  variables:
+    - name: CURRENCY
+      default: IDR
+```
+
+Permintaan secret ini ikut tampil di layar izin per skill (9.4), di samping limit wallet.
+
+**Aturan keamanan:**
+
+1. **LLM tidak pernah melihat nilai secret.** Di Visual Builder dan `SKILL.md`, secret ditulis sebagai referensi (`{{secrets.TOKO_API_KEY}}`). Nilainya diisi di lapisan eksekusi tool, tepat sebelum request HTTP/MCP dikirim. Prompt injection tidak bisa meminta Mind menyebutkan secret karena Mind memang tidak tahu nilainya.
+2. **`allowedHosts` per secret.** Skill jahat dari Bazaar tidak bisa mengirim secret ke server miliknya.
+3. **Disensor di live view dan Receipts.** Input/output tool tetap terlihat untuk debugging, tetapi nilai secret diganti `••••`.
+4. **Terenkripsi di database** dengan envelope encryption; kuncinya di KMS atau setara, bukan di kode. Saat skill di-unequip atau izinnya dicabut, akses ke secret ikut hilang.
+
+**Cara user menyambungkan service:**
+
+- Node **"HTTP Request"** di Visual Builder (padanan `HTTP_Execute` di HelloMinds) yang bisa memakai secret dan variable.
+- **"Tambah MCP server"**: masukkan URL + token, lalu tool-nya muncul di Builder.
+- Di UI disebut **"Connections & Secrets"**. Di tingkat 4 (kode), developer melihatnya dalam bentuk mirip env.
+
+### 9.9 Fitur pendukung
 
 - **Circles graph:** graf live saat Lead Mind mendelegasikan tugas ke Expert Mind, dengan biaya tiap langkah. Bagian dari live view.
 - **Bagi hasil on-chain untuk pembuat skill:** pembuat skill mendapat USDC/NEAR setiap kali skill di-equip atau dipakai. Berkaitan dengan pertanyaan terbuka #6.
 - **Mode coba untuk juri:** Mind demo yang sudah disiapkan di testnet dan bisa dicoba tanpa membuat wallet. Juri AI kemungkinan tidak bisa login dengan wallet.
 
-### 9.9 Dampak ke arsitektur dan tim
+### 9.10 Dampak ke arsitektur dan tim
 
 | Fitur | Dampak | PIC (usulan) |
 |---|---|---|
@@ -600,6 +644,7 @@ Sumber datanya adalah event stream dan tracing Mastra (tool call, langkah workfl
 | Izin per skill | Manifest izin di skill; pembuatan dan pencabutan sub-key OutLayer | James |
 | Attack Playground | Set skenario serangan + UI | Axel (skenario), Ancung (UI) |
 | Anchor Receipts | Method tambahan di contract registry | Axel |
+| Connections & Secrets | Secret store terenkripsi per akun + binding per skill per Mind (backend); injeksi secret di lapisan eksekusi tool + sensor di event (engine); halaman Connections & Secrets (FE) | James (store + enkripsi), Axel (injeksi + sensor), Ancung (UI) |
 | Desain semua layar di atas | Live view, builder, layar izin perlu dirancang supaya mudah dipahami user awam | Nabil |
 
 ---
@@ -642,6 +687,7 @@ Ingat: tidak ada push ke main, merge, deploy, PR, atau submit tanpa acc Axel.
 | Detail event stream / tracing Mastra cukup untuk live view | Dasar live view (9.2) | Jalankan agent dengan tool + workflow, cek event langkah, tool call, dan subagent yang keluar |
 | Workflow Mastra bisa dijalankan ulang dari langkah tertentu | Fitur "Jalankan ulang" saat debugging (9.2) | Coba suspend/resume atau snapshot di workflow yang gagal |
 | Graf canvas bisa di-compile ke workflow Mastra secara dinamis (dari DB, bukan file) | Dasar Visual Builder (9.3) | Buat workflow dari JSON graf saat runtime, jalankan |
+| Secret bisa diinjeksi di lapisan eksekusi tool Mastra tanpa masuk ke konteks LLM, dan disensor dari event/tracing | Dasar Connections & Secrets (9.8) | Buat tool HTTP dengan referensi `{{secrets.X}}`, cek prompt, event stream, dan trace tidak memuat nilainya |
 
 ---
 
@@ -659,6 +705,7 @@ Ingat: tidak ada push ke main, merge, deploy, PR, atau submit tanpa acc Axel.
 10. **Visual Builder:** dipakai untuk mengedit perilaku Mind sendiri saja, atau sekaligus menjadi alat membuat skill untuk Bazaar?
 11. **Live view:** cukup untuk run yang sedang berjalan dan riwayatnya, atau juga perlu "jalankan ulang dari langkah tertentu" sejak versi pertama?
 12. **Tingkat kustomisasi:** apakah tingkat 4 (edit `SKILL.md` mentah) ditampilkan ke semua user, atau disembunyikan di mode developer?
+13. **Secrets:** enkripsi pakai KMS dari provider hosting, atau cukup kunci master di secret manager untuk hackathon? Apakah "Tambah MCP server" masuk versi pertama?
 
 ---
 
