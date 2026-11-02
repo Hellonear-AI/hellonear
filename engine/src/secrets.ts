@@ -1,5 +1,6 @@
 // Connections & Secrets (#18). The LLM only ever sees {{secrets.NAME}} placeholders;
 // values are filled in at tool execution and redacted by value everywhere they could leak.
+import { lookup } from 'node:dns/promises'
 import { isIP } from 'node:net'
 import { z } from 'zod'
 
@@ -41,6 +42,15 @@ export function assertPublicHttpsUrl(raw: string): URL {
   if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.internal') || host.endsWith('.local')) throw new Error(`host ${host} is not allowed`)
   if (isIP(host) && isPrivateIp(host)) throw new Error(`host ${host} is not allowed`)
   return url
+}
+
+// A public hostname can still resolve to a private address (DNS rebinding), so check every A/AAAA record.
+export async function assertResolvesPublic(hostname: string) {
+  const host = hostname.replace(/^\[|\]$/g, '')
+  if (isIP(host)) return
+  const records = await lookup(host, { all: true })
+  const bad = records.find((r) => isPrivateIp(r.address))
+  if (bad) throw new Error(`host ${host} resolves to a non-public address`)
 }
 
 function isPrivateIp(ip: string): boolean {
