@@ -2,6 +2,7 @@
 // The UI and Mind Graph depend on these, never on raw Mastra chunks.
 import { nodeIdFor } from './graph.ts'
 import { priceOf } from './models.ts'
+import { redact } from './secrets.ts'
 
 export type HelloNearEvent = { v: 1; type: string; runId: string; mindId: string; seq: number; ts: string } & Record<string, unknown>
 type Usage = { inputTokens?: number; outputTokens?: number; reasoningTokens?: number; totalTokens?: number }
@@ -10,11 +11,13 @@ type Usage = { inputTokens?: number; outputTokens?: number; reasoningTokens?: nu
 const pickUsage = (u: Usage | undefined) =>
   u ? { inputTokens: u.inputTokens ?? 0, outputTokens: u.outputTokens ?? 0, reasoningTokens: u.reasoningTokens ?? 0, totalTokens: u.totalTokens ?? 0 } : undefined
 
-export function createNormalizer(opts: { mindId: string; threadId: string; model: string; skills?: string[]; startSeq?: number }) {
+export function createNormalizer(opts: { mindId: string; threadId: string; model: string; skills?: string[]; secretValues?: string[]; startSeq?: number }) {
   let seq = opts.startSeq ?? 0
   let step = 0
   let text = ''
-  const emit = (runId: string, type: string, extra: Record<string, unknown> = {}): HelloNearEvent => ({ v: 1, type, runId, mindId: opts.mindId, seq: seq++, ts: new Date().toISOString(), ...extra })
+  // Second line of defence: tools already redact their results, but nothing an event carries may hold a secret value.
+  const emit = (runId: string, type: string, extra: Record<string, unknown> = {}): HelloNearEvent =>
+    redact({ v: 1, type, runId, mindId: opts.mindId, seq: seq++, ts: new Date().toISOString(), ...extra }, opts.secretValues ?? [])
 
   // Returns the events for one chunk (usually zero or one).
   return async function normalize(chunk: { type: string; runId: string; payload?: any }): Promise<HelloNearEvent[]> {
