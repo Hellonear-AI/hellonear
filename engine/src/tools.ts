@@ -58,7 +58,31 @@ const httpRequest = createTool({
   },
 })
 
-export const toolRegistry = { get_time: getTime, add_numbers: addNumbers, demo_transfer: demoTransfer, http_request: httpRequest } as const
+// Read-only NEAR account lookup on testnet (#20 "check balance"). Public RPC, no keys, moves nothing.
+const NEAR_RPC_URL = process.env.NEAR_RPC_URL ?? 'https://rpc.testnet.near.org'
+const YOCTO_PER_NEAR = 10n ** 24n
+const nearViewAccount = createTool({
+  id: 'near_view_account',
+  description: 'Look up a NEAR testnet account: its available balance in NEAR and storage used. Read-only.',
+  inputSchema: z.object({ accountId: z.string().min(2).max(64).regex(/^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/, 'not a valid NEAR account id') }),
+  outputSchema: z.object({ accountId: z.string(), balanceNear: z.number(), amountYocto: z.string(), storageUsage: z.number() }),
+  execute: async ({ accountId }) => {
+    const res = await fetch(NEAR_RPC_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 'engine', method: 'query', params: { request_type: 'view_account', finality: 'final', account_id: accountId } }),
+      signal: AbortSignal.timeout(10_000),
+    })
+    const body = (await res.json()) as { result?: { amount: string; storage_usage: number }; error?: { cause?: { name?: string }; message?: string } }
+    if (!body.result) throw new Error(`NEAR RPC: ${body.error?.cause?.name ?? body.error?.message ?? `HTTP ${res.status}`}`)
+    const yocto = BigInt(body.result.amount)
+    // Exact amount as a string; a number in NEAR (4 decimals) for display and comparisons.
+    const balanceNear = Number(yocto / 10n ** 20n) / 10_000
+    return { accountId, balanceNear, amountYocto: body.result.amount, storageUsage: body.result.storage_usage }
+  },
+})
+
+export const toolRegistry = { get_time: getTime, add_numbers: addNumbers, demo_transfer: demoTransfer, http_request: httpRequest, near_view_account: nearViewAccount } as const
 export type ToolKey = keyof typeof toolRegistry
 
 // Tools every Mind has, plus the tools of its equipped skills. Unknown keys are ignored.
