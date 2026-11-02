@@ -62,7 +62,7 @@ The team uses macOS with **OrbStack** as the Docker runtime. Keep local services
 
 | What | Account | Env |
 |---|---|---|
-| Mind registry contract (`sc/`) | `hellonear-registry.testnet` | `REGISTRY_CONTRACT_ID`, `NEAR_NETWORK=testnet` |
+| Mind registry contract (`sc/`), v0.2.0 | `hellonear-registry.testnet` | `REGISTRY_CONTRACT_ID`, `NEAR_NETWORK=testnet` |
 
 Keep this table and each folder's `.env.example` in sync when something is (re)deployed.
 

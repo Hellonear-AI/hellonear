@@ -56,7 +56,15 @@ Not verified yet: the testnet deploy used a non-reproducible build, so `contract
 cargo near deploy build-non-reproducible-wasm <account>.testnet with-init-call new json-args '{}' prepaid-gas '30 Tgas' attached-deposit '0 NEAR' network-config testnet sign-with-keychain send
 ```
 
-**Deployed (testnet, 3 Nov 2026): `hellonear-registry.testnet`**
+**Deployed (testnet): `hellonear-registry.testnet`, now v0.2.0**
+
+Upgrade v0.1.0 → v0.2.0 (3 Nov 2026, from `main` at `8a81f6a`):
+- Deploy + `migrate {"skill_ids":["pay"]}` in one transaction: [`3nuc3u4a…`](https://explorer.testnet.near.org/transactions/3nuc3u4aKMH8XLq1NDF4DuMivQ2R6UbowUgJ3zjzAhss), event `state_migrated` (minds 1, skills 1).
+- On-chain `code_hash` `4u2JFQFEMSKtTy9XZ4GQVQtxzyRRSYjQboiotf76R3or` = SHA-256 (base58) of the v0.2.0 WASM built from that commit; `contract_source_metadata.version` 0.2.0.
+- `get_mind`, `get_skill`, `minds_of`, `total_minds` identical before and after (snapshot over testnet RPC).
+- Write round-trip after the upgrade: `unequip_skill` ([`4ViBEJ6N…`](https://explorer.testnet.near.org/transactions/4ViBEJ6Nxpoe2kz9YWLTFLPMKc26DrRZ3DaTXXgHVCBc)) then `equip_skill` ([`6diDXaAY…`](https://explorer.testnet.near.org/transactions/6diDXaAYmT8pMtVemsv4xtmzSE8DW7WM5Uprim6aU2a5)); state back to the same.
+
+First deploy, v0.1.0 (3 Nov 2026):
 
 - Deploy + `new` init in one transaction: [`ALEtdSpw…`](https://explorer.testnet.near.org/transactions/ALEtdSpwWYJyw63dZPKPBUKvk3tEqrJe2GycEZMjEn2x)
 - On-chain `code_hash` `7Xp6eabRy8NTfAdg3WMfuWpMpoQgZSxLewTudwCouwV9` = SHA-256 (base58) of the tested WASM.
