@@ -5,6 +5,7 @@ use near_sdk::serde_json::json;
 use near_sdk::store::{IterableMap, LookupMap};
 use near_sdk::{AccountId, BorshStorageKey, NearToken, PanicOnDefault, Promise, assert_one_yocto, env, near, require};
 
+mod migrate;
 pub mod versioned;
 pub use versioned::{Mind, Skill};
 use versioned::{VersionedMind, VersionedSkill};
@@ -330,6 +331,39 @@ mod tests {
             ctx("alice.testnet", ONE_NEAR);
             c.register_mind(format!("cap{i}"), "ipfs://m".into(), acc("w.testnet"));
         }
+    }
+
+    #[test]
+    fn migrate_moves_v0_1_state_to_versioned_records() {
+        use crate::migrate::ContractV0_1;
+        use crate::versioned::{MindV1, SkillV1};
+        // Build v0.1.0 state in storage exactly as the old contract wrote it.
+        ctx("registry.testnet", NearToken::from_yoctonear(0));
+        let mut old_minds: IterableMap<String, MindV1> = IterableMap::new(StorageKey::Minds);
+        let mut by_owner: LookupMap<AccountId, Vec<String>> = LookupMap::new(StorageKey::MindsByOwner);
+        let mut old_skills: LookupMap<String, SkillV1> = LookupMap::new(StorageKey::Skills);
+        old_minds.insert("penny".into(), MindV1 { owner: acc("alice.testnet"), metadata_uri: "ipfs://penny".into(), wallet: acc("w.testnet"), skills: vec!["pay".into()] });
+        by_owner.insert(acc("alice.testnet"), vec!["penny".into()]);
+        old_skills.insert("pay".into(), SkillV1 { publisher: acc("bob.testnet"), metadata_uri: "ipfs://pay".into(), price: U128(5) });
+        env::state_write(&ContractV0_1::for_test(old_minds, by_owner, old_skills));
+
+        let c = Contract::migrate(vec!["pay".into()]);
+        let mind = c.get_mind("penny".into()).unwrap();
+        assert_eq!(mind.owner, acc("alice.testnet"));
+        assert_eq!(mind.skills, vec!["pay".to_string()]);
+        assert_eq!(c.get_skill("pay".into()).unwrap().price, U128(5));
+        assert_eq!(c.minds_of(acc("alice.testnet"), None, None), vec!["penny".to_string()]);
+        assert_eq!(c.total_minds(), 1);
+        assert!(get_logs().iter().any(|l| l.contains("\"state_migrated\"")));
+    }
+
+    #[test]
+    #[should_panic(expected = "skill_id not found in v0.1.0 state: typo")]
+    fn migrate_rejects_unknown_skill_ids() {
+        use crate::migrate::ContractV0_1;
+        ctx("registry.testnet", NearToken::from_yoctonear(0));
+        env::state_write(&ContractV0_1::for_test(IterableMap::new(StorageKey::Minds), LookupMap::new(StorageKey::MindsByOwner), LookupMap::new(StorageKey::Skills)));
+        Contract::migrate(vec!["typo".into()]);
     }
 
     #[test]
