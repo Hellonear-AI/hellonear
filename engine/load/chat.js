@@ -14,7 +14,7 @@ export default function () {
     userId: `load-${__VU}`,
     threadId: `load-${__VU}-${__ITER}`,
     message: 'Use your tool: what is 2 + 3? Answer with the number only.',
-    mind: { templateId: 'general-assistant', name: 'Lo', soul: { identity: 'Be brief.', invariants: [], priors: [] }, skills: [{ skillId: 's', toolKeys: ['add_numbers'] }] },
+    mind: { templateId: 'general-assistant', name: 'Lo', soul: { identity: 'Be brief.', invariants: [], priors: [] }, skills: [{ skillId: 'daily-planner' }] },
   })
   const res = http.post(`${__ENV.BASE}/v1/minds/load-${__VU}/chat`, body, { headers: { 'content-type': 'application/json', 'x-engine-key': __ENV.KEY }, timeout: '120s' })
   check(res, {

@@ -37,12 +37,13 @@ Starts a run and streams HelloNear events as SSE (`text/event-stream`, one JSON 
     "name": "Penny",
     "soul": { "identity": "…", "invariants": ["…"], "priors": ["…"] },
     "model": "z-ai/glm-5.3-flash",
-    "skills": [{ "skillId": "skl_pay", "toolKeys": ["pay_invoice", "get_balance"] }]
+    "skills": [{ "skillId": "payments" }, { "skillId": "daily-planner" }]
   }
 }
 ```
 
 - The backend sends the Mind config it loaded from its DB; the engine builds the agent from it per request through `RequestContext` (`research.md` 8.2).
+- **Skills are sent by id only.** The engine's catalog (`engine/skills/<id>/SKILL.md`) decides which tools and playbook each skill grants, so the backend cannot grant arbitrary tools. An unknown `skillId` → `400`. A skill with status `blocked` is accepted but not loaded **[tested, #13]**.
 - Response: SSE stream of events (§3). The first event is `run.started` and carries `runId`.
 
 ### `POST /v1/runs/{runId}/approve?mindId={mindId}` and `POST /v1/runs/{runId}/decline?mindId={mindId}`
@@ -58,6 +59,10 @@ Starts a run and streams HelloNear events as SSE (`text/event-stream`, one JSON 
 ```
 
 Resumes a run paused on `tool.approval_required`. Streams the remaining events as SSE, same format, with `seq` continuing from the paused run. Maps to Mastra `approveToolCall()` / `declineToolCall()` with the run's `runId` **[tested, #11]**. The Mind config must be sent again because the agent's tools are resolved from it per request. Mastra needs storage for this (snapshots), so the engine always runs with Postgres storage.
+
+### `GET /v1/templates`
+
+`{ "templates": [ { templateId, name, tagline, soul, model, skills: [ { skillId, description, status: "available" | "simulated" | "blocked", connections: [...], note? } ] } ] }` for the Choose a Mind screen. Status tells the UI what is simulated (e.g. payments before OutLayer) or blocked (e.g. email before Composio) **[tested, #13]**.
 
 ### `GET /v1/health`
 
@@ -82,7 +87,7 @@ Common fields on every event:
 
 | `type` | Extra fields | From Mastra chunk |
 |---|---|---|
-| `run.started` | `threadId`, `model`, `nodeId` (`model:{modelId}`) | `start` **[tested]** |
+| `run.started` | `threadId`, `model`, `nodeId` (`model:{modelId}`), `skills` (ids actually loaded) | `start` **[tested]** |
 | `step.started` | `step` (1-based) | `step-start` **[tested]** |
 | `reasoning.delta` | `text` | `reasoning-delta` **[tested]** (glm only; DeepSeek sends none) |
 | `text.delta` | `text` | `text-delta` **[tested]** |
@@ -123,7 +128,7 @@ Each event with a `nodeId` lights up one node. Node ids are stable across runs s
 |---|---|---|
 | Mind | `mind:{mindId}` | always (center) |
 | Tool | `tool:{toolKey}` | `tool.*` events |
-| Skill | `skill:{skillId}` | when the agent loads a skill (`skill` / `skill_read` tool calls) |
+| Skill | `skill:{skillId}` | when the agent loads a skill: Mastra tool `skill` (`args.name`) or `skill_read` (`args.skillName`) **[tested, #13]**; `skill_search` stays a tool node |
 | Wallet | `wallet:{mindId}` | wallet tools (`pay_invoice`, `get_balance`, …) |
 | App | `app:{appName}` | Composio tools (e.g. `app:gmail`) |
 | Model | `model:{modelId}` | `run.started` |

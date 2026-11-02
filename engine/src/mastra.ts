@@ -8,6 +8,7 @@ import { Memory } from '@mastra/memory'
 import { config } from './config.ts'
 import { buildInstructions, type Mind } from './mind.ts'
 import { chatModel, embedder } from './models.ts'
+import { usableSkills } from './skills.ts'
 import { toolsFor } from './tools.ts'
 
 // Small pools: the local Postgres allows 40 connections.
@@ -32,12 +33,16 @@ const mindOf = ({ requestContext }: Ctx) => {
   return mind
 }
 
+// Only skills that are not blocked; their tools and playbooks come from engine/skills.
+export const skillsOf = (ctx: Ctx) => usableSkills(mindOf(ctx).skills.map((s) => s.skillId))
+
 export const mindAgent = new Agent({
   id: 'mind',
   name: 'Mind',
   instructions: (ctx) => buildInstructions(mindOf(ctx)),
   model: (ctx) => chatModel(mindOf(ctx).model ?? config.defaultModel),
-  tools: (ctx) => toolsFor(mindOf(ctx).skills.flatMap((s) => s.toolKeys)),
+  tools: (ctx) => toolsFor(skillsOf(ctx).flatMap((s) => s.tools)),
+  skills: (ctx) => skillsOf(ctx).map((s) => s.skill),
   memory,
 })
 
