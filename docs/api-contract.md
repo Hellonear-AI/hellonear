@@ -4,6 +4,7 @@
 
 Evidence tags:
 - **[tested]** observed in spike #5 (`engine/spikes/01-tool-calling/results.json`, `@mastra/core` 1.81.0, 2 Nov 2026).
+- **[tested, #11]** covered by the engine integration tests (`engine/test/engine.test.ts`).
 - **[docs]** taken from the docs bundled in `@mastra/core` 1.81.0 (`dist/docs/references/`), not exercised yet.
 
 ## 1. Who talks to whom
@@ -44,13 +45,19 @@ Starts a run and streams HelloNear events as SSE (`text/event-stream`, one JSON 
 - The backend sends the Mind config it loaded from its DB; the engine builds the agent from it per request through `RequestContext` (`research.md` 8.2).
 - Response: SSE stream of events (§3). The first event is `run.started` and carries `runId`.
 
-### `POST /v1/runs/{runId}/approve` and `POST /v1/runs/{runId}/decline`
+### `POST /v1/runs/{runId}/approve?mindId={mindId}` and `POST /v1/runs/{runId}/decline?mindId={mindId}`
 
 ```json
-{ "toolCallId": "call_…", "reason": "optional, decline only" }
+{
+  "userId": "usr_123",
+  "threadId": "thr_456",
+  "mind": { "…": "same Mind config as the chat request" },
+  "toolCallId": "call_…",
+  "reason": "optional, decline only"
+}
 ```
 
-Resumes a run paused on `tool.approval_required`. Streams the remaining events as SSE, same format. Maps to Mastra `approveToolCall()` / `declineToolCall()` with the run's `runId` **[docs]**. Mastra needs a storage provider for this (snapshots), so the engine always runs with Postgres storage **[docs]**.
+Resumes a run paused on `tool.approval_required`. Streams the remaining events as SSE, same format, with `seq` continuing from the paused run. Maps to Mastra `approveToolCall()` / `declineToolCall()` with the run's `runId` **[tested, #11]**. The Mind config must be sent again because the agent's tools are resolved from it per request. Mastra needs storage for this (snapshots), so the engine always runs with Postgres storage.
 
 ### `GET /v1/health`
 
@@ -75,14 +82,14 @@ Common fields on every event:
 
 | `type` | Extra fields | From Mastra chunk |
 |---|---|---|
-| `run.started` | `threadId`, `model` | `start` **[tested]** |
+| `run.started` | `threadId`, `model`, `nodeId` (`model:{modelId}`) | `start` **[tested]** |
 | `step.started` | `step` (1-based) | `step-start` **[tested]** |
 | `reasoning.delta` | `text` | `reasoning-delta` **[tested]** (glm only; DeepSeek sends none) |
 | `text.delta` | `text` | `text-delta` **[tested]** |
 | `tool.called` | `toolCallId`, `tool`, `nodeId`, `args` | `tool-call` **[tested]**: payload `{ toolCallId, toolName, args }` |
 | `tool.result` | `toolCallId`, `tool`, `nodeId`, `result`, `status: "ok"` | `tool-result` **[tested]**: payload `{ toolCallId, toolName, args, result }` |
 | `tool.error` | `toolCallId`, `tool`, `nodeId`, `status: "error" \| "policy_denied"`, `error`, `rule?` | `tool-error` **[docs]**; `policy_denied` when the wallet tool gets an OutLayer policy rejection (#6) |
-| `tool.approval_required` | `toolCallId`, `tool`, `nodeId`, `args` | `tool-call-approval` **[docs]** |
+| `tool.approval_required` | `toolCallId`, `tool`, `nodeId`, `args` | `tool-call-approval` **[tested, #11]** |
 | `step.finished` | `step`, `usage` | `step-finish` **[tested]** |
 | `run.finished` | `finishReason`, `text`, `usage`, `costUsd`, `verification` | `finish` **[tested]** |
 | `run.error` | `error` | `error` chunk or a thrown error |

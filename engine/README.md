@@ -1,12 +1,28 @@
 # engine
 
-HelloNear AI engine: a Mastra server that runs each Mind (soul, skills, memory, tools, scheduler) on NEAR AI Cloud models.
+HelloNear AI engine: an HTTP service (Mastra 1.81.0) that runs each Mind on NEAR AI Cloud models and streams normalized events to the backend. Contract: `docs/api-contract.md`.
 
-**Owner:** Axel · Issues: #5 (tool-calling spike), #11 (skeleton) · Context: `research.md` 7.1, 8.2, 9.2.
+**Owner:** Axel · Issues: #5 (spike, done), #11 (this skeleton), #13–#21.
 
-## Setup
+## Run locally
 
-1. `cp .env.example .env` and set `NEARAI_API_KEY` (from https://cloud.near.ai or the NEAR Builders credit).
-2. Stack: `@mastra/core` 1.81.0 (pinned), NEAR AI models built with `@ai-sdk/openai-compatible` + `includeUsage: true` (see `spikes/01-tool-calling`), Postgres + pgvector.
+```sh
+docker compose up -d postgres      # from the repo root; Postgres + pgvector, capped at 1 CPU / 512 MB
+cd engine
+cp .env.example .env               # set NEARAI_API_KEY and ENGINE_API_KEY
+npm install
+npm run dev                        # http://localhost:4100/v1/health
+npm test                           # integration tests (real NEAR AI + local Postgres, ~2 min)
+npm run typecheck
+docker compose stop                # when done, to keep the laptop cool
+```
 
-Note: NEAR AI reasoning models spend part of `max_tokens` on reasoning, so keep the limit generous.
+Load test (small, real NEAR AI calls): `k6 run -e BASE=http://localhost:4100 -e KEY=$ENGINE_API_KEY load/chat.js`.
+
+## What is in the skeleton
+
+- `src/server.ts`: `POST /v1/minds/{mindId}/chat`, `POST /v1/runs/{runId}/approve|decline`, `GET /v1/health`; `X-Engine-Key` auth.
+- `src/mastra.ts`: one generic Mind agent; persona, model and tools come from `RequestContext`; Postgres storage (schema `mastra`) and pgvector; memory with history, semantic recall and working memory scoped to `userId:mindId`.
+- `src/events.ts`: Mastra chunks → HelloNear events (`run.started`, `tool.called`, `tool.result`, `tool.approval_required`, `run.finished` with usage and cost, …).
+- `src/tools.ts`: tool registry (`get_time`, `add_numbers`, `demo_transfer` which needs approval and moves no money).
+- `src/models.ts`: NEAR AI chat/embedding models via `@ai-sdk/openai-compatible` with `includeUsage`.
