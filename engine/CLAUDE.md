@@ -39,10 +39,11 @@ The `mastra` skill can report bugs and doc defects to the Mastra team. Never let
 
 ## Commands
 
-- `npm run dev` (port 4100), `npm run test:unit` (offline), `npm test` (unit + integration: real NEAR AI, local Postgres, NEAR testnet RPC, httpbin), `npm run typecheck`.
+- Package manager: **Bun** (`bun install`, lockfile `bun.lock`, version pinned in `packageManager`). The scripts still run on **Node** (`node --import tsx …`): the NEAR AI SDK requires Node ≥ 24.22.1 and the tests use `node:test`; running the engine on the Bun runtime is not tested. Do not add `package-lock.json` back.
+- `bun run dev` (port 4100), `bun run test:unit` (offline), `bun run test` (unit + integration: real NEAR AI, local Postgres, NEAR testnet RPC, httpbin), `bun run typecheck`.
 - Postgres: `docker compose up -d postgres` from the repo root; `docker compose stop` when done.
 - Load tests: `load/chat.js` (spends NEAR AI credit, keep it small) and `load/workflow.js` (builder; local tools only by default, `-e AGENT=1` adds an agent step). Never load test a public endpoint (NEAR RPC, httpbin): docs.near.org forbids it for shared RPCs.
-- Run `npm test` and the load test before every push/merge that touches the engine, and report results in the PR.
+- Run `bun run test` and the load test before every push/merge that touches the engine, and report results in the PR.
 
 ## Testing notes
 

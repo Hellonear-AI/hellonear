@@ -133,6 +133,9 @@ describe('builder workflows', () => {
   })
 
   test('saved workflows survive a restart', async () => {
+    // Back to the original canvas (the else-branch test saved a variant whose run calls the LLM),
+    // so this test checks loading only and its run takes the tool branch: no model latency.
+    assert.equal((await call('PUT', path('balance-alert'), balanceAlert())).status, 200)
     const id = mastraWorkflowId(mindId, 'balance-alert')
     // Same path as a restart: drop it from the live registry, then load from Postgres.
     assert.equal(mastra.removeWorkflow(id), true)
@@ -143,6 +146,7 @@ describe('builder workflows', () => {
     mastra.removeWorkflow(id)
     const evs = await events(await call('POST', `${path('balance-alert')}/runs`, runBody()))
     assert.equal(ofType(evs, 'workflow.finished')[0].status, 'success')
+    assert.deepEqual(ofType(evs, 'node.finished').map((e) => e.node), ['balance', 'notify'])
   })
 
   test('delete removes it everywhere', async () => {
