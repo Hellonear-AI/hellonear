@@ -19,6 +19,8 @@ AI engine: a Mastra server that runs each Mind (soul, skills, tools, memory, sch
 - Autopilot: use **workflow** schedules with `requestContext`; agent schedules do not accept it.
 - Reasoning models spend part of `max_tokens` on reasoning; keep limits generous (a 5-token test returned empty `content`).
 - E2EE only works on `/chat/completions`, not the Responses API.
+- **Verified private badge (#19):** chat models use the NEAR AI SDK fetch transport (`inferenceClient.fetch` in `src/models.ts`); never bypass it for chat, or responses cannot be verified. Verify only after the stream is fully read. Streaming gives `gateway` signatures, non-streaming gives `provider_tee` (measured 3 Nov); the badge level follows the weakest step (`src/verify.ts`). Incognito models never get the badge. Keep `maxRetries: 0`. Attestation is warmed at startup and every 50 minutes; a cold check is ~20 s.
+- The SDK needs Node ≥ 24.22.1.
 - Secrets (#18, `src/secrets.ts`): never put secret values in prompts. The model writes `{{secrets.NAME}}`; only tools fill it from `RequestContext` (`SECRETS_KEY`, never registered for tracing). Any new tool that sends data out must: fill secrets only at execution, call `assertHostAllowed`, `assertPublicHttpsUrl` and `assertResolvesPublic`, not follow redirects, and `redact` its result before returning. Events are redacted by value too (`SensitiveDataFilter` only matches field names, so it is not enough).
 - After changing anything on the secrets path, run the secrets tests: they scan every table in the `mastra` schema for the test secret.
 - Wallet tools: require approval (`requireApproval`); never expose owner actions (policy changes, freeze) as LLM tools.

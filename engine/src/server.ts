@@ -9,7 +9,9 @@ import { MIND_KEY, mastra } from './mastra.ts'
 import { resourceId, runRequestSchema, type Mind } from './mind.ts'
 import { SECRETS_KEY, redact, type Secret } from './secrets.ts'
 import { usableSkills } from './skills.ts'
-import { templateSummaries } from './templates.ts'
+import { attestationStatus, modelInfo, verifyCompletions, warmAttestation } from './models.ts'
+import { summarize } from './verify.ts'
+import { templateSummaries, templates } from './templates.ts'
 
 const chatSchema = runRequestSchema.extend({ message: z.string().min(1) })
 const resumeSchema = runRequestSchema.extend({ toolCallId: z.string().min(1), reason: z.string().optional() })
@@ -54,6 +56,15 @@ async function pipeRun(res: ServerResponse, stream: { fullStream: AsyncIterable<
         res.write(`data: ${JSON.stringify(event)}\n\n`)
       }
     }
+    // The stream is fully read, so the SDK holds every completion's bytes: verify them (#19).
+    if (runId) {
+      const info = await modelInfo(opts.model)
+      const ids = normalize.completionIds()
+      const verification = summarize(info?.verifiable === true, info?.verifiable ? await verifyCompletions(ids) : [])
+      const event = normalize.verified(runId, verification)
+      nextSeq.set(runId, event.seq + 1)
+      res.write(`data: ${JSON.stringify(event)}\n\n`)
+    }
   } catch (e) {
     const event = { v: 1, type: 'run.error', runId, mindId: opts.mindId, seq: runId ? nextSeq.get(runId) ?? 0 : 0, ts: new Date().toISOString(), error: e instanceof Error ? e.message : String(e) }
     res.write(`data: ${JSON.stringify(redact(event, opts.secretValues))}\n\n`)
@@ -67,13 +78,14 @@ const agentOptions = (mind: Mind, secrets: Secret[], userId: string, mindId: str
   requestContext: contextFor(mind, secrets),
   memory: { resource: resourceId(userId, mindId), thread: threadId },
   maxSteps: 8,
-  modelSettings: { maxOutputTokens: config.maxOutputTokens, timeout: { totalMs: config.runTimeoutMs } },
+  // No automatic retries: each completion must map to one verifiable request (NEAR AI SDK guide).
+  modelSettings: { maxOutputTokens: config.maxOutputTokens, maxRetries: 0, timeout: { totalMs: config.runTimeoutMs } },
 })
 
 export const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url ?? '/', 'http://engine')
-    if (req.method === 'GET' && url.pathname === '/v1/health') return sendJson(res, 200, { ok: true, mastra: '1.81.0' })
+    if (req.method === 'GET' && url.pathname === '/v1/health') return sendJson(res, 200, { ok: true, mastra: '1.81.0', attestation: attestationStatus() })
     if (!authorized(req)) return sendJson(res, 401, { error: 'unauthorized' })
 
     if (req.method === 'GET' && url.pathname === '/v1/templates') return sendJson(res, 200, { templates: templateSummaries() })
@@ -110,6 +122,12 @@ export const server = createServer(async (req, res) => {
   }
 })
 
+// Models whose attestation the engine keeps warm: the default and every template's model.
+export const warmModels = () => [config.defaultModel, ...templates.map((t) => t.model)]
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   server.listen(config.port, () => console.log(`engine listening on :${config.port}`))
+  const warm = () => warmAttestation(warmModels()).then(() => console.log('attestation', JSON.stringify(attestationStatus())))
+  void warm()
+  setInterval(warm, 50 * 60 * 1000).unref()
 }

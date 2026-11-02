@@ -68,7 +68,7 @@ Resumes a run paused on `tool.approval_required`. Streams the remaining events a
 
 ### `GET /v1/health`
 
-`{ "ok": true, "mastra": "1.81.0" }`
+`{ "ok": true, "mastra": "1.81.0", "attestation": { "<modelId>": { "ok": true, "checkedAt": "…", "ms": 17558 } } }`: attestation is warmed at startup and every 50 minutes.
 
 ## 3. HelloNear events (engine → backend → browser)
 
@@ -98,14 +98,20 @@ Common fields on every event:
 | `tool.error` | `toolCallId`, `tool`, `nodeId`, `status: "error" \| "policy_denied"`, `error`, `rule?` | `tool-error` **[docs]**; `policy_denied` when the wallet tool gets an OutLayer policy rejection (#6) |
 | `tool.approval_required` | `toolCallId`, `tool`, `nodeId`, `args` | `tool-call-approval` **[tested, #11]** |
 | `step.finished` | `step`, `usage` | `step-finish` **[tested]** |
-| `run.finished` | `finishReason`, `text`, `usage`, `costUsd`, `verification` | `finish` **[tested]** |
+| `run.finished` | `finishReason`, `text`, `usage`, `costUsd`, `verification: { status: "pending" }` | `finish` **[tested]** |
+| `run.verified` | `model`, `nodeId`, `verification` (see below). Always the run's **last** event | engine, after the stream is read **[tested, #19]** |
 | `run.error` | `error` | `error` chunk or a thrown error |
 
 `usage` = `{ "inputTokens": 441, "outputTokens": 28, "reasoningTokens": 2, "totalTokens": 469 }`. It is only filled while streaming when the engine builds models with `@ai-sdk/openai-compatible` + `includeUsage: true` **[tested]**; with the `nearai/<id>` router string it is empty **[tested]**.
 
 `costUsd` = `inputTokens × input price + outputTokens × output price`, prices from `GET https://cloud-api.near.ai/v1/model/list` (cached by the engine).
 
-`verification` = `{ "status": "verified" | "unverified" | "not_applicable", "model": "…" }`. Filled by #19; `not_applicable` for Incognito models, which never get the badge.
+`verification` (on `run.verified`), computed with `@nearai/inference-sdk` (`verifyResponse` per completion, after Gateway and model attestation) **[tested, #19]**:
+- `{ "status": "verified", "level": "model_tee" | "gateway_tee", "completionIds": [...] }`: every model step verified. `model_tee` only if every step was signed inside the model TEE (`provider_tee`); streaming completions are signed by the Gateway TEE, so a normal chat run is `gateway_tee` (measured 3 Nov).
+- `{ "status": "not_applicable", "reason": "incognito_model" | "no_completions" }`: Incognito models (`verifiable: false` in the model list) never get the private badge.
+- `{ "status": "failed", "completionIds": [...], "errors": [...] }`: show no badge.
+
+UI wording: `model_tee` → "Verified private (model TEE)"; `gateway_tee` → "Verified via NEAR AI TEE gateway"; anything else → no badge.
 
 Example sequence for one tool call **[tested shape]**:
 
