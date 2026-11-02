@@ -38,3 +38,8 @@ Spends a few NEAR AI calls. Writes to schema `spike` only.
 ## Not covered
 
 Schedules (#21), suspend/resume inside workflows, `foreach`/`loop`, nested workflows.
+
+## Follow-up probes (same day)
+
+- `Agent.defaultOptions` reach agent steps inside a workflow (a `maxOutputTokens: 40` default capped the step at exactly 40 output tokens), so the engine sets its run limits there.
+- A `conditional` child cannot be preceded by its own `mapping` (mappings are top-level only), and nested workflows as branches failed schema validation (`[invalid-map-config] … does not exist in the source schema`). One `mapping` that holds the inputs of **both** branches works: each tool or agent reads its own keys and ignores the rest (tool branch and agent branch both ran, secrets still redacted). Step ids with `:` (e.g. `in:balance`) are accepted.
