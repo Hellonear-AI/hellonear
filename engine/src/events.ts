@@ -1,12 +1,11 @@
 // Normalizes Mastra stream chunks into HelloNear events (docs/api-contract.md §3).
 // The UI and Mind Graph depend on these, never on raw Mastra chunks.
+import { nodeIdFor } from './graph.ts'
 import { priceOf } from './models.ts'
 
 export type HelloNearEvent = { v: 1; type: string; runId: string; mindId: string; seq: number; ts: string } & Record<string, unknown>
 type Usage = { inputTokens?: number; outputTokens?: number; reasoningTokens?: number; totalTokens?: number }
 
-const WALLET_TOOLS = new Set(['demo_transfer'])
-export const nodeIdFor = (mindId: string, tool: string) => (WALLET_TOOLS.has(tool) ? `wallet:${mindId}` : `tool:${tool}`)
 
 const pickUsage = (u: Usage | undefined) =>
   u ? { inputTokens: u.inputTokens ?? 0, outputTokens: u.outputTokens ?? 0, reasoningTokens: u.reasoningTokens ?? 0, totalTokens: u.totalTokens ?? 0 } : undefined
@@ -32,13 +31,13 @@ export function createNormalizer(opts: { mindId: string; threadId: string; model
         text += p.text ?? ''
         return p.text ? [emit(chunk.runId, 'text.delta', { text: p.text })] : []
       case 'tool-call':
-        return [emit(chunk.runId, 'tool.called', { toolCallId: p.toolCallId, tool, nodeId: nodeIdFor(opts.mindId, tool!), args: p.args })]
+        return [emit(chunk.runId, 'tool.called', { toolCallId: p.toolCallId, tool, nodeId: nodeIdFor(opts.mindId, tool!, p.args), args: p.args })]
       case 'tool-result':
-        return [emit(chunk.runId, 'tool.result', { toolCallId: p.toolCallId, tool, nodeId: nodeIdFor(opts.mindId, tool!), result: p.result, status: 'ok' })]
+        return [emit(chunk.runId, 'tool.result', { toolCallId: p.toolCallId, tool, nodeId: nodeIdFor(opts.mindId, tool!, p.args), result: p.result, status: 'ok' })]
       case 'tool-error':
-        return [emit(chunk.runId, 'tool.error', { toolCallId: p.toolCallId, tool, nodeId: nodeIdFor(opts.mindId, tool!), status: 'error', error: String(p.error) })]
+        return [emit(chunk.runId, 'tool.error', { toolCallId: p.toolCallId, tool, nodeId: nodeIdFor(opts.mindId, tool!, p.args), status: 'error', error: String(p.error) })]
       case 'tool-call-approval':
-        return [emit(chunk.runId, 'tool.approval_required', { toolCallId: p.toolCallId, tool, nodeId: nodeIdFor(opts.mindId, tool!), args: p.args })]
+        return [emit(chunk.runId, 'tool.approval_required', { toolCallId: p.toolCallId, tool, nodeId: nodeIdFor(opts.mindId, tool!, p.args), args: p.args })]
       case 'step-finish':
         return [emit(chunk.runId, 'step.finished', { step, usage: pickUsage(p.output?.usage) })]
       case 'finish': {
