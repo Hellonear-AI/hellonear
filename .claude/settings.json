@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "near-intents-agent-api": {
+      "source": {
+        "source": "github",
+        "repo": "NEAR-Intents-Agent-API/skills"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "near-intents-agent-api@near-intents-agent-api": true
+  }
+}

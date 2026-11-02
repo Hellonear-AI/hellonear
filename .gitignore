@@ -16,3 +16,7 @@ target/
 # os / editor
 .DS_Store
 *.log
+
+# claude code (local / runtime)
+.claude/settings.local.json
+.claude/*.lock

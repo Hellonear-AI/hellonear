@@ -25,6 +25,8 @@ npx skills add mastra-ai/skills -g -a claude-code -s mastra -y
 /plugin install near-intents-agent-api@near-intents-agent-api
 ```
 
+`.claude/settings.json` already registers the NEAR Intents marketplace and enables the plugin for anyone who trusts this folder, so in Claude Code the plugin may only need `/reload-plugins`. The `npx skills` commands are still required.
+
 When they are installed, use the relevant skill for every NEAR or Mastra task instead of relying on memory.
 
 ## What this is
