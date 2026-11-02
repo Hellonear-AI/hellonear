@@ -23,6 +23,9 @@ AI engine: a Mastra server that runs each Mind (soul, skills, tools, memory, sch
 - Wallet tools: require approval (`requireApproval`); never expose owner actions (policy changes, freeze) as LLM tools.
 - Emit stream events in the shape agreed in `docs/api-contract.md` (#7); the Mind Graph depends on them.
 - In stream chunks, `payload.toolName` is the **key** in the agent's `tools` object, not the tool's `id`. Use the same string for both to avoid mismatches.
+- **Skills** live in `skills/<name>/SKILL.md` (YAML frontmatter: `name` = folder, `description`, `metadata.hellonear.{tools, connections, status, note?}`). `tools` must be keys of `toolRegistry` in `src/tools.ts`; `status` is `available`, `simulated` (works but fakes a side effect, say how in `note`) or `blocked` (never loaded). The loader fails fast on any mistake.
+- **Templates** live in `templates/<templateId>.json` and may only use skills from the catalog. Keep guardrails (`soul.invariants`) in every template.
+- Never let the backend choose tools: it sends skill ids, the catalog maps them to tools.
 - Spikes live in `spikes/<nn>-<name>/` with a README stating the result, how to run it, and what it does not cover.
 
 ## Skill feedback
@@ -31,7 +34,7 @@ The `mastra` skill can report bugs and doc defects to the Mastra team. Never let
 
 ## Commands
 
-- `npm run dev` (port 4100), `npm test` (integration, real NEAR AI + local Postgres), `npm run typecheck`.
+- `npm run dev` (port 4100), `npm run test:unit` (offline: skills, templates, graph), `npm test` (unit + integration, real NEAR AI + local Postgres), `npm run typecheck`.
 - Postgres: `docker compose up -d postgres` from the repo root; `docker compose stop` when done.
 - Load test: `k6 run -e BASE=http://localhost:4100 -e KEY=$ENGINE_API_KEY load/chat.js` (keep it small; it spends NEAR AI credit).
 - Run `npm test` and the load test before every push/merge that touches the engine, and report results in the PR.
