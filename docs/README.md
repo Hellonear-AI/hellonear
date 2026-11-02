@@ -1,3 +1,3 @@
 # docs
 
-Dokumen teknis bersama. `api-contract.md` (kontrak backend ↔ engine, termasuk event untuk Mind Graph) dikerjakan di #7.
+Shared technical docs. `api-contract.md` (backend ↔ engine contract, including the Mind Graph events) is defined in #7.

@@ -1,12 +1,12 @@
 # engine
 
-AI engine HelloNear: Mastra server yang menjalankan Mind (soul, skill, memory, tool, scheduler) dengan model dari NEAR AI Cloud.
+HelloNear AI engine: a Mastra server that runs each Mind (soul, skills, memory, tools, scheduler) on NEAR AI Cloud models.
 
-**PIC:** Axel · Issue: #5 (spike tool calling), #11 (kerangka) · Rujukan: `research.md` 7.1, 8.2, 9.2.
+**Owner:** Axel · Issues: #5 (tool-calling spike), #11 (skeleton) · Context: `research.md` 7.1, 8.2, 9.2.
 
 ## Setup
 
-1. `cp .env.example .env` lalu isi `NEARAI_API_KEY` (dari https://cloud.near.ai atau credit NEAR Builders).
-2. Stack yang direncanakan: `@mastra/core` 1.81.0 (di-pin), provider bawaan `nearai` (contoh `model: 'nearai/z-ai/glm-5.3-flash'`), Postgres + pgvector.
+1. `cp .env.example .env` and set `NEARAI_API_KEY` (from https://cloud.near.ai or the NEAR Builders credit).
+2. Planned stack: `@mastra/core` 1.81.0 (pinned), built-in `nearai` provider (e.g. `model: 'nearai/z-ai/glm-5.3-flash'`), Postgres + pgvector.
 
-Catatan: model reasoning NEAR AI memakai sebagian `max_tokens` untuk reasoning, jadi beri batas yang cukup longgar.
+Note: NEAR AI reasoning models spend part of `max_tokens` on reasoning, so keep the limit generous.

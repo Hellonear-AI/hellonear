@@ -1,25 +1,26 @@
 # HelloNear
 
-> Status: dalam pengembangan untuk NEAR HACKATHON (1–14 Nov 2026). README ini akan ditulis ulang untuk juri sebelum submit.
+> Status: in development for NEAR HACKATHON (1–14 Nov 2026). This README will be rewritten for judges before submission.
 
-Platform AI agent persona ("Mind") di NEAR: tiap Mind punya identitas, memori, skill yang bisa di-equip, dan wallet dengan batas belanja yang ditegakkan di luar jangkauan AI.
+An AI agent persona ("Mind") platform on NEAR: each Mind has an identity, memory, equippable skills, and a wallet whose spending limits are enforced outside the AI's reach.
 
-## Struktur repo
+## Repo layout
 
-| Folder | Isi | PIC | Issue |
+| Folder | What | Owner | Issues |
 |---|---|---|---|
-| `apps/fe` | Aplikasi web (Next.js, NEAR Connect) | Ancung | #9 |
+| `apps/fe` | Web app (Next.js, NEAR Connect) | Ancung | #9 |
 | `apps/landing` | Landing page | Nabil | #10 |
-| `apps/be` | Backend API, Postgres + pgvector, login NEP-413 | James | #8 |
+| `apps/be` | Backend API, Postgres + pgvector, NEP-413 login | James | #8 |
 | `engine` | AI engine (Mastra, NEAR AI Cloud) | Axel | #5, #11 |
-| `sc` | Contract registry Mind (Rust `near-sdk`) | Axel | #12 |
-| `docs` | Kontrak API dan dokumen teknis | James + Axel | #7 |
-| `research.md` | Hasil riset (draft) | semua | — |
+| `sc` | Mind registry contract (Rust `near-sdk`) | Axel | #12 |
+| `docs` | API contract and technical docs | James + Axel | #7 |
+| `research.md` | Research notes (draft, Indonesian) | everyone | — |
 
-Rencana kerja: #3. Keputusan tim: #4.
+Plan: #3. Decisions: #4. Guidance for AI coding agents: `CLAUDE.md` (root and per folder).
 
-## Aturan kerja
+## Working rules
 
-- Tidak ada push ke `main`, merge, deploy, PR, atau submit tanpa acc Axel.
-- Integration test dan load test lokal sebelum setiap push/merge; hasilnya dilaporkan di PR.
-- Secret hanya di `.env` (di-gitignore). Contoh variabel ada di `.env.example` tiap folder.
+- No push to `main`, merge, deploy, PR, or submission without Axel's approval.
+- Local integration and load tests before every push/merge; results reported in the PR.
+- Secrets only in `.env` (gitignored). Variable names are in each folder's `.env.example`.
+- When you change how a folder works, update its `CLAUDE.md` in the same PR.

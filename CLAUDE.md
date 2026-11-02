@@ -1,0 +1,47 @@
+# CLAUDE.md — HelloNear (repo root)
+
+Guidance for AI coding agents (Claude Code, Codex, Cursor, …) working in this repo. Each folder has its own `CLAUDE.md` with folder-specific rules; read the one for the folder you are changing before you start.
+
+## Keep these files current
+
+**When you change how a folder works (setup, commands, structure, env vars, conventions, a decision), update that folder's `CLAUDE.md` in the same PR.** Update this root file when the change affects the whole repo. A PR that changes behaviour but leaves the relevant `CLAUDE.md` stale is not done.
+
+## What this is
+
+HelloNear is an AI agent persona platform on NEAR, built for NEAR HACKATHON (1–14 Nov 2026, deadline 14 Nov 23:59 UTC). Users pick a "Mind" template (General Assistant, Payments Mind, Email Manager), and each Mind has a persona, memory, equippable skills, and a NEAR wallet whose spending limits are enforced outside the AI's reach.
+
+- Research and decisions: `research.md` (Indonesian, draft) and issues #3 (plan) and #4 (decisions).
+- Language: everything written to GitHub and to the repo (code, comments, docs, issues, PRs, commits) is in **English**. `research.md` stays in Indonesian until the team decides otherwise.
+
+## Layout
+
+| Folder | What | Owner |
+|---|---|---|
+| `apps/fe` | Web app (Next.js App Router, NEAR Connect) | Ancung |
+| `apps/landing` | Landing page | Nabil |
+| `apps/be` | Backend API, Postgres + pgvector, NEP-413 login, OutLayer + Composio | James |
+| `engine` | AI engine (Mastra + NEAR AI Cloud) | Axel |
+| `sc` | Mind registry contract (Rust `near-sdk`) | Axel |
+| `docs` | Shared technical docs, incl. `api-contract.md` | James + Axel |
+
+## Decided stack (see #4)
+
+- Network: **testnet only**. NEAR Intents / 1Click has no testnet and was down on 2 Nov; do not build core features on it.
+- Wallet: **OutLayer** on testnet (per-skill sub-wallets, per-transaction policy, multisig, freeze). Policy is **stored on-chain and enforced in a TEE before signing**; never claim "rejected on-chain" or show a tx link for a rejected transfer.
+- LLM: NEAR AI Cloud via Mastra's built-in `nearai` provider (e.g. `nearai/z-ai/glm-5.3-flash`). Only Confidential TEE models get a "Verified private" badge.
+
+## Rules (non-negotiable)
+
+1. **Use data, not assumptions.** Claims like "safe", "done", or "X causes Y" must be backed by something seen in this session (test output, logs, responses, diffs). Otherwise write "not proven yet". Do not act on an unproven cause.
+2. **Integration + load tests locally before every push/merge**, reported in the PR. Tests that cannot run are reported as not run, with the reason.
+3. **No push to `main`, merge, deploy, PR, or submission without Axel's approval — every time.** Approval for one action does not cover the next.
+4. **Secrets only in `.env`** (gitignored). Each folder has a `.env.example` with names only. Never paste secrets into code, issues, PRs, logs, or prompts.
+5. **Verify NEAR facts before relying on them.** Use the official NEAR agent skills (`npx skills add near/agent-skills`) and live docs (docs.near.org, docs.near.ai, docs.near-intents.org). If a skill and the live docs disagree, follow the docs. Pin package versions; do not upgrade during the hackathon.
+6. **Read websites properly.** Do not conclude a site is empty from a plain fetch (many are JS-rendered); use `curl -s "https://r.jina.ai/<url>"`, the site's `llms.txt`/`.md` pages, or a browser.
+
+## Hackathon submission rules (summary; re-read https://nearhackathon.com/HACKATHON.md before submitting)
+
+- Repo must be public before 14 Nov 23:59 UTC. One submission per project, not editable.
+- X post tags **@NEARProtocol** and **#NEARHackathon**; a video is required if the demo only runs locally.
+- The root `README.md` must be machine-readable for AI judges: what it is, the problem, and "do X, see Y" steps. No marketing.
+- A human builds and approves the submission payload; agents never invent names, accounts, or emails.
