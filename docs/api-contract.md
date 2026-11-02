@@ -38,11 +38,13 @@ Starts a run and streams HelloNear events as SSE (`text/event-stream`, one JSON 
     "soul": { "identity": "…", "invariants": ["…"], "priors": ["…"] },
     "model": "z-ai/glm-5.3-flash",
     "skills": [{ "skillId": "payments" }, { "skillId": "daily-planner" }]
-  }
+  },
+  "secrets": [{ "name": "SHOP_API_KEY", "value": "…", "allowedHosts": ["api.shop.com"] }]
 }
 ```
 
 - The backend sends the Mind config it loaded from its DB; the engine builds the agent from it per request through `RequestContext` (`research.md` 8.2).
+- **`secrets`** (optional, #18): the owner's secrets for this run, decrypted by the backend from its store. Names are `UPPER_SNAKE_CASE`, each with at least one allowed host. The engine puts them in the run's `RequestContext` only; the model writes `{{secrets.NAME}}` placeholders that the `http_request` tool fills at execution. A secret only goes to its `allowedHosts`, only over public `https`, never through a redirect. Values are redacted from tool results (before the model reads them), from every event, and are not stored in the `mastra` schema **[tested, #18]**. Invalid secrets → `400`. Send the same `secrets` again on approve/decline.
 - **Skills are sent by id only.** The engine's catalog (`engine/skills/<id>/SKILL.md`) decides which tools and playbook each skill grants, so the backend cannot grant arbitrary tools. An unknown `skillId` → `400`. A skill with status `blocked` is accepted but not loaded **[tested, #13]**.
 - Response: SSE stream of events (§3). The first event is `run.started` and carries `runId`.
 
@@ -118,7 +120,7 @@ run.started → step.started{1} → reasoning.delta… → tool.called{addNumber
 
 ### Secrets in events
 
-No event may contain a secret value. The engine redacts known secret **values** (not just field names) in `args`, `result`, and `error` before emitting, replacing them with `"••••"` (#18).
+No event may contain a secret value. The engine redacts known secret **values** (not just field names) in every event field, including `run.error`, before emitting, replacing them with `"••••"` **[tested, #18]**.
 
 ## 4. Mind Graph mapping
 
