@@ -1,0 +1,18 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# node
+node_modules/
+.next/
+dist/
+.turbo/
+
+# rust / near
+target/
+.near-credentials/
+
+# os / editor
+.DS_Store
+*.log

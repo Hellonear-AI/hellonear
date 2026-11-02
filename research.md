@@ -402,7 +402,7 @@ Yang **tidak** relevan:
 
 ## 7. Pilihan AI engine
 
-Repo: `hellonear-ai-engine` (masih kosong).
+Lokasi: folder `engine/` di monorepo `hellonear` (diputuskan 2 Nov 2026; repo terpisah `hellonear-ai-engine` diarsipkan karena submisi hanya menerima satu link repo).
 
 ### 7.1 Mastra — **usulan utama**
 
@@ -504,7 +504,7 @@ Saat di-equip, `SKILL.md` dimuat lewat `createSkill()` dan `toolBindings` di-res
 │ Billing · Postgres (+pgvector) · OutLayer integration    │
 └───────┬───────────────────────────────┬──────────────────┘
         │ {userId, mindId, threadId}    │ near-api-js
-┌───────▼──── hellonear-ai-engine ────┐ │
+┌───────▼──── engine/ (Mastra) ───────┐ │
 │ Mastra server (lihat 8.2)           │ │
 └──┬───────────┬───────────┬──────────┘ │
    │           │           │            │
@@ -514,7 +514,9 @@ Cloud (TEE) (Gmail..)   (wallet+policy) Mind↔owner↔wallet↔skills
                      NEAR Intents (swap) · Agent Market (x402 earn)
 ```
 
-### 8.2 Modul `hellonear-ai-engine`
+### 8.2 Modul `engine/`
+
+Struktur monorepo `hellonear`: `apps/fe` (Ancung), `apps/landing` (Nabil), `apps/be` (James), `engine` (Axel), `sc` (Axel), `docs`.
 
 ```
 HTTP (Mastra server / chatRoute) ← backend kirim {userId, mindId, threadId}
@@ -603,11 +605,26 @@ Tingkat 3 dan 4 adalah dua tampilan dari data yang sama untuk **bagian terstrukt
 
 Panel di samping chat (dan halaman tersendiri per run) yang menampilkan pekerjaan Mind secara real-time:
 
-- langkah yang sedang berjalan. Untuk skill berbentuk workflow, digambar sebagai graf yang **sama** dengan Visual Builder dengan node aktif yang di-highlight. Untuk chat bebas dengan agent (tanpa graf tetap, agent memilih langkahnya sendiri), ditampilkan sebagai **timeline/trace**;
+- langkah yang sedang berjalan. Untuk skill berbentuk workflow, digambar sebagai graf yang **sama** dengan Visual Builder dengan node aktif yang di-highlight. Untuk chat bebas dengan agent (tanpa graf tetap, agent memilih langkahnya sendiri), ditampilkan sebagai **Mind Graph** (lihat di bawah), dengan daftar event berurutan di panel samping;
 - skill yang dimuat, tool yang dipanggil beserta input/output-nya, dan subagent yang didelegasikan (Circles);
 - hasil cek policy dan status approval untuk setiap aksi wallet;
 - biaya per langkah (token LLM, gas, fee), badge verifikasi TEE per jawaban LLM;
 - untuk kerja terjadwal (Autopilot): riwayat run beserta status (berhasil, gagal, menunggu approval).
+
+**Mind Graph (disetujui 2 Nov 2026):** graf bubble force-directed ala graph view Obsidian. Grafnya dibangun dari apa yang **benar-benar dipanggil** Mind, bukan dari workflow yang ditentukan di awal, jadi cocok untuk chat bebas.
+
+- **Node:** Mind di tengah (karakter dari desain Nabil); di sekelilingnya bubble skill yang di-equip, tool, app (Composio), wallet, memori, model LLM, dan Mind lain di Circle. Warna = jenis, ukuran = frekuensi dipakai.
+- **Animasi real-time dari event stream:**
+  - `tool-call` → partikel mengalir dari Mind ke bubble tool, bubble berdenyut;
+  - `tool-result` → partikel kembali ke Mind;
+  - `tool-error` atau `policy_denied` → bubble dan garisnya merah (momen visual utama Attack Playground);
+  - Mind memuat skill (tool `skill` / `skill_read` di Mastra) → bubble skill menyala;
+  - delegasi ke Mind lain (subagent) → bubble Mind kedua aktif.
+- **Klik bubble** → panel samping: input/output (secret disensor), biaya, badge verifikasi TEE.
+- **Mode riwayat:** graf terakumulasi dari semua run, bisa difilter per waktu, untuk melihat pola kerja Mind.
+- **Library:** `react-force-graph-2d` 1.29.2 (canvas, ringan untuk ratusan node; README-nya punya `emitParticle`, `linkDirectionalParticles`, `nodeCanvasObject`, `zoomToFit`) **[V]**. Alternatif: `@xyflow/react` 12.12.1 (lebih cocok untuk Visual Builder), `sigma` 4.0.4, `reagraph` 4.32.0.
+- **Sumber data:** chunk stream Mastra yang sama dengan live view (tidak butuh fitur engine baru), dipetakan ke node dan edge di kontrak event (#7).
+- **Effort kasar:** sekitar 2–3 hari Ancung (graf + panel), sekitar 0,5 hari Axel (pemetaan event).
 
 **Untuk debugging:** klik node mana pun di run yang sudah selesai atau gagal → lihat input/output persisnya → tombol "Edit di Builder" membuka node itu di Visual Builder → ubah → "Jalankan ulang". "Edit di Builder" hanya ada untuk run skill-workflow, bukan chat bebas.
 
@@ -728,7 +745,7 @@ Perkiraan kasar dalam hari-orang, berdasarkan API Mastra yang sudah dicek di typ
 | 9.7 Approval + kill switch | `requireApproval`, chunk `tool-call-approval`, freeze OutLayer | 1–2 hari | **Inti** |
 | 9.4 Izin per skill (sisi engine) | resolver `tools` per `RequestContext`, `requireApproval`, sub-wallet OutLayer | 2–3 hari | **Inti** (bergantung pada tes sub-wallet di testnet) |
 | 9.5 Attack Playground | skenario + live view + policy per transaksi | 1–2 hari | **Inti** (momen utama track security) |
-| 9.2 Live view (berjalan + riwayat, baca-saja) | agent `stream()` chunks, `context.writer`, workflow `stream`/`observeStream` | 3–4 hari | **Inti** |
+| 9.2 Live view (berjalan + riwayat, baca-saja) sebagai **Mind Graph** | agent `stream()` chunks, `context.writer`, workflow `stream`/`observeStream`; FE `react-force-graph-2d` | 3–4 hari (termasuk Mind Graph) | **Inti** |
 | 9.8 Secrets versi minimal | `RequestContext` di tool, `fetch` custom MCPClient, `transform`, span processor | 3–4 hari | **Inti** versi minimal: secret level akun + node HTTP. Override bertingkat dan KMS ditunda |
 | 9.3 Visual Builder | `addDynamicWorkflow` (Beta), React Flow | 5–7 hari | **Layak kalau dipangkas** ke 4–5 jenis node |
 | 9.2 Jalankan ulang dari langkah | `run.timeTravel()` (workflow saja) | +2 hari | **Tunda**; cukup jalankan ulang dari awal dengan graf baru |
@@ -748,8 +765,8 @@ Risiko lintas fitur:
 
 | Orang | Peran | Fokus |
 |---|---|---|
-| **Ancung** | FE | Next.js app: Choose a Mind, chat (AI SDK UI), Bazaar, panel wallet/policy, Circles, live view, layar izin, halaman Connections & Secrets, canvas Visual Builder. Mulai dari `create-near-app --frontend next-app` |
-| **Nabil** | Landing + design | Landing page, karakter Mind (gaya collector toy box), design system, desain live view/builder/layar izin, aset video demo |
+| **Ancung** | FE | Implementasi Next.js app berdasarkan desain Nabil: Choose a Mind, chat (AI SDK UI), Bazaar, panel wallet/policy, Circles, live view, layar izin, halaman Connections & Secrets, canvas Visual Builder. Mulai dari `create-near-app --frontend next-app` |
+| **Nabil** | Landing page, UI/design, video demo | Landing page, UI/design seluruh aplikasi (design system, karakter Mind, semua layar), dan video demo untuk submit + post X |
 | **Axel** | SC + AI engine | Contract registry; engine Mastra (mind registry, soul, skills, memory, scheduler, circles, event live view, compiler builder, injeksi + sensor secret, skenario attack); adaptasi skill NEAR |
 | **James** | BE + devops + keputusan engine | API, Postgres+pgvector, auth NEP-413, integrasi OutLayer (sub-wallet per skill) dan Composio, penyimpanan run/event + SSE, secret store terenkripsi, deploy, CI, integration/load test |
 
