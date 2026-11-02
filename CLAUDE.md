@@ -58,6 +58,14 @@ HelloNear is an AI agent persona platform on NEAR, built for NEAR HACKATHON (1â€
 
 The team uses macOS with **OrbStack** as the Docker runtime. Keep local services light: `docker-compose.yml` caps Postgres at 1 CPU / 512 MB, run tests sequentially, keep load tests short, and `docker compose stop` when you are done.
 
+## Deployed on testnet
+
+| What | Account | Env |
+|---|---|---|
+| Mind registry contract (`sc/`) | `hellonear-registry.testnet` | `REGISTRY_CONTRACT_ID`, `NEAR_NETWORK=testnet` |
+
+Keep this table and each folder's `.env.example` in sync when something is (re)deployed.
+
 ## Rules (non-negotiable)
 
 1. **Use data, not assumptions.** Claims like "safe", "done", or "X causes Y" must be backed by something seen in this session (test output, logs, responses, diffs). Otherwise write "not proven yet". Do not act on an unproven cause.
