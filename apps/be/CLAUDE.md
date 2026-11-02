@@ -14,7 +14,7 @@ Backend API: Postgres + pgvector, NEP-413 login, run/event storage + SSE, encryp
 
 - Store OutLayer `wk_...` keys and Composio/OAuth tokens encrypted; never log them, never return them to the FE, never pass them into prompts.
 - Per-skill wallet = an OutLayer **sub-wallet** (`PUT /wallet/v1/api-key` creates a new wallet with its own address and balance). Fund it from a whitelisted parent; move the balance back before revoking.
-- Owner actions (policy changes, `freeze_wallet()`) are signed by the owner's NEAR account, not by the backend.
+- Owner actions (policy changes, `freeze_wallet()`) are signed by the owner's NEAR account (the team uses Meteor Wallet on testnet), not by the backend. Whether the OutLayer dashboard accepts Meteor is checked in #6; record the result here.
 - Use per-transaction limits, whitelist, multisig, or freeze for hard stops; cumulative (daily) limits can be exceeded under parallel requests.
 - Every route checks that the user owns the Mind/agent it touches.
 - Schema and events follow `docs/api-contract.md` (#7).
