@@ -12,7 +12,7 @@ import { usableSkills } from './skills.ts'
 import { toolRegistry, toolsFor } from './tools.ts'
 
 // Small pools: the local Postgres allows 40 connections.
-const storage = new PostgresStore({ id: 'engine-storage', connectionString: config.databaseUrl, schemaName: 'mastra', max: 5 })
+export const storage = new PostgresStore({ id: 'engine-storage', connectionString: config.databaseUrl, schemaName: 'mastra', max: 5 })
 const vector = new PgVector({ id: 'engine-vector', connectionString: config.databaseUrl, schemaName: 'mastra', max: 5 })
 
 const memory = new Memory({

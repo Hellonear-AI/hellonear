@@ -4,17 +4,29 @@ import { timingSafeEqual } from 'node:crypto'
 import { RequestContext } from '@mastra/core/request-context'
 import { z } from 'zod'
 import { config } from './config.ts'
-import { createNormalizer } from './events.ts'
-import { MIND_KEY, mastra } from './mastra.ts'
+import { createNormalizer, createWorkflowNormalizer } from './events.ts'
+import { MIND_KEY, UNATTENDED_KEY, mastra } from './mastra.ts'
 import { resourceId, runRequestSchema, type Mind } from './mind.ts'
 import { SECRETS_KEY, redact, type Secret } from './secrets.ts'
 import { usableSkills } from './skills.ts'
 import { attestationStatus, modelInfo, verifyCompletions, warmAttestation } from './models.ts'
 import { summarize } from './verify.ts'
 import { templateSummaries, templates } from './templates.ts'
+import { BuilderError, mastraWorkflowId, mindIdSchema, workflowIdSchema } from './builder.ts'
+import { mindSchema } from './mind.ts'
+import { secretSchema } from './secrets.ts'
+import { toolsFor } from './tools.ts'
+import { deleteWorkflow, listWorkflows, loadWorkflow, saveWorkflow } from './workflows.ts'
 
 const chatSchema = runRequestSchema.extend({ message: z.string().min(1) })
 const resumeSchema = runRequestSchema.extend({ toolCallId: z.string().min(1), reason: z.string().optional() })
+// A workflow run has no chat thread; the Mind config and secrets come with every run, as in chat.
+const workflowRunSchema = z.object({
+  userId: z.string().min(1),
+  mind: mindSchema,
+  secrets: z.array(secretSchema).default([]),
+  input: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).default({}),
+})
 
 // Next event seq per run, so events after an approval continue the run's sequence.
 // In-memory for now: a restarted engine restarts numbering for resumed runs.
@@ -51,9 +63,10 @@ function sendJson(res: ServerResponse, status: number, body: unknown) {
   res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body))
 }
 
-function contextFor(mind: Mind, secrets: Secret[]) {
+function contextFor(mind: Mind, secrets: Secret[], opts: { unattended?: boolean } = {}) {
   const requestContext = new RequestContext()
   requestContext.set(MIND_KEY, mind)
+  if (opts.unattended) requestContext.set(UNATTENDED_KEY, true)
   // Not registered as a tracing requestContextKey, so tracing never records it.
   requestContext.set(SECRETS_KEY, new Map(secrets.map((s) => [s.name, s])))
   return requestContext
@@ -83,6 +96,33 @@ async function pipeRun(res: ServerResponse, stream: { fullStream: AsyncIterable<
   } catch (e) {
     const event = { v: 1, type: 'run.error', runId, mindId: opts.mindId, seq: runId ? nextSeq.get(runId) ?? 0 : 0, ts: new Date().toISOString(), error: e instanceof Error ? e.message : String(e) }
     res.write(`data: ${JSON.stringify(redact(event, opts.secretValues))}\n\n`)
+  }
+  res.end()
+}
+
+// Streams a builder workflow run (#20) as HelloNear events, ending with run.verified like chat.
+async function pipeWorkflow(res: ServerResponse, run: { stream: (args: any) => { fullStream: AsyncIterable<any> } }, opts: { mindId: string; workflowId: string; model: string; skills: string[]; secrets: Secret[]; mind: Mind; input: Record<string, unknown>; steps: Parameters<typeof createWorkflowNormalizer>[0]['steps'] }) {
+  res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' })
+  const secretValues = opts.secrets.map((s) => s.value)
+  const normalize = createWorkflowNormalizer({ ...opts, secretValues })
+  let runId: string | undefined
+  let seq = 0
+  const write = (event: { runId: string; seq: number }) => {
+    runId = event.runId
+    seq = event.seq + 1
+    res.write(`data: ${JSON.stringify(event)}\n\n`)
+  }
+  try {
+    const out = run.stream({ inputData: opts.input, requestContext: contextFor(opts.mind, opts.secrets, { unattended: true }) })
+    for await (const chunk of out.fullStream) for (const event of await normalize(chunk)) write(event)
+    if (runId) {
+      const info = await modelInfo(opts.model)
+      const ids = normalize.completionIds()
+      write(normalize.verified(runId, summarize(info?.verifiable === true, info?.verifiable ? await verifyCompletions(ids) : [])))
+    }
+  } catch (e) {
+    const event = { v: 1, type: 'run.error', runId, mindId: opts.mindId, seq, ts: new Date().toISOString(), error: e instanceof Error ? e.message : String(e) }
+    res.write(`data: ${JSON.stringify(redact(event, secretValues))}\n\n`)
   }
   res.end()
 }
@@ -130,6 +170,52 @@ export const server = createServer(async (req, res) => {
       return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secretValues: secrets.map((s) => s.value), runId })
     }
 
+    const wfList = url.pathname.match(/^\/v1\/minds\/([^/]+)\/workflows$/)
+    const wf = url.pathname.match(/^\/v1\/minds\/([^/]+)\/workflows\/([^/]+)(\/runs)?$/)
+    if (wfList || wf) {
+      const mindId = decodeURIComponent((wfList ?? wf)![1])
+      const workflowId = wf ? decodeURIComponent(wf[2]) : ''
+      if (!mindIdSchema.safeParse(mindId).success || (wf && !workflowIdSchema.safeParse(workflowId).success)) return sendJson(res, 400, { error: 'invalid_id' })
+      if (wfList && req.method === 'GET') return sendJson(res, 200, { workflows: await listWorkflows(mindId) })
+      if (wf && !wf[3] && req.method === 'PUT') {
+        try {
+          return sendJson(res, 200, await saveWorkflow(mindId, workflowId, await readJson(req)))
+        } catch (e) {
+          if (e instanceof BuilderError) return sendJson(res, 400, { error: 'invalid_workflow', issues: e.issues })
+          // Mastra's own validation (e.g. a reference to a field the tool does not return).
+          if (e instanceof Error && /failed validation/.test(e.message)) return sendJson(res, 400, { error: 'invalid_workflow', issues: [{ path: 'graph', message: e.message }] })
+          throw e
+        }
+      }
+      if (wf && !wf[3] && req.method === 'GET') {
+        const found = await loadWorkflow(mindId, workflowId)
+        return found ? sendJson(res, 200, found) : sendJson(res, 404, { error: 'not_found' })
+      }
+      if (wf && !wf[3] && req.method === 'DELETE') return (await deleteWorkflow(mindId, workflowId)) ? res.writeHead(204).end() : sendJson(res, 404, { error: 'not_found' })
+      if (wf?.[3] && req.method === 'POST') {
+        const parsed = workflowRunSchema.safeParse(await readJson(req))
+        if (!parsed.success) return sendJson(res, 400, { error: 'invalid_body', issues: parsed.error.issues })
+        const { mind, secrets, input } = parsed.data
+        const saved = await loadWorkflow(mindId, workflowId)
+        if (!saved) return sendJson(res, 404, { error: 'not_found' })
+        // A workflow may only use tools its Mind has equipped right now (skills can be unequipped after saving).
+        const allowed = Object.keys(toolsFor(usableSkills(mind.skills.map((s) => s.skillId)).flatMap((s) => s.tools), { unattended: true }))
+        const missing = saved.tools.filter((t) => !allowed.includes(t))
+        if (missing.length) return sendJson(res, 409, { error: 'missing_tools', tools: missing })
+        let workflow
+        try {
+          workflow = mastra.getWorkflow(mastraWorkflowId(mindId, workflowId))
+        } catch {
+          // Saved by another engine process: register it here from the stored canvas.
+          await saveWorkflow(mindId, workflowId, saved.canvas)
+          workflow = mastra.getWorkflow(mastraWorkflowId(mindId, workflowId))
+        }
+        const run = await workflow.createRun()
+        return pipeWorkflow(res, run as never, { mindId, workflowId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secrets, mind, input, steps: saved.steps })
+      }
+      return sendJson(res, 405, { error: 'method_not_allowed' })
+    }
+
     return sendJson(res, 404, { error: 'not_found' })
   } catch (e) {
     if (e instanceof HttpError && !res.headersSent) return sendJson(res, e.status, { error: e.message })
@@ -142,6 +228,8 @@ export const server = createServer(async (req, res) => {
 export const warmModels = () => [config.defaultModel, ...templates.map((t) => t.model)]
 
 if (import.meta.url === `file://${process.argv[1]}`) {
+  // startWorkers() loads the workflows saved in Postgres (#20); without it they vanish on restart.
+  await mastra.startWorkers()
   server.listen(config.port, () => console.log(`engine listening on :${config.port}`))
   const warm = () => warmAttestation(warmModels()).then(() => console.log('attestation', JSON.stringify(attestationStatus())))
   void warm()
