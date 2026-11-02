@@ -42,6 +42,16 @@ describe('engine HTTP API', () => {
     assert.equal((await post('/v1/minds/m1/chat', { userId })).status, 400)
   })
 
+  test('templates endpoint lists the starter Minds with skill status', async () => {
+    assert.equal((await fetch(base + '/v1/templates')).status, 401)
+    const res = await fetch(base + '/v1/templates', { headers: { 'x-engine-key': key } })
+    assert.equal(res.status, 200)
+    const { templates } = await res.json()
+    assert.deepEqual(templates.map((t: Ev) => t.templateId), ['email-manager', 'general-assistant', 'payments-mind'])
+    const email = templates.find((t: Ev) => t.templateId === 'email-manager')
+    assert.equal(email.skills.find((s: Ev) => s.skillId === 'email-triage').status, 'blocked')
+  })
+
   test('persona comes from the request and can change without a restart', async () => {
     const a = await events(await post('/v1/minds/persona/chat', { userId, threadId: randomUUID(), message: 'Say hello in one short sentence.', mind: mind('Penny') }))
     assert.match(finalText(a), /Penny/)

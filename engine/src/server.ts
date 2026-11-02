@@ -7,6 +7,7 @@ import { config } from './config.ts'
 import { createNormalizer } from './events.ts'
 import { MIND_KEY, mastra } from './mastra.ts'
 import { resourceId, runRequestSchema, type Mind } from './mind.ts'
+import { templateSummaries } from './templates.ts'
 
 const chatSchema = runRequestSchema.extend({ message: z.string().min(1) })
 const resumeSchema = runRequestSchema.extend({ toolCallId: z.string().min(1), reason: z.string().optional() })
@@ -67,6 +68,8 @@ export const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://engine')
     if (req.method === 'GET' && url.pathname === '/v1/health') return sendJson(res, 200, { ok: true, mastra: '1.81.0' })
     if (!authorized(req)) return sendJson(res, 401, { error: 'unauthorized' })
+
+    if (req.method === 'GET' && url.pathname === '/v1/templates') return sendJson(res, 200, { templates: templateSummaries() })
 
     const agent = mastra.getAgent('mind')
 
