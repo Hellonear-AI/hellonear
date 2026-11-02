@@ -85,8 +85,15 @@ const nearViewAccount = createTool({
 export const toolRegistry = { get_time: getTime, add_numbers: addNumbers, demo_transfer: demoTransfer, http_request: httpRequest, near_view_account: nearViewAccount } as const
 export type ToolKey = keyof typeof toolRegistry
 
+// Tools that only run after the owner approves them in the chat (wallet actions).
+export const needsApproval = (key: string) => (toolRegistry as Record<string, { requireApproval?: boolean }>)[key]?.requireApproval === true
+
 // Tools every Mind has, plus the tools of its equipped skills. Unknown keys are ignored.
-export function toolsFor(skillToolKeys: string[]) {
+// Unattended runs (workflows) never get approval tools: nobody is there to approve,
+// and Mastra runs a workflow tool step without asking (spike 02).
+export function toolsFor(skillToolKeys: string[], opts: { unattended?: boolean } = {}) {
   const keys = new Set<string>(['get_time', ...skillToolKeys])
-  return Object.fromEntries([...keys].filter((k): k is ToolKey => k in toolRegistry).map((k) => [k, toolRegistry[k]]))
+  return Object.fromEntries(
+    [...keys].filter((k): k is ToolKey => k in toolRegistry && !(opts.unattended && needsApproval(k))).map((k) => [k, toolRegistry[k]]),
+  )
 }

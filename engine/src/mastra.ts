@@ -9,7 +9,7 @@ import { config } from './config.ts'
 import { buildInstructions, type Mind } from './mind.ts'
 import { chatModel, embedder } from './models.ts'
 import { usableSkills } from './skills.ts'
-import { toolsFor } from './tools.ts'
+import { toolRegistry, toolsFor } from './tools.ts'
 
 // Small pools: the local Postgres allows 40 connections.
 const storage = new PostgresStore({ id: 'engine-storage', connectionString: config.databaseUrl, schemaName: 'mastra', max: 5 })
@@ -26,6 +26,8 @@ const memory = new Memory({
 })
 
 export const MIND_KEY = 'mind'
+// Set for workflow runs (#20): no human is watching, so approval tools are hidden.
+export const UNATTENDED_KEY = 'unattended'
 type Ctx = { requestContext: { get: (key: string) => unknown } }
 const mindOf = ({ requestContext }: Ctx) => {
   const mind = requestContext.get(MIND_KEY) as Mind | undefined
@@ -41,9 +43,17 @@ export const mindAgent = new Agent({
   name: 'Mind',
   instructions: (ctx) => buildInstructions(mindOf(ctx)),
   model: (ctx) => chatModel(mindOf(ctx).model ?? config.defaultModel),
-  tools: (ctx) => toolsFor(skillsOf(ctx).flatMap((s) => s.tools)),
+  tools: (ctx) => toolsFor(skillsOf(ctx).flatMap((s) => s.tools), { unattended: ctx.requestContext.get(UNATTENDED_KEY) === true }),
   skills: (ctx) => skillsOf(ctx).map((s) => s.skill),
   memory,
+  // Also applies to agent steps inside workflows, which get no per-call options.
+  // No automatic retries: each completion must map to one verifiable request (#19).
+  defaultOptions: {
+    maxSteps: 8,
+    modelSettings: { maxOutputTokens: config.maxOutputTokens, maxRetries: 0, timeout: { totalMs: config.runTimeoutMs } },
+  },
 })
 
-export const mastra = new Mastra({ storage, agents: { mind: mindAgent } })
+// Tools are registered on the instance too, so builder workflows (#20) can call them by key.
+// Call mastra.startWorkers() at boot: it loads the workflows saved in Postgres.
+export const mastra = new Mastra({ storage, agents: { mind: mindAgent }, tools: { ...toolRegistry } })
