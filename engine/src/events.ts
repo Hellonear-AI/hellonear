@@ -3,6 +3,7 @@
 import { nodeIdFor } from './graph.ts'
 import { priceOf } from './models.ts'
 import { redact } from './secrets.ts'
+import type { Verification } from './verify.ts'
 
 export type HelloNearEvent = { v: 1; type: string; runId: string; mindId: string; seq: number; ts: string } & Record<string, unknown>
 type Usage = { inputTokens?: number; outputTokens?: number; reasoningTokens?: number; totalTokens?: number }
@@ -15,12 +16,13 @@ export function createNormalizer(opts: { mindId: string; threadId: string; model
   let seq = opts.startSeq ?? 0
   let step = 0
   let text = ''
+  const completionIds: string[] = []
   // Second line of defence: tools already redact their results, but nothing an event carries may hold a secret value.
   const emit = (runId: string, type: string, extra: Record<string, unknown> = {}): HelloNearEvent =>
     redact({ v: 1, type, runId, mindId: opts.mindId, seq: seq++, ts: new Date().toISOString(), ...extra }, opts.secretValues ?? [])
 
   // Returns the events for one chunk (usually zero or one).
-  return async function normalize(chunk: { type: string; runId: string; payload?: any }): Promise<HelloNearEvent[]> {
+  const normalize = async function normalize(chunk: { type: string; runId: string; payload?: any }): Promise<HelloNearEvent[]> {
     const p = chunk.payload ?? {}
     const tool = p.toolName as string | undefined
     switch (chunk.type) {
@@ -42,12 +44,13 @@ export function createNormalizer(opts: { mindId: string; threadId: string; model
       case 'tool-call-approval':
         return [emit(chunk.runId, 'tool.approval_required', { toolCallId: p.toolCallId, tool, nodeId: nodeIdFor(opts.mindId, tool!, p.args), args: p.args })]
       case 'step-finish':
+        if (typeof p.metadata?.id === 'string') completionIds.push(p.metadata.id)
         return [emit(chunk.runId, 'step.finished', { step, usage: pickUsage(p.output?.usage) })]
       case 'finish': {
         const usage = pickUsage(p.output?.usage)
         const price = await priceOf(opts.model)
         const costUsd = usage && price ? usage.inputTokens * price.input + usage.outputTokens * price.output : null
-        return [emit(chunk.runId, 'run.finished', { finishReason: p.stepResult?.reason, text, usage, costUsd, verification: { status: 'unverified', model: opts.model } })]
+        return [emit(chunk.runId, 'run.finished', { finishReason: p.stepResult?.reason, text, usage, costUsd, verification: { status: 'pending' } })]
       }
       case 'error':
         return [emit(chunk.runId, 'run.error', { error: String(p.error ?? 'unknown error') })]
@@ -55,4 +58,9 @@ export function createNormalizer(opts: { mindId: string; threadId: string; model
         return []
     }
   }
+  return Object.assign(normalize, {
+    completionIds: () => [...completionIds],
+    // Emits the run's last event: the badge result, after the stream has been fully read.
+    verified: (runId: string, verification: Verification) => emit(runId, 'run.verified', { nodeId: `model:${opts.model}`, model: opts.model, verification }),
+  })
 }

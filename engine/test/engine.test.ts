@@ -27,6 +27,7 @@ async function events(res: Response): Promise<Ev[]> {
   return text.split('\n').filter((l) => l.startsWith('data: ')).map((l) => JSON.parse(l.slice(6)))
 }
 const finalText = (evs: Ev[]) => evs.find((e) => e.type === 'run.finished')?.text ?? ''
+const verifiedOf = (evs: Ev[]) => evs.find((e) => e.type === 'run.verified')?.verification
 
 const mind = (name: string, extra: Record<string, unknown> = {}) => ({
   templateId: 'general-assistant',
@@ -93,11 +94,28 @@ describe('engine HTTP API', () => {
     assert.equal(call?.nodeId, 'tool:add_numbers')
     assert.deepEqual(call?.args, { a: 17, b: 25 })
     assert.deepEqual(evs.find((e) => e.type === 'tool.result' && e.tool === 'add_numbers')?.result, { sum: 42 })
-    const fin = evs.at(-1)!
-    assert.equal(fin.type, 'run.finished')
+    assert.equal(evs.at(-1)?.type, 'run.verified', 'the badge result is the last event')
+    const fin = evs.find((e) => e.type === 'run.finished')!
     assert.ok(fin.usage.totalTokens > 0, 'usage is reported while streaming')
     assert.ok(fin.costUsd > 0, 'cost is computed from the model list price')
     assert.match(fin.text, /42/)
+  })
+
+  describe('verified private badge (#19)', () => {
+    test('a Confidential TEE model gets a verified badge covering every model step', async () => {
+      const evs = await events(await post('/v1/minds/badge/chat', { userId, threadId: randomUUID(), message: 'Use your tool: what is 4 + 5?', mind: mind('Vee', { skills: [{ skillId: 'daily-planner' }] }) }))
+      assert.equal(evs.find((e) => e.type === 'run.finished')?.verification?.status, 'pending')
+      const v = verifiedOf(evs)
+      assert.equal(v?.status, 'verified', JSON.stringify(v))
+      // Streaming completions carry Gateway signatures (measured 3 Nov), so the level is gateway_tee.
+      assert.equal(v.level, 'gateway_tee')
+      assert.equal(v.completionIds.length, evs.filter((e) => e.type === 'step.finished').length, 'one verified completion per model step')
+    })
+
+    test('an Incognito model never gets the private badge', async () => {
+      const evs = await events(await post('/v1/minds/incog/chat', { userId, threadId: randomUUID(), message: 'Say hi in two words.', mind: mind('Inc', { model: 'anthropic/claude-haiku-5-5' }) }))
+      assert.deepEqual(verifiedOf(evs), { status: 'not_applicable', reason: 'incognito_model' })
+    })
   })
 
   describe('secrets (#18)', () => {
@@ -165,7 +183,8 @@ describe('engine HTTP API', () => {
       const transfer = rest.find((e) => e.type === 'tool.result' && e.tool === 'demo_transfer' && e.result?.status === 'simulated')
       if (action === 'approve') assert.ok(transfer, 'approved transfer ran')
       else assert.equal(transfer, undefined, 'declined transfer never runs')
-      assert.equal(rest.at(-1)?.type, 'run.finished')
+      assert.ok(rest.some((e) => e.type === 'run.finished'))
+      assert.equal(rest.at(-1)?.type, 'run.verified')
     })
   }
 })
