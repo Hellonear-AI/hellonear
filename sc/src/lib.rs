@@ -5,6 +5,11 @@ use near_sdk::serde_json::json;
 use near_sdk::store::{IterableMap, LookupMap};
 use near_sdk::{AccountId, BorshStorageKey, NearToken, PanicOnDefault, Promise, assert_one_yocto, env, near, require};
 
+mod migrate;
+pub mod versioned;
+pub use versioned::{Mind, Skill};
+use versioned::{VersionedMind, VersionedSkill};
+
 const MAX_ID_LEN: usize = 64;
 const MAX_URI_LEN: usize = 256;
 const MAX_SKILLS_PER_MIND: usize = 32;
@@ -14,39 +19,26 @@ const MAX_PAGE: u32 = 50;
 const EVENT_STANDARD: &str = "hellonear_registry";
 const EVENT_VERSION: &str = "1.0.0";
 
+/// Storage prefixes. The borsh tag of each variant is its prefix, so only ever append
+/// variants; never reorder or remove them (audit: storage-collision).
 #[near]
 #[derive(BorshStorageKey)]
 enum StorageKey {
+    /// v0.1.0 Minds (unversioned). Emptied by `migrate`.
     Minds,
     MindsByOwner,
+    /// v0.1.0 Skills (unversioned). Emptied by `migrate`.
     Skills,
-}
-
-#[near(serializers = [json, borsh])]
-#[derive(Clone, Debug, PartialEq)]
-pub struct Mind {
-    pub owner: AccountId,
-    pub metadata_uri: String,
-    /// The Mind's own wallet (an OutLayer address on NEAR).
-    pub wallet: AccountId,
-    pub skills: Vec<String>,
-}
-
-#[near(serializers = [json, borsh])]
-#[derive(Clone, Debug, PartialEq)]
-pub struct Skill {
-    pub publisher: AccountId,
-    pub metadata_uri: String,
-    /// Price in yoctoNEAR. Recorded only; payments are not handled in v1.
-    pub price: U128,
+    VersionedMinds,
+    VersionedSkills,
 }
 
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
 pub struct Contract {
-    minds: IterableMap<String, Mind>,
+    minds: IterableMap<String, VersionedMind>,
     minds_by_owner: LookupMap<AccountId, Vec<String>>,
-    skills: LookupMap<String, Skill>,
+    skills: LookupMap<String, VersionedSkill>,
 }
 
 fn require_valid_id(id: &str, what: &str) {
@@ -95,9 +87,9 @@ impl Contract {
     #[init]
     pub fn new() -> Self {
         Self {
-            minds: IterableMap::new(StorageKey::Minds),
+            minds: IterableMap::new(StorageKey::VersionedMinds),
             minds_by_owner: LookupMap::new(StorageKey::MindsByOwner),
-            skills: LookupMap::new(StorageKey::Skills),
+            skills: LookupMap::new(StorageKey::VersionedSkills),
         }
     }
 
@@ -110,7 +102,7 @@ impl Contract {
         let owner = env::predecessor_account_id();
         let initial = env::storage_usage();
 
-        self.minds.insert(mind_id.clone(), Mind { owner: owner.clone(), metadata_uri, wallet: wallet.clone(), skills: vec![] });
+        self.minds.insert(mind_id.clone(), Mind { owner: owner.clone(), metadata_uri, wallet: wallet.clone(), skills: vec![] }.into());
         let mut owned = self.minds_by_owner.get(&owner).cloned().unwrap_or_default();
         require!(owned.len() < MAX_MINDS_PER_OWNER, format!("an account can own at most {MAX_MINDS_PER_OWNER} Minds"));
         owned.push(mind_id.clone());
@@ -131,7 +123,7 @@ impl Contract {
         let publisher = env::predecessor_account_id();
         let initial = env::storage_usage();
 
-        self.skills.insert(skill_id.clone(), Skill { publisher: publisher.clone(), metadata_uri, price });
+        self.skills.insert(skill_id.clone(), Skill { publisher: publisher.clone(), metadata_uri, price }.into());
         self.skills.flush();
 
         charge_storage(initial);
@@ -143,11 +135,11 @@ impl Contract {
     pub fn equip_skill(&mut self, mind_id: String, skill_id: String) {
         require!(self.skills.contains_key(&skill_id), "skill_id is not published");
         let initial = env::storage_usage();
-        let mind = self.owned_mind_mut(&mind_id);
+        let mut mind = self.owned_mind(&mind_id);
         require!(!mind.skills.contains(&skill_id), "skill is already equipped");
         require!(mind.skills.len() < MAX_SKILLS_PER_MIND, format!("a Mind can equip at most {MAX_SKILLS_PER_MIND} skills"));
         mind.skills.push(skill_id.clone());
-        self.minds.flush();
+        self.save_mind(&mind_id, mind);
 
         charge_storage(initial);
         emit("skill_equipped", json!({ "mind_id": mind_id, "skill_id": skill_id }));
@@ -158,11 +150,11 @@ impl Contract {
     pub fn unequip_skill(&mut self, mind_id: String, skill_id: String) {
         assert_one_yocto();
         let initial = env::storage_usage();
-        let mind = self.owned_mind_mut(&mind_id);
+        let mut mind = self.owned_mind(&mind_id);
         let before = mind.skills.len();
         mind.skills.retain(|s| s != &skill_id);
         require!(mind.skills.len() < before, "skill is not equipped");
-        self.minds.flush();
+        self.save_mind(&mind_id, mind);
 
         refund_freed_storage(initial);
         emit("skill_unequipped", json!({ "mind_id": mind_id, "skill_id": skill_id }));
@@ -174,20 +166,20 @@ impl Contract {
     pub fn set_wallet(&mut self, mind_id: String, wallet: AccountId) {
         require!(env::attached_deposit() >= NearToken::from_yoctonear(1), "Requires attached deposit of at least 1 yoctoNEAR");
         let initial = env::storage_usage();
-        let mind = self.owned_mind_mut(&mind_id);
+        let mut mind = self.owned_mind(&mind_id);
         mind.wallet = wallet.clone();
-        self.minds.flush();
+        self.save_mind(&mind_id, mind);
 
         if env::storage_usage() > initial { charge_storage(initial) } else { refund_freed_storage(initial) }
         emit("wallet_set", json!({ "mind_id": mind_id, "wallet": wallet }));
     }
 
     pub fn get_mind(&self, mind_id: String) -> Option<Mind> {
-        self.minds.get(&mind_id).cloned()
+        self.minds.get(&mind_id).cloned().map(Mind::from)
     }
 
     pub fn get_skill(&self, skill_id: String) -> Option<Skill> {
-        self.skills.get(&skill_id).cloned()
+        self.skills.get(&skill_id).cloned().map(Skill::from)
     }
 
     /// Mind ids owned by `owner`, paginated (at most 50 per call).
@@ -201,11 +193,17 @@ impl Contract {
         self.minds.len()
     }
 
-    fn owned_mind_mut(&mut self, mind_id: &String) -> &mut Mind {
-        let caller = env::predecessor_account_id();
-        let mind = self.minds.get_mut(mind_id).unwrap_or_else(|| env::panic_str("mind_id is not registered"));
-        require!(mind.owner == caller, "only the Mind's owner can do this");
+    /// Loads a Mind as the latest record shape and checks the caller owns it.
+    fn owned_mind(&self, mind_id: &String) -> Mind {
+        let mind: Mind = self.minds.get(mind_id).cloned().unwrap_or_else(|| env::panic_str("mind_id is not registered")).into();
+        require!(mind.owner == env::predecessor_account_id(), "only the Mind's owner can do this");
         mind
+    }
+
+    /// Stores a Mind as the latest version, upgrading any older record it replaces.
+    fn save_mind(&mut self, mind_id: &str, mind: Mind) {
+        self.minds.insert(mind_id.to_string(), mind.into());
+        self.minds.flush();
     }
 }
 
@@ -333,6 +331,39 @@ mod tests {
             ctx("alice.testnet", ONE_NEAR);
             c.register_mind(format!("cap{i}"), "ipfs://m".into(), acc("w.testnet"));
         }
+    }
+
+    #[test]
+    fn migrate_moves_v0_1_state_to_versioned_records() {
+        use crate::migrate::ContractV0_1;
+        use crate::versioned::{MindV1, SkillV1};
+        // Build v0.1.0 state in storage exactly as the old contract wrote it.
+        ctx("registry.testnet", NearToken::from_yoctonear(0));
+        let mut old_minds: IterableMap<String, MindV1> = IterableMap::new(StorageKey::Minds);
+        let mut by_owner: LookupMap<AccountId, Vec<String>> = LookupMap::new(StorageKey::MindsByOwner);
+        let mut old_skills: LookupMap<String, SkillV1> = LookupMap::new(StorageKey::Skills);
+        old_minds.insert("penny".into(), MindV1 { owner: acc("alice.testnet"), metadata_uri: "ipfs://penny".into(), wallet: acc("w.testnet"), skills: vec!["pay".into()] });
+        by_owner.insert(acc("alice.testnet"), vec!["penny".into()]);
+        old_skills.insert("pay".into(), SkillV1 { publisher: acc("bob.testnet"), metadata_uri: "ipfs://pay".into(), price: U128(5) });
+        env::state_write(&ContractV0_1::for_test(old_minds, by_owner, old_skills));
+
+        let c = Contract::migrate(vec!["pay".into()]);
+        let mind = c.get_mind("penny".into()).unwrap();
+        assert_eq!(mind.owner, acc("alice.testnet"));
+        assert_eq!(mind.skills, vec!["pay".to_string()]);
+        assert_eq!(c.get_skill("pay".into()).unwrap().price, U128(5));
+        assert_eq!(c.minds_of(acc("alice.testnet"), None, None), vec!["penny".to_string()]);
+        assert_eq!(c.total_minds(), 1);
+        assert!(get_logs().iter().any(|l| l.contains("\"state_migrated\"")));
+    }
+
+    #[test]
+    #[should_panic(expected = "skill_id not found in v0.1.0 state: typo")]
+    fn migrate_rejects_unknown_skill_ids() {
+        use crate::migrate::ContractV0_1;
+        ctx("registry.testnet", NearToken::from_yoctonear(0));
+        env::state_write(&ContractV0_1::for_test(IterableMap::new(StorageKey::Minds), LookupMap::new(StorageKey::MindsByOwner), LookupMap::new(StorageKey::Skills)));
+        Contract::migrate(vec!["typo".into()]);
     }
 
     #[test]

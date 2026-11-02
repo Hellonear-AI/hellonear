@@ -75,6 +75,12 @@ Keep this table and each folder's `.env.example` in sync when something is (re)d
 5. **Verify NEAR facts before relying on them.** Use the official NEAR agent skills (`npx skills add near/agent-skills`) and live docs (docs.near.org, docs.near.ai, docs.near-intents.org). If a skill and the live docs disagree, follow the docs. Pin package versions; do not upgrade during the hackathon.
 6. **Read websites properly.** Do not conclude a site is empty from a plain fetch (many are JS-rendered); use `curl -s "https://r.jina.ai/<url>"`, the site's `llms.txt`/`.md` pages, or a browser.
 
+## Commits
+
+- **Small commits, one logical step each** (e.g. refactor, then feature, then tests, then docs), so humans and AI agents can follow the history and review or revert one step at a time. Each commit must build and pass its tests.
+- Conventional prefixes: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, with a scope (`feat(engine): …`, `test(sc): …`).
+- The body says why, and which tests ran with their results.
+
 ## Hackathon submission rules (summary; re-read https://nearhackathon.com/HACKATHON.md before submitting)
 
 - Repo must be public before 14 Nov 23:59 UTC. One submission per project, not editable.
