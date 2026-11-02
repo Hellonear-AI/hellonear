@@ -26,10 +26,25 @@ function authorized(req: IncomingMessage): boolean {
   return given.length === expected.length && timingSafeEqual(given, expected)
 }
 
+// Bodies are small (a chat message, a canvas of at most 20 nodes); refuse anything bigger.
+const MAX_BODY_BYTES = 256 * 1024
+class HttpError extends Error {
+  constructor(readonly status: number, message: string) { super(message) }
+}
+
 async function readJson(req: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = []
-  for await (const c of req) chunks.push(c as Buffer)
-  return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}')
+  let size = 0
+  for await (const c of req) {
+    size += (c as Buffer).length
+    if (size > MAX_BODY_BYTES) throw new HttpError(413, 'body_too_large')
+    chunks.push(c as Buffer)
+  }
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}')
+  } catch {
+    throw new HttpError(400, 'invalid_json')
+  }
 }
 
 function sendJson(res: ServerResponse, status: number, body: unknown) {
@@ -117,6 +132,7 @@ export const server = createServer(async (req, res) => {
 
     return sendJson(res, 404, { error: 'not_found' })
   } catch (e) {
+    if (e instanceof HttpError && !res.headersSent) return sendJson(res, e.status, { error: e.message })
     if (!res.headersSent) sendJson(res, 500, { error: e instanceof Error ? e.message : String(e) })
     else res.end()
   }

@@ -44,6 +44,10 @@ describe('engine HTTP API', () => {
     assert.equal((await post('/v1/minds/m1/chat', { userId })).status, 400)
     const unknown = await post('/v1/minds/m1/chat', { userId, threadId: 't', message: 'hi', mind: mind('X', { skills: [{ skillId: 'rm-rf' }] }) })
     assert.equal(unknown.status, 400, 'unknown skillId is rejected')
+    const notJson = await fetch(base + '/v1/minds/m1/chat', { method: 'POST', headers: { 'x-engine-key': key }, body: '{nope' })
+    assert.deepEqual([notJson.status, await notJson.json()], [400, { error: 'invalid_json' }])
+    const huge = await post('/v1/minds/m1/chat', { userId, threadId: 't', message: 'x'.repeat(300 * 1024), mind: mind('X') })
+    assert.deepEqual([huge.status, await huge.json()], [413, { error: 'body_too_large' }])
   })
 
   test('blocked skills are not loaded; run.started lists the skills that are', async () => {
