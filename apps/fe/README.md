@@ -1,6 +1,6 @@
 # @hellonear/fe
 
-HelloNear web app (Next.js App Router + NEAR Connect, testnet).
+HelloNear web app (Next.js App Router, Tailwind + shadcn/ui, NEAR Connect on testnet).
 
 **Owner:** Ancung · Issue: #9 · Design from Nabil (#10) · Context: `research.md` 5.7, 8.1, 9.2 (Mind Graph).
 
@@ -28,4 +28,4 @@ tests/
 
 Details and conventions: [`CLAUDE.md`](./CLAUDE.md).
 
-Scaffolded with `create-near-app` 10.0.0. The `hello-near` demo route, Bootstrap, and the template wallet provider are still in place and get replaced in #9.
+Scaffolded with `create-near-app` 10.0.0, then moved to Tailwind + shadcn/ui and `near-connect-hooks`.
