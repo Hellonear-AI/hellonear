@@ -5,7 +5,7 @@ import { RequestContext } from '@mastra/core/request-context'
 import { z } from 'zod'
 import { config } from './config.ts'
 import { createNormalizer, createWorkflowNormalizer } from './events.ts'
-import { MIND_KEY, UNATTENDED_KEY, mastra } from './mastra.ts'
+import { MIND_KEY, UNATTENDED_KEY, mastra, storage } from './mastra.ts'
 import { resourceId, runRequestSchema, type Mind } from './mind.ts'
 import { SECRETS_KEY, redact, type Secret } from './secrets.ts'
 import { usableSkills } from './skills.ts'
@@ -234,4 +234,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const warm = () => warmAttestation(warmModels()).then(() => console.log('attestation', JSON.stringify(attestationStatus())))
   void warm()
   setInterval(warm, 50 * 60 * 1000).unref()
+  // Mastra never prunes by itself. Hourly, in bounded batches, so a big backlog never blocks the engine.
+  const prune = () => storage.prune({ maxRows: 10_000 }).then((r) => console.log('prune', JSON.stringify(r.filter((x) => x.deleted))), (e) => console.error('prune failed', e))
+  setInterval(prune, 60 * 60 * 1000).unref()
 }

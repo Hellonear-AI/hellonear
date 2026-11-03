@@ -12,7 +12,12 @@ import { usableSkills } from './skills.ts'
 import { toolRegistry, toolsFor } from './tools.ts'
 
 // Small pools: the local Postgres allows 40 connections.
-export const storage = new PostgresStore({ id: 'engine-storage', connectionString: config.databaseUrl, schemaName: 'mastra', max: 5 })
+// Every run stores a snapshot (~8 KB) and every Autopilot fire a trigger row; prune() deletes old ones.
+const keep = { maxAge: `${config.runRetentionDays}d` } as const
+export const storage = new PostgresStore({
+  id: 'engine-storage', connectionString: config.databaseUrl, schemaName: 'mastra', max: 5,
+  retention: { workflows: { workflowSnapshot: keep }, schedules: { triggers: keep } },
+})
 const vector = new PgVector({ id: 'engine-vector', connectionString: config.databaseUrl, schemaName: 'mastra', max: 5 })
 
 const memory = new Memory({
