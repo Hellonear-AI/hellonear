@@ -16,6 +16,7 @@ import { BuilderError, mastraWorkflowId, mindIdSchema, workflowIdSchema } from '
 import { mindSchema } from './mind.ts'
 import { secretSchema } from './secrets.ts'
 import { deleteWorkflow, listWorkflows, loadWorkflow, saveWorkflow } from './workflows.ts'
+import { autopilotSchema, deleteAutopilot, getAutopilot, listRuns, setAutopilot } from './autopilot.ts'
 
 const chatSchema = runRequestSchema.extend({ message: z.string().min(1) })
 const resumeSchema = runRequestSchema.extend({ toolCallId: z.string().min(1), reason: z.string().optional() })
@@ -170,7 +171,7 @@ export const server = createServer(async (req, res) => {
     }
 
     const wfList = url.pathname.match(/^\/v1\/minds\/([^/]+)\/workflows$/)
-    const wf = url.pathname.match(/^\/v1\/minds\/([^/]+)\/workflows\/([^/]+)(\/runs)?$/)
+    const wf = url.pathname.match(/^\/v1\/minds\/([^/]+)\/workflows\/([^/]+)(\/runs|\/autopilot)?$/)
     if (wfList || wf) {
       const mindId = decodeURIComponent((wfList ?? wf)![1])
       const workflowId = wf ? decodeURIComponent(wf[2]) : ''
@@ -191,7 +192,7 @@ export const server = createServer(async (req, res) => {
         return found ? sendJson(res, 200, found) : sendJson(res, 404, { error: 'not_found' })
       }
       if (wf && !wf[3] && req.method === 'DELETE') return (await deleteWorkflow(mindId, workflowId)) ? res.writeHead(204).end() : sendJson(res, 404, { error: 'not_found' })
-      if (wf?.[3] && req.method === 'POST') {
+      if (wf?.[3] === '/runs' && req.method === 'POST') {
         const parsed = workflowRunSchema.safeParse(await readJson(req))
         if (!parsed.success) return sendJson(res, 400, { error: 'invalid_body', issues: parsed.error.issues })
         const { mind, secrets, input } = parsed.data
@@ -210,6 +211,24 @@ export const server = createServer(async (req, res) => {
         }
         const run = await workflow.createRun()
         return pipeWorkflow(res, run as never, { mindId, workflowId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secrets, mind, input, steps: saved.steps })
+      }
+      if (wf?.[3] === '/runs' && req.method === 'GET') {
+        const saved = await loadWorkflow(mindId, workflowId)
+        if (!saved) return sendJson(res, 404, { error: 'not_found' })
+        const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? 20) || 20, 1), 100)
+        return sendJson(res, 200, { runs: await listRuns(mindId, workflowId, saved.steps, limit) })
+      }
+      if (wf?.[3] === '/autopilot') {
+        const saved = await loadWorkflow(mindId, workflowId)
+        if (!saved) return sendJson(res, 404, { error: 'not_found' })
+        if (req.method === 'GET') return sendJson(res, 200, { autopilot: await getAutopilot(mindId, workflowId) })
+        if (req.method === 'DELETE') return (await deleteAutopilot(mindId, workflowId)) ? res.writeHead(204).end() : sendJson(res, 404, { error: 'not_found' })
+        if (req.method === 'PUT') {
+          const parsed = autopilotSchema.safeParse(await readJson(req))
+          if (!parsed.success) return sendJson(res, 400, { error: 'invalid_body', issues: parsed.error.issues })
+          const out = await setAutopilot(mindId, workflowId, saved, parsed.data)
+          return 'issues' in out ? sendJson(res, 409, { error: 'cannot_autopilot', ...out }) : sendJson(res, 200, out)
+        }
       }
       return sendJson(res, 405, { error: 'method_not_allowed' })
     }
