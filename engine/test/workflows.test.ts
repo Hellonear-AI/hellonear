@@ -4,6 +4,7 @@ import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { AddressInfo } from 'node:net'
 import { randomUUID } from 'node:crypto'
+import pg from 'pg'
 import { server } from '../src/server.ts'
 import { mastra } from '../src/mastra.ts'
 import { mastraWorkflowId } from '../src/builder.ts'
@@ -93,6 +94,18 @@ describe('builder workflows', () => {
     assert.match(finished[1].output.body, /••••/, 'httpbin echoed the header, redacted')
     assert.match(finished[1].output.body, new RegExp(`${account.replace('.', '\\.')} has [0-9.]+ NEAR`))
     assert.ok(!JSON.stringify(evs).includes(SECRET), 'the secret value is in no event')
+    // Run snapshots store the requestContext (spike 03): the secrets Map must not end up there.
+    const db = new pg.Client({ connectionString: process.env.DATABASE_URL })
+    await db.connect()
+    try {
+      const { rows: tables } = await db.query(`select table_name from information_schema.tables where table_schema = 'mastra'`)
+      for (const { table_name } of tables) {
+        const { rows } = await db.query(`select count(*)::int as n from mastra."${table_name}" t where t::text like $1`, [`%${SECRET}%`])
+        assert.equal(rows[0].n, 0, `secret value found in mastra.${table_name}`)
+      }
+    } finally {
+      await db.end()
+    }
 
     assert.equal(ofType(evs, 'workflow.finished')[0].status, 'success')
     const last = evs.at(-1)!
