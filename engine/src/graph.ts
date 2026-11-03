@@ -10,3 +10,7 @@ export function nodeIdFor(mindId: string, tool: string, args?: Record<string, un
   if (WALLET_TOOLS.has(tool)) return `wallet:${mindId}`
   return `tool:${tool}`
 }
+
+// A Visual Builder step (#20) on the Mind Graph: agent steps are the Mind itself.
+export type BuilderStep = { node: string; type: 'agent' | 'tool' | 'http'; tool?: string }
+export const builderNodeId = (mindId: string, s: BuilderStep) => (s.type === 'agent' ? `mind:${mindId}` : nodeIdFor(mindId, s.tool!))

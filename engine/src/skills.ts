@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { createSkill } from '@mastra/core/skills'
 import { parse } from 'yaml'
 import { z } from 'zod'
-import { toolRegistry } from './tools.ts'
+import { toolRegistry, toolsFor } from './tools.ts'
 
 const frontmatterSchema = z.object({
   name: z.string().regex(/^[a-z0-9-]+$/),
@@ -59,4 +59,10 @@ export const skillCatalog = loadSkillCatalog(new URL('../skills', import.meta.ur
 // Skills a Mind may actually use: blocked skills are never loaded.
 export function usableSkills(skillIds: string[]): SkillEntry[] {
   return skillIds.map((id) => skillCatalog.get(id)).filter((s): s is SkillEntry => !!s && s.status !== 'blocked')
+}
+
+// Workflow tools the Mind has not equipped (skills can be unequipped after a workflow is saved).
+export function missingTools(skillIds: string[], tools: string[]): string[] {
+  const allowed = Object.keys(toolsFor(usableSkills(skillIds).flatMap((s) => s.tools), { unattended: true }))
+  return tools.filter((t) => !allowed.includes(t))
 }

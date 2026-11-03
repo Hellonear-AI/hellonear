@@ -1,6 +1,6 @@
 // Normalizes Mastra stream chunks into HelloNear events (docs/api-contract.md §3).
 // The UI and Mind Graph depend on these, never on raw Mastra chunks.
-import { nodeIdFor } from './graph.ts'
+import { builderNodeId, nodeIdFor, type BuilderStep } from './graph.ts'
 import { priceOf } from './models.ts'
 import { redact } from './secrets.ts'
 import type { Verification } from './verify.ts'
@@ -67,15 +67,12 @@ export function createNormalizer(opts: { mindId: string; threadId: string; model
   })
 }
 
-type BuilderStep = { node: string; type: 'agent' | 'tool' | 'http'; tool?: string }
-
 // Workflow runs from the Visual Builder (#20). Workflow chunks become node.* events for the
 // canvas and the Mind Graph; chunks from inside an agent step go through the chat normalizer,
 // so tool calls, text and the badge work exactly as in chat.
 export function createWorkflowNormalizer(opts: { mindId: string; workflowId: string; model: string; skills: string[]; secretValues: string[]; steps: Record<string, BuilderStep> }) {
   const inner = createNormalizer({ mindId: opts.mindId, threadId: '', model: opts.model, skills: opts.skills, secretValues: opts.secretValues })
-  const graphNode = (s: BuilderStep) => (s.type === 'agent' ? `mind:${opts.mindId}` : nodeIdFor(opts.mindId, s.tool!))
-  const node = (s: BuilderStep) => ({ node: s.node, nodeType: s.type, nodeId: graphNode(s) })
+  const node = (s: BuilderStep) => ({ node: s.node, nodeType: s.type, nodeId: builderNodeId(opts.mindId, s) })
 
   const normalize = async function normalize(chunk: { type: string; runId: string; payload?: any }): Promise<HelloNearEvent[]> {
     const p = chunk.payload ?? {}

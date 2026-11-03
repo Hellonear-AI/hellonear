@@ -1,6 +1,7 @@
 // Saved Visual Builder workflows (#20): compile, register live, persist in Postgres
 // (Mastra's workflowDefinitions store), list, load for the editor and delete.
 import { compileCanvas, mastraWorkflowId, type Canvas, type CompiledWorkflow } from './builder.ts'
+import { deleteAutopilot, syncAutopilot } from './autopilot.ts'
 import { mastra, storage } from './mastra.ts'
 
 type Meta = { v: 1; mindId: string; workflowId: string; canvas: Canvas; tools: string[]; steps: CompiledWorkflow['steps']; schedule: { cron: string; timezone?: string } | null }
@@ -25,7 +26,10 @@ const summary = (d: StoredDefinition) => {
 export async function saveWorkflow(mindId: string, workflowId: string, canvas: unknown) {
   const compiled = compileCanvas(mindId, workflowId, canvas)
   await mastra.addDynamicWorkflow(compiled.definition as never)
-  return { workflowId, tools: compiled.tools, steps: compiled.steps, schedule: (compiled.definition.metadata as { hellonear: Meta }).hellonear.schedule }
+  const meta = (compiled.definition.metadata as { hellonear: Meta }).hellonear
+  // An Autopilot schedule follows the new cron, or pauses if the new canvas cannot run unattended.
+  const autopilot = await syncAutopilot(mindId, workflowId, meta)
+  return { workflowId, tools: compiled.tools, steps: compiled.steps, schedule: meta.schedule, autopilot }
 }
 
 export async function loadWorkflow(mindId: string, workflowId: string) {
@@ -44,6 +48,7 @@ export async function listWorkflows(mindId: string) {
 export async function deleteWorkflow(mindId: string, workflowId: string): Promise<boolean> {
   if (!(await loadWorkflow(mindId, workflowId))) return false
   const id = mastraWorkflowId(mindId, workflowId)
+  await deleteAutopilot(mindId, workflowId)
   await (await store()).delete(id)
   mastra.removeWorkflow(id)
   return true

@@ -15,4 +15,6 @@ export const config = {
   defaultModel: 'z-ai/glm-5.3-flash',
   runTimeoutMs: 120_000,
   maxOutputTokens: 2048,
+  // Workflow run snapshots and schedule fire history older than this are pruned (#21).
+  runRetentionDays: Number(process.env.RUN_RETENTION_DAYS ?? 14),
 }

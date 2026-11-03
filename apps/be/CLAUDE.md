@@ -19,3 +19,4 @@ Backend API: Postgres + pgvector, NEP-413 login, run/event storage + SSE, encryp
 - Every route checks that the user owns the Mind/agent it touches.
 - Schema and events follow `docs/api-contract.md` (#7).
 - Builder workflows (#20) are stored by the engine; the backend proxies `…/workflows` calls after the ownership check and sends the Mind config and secrets on each run, as for chat.
+- Autopilot (#21): `PUT …/workflows/{id}/autopilot` stores a copy of the Mind config in the engine. **Send it again for every Autopilot workflow of a Mind whenever that Mind changes** (persona, model, skills); a `409` means the engine paused it, show `pausedFor`. Scheduled runs get no secrets yet (`docs/api-contract.md` §6 q4).

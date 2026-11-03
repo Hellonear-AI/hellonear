@@ -76,10 +76,10 @@ A workflow belongs to one Mind. The canvas is saved by the engine (Mastra stores
 
 | Method and path | Body | Response |
 |---|---|---|
-| `PUT /v1/minds/{mindId}/workflows/{workflowId}` | canvas (below) | `200 { workflowId, tools, steps, schedule }`, or `400 { error: "invalid_workflow", issues: [{ path, message }] }`. Saving again replaces it; runs already started keep the old graph **[tested]** |
+| `PUT /v1/minds/{mindId}/workflows/{workflowId}` | canvas (below) | `200 { workflowId, tools, steps, schedule, autopilot }` (`autopilot`: see below, `null` if off), or `400 { error: "invalid_workflow", issues: [{ path, message }] }`. Saving again replaces it; runs already started keep the old graph **[tested]** |
 | `GET /v1/minds/{mindId}/workflows` | | `{ workflows: [{ workflowId, name, tools, schedule, updatedAt }] }` |
 | `GET /v1/minds/{mindId}/workflows/{workflowId}` | | `{ workflowId, name, tools, schedule, updatedAt, canvas, steps }` (the canvas as saved, positions included) or `404` |
-| `DELETE /v1/minds/{mindId}/workflows/{workflowId}` | | `204` or `404` |
+| `DELETE /v1/minds/{mindId}/workflows/{workflowId}` | | `204` or `404`. Also deletes its Autopilot schedule **[tested]** |
 | `POST /v1/minds/{mindId}/workflows/{workflowId}/runs` | `{ userId, mind, secrets?, input? }` | SSE events (§3). `409 { error: "missing_tools", tools }` if the Mind no longer has a skill granting a tool the workflow uses. "Run again" = the same call again (new `runId`) **[tested]** |
 
 Canvas (React Flow shape; `position` and extra fields are kept for the editor):
@@ -108,7 +108,27 @@ Rules (the engine answers `400` with `issues` otherwise) **[tested]**:
 - Shape: trigger → a chain of agent/tool/http nodes → optionally one condition whose `then` edge (required) and `else` edge each lead to one last node. No cycles, no unreachable nodes. Both branches may not need the same input with different values (e.g. two agent branches).
 - References: `{{steps.<nodeId>.<field>}}` (a node that runs earlier), `{{input.<name>}}` (a trigger input), `{{secrets.NAME}}` (filled by the tool at execution, as in chat). A field that is only one reference keeps its type (numbers stay numbers). `${` is refused. Headers may hold secrets but not step references. Fields must exist in the tool's output schema (checked by Mastra).
 - Tools needing approval (wallet actions) are refused: a workflow runs unattended and Mastra would execute them without asking. Agent steps in a workflow also never get approval tools.
-- `schedule` is stored only; running it on a timer is Autopilot (#21).
+- `schedule` (`{ cron, timezone? }`, 5-field cron, IANA timezone, default `UTC`) only runs once Autopilot is turned on for the workflow (below).
+
+### Autopilot (#21)
+
+A workflow whose trigger has a `schedule` can run on that cron with nobody watching (Mastra workflow schedules, `engine/spikes/03-autopilot`). Scheduled runs are **unattended**: agent steps get no approval tools, and no secrets are available.
+
+| Method and path | Body | Response |
+|---|---|---|
+| `PUT /v1/minds/{mindId}/workflows/{workflowId}/autopilot` | `{ userId, mind, input?, enabled? = true }` | `200 { autopilot }`, or `409 { error: "cannot_autopilot", issues: [{ code, message, tools? }], autopilot }` **[tested]** |
+| `GET /v1/minds/{mindId}/workflows/{workflowId}/autopilot` | | `{ autopilot }` (`null` if never turned on) **[tested]** |
+| `DELETE /v1/minds/{mindId}/workflows/{workflowId}/autopilot` | | `204`, or `404` if it was not on **[tested]** |
+| `GET /v1/minds/{mindId}/workflows/{workflowId}/runs?limit=20` | | `{ runs: [{ runId, trigger: "autopilot" \| "manual", status, startedAt, updatedAt, nodes: [{ node, nodeType, nodeId, status: "ok" \| "error" \| …, output?, error?, startedAt, endedAt }] }] }`, newest first, `limit` 1–100. Covers Autopilot and manual runs **[tested]** |
+
+`autopilot` = `{ status: "active" | "paused", cron, timezone, nextFireAt, lastFireAt, lastRunId, pausedFor: [issue] }` (times are ISO strings or `null`).
+
+- **The backend owns the Mind config.** `PUT …/autopilot` stores a copy of `mind` and `input`; send it again whenever the Mind changes (persona, model, skills). If the new config cannot run the workflow, the engine pauses the schedule and returns `409` with the reasons.
+- Issue codes: `no_schedule`, `uses_secrets` (the canvas contains `{{secrets.…}}`: the schedule is stored as plain JSON, so secrets cannot go there yet), `missing_tools`, `invalid_input` (trigger inputs missing or wrong type), `invalid_schedule` (cron/timezone rejected).
+- Saving the canvas again updates the cron of an existing schedule, or pauses it with `pausedFor` if the new canvas cannot run unattended. `enabled: false` pauses; `PUT` again with `enabled: true` resumes.
+- Delivery is best-effort (Mastra docs, checked 4 Nov 2026): a fire can be skipped and is not replayed. The history shows what really ran (from run snapshots).
+- Scheduled runs send no SSE events; show them from `GET …/runs` (poll while a run is `running`). Node ids match the Mind Graph (§4). There is no private badge for scheduled runs: the engine verifies completions only while it reads a live stream.
+- Runs and fire history older than `RUN_RETENTION_DAYS` (engine env, default 14) are pruned hourly.
 
 ## 3. HelloNear events (engine → backend → browser)
 
@@ -215,3 +235,4 @@ Index `run_events (run_id, seq)` and `runs (mind_id, started_at desc)`.
 1. SSE between backend and engine, or a queue? Draft assumes direct SSE (simplest for the hackathon).
 2. Does the backend send the full Mind config each request (draft), or should the engine read `minds` itself?
 3. Run timeout: draft uses Mastra `modelSettings.timeout.totalMs = 120000`.
+4. Autopilot and secrets (#21): scheduled runs cannot get secrets today. Option: the engine asks the backend for a Mind's secrets at execution (an internal endpoint authenticated with the engine key), never storing them. Needed before a scheduled workflow can call an authenticated API.

@@ -5,18 +5,18 @@ import { RequestContext } from '@mastra/core/request-context'
 import { z } from 'zod'
 import { config } from './config.ts'
 import { createNormalizer, createWorkflowNormalizer } from './events.ts'
-import { MIND_KEY, UNATTENDED_KEY, mastra } from './mastra.ts'
+import { MIND_KEY, UNATTENDED_KEY, mastra, storage } from './mastra.ts'
 import { resourceId, runRequestSchema, type Mind } from './mind.ts'
 import { SECRETS_KEY, redact, type Secret } from './secrets.ts'
-import { usableSkills } from './skills.ts'
+import { missingTools, usableSkills } from './skills.ts'
 import { attestationStatus, modelInfo, verifyCompletions, warmAttestation } from './models.ts'
 import { summarize } from './verify.ts'
 import { templateSummaries, templates } from './templates.ts'
 import { BuilderError, mastraWorkflowId, mindIdSchema, workflowIdSchema } from './builder.ts'
 import { mindSchema } from './mind.ts'
 import { secretSchema } from './secrets.ts'
-import { toolsFor } from './tools.ts'
 import { deleteWorkflow, listWorkflows, loadWorkflow, saveWorkflow } from './workflows.ts'
+import { autopilotSchema, deleteAutopilot, getAutopilot, listRuns, setAutopilot } from './autopilot.ts'
 
 const chatSchema = runRequestSchema.extend({ message: z.string().min(1) })
 const resumeSchema = runRequestSchema.extend({ toolCallId: z.string().min(1), reason: z.string().optional() })
@@ -171,7 +171,7 @@ export const server = createServer(async (req, res) => {
     }
 
     const wfList = url.pathname.match(/^\/v1\/minds\/([^/]+)\/workflows$/)
-    const wf = url.pathname.match(/^\/v1\/minds\/([^/]+)\/workflows\/([^/]+)(\/runs)?$/)
+    const wf = url.pathname.match(/^\/v1\/minds\/([^/]+)\/workflows\/([^/]+)(\/runs|\/autopilot)?$/)
     if (wfList || wf) {
       const mindId = decodeURIComponent((wfList ?? wf)![1])
       const workflowId = wf ? decodeURIComponent(wf[2]) : ''
@@ -192,15 +192,14 @@ export const server = createServer(async (req, res) => {
         return found ? sendJson(res, 200, found) : sendJson(res, 404, { error: 'not_found' })
       }
       if (wf && !wf[3] && req.method === 'DELETE') return (await deleteWorkflow(mindId, workflowId)) ? res.writeHead(204).end() : sendJson(res, 404, { error: 'not_found' })
-      if (wf?.[3] && req.method === 'POST') {
+      if (wf?.[3] === '/runs' && req.method === 'POST') {
         const parsed = workflowRunSchema.safeParse(await readJson(req))
         if (!parsed.success) return sendJson(res, 400, { error: 'invalid_body', issues: parsed.error.issues })
         const { mind, secrets, input } = parsed.data
         const saved = await loadWorkflow(mindId, workflowId)
         if (!saved) return sendJson(res, 404, { error: 'not_found' })
         // A workflow may only use tools its Mind has equipped right now (skills can be unequipped after saving).
-        const allowed = Object.keys(toolsFor(usableSkills(mind.skills.map((s) => s.skillId)).flatMap((s) => s.tools), { unattended: true }))
-        const missing = saved.tools.filter((t) => !allowed.includes(t))
+        const missing = missingTools(mind.skills.map((s) => s.skillId), saved.tools)
         if (missing.length) return sendJson(res, 409, { error: 'missing_tools', tools: missing })
         let workflow
         try {
@@ -212,6 +211,24 @@ export const server = createServer(async (req, res) => {
         }
         const run = await workflow.createRun()
         return pipeWorkflow(res, run as never, { mindId, workflowId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secrets, mind, input, steps: saved.steps })
+      }
+      if (wf?.[3] === '/runs' && req.method === 'GET') {
+        const saved = await loadWorkflow(mindId, workflowId)
+        if (!saved) return sendJson(res, 404, { error: 'not_found' })
+        const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? 20) || 20, 1), 100)
+        return sendJson(res, 200, { runs: await listRuns(mindId, workflowId, saved.steps, limit) })
+      }
+      if (wf?.[3] === '/autopilot') {
+        const saved = await loadWorkflow(mindId, workflowId)
+        if (!saved) return sendJson(res, 404, { error: 'not_found' })
+        if (req.method === 'GET') return sendJson(res, 200, { autopilot: await getAutopilot(mindId, workflowId) })
+        if (req.method === 'DELETE') return (await deleteAutopilot(mindId, workflowId)) ? res.writeHead(204).end() : sendJson(res, 404, { error: 'not_found' })
+        if (req.method === 'PUT') {
+          const parsed = autopilotSchema.safeParse(await readJson(req))
+          if (!parsed.success) return sendJson(res, 400, { error: 'invalid_body', issues: parsed.error.issues })
+          const out = await setAutopilot(mindId, workflowId, saved, parsed.data)
+          return 'issues' in out ? sendJson(res, 409, { error: 'cannot_autopilot', ...out }) : sendJson(res, 200, out)
+        }
       }
       return sendJson(res, 405, { error: 'method_not_allowed' })
     }
@@ -234,4 +251,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const warm = () => warmAttestation(warmModels()).then(() => console.log('attestation', JSON.stringify(attestationStatus())))
   void warm()
   setInterval(warm, 50 * 60 * 1000).unref()
+  // Mastra never prunes by itself. Hourly, in bounded batches, so a big backlog never blocks the engine.
+  const prune = () => storage.prune({ maxRows: 10_000 }).then((r) => console.log('prune', JSON.stringify(r.filter((x) => x.deleted))), (e) => console.error('prune failed', e))
+  setInterval(prune, 60 * 60 * 1000).unref()
 }

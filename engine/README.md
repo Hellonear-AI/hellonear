@@ -29,6 +29,7 @@ Load tests (keep them small):
 - `src/events.ts`: Mastra chunks → HelloNear events (`run.started`, `tool.called`, `tool.result`, `tool.approval_required`, `run.finished` with usage and cost, …).
 - `src/tools.ts`: tool registry (`get_time`, `add_numbers`, `demo_transfer` which needs approval and moves no money, `http_request`, `near_view_account` which reads a testnet balance).
 - `src/builder.ts` + `src/workflows.ts`: Visual Builder (#20). A canvas (trigger → agent/tool/http nodes → optional condition) compiles into a Mastra dynamic workflow, saved in Postgres and runnable at `POST /v1/minds/{mindId}/workflows/{workflowId}/runs`. Findings behind it: `spikes/02-dynamic-workflow/`.
+- `src/autopilot.ts`: Autopilot (#21). Runs a saved workflow on its trigger's cron through Mastra workflow schedules, with a stored copy of the Mind config; run history at `GET …/workflows/{workflowId}/runs`. Findings: `spikes/03-autopilot/`.
 - `skills/<name>/SKILL.md` + `src/skills.ts`: skill catalog (daily-planner available, payments simulated until OutLayer #6, email-triage blocked until Composio).
 - `templates/*.json` + `src/templates.ts`: General Assistant, Payments Mind, Email Manager; served at `GET /v1/templates`.
 - `src/graph.ts`: Mind Graph node ids.
