@@ -18,3 +18,4 @@ Web app (Next.js App Router + NEAR Connect). Owner: Ancung. Design comes from Na
 - Redacted secrets render as `••••`; never try to unredact.
 - Use the event shapes in `docs/api-contract.md` (#7); do not invent fields.
 - Visual Builder (#20): save the React Flow `{ nodes, edges }` in the canvas format of `docs/api-contract.md` §2 "Visual Builder workflows" (node types `trigger`, `agent`, `tool`, `http`, `condition`; condition edges use `sourceHandle: "then" | "else"`). Show the engine's `issues` on a 400. Light nodes up from `node.started` / `node.finished` (`node` = your canvas node id).
+- Autopilot (#21, schedule UI): toggle with `PUT …/autopilot` (`enabled`), show `nextFireAt` and `pausedFor` reasons, and a run history from `GET …/runs` (`trigger: autopilot | manual`, per-node status in run order; poll while a run is `running`). Scheduled runs have no live stream and no badge.
