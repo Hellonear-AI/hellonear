@@ -8,14 +8,13 @@ import { createNormalizer, createWorkflowNormalizer } from './events.ts'
 import { MIND_KEY, UNATTENDED_KEY, mastra, storage } from './mastra.ts'
 import { resourceId, runRequestSchema, type Mind } from './mind.ts'
 import { SECRETS_KEY, redact, type Secret } from './secrets.ts'
-import { usableSkills } from './skills.ts'
+import { missingTools, usableSkills } from './skills.ts'
 import { attestationStatus, modelInfo, verifyCompletions, warmAttestation } from './models.ts'
 import { summarize } from './verify.ts'
 import { templateSummaries, templates } from './templates.ts'
 import { BuilderError, mastraWorkflowId, mindIdSchema, workflowIdSchema } from './builder.ts'
 import { mindSchema } from './mind.ts'
 import { secretSchema } from './secrets.ts'
-import { toolsFor } from './tools.ts'
 import { deleteWorkflow, listWorkflows, loadWorkflow, saveWorkflow } from './workflows.ts'
 
 const chatSchema = runRequestSchema.extend({ message: z.string().min(1) })
@@ -199,8 +198,7 @@ export const server = createServer(async (req, res) => {
         const saved = await loadWorkflow(mindId, workflowId)
         if (!saved) return sendJson(res, 404, { error: 'not_found' })
         // A workflow may only use tools its Mind has equipped right now (skills can be unequipped after saving).
-        const allowed = Object.keys(toolsFor(usableSkills(mind.skills.map((s) => s.skillId)).flatMap((s) => s.tools), { unattended: true }))
-        const missing = saved.tools.filter((t) => !allowed.includes(t))
+        const missing = missingTools(mind.skills.map((s) => s.skillId), saved.tools)
         if (missing.length) return sendJson(res, 409, { error: 'missing_tools', tools: missing })
         let workflow
         try {
