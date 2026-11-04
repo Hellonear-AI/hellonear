@@ -1,6 +1,8 @@
 # Spike 01: OutLayer wallet + policy on testnet (#6)
 
-**Status: in progress (4 Nov 2026).** Steps that need no money or owner wallet are done; the rest wait for the owner (James, Meteor Wallet testnet). Conclusion for #4: **not proven yet**.
+**Status: core flow proven on testnet (4 Nov 2026).** Conclusion for #4: **OutLayer directly is enough for the security demo; the vault-contract fallback is not needed.** Proven: per-transaction limit and whitelist refuse with `403 policy_denied` before any tx; owner approval (`pending_approval` → approved in the dashboard → on-chain tx); freeze refuses with `403 wallet_frozen`; Meteor works as the owner wallet; sub-wallets get their own address. Still open: the freeze tx link, step 5 (no API to test), and step 6b (sub-wallet policy).
+
+Demo wording: the policy is enforced by OutLayer **before signing**, so a refused transfer has no transaction. Never say "rejected on-chain" or show a tx link for it (root `CLAUDE.md`).
 
 API used: https://skills.outlayer.ai/agent-custody/SKILL.md, `references/register-and-auth.md`, `references/wallet-ops.md`, `references/api-index.md` (read 4 Nov 2026). Host: `https://testnet-api.outlayer.ai`.
 
@@ -14,16 +16,31 @@ Every call is in `results.json` (request, status, response), with API keys and h
 | Read address and balance | ✅ `200`; balance `0`, `"account": "executor"` | `status-*` |
 | Transfer from the unfunded wallet | ❌ as expected: `422 { error: "chain_refused" }`: the implicit account does not exist on chain until it receives NEAR | `transfer` |
 | 6a. `PUT /wallet/v1/api-key` with `Bearer wk_…` + `{ seed, key_hash }` | ✅ `200`: a sub-wallet with **its own** `wallet_id` and address (`b8c4019c…7337`); its derived key reads its own address | `6-subwallet-skill-payments*` |
-| 2. Owner sets a policy in the dashboard (per-transaction limit + whitelist), with Meteor | ⏳ needs James | |
-| 3. Transfer below the limit to a whitelisted address | ⏳ after 2 | |
-| 4. Transfer above the per-transaction limit | ⏳ after 2. Expected `policy_denied` (api-index lists it); not seen yet | |
+| 2. Owner sets a policy in the dashboard (per-transaction limit 0.05 NEAR + whitelist `lin1er.testnet` and the sub-wallet), with Meteor | ✅ Meteor (`lin1er.testnet`) connected and signed in the dashboard, after switching it to testnet (see "Dashboard network") | James, 4 Nov |
+| 3. Transfer 0.01 NEAR (below the limit) to a whitelisted address | ✅ `200 { status: "pending_approval", approval_id, required: 1, approved: 0 }`; listed by `GET /wallet/v1/pending_approvals`; after the owner approved in the dashboard: `status: "success"`, tx `3wRbJJ5oq8r9uxcZBrghj7QGSffX3w1GCboD4gYqZCXt` (RPC: `FINAL`, `SuccessValue`, Transfer to `lin1er.testnet`) | `transfer`, `pending`, `requests` |
+| 4. Transfer 0.2 NEAR (above the per-transaction limit) | ✅ refused: `403 { error: "policy_denied", message: "Per-transaction limit exceeded for native: 200000000000000000000000 > 50000000000000000000000" }`. No approval, no tx | `transfer` |
+| Whitelist: 0.01 NEAR to `hellonear-registry.testnet` | ✅ refused: `403 { error: "policy_denied", message: "Address 'hellonear-registry.testnet' is not in whitelist" }` | `transfer` |
 | 5. Change the policy with `wk_…` | ⏳ The docs list **no** endpoint that changes a policy with an agent key; policies are set in the dashboard by the owner. Not tested, so not proven | |
 | 6b. Fund the sub-wallet from the parent, own policy, transfer above its limit | ⏳ after 2 | |
-| 7. `freeze_wallet()` signed by the owner, testnet tx link, next transfer refused (`wallet_frozen`?) | ⏳ needs James | |
+| 7. Freeze signed by the owner (Meteor) in the dashboard, then a whitelisted 0.01 NEAR transfer | ✅ refused: `403 { error: "wallet_frozen", message: "Wallet is frozen by controller" }`; balance untouched (0.98996 NEAR). The freeze tx link is **not recorded yet** (the wallet's audit log does not list the freeze, and the explorer API had not indexed `lin1er.testnet` yet) | `transfer`, James, 4 Nov |
+
+## Findings for the backend (#14, #15)
+
+- The engine's `tool.error { status: "policy_denied" }` maps to OutLayer `403 policy_denied`; `wallet_frozen` (`403`) needs the same treatment (a hard stop shown red in the Mind Graph).
+- A transfer under the limit came back `pending_approval` with `required: 1`. Whether James set an approval threshold or the dashboard requires approval by default is **not known yet**. Either way the backend must handle `pending_approval` (poll `GET /wallet/v1/requests/{id}` until `success` / `failed`), and the approval inbox can list `GET /wallet/v1/pending_approvals`; the approval itself is signed by the owner in the OutLayer dashboard.
+- The wallet's audit log (`GET /wallet/v1/audit`) shows `transfer_pending_approval`, `approval`, `transfer_auto_executed` with the tx hash: usable for Receipts.
 
 ## Open design question found on the way
 
 The `handoff_url` that lets the owner set a policy carries the wallet's `wk_` key in its query string (`…/wallet?key=wk_…`). `apps/be/CLAUDE.md` says keys are never returned to the FE. To be decided after step 2: whether the dashboard can open a wallet another way (e.g. `…/wallet/manage` after the owner signs in), or whether showing the link to the wallet's own owner is acceptable.
+
+## Dashboard network
+
+The handoff page uses **mainnet** unless the browser says otherwise, so a testnet key shows "Invalid or revoked API key" (seen 4 Nov). The dashboard reads the network from `localStorage["near-wallet-selector:selectedNetworkId"]` and defaults to mainnet (read from its JS bundle, 4 Nov). Pick testnet when connecting, or set it in the DevTools console and reload:
+
+```js
+localStorage.setItem("near-wallet-selector:selectedNetworkId", "testnet")
+```
 
 ## What James needs to do (about 15 minutes)
 

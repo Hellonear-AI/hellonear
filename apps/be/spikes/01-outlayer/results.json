@@ -90,5 +90,180 @@
       "error": "chain_refused",
       "message": "the account 99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f is not visible on the network, so there is no key to sign with. Most often that means it has never taken part in a transaction. Retrying will not change it — the chain answered, and this is its answer."
     }
+  },
+  {
+    "at": "2026-11-04T09:42:24.550Z",
+    "step": "status-address",
+    "request": "GET /wallet/v1/address?chain=near",
+    "body": null,
+    "status": 200,
+    "response": {
+      "wallet_id": "02f56de2-0f42-4672-bd4b-f40abda856c7",
+      "chain": "near",
+      "address": "99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f",
+      "public_key": "ed25519:99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f",
+      "asset_account_id": null,
+      "executor_account_id": "99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f"
+    }
+  },
+  {
+    "at": "2026-11-04T09:42:25.057Z",
+    "step": "status-balance",
+    "request": "GET /wallet/v1/balance?chain=near",
+    "body": null,
+    "status": 200,
+    "response": {
+      "balance": "1000000000000000000000000",
+      "token": "near",
+      "account_id": "99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f",
+      "account": "executor"
+    }
+  },
+  {
+    "at": "2026-11-04T09:42:29.630Z",
+    "step": "transfer",
+    "request": "POST /wallet/v1/transfer",
+    "body": {
+      "chain": "near",
+      "to": "lin1er.testnet",
+      "amount": "10000000000000000000000"
+    },
+    "status": 200,
+    "response": {
+      "request_id": "563b0ce0-5cf6-4f71-9961-bf7487f4480d",
+      "status": "pending_approval",
+      "approval_id": "bb1cd146-b31f-4c53-a46e-52212c30a645",
+      "required": 1,
+      "approved": 0,
+      "request_hash": "c2e938dfeecea2697e14ace68ea87b02aa3110dd978ffa783807496afc63dad6"
+    }
+  },
+  {
+    "at": "2026-11-04T09:42:36.371Z",
+    "step": "transfer",
+    "request": "POST /wallet/v1/transfer",
+    "body": {
+      "chain": "near",
+      "to": "lin1er.testnet",
+      "amount": "200000000000000000000000"
+    },
+    "status": 403,
+    "response": {
+      "error": "policy_denied",
+      "message": "Per-transaction limit exceeded for native: 200000000000000000000000 > 50000000000000000000000"
+    }
+  },
+  {
+    "at": "2026-11-04T09:42:37.835Z",
+    "step": "transfer",
+    "request": "POST /wallet/v1/transfer",
+    "body": {
+      "chain": "near",
+      "to": "hellonear-registry.testnet",
+      "amount": "10000000000000000000000"
+    },
+    "status": 403,
+    "response": {
+      "error": "policy_denied",
+      "message": "Address 'hellonear-registry.testnet' is not in whitelist"
+    }
+  },
+  {
+    "at": "2026-11-04T09:42:42.692Z",
+    "step": "pending",
+    "request": "GET /wallet/v1/pending_approvals",
+    "body": null,
+    "status": 200,
+    "response": {
+      "approvals": [
+        {
+          "approval_id": "bb1cd146-b31f-4c53-a46e-52212c30a645",
+          "request_id": "563b0ce0-5cf6-4f71-9961-bf7487f4480d",
+          "type": "transfer",
+          "request_data": {
+            "to": "lin1er.testnet",
+            "amount": "10000000000000000000000",
+            "receiver_id": "lin1er.testnet"
+          },
+          "op": {
+            "amount": "10000000000000000000000",
+            "kind": "transfer",
+            "to": "lin1er.testnet"
+          },
+          "request_hash": "c2e938dfeecea2697e14ace68ea87b02aa3110dd978ffa783807496afc63dad6",
+          "decision": "requires_approval",
+          "required": 1,
+          "approved": 0,
+          "expires_at": "2026-11-05T09:42:30.066077+00:00"
+        }
+      ]
+    }
+  },
+  {
+    "at": "2026-11-04T09:44:10.605Z",
+    "step": "requests",
+    "request": "GET /wallet/v1/requests",
+    "body": null,
+    "status": 200,
+    "response": {
+      "requests": [
+        {
+          "request_id": "563b0ce0-5cf6-4f71-9961-bf7487f4480d",
+          "type": "transfer",
+          "status": "success",
+          "result": {
+            "result": null,
+            "tx_hash": "3wRbJJ5oq8r9uxcZBrghj7QGSffX3w1GCboD4gYqZCXt",
+            "signer_id": "99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f"
+          },
+          "created_at": "2026-11-04T09:42:30.069846+00:00",
+          "updated_at": "2026-11-04T09:43:50.103385+00:00"
+        }
+      ],
+      "total": 1
+    }
+  },
+  {
+    "at": "2026-11-04T09:49:02.892Z",
+    "step": "transfer",
+    "request": "POST /wallet/v1/transfer",
+    "body": {
+      "chain": "near",
+      "to": "lin1er.testnet",
+      "amount": "10000000000000000000000"
+    },
+    "status": 403,
+    "response": {
+      "error": "wallet_frozen",
+      "message": "Wallet is frozen by controller"
+    }
+  },
+  {
+    "at": "2026-11-04T09:49:04.176Z",
+    "step": "status-address",
+    "request": "GET /wallet/v1/address?chain=near",
+    "body": null,
+    "status": 200,
+    "response": {
+      "wallet_id": "02f56de2-0f42-4672-bd4b-f40abda856c7",
+      "chain": "near",
+      "address": "99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f",
+      "public_key": "ed25519:99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f",
+      "asset_account_id": null,
+      "executor_account_id": "99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f"
+    }
+  },
+  {
+    "at": "2026-11-04T09:49:04.639Z",
+    "step": "status-balance",
+    "request": "GET /wallet/v1/balance?chain=near",
+    "body": null,
+    "status": 200,
+    "response": {
+      "balance": "989955363487500000000000",
+      "token": "near",
+      "account_id": "99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f",
+      "account": "executor"
+    }
   }
 ]
