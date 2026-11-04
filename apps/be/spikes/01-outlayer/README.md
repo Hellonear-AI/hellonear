@@ -1,6 +1,6 @@
 # Spike 01: OutLayer wallet + policy on testnet (#6)
 
-**Status: core flow proven on testnet (4 Nov 2026).** Conclusion for #4: **OutLayer directly is enough for the security demo; the vault-contract fallback is not needed.** Proven: per-transaction limit and whitelist refuse with `403 policy_denied` before any tx; owner approval (`pending_approval` → approved in the dashboard → on-chain tx); freeze refuses with `403 wallet_frozen`; Meteor works as the owner wallet; sub-wallets get their own address. Still open: the freeze tx link, step 5 (no API to test), and step 6b (sub-wallet policy).
+**Status: core flow proven on testnet (4 Nov 2026).** Conclusion for #4: **OutLayer directly is enough for the security demo; the vault-contract fallback is not needed.** Proven: per-transaction limit and whitelist refuse with `403 policy_denied` before any tx; owner approval (`pending_approval` → approved in the dashboard → on-chain tx); freeze refuses with `403 wallet_frozen`; Meteor works as the owner wallet; sub-wallets get their own address. Still open: whether a freeze is an on-chain tx, step 5 (no API to test), and step 6b (sub-wallet policy).
 
 Demo wording: the policy is enforced by OutLayer **before signing**, so a refused transfer has no transaction. Never say "rejected on-chain" or show a tx link for it (root `CLAUDE.md`).
 
@@ -22,13 +22,33 @@ Every call is in `results.json` (request, status, response), with API keys and h
 | Whitelist: 0.01 NEAR to `hellonear-registry.testnet` | ✅ refused: `403 { error: "policy_denied", message: "Address 'hellonear-registry.testnet' is not in whitelist" }` | `transfer` |
 | 5. Change the policy with `wk_…` | ⏳ The docs list **no** endpoint that changes a policy with an agent key; policies are set in the dashboard by the owner. Not tested, so not proven | |
 | 6b. Fund the sub-wallet from the parent, own policy, transfer above its limit | ⏳ after 2 | |
-| 7. Freeze signed by the owner (Meteor) in the dashboard, then a whitelisted 0.01 NEAR transfer | ✅ refused: `403 { error: "wallet_frozen", message: "Wallet is frozen by controller" }`; balance untouched (0.98996 NEAR). The freeze tx link is **not recorded yet** (the wallet's audit log does not list the freeze, and the explorer API had not indexed `lin1er.testnet` yet) | `transfer`, James, 4 Nov |
+| 7. Freeze signed by the owner (Meteor) in the dashboard, then a whitelisted 0.01 NEAR transfer | ✅ refused: `403 { error: "wallet_frozen", message: "Wallet is frozen by controller" }`; balance untouched (0.98996 NEAR). No freeze tx was found: neither the audit log nor the dashboard shows one (see Findings) | `transfer`, James, 4 Nov |
 
 ## Findings for the backend (#14, #15)
 
 - The engine's `tool.error { status: "policy_denied" }` maps to OutLayer `403 policy_denied`; `wallet_frozen` (`403`) needs the same treatment (a hard stop shown red in the Mind Graph).
-- A transfer under the limit came back `pending_approval` with `required: 1`. Whether James set an approval threshold or the dashboard requires approval by default is **not known yet**. Either way the backend must handle `pending_approval` (poll `GET /wallet/v1/requests/{id}` until `success` / `failed`), and the approval inbox can list `GET /wallet/v1/pending_approvals`; the approval itself is signed by the owner in the OutLayer dashboard.
-- The wallet's audit log (`GET /wallet/v1/audit`) shows `transfer_pending_approval`, `approval`, `transfer_auto_executed` with the tx hash: usable for Receipts.
+- A transfer under the limit came back `pending_approval` with `required: 1` **because the owner's policy sets it**: `approval.threshold.required: 1`, approver `lin1er.testnet` (admin), all types except `intents_swap` (policy below). The backend must handle `pending_approval` (poll `GET /wallet/v1/requests/{id}` until `success` / `failed`), and the approval inbox can list `GET /wallet/v1/pending_approvals`; the approval itself is signed by the owner in the OutLayer dashboard.
+- The policy is bound to the agent key: `authorized_key_hashes` holds the SHA-256 of the parent `wk_` key (checked locally, 4 Nov), not the sub-wallet's key. A sub-wallet needs its own policy (step 6b).
+- The wallet's audit log (`GET /wallet/v1/audit`, and the dashboard's Audit log page) shows `transfer_pending_approval`, `approval`, `transfer_auto_executed` with the tx hash: usable for Receipts. **The freeze does not appear there**, and the dashboard showed no tx for it, so whether freezing is an on-chain transaction is not proven; the demo can show the `wallet_frozen` refusal, not a freeze tx link.
+
+The policy James set (from the dashboard, 4 Nov; key hash shortened):
+
+```json
+{
+  "rules": {
+    "limits": { "per_transaction": { "native": "50000000000000000000000" } },
+    "addresses": { "mode": "whitelist", "list": ["b8c4019c680812815bde5c36424d9396fe1b6eed6a0d3cd2bc2e8d641b827337", "lin1er.testnet"] },
+    "transaction_types": ["transfer", "call", "delete", "intents_withdraw", "intents_swap"]
+  },
+  "capabilities": { "evm_sign": { "allowed": false }, "solana_sign": { "allowed": false } },
+  "authorized_key_hashes": ["a51600a7…798c7"],
+  "approval": {
+    "threshold": { "required": 1 },
+    "excluded_types": ["intents_swap"],
+    "approvers": [{ "id": "lin1er.testnet", "role": "admin" }]
+  }
+}
+```
 
 ## Open design question found on the way
 
