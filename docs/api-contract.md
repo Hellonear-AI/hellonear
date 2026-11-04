@@ -223,16 +223,77 @@ Postgres + pgvector. Mastra keeps its own tables (memory, threads, workflow snap
 | `users` | `id`, `near_account_id` (unique), `created_at` | from NEP-413 login |
 | `minds` | `id`, `user_id`, `template_id`, `name`, `soul` (jsonb), `model`, `outlayer_wallet_id`, `created_at`, `updated_at` | `soul` = identity, invariants, priors |
 | `skills` | `id`, `name`, `skill_md`, `tool_bindings` (jsonb), `required_connections` (jsonb), `permissions` (jsonb), `version` | `permissions` = apps, actions, per-transaction limit, secrets + allowed hosts |
-| `mind_skills` | `mind_id`, `skill_id`, `granted_at`, `sub_wallet_id`, `revoked_at` | one OutLayer sub-wallet per wallet-using skill (#15) |
-| `runs` | `id` (= Mastra `runId`), `mind_id`, `thread_id`, `status`, `model`, `usage` (jsonb), `cost_usd`, `started_at`, `finished_at` | |
+| `mind_skills` | `mind_id`, `skill_id`, `position`, `granted_at`, `sub_wallet_id`, `revoked_at` | equipped skills in order; one OutLayer sub-wallet per wallet-using skill (#15) |
+| `runs` | `id` (= Mastra `runId`), `mind_id`, `thread_id`, `workflow_id`, `status`, `model`, `usage` (jsonb), `cost_usd`, `started_at`, `finished_at` | `status`: `running`, `awaiting_approval`, `finished`, `error`, or a builder run's `workflow.finished` status (`success`, `failed`, …) |
 | `run_events` | `run_id`, `seq`, `type`, `node_id`, `payload` (jsonb), `ts` | PK `(run_id, seq)`; source for the Mind Graph and Receipts |
-| `secrets` | `id`, `user_id`, `name`, `ciphertext`, `allowed_hosts` (text[]), `created_at` | value never leaves the backend in clear except into the engine at tool execution (#18) |
+| `secrets` | `id`, `user_id`, `name`, `ciphertext`, `allowed_hosts` (text[]), `created_at`, `updated_at` | AES-256-GCM, AAD `user_id:name`; value never leaves the backend in clear except into the engine for a run (#18) |
+| `auth_nonces` | `nonce`, `expires_at`, `used_at` | NEP-413 challenges, single use, 5 minutes |
+| `sessions` | `token_hash`, `user_id`, `created_at`, `expires_at` | only the SHA-256 of the cookie value |
+| `autopilots` | `mind_id`, `workflow_id`, `input` (jsonb), `enabled` | the Autopilot input last sent, to resend the Mind config when the Mind changes (#21) |
 
-Index `run_events (run_id, seq)` and `runs (mind_id, started_at desc)`.
+Index `run_events (run_id, seq)` and `runs (mind_id, started_at desc)`. Migrations: `apps/be/migrations/` (implemented, #8).
 
 ## 6. Open questions for James
 
-1. SSE between backend and engine, or a queue? Draft assumes direct SSE (simplest for the hackathon).
-2. Does the backend send the full Mind config each request (draft), or should the engine read `minds` itself?
-3. Run timeout: draft uses Mastra `modelSettings.timeout.totalMs = 120000`.
+1. SSE between backend and engine, or a queue? **Decided (James, 4 Nov): direct SSE.** The backend reads the engine stream to the end even if the browser leaves, so `run_events` stays complete (load test: 1,377 runs, none missing events).
+2. Does the backend send the full Mind config each request, or should the engine read `minds` itself? **Decided: the backend sends it** (the engine has no access to backend tables).
+3. Run timeout: **kept** at Mastra `modelSettings.timeout.totalMs = 120000`. The backend sends an SSE comment (`: ping`) every 15 s so proxies do not close a quiet stream.
 4. Autopilot and secrets (#21): scheduled runs cannot get secrets today. Option: the engine asks the backend for a Mind's secrets at execution (an internal endpoint authenticated with the engine key), never storing them. Needed before a scheduled workflow can call an authenticated API.
+
+## 7. Backend HTTP API (called by the browser)
+
+Implemented in `apps/be` (#8). Base URL `http://localhost:4000` locally. JSON bodies (at most 256 KB). Errors are `{ error, ...details }` with the status below. Every route except health and auth needs the session cookie `hn_session` (send requests with `credentials: 'include'`). CORS allows only `FE_ORIGIN` with credentials; a state-changing request whose `Origin` is not `FE_ORIGIN` gets `403 bad_origin`. Another user's Mind or run answers `404`.
+
+### Auth (NEP-413)
+
+| Method and path | Body | Response |
+|---|---|---|
+| `POST /v1/auth/challenge` | | `{ message: "Sign in to HelloNear", recipient, nonce }` (`nonce` = 32 bytes base64, single use, 5 min) |
+| `POST /v1/auth/login` | `{ accountId, publicKey: "ed25519:…", signature: base64, nonce }` | `200 { user: { id, nearAccountId } }` + `Set-Cookie: hn_session` (7 days), or `401 invalid_nonce \| invalid_signature` |
+| `POST /v1/auth/logout` | | `204` |
+| `GET /v1/me` | | `{ user }` or `401` |
+
+The FE asks the wallet (NEAR Connect `signMessage`, Meteor first) to sign exactly `{ message, recipient, nonce }` from the challenge, then posts the wallet's `accountId`, `publicKey` and `signature` with the same `nonce`. The key must be a full-access key of the account (checked on the RPC). Login is tested with real NEP-413 signatures and a faked RPC lookup; a Meteor login from the FE is **not proven yet**.
+
+### Minds and templates
+
+| Method and path | Body | Response |
+|---|---|---|
+| `GET /v1/templates` | | `{ templates }` (engine §2, cached 60 s) |
+| `GET /v1/minds` | | `{ minds: [Mind] }`, newest first |
+| `POST /v1/minds` | `{ templateId, name, soul?, model?, skills?: [skillId] }` | `201 { mind }`; omitted fields come from the template. `400 unknown_template \| unknown_skill \| duplicate_skill \| invalid_body` |
+| `GET /v1/minds/{mindId}` | | `{ mind }` |
+| `PATCH /v1/minds/{mindId}` | any of `{ name, soul, model, skills }` | `{ mind, autopilot: [{ workflowId, status, autopilot, issues? }] }`: the new config was sent to every Autopilot workflow; `status: 409` means the engine paused it (show `issues`) |
+| `DELETE /v1/minds/{mindId}` | | `204`; also deletes its workflows and schedules in the engine |
+
+`Mind` = `{ id, templateId, name, soul: { identity, invariants, priors }, model, skills: [skillId], outlayerWalletId, createdAt, updatedAt }`.
+
+### Chat, runs and the approval inbox
+
+| Method and path | Body | Response |
+|---|---|---|
+| `POST /v1/minds/{mindId}/chat` | `{ message, threadId? }` | SSE of §3 events (plus `: ping` comments). Omit `threadId` for a new thread; `run.started.threadId` gives it. A `threadId` must belong to this Mind (`404 thread_not_found`). Engine `4xx` answers come back as JSON with the same status |
+| `GET /v1/minds/{mindId}/runs?threadId&limit=20` | | `{ runs: [{ runId, threadId, workflowId, status, model, usage, costUsd, startedAt, finishedAt }] }` |
+| `GET /v1/runs/{runId}` | | `{ run, events }` (all stored events, in `seq` order) |
+| `GET /v1/minds/{mindId}/events?since=ISO&limit=2000` | | `{ events }` across runs since `since` (default 7 days), deltas left out: Mind Graph history mode (#17) |
+| `GET /v1/minds/{mindId}/approvals` | | `{ approvals: [{ runId, threadId, toolCallId, tool, args, requestedAt }] }`: runs paused on `tool.approval_required` (#14) |
+| `POST /v1/runs/{runId}/approve` · `/decline` | `{ toolCallId, reason? }` | SSE continuing the run's `seq`. `409 not_awaiting_approval` unless the run waits for that `toolCallId` |
+
+The backend stores every event before forwarding it and reads the engine stream to the end even if the browser disconnects: reload and fetch `GET /v1/runs/{runId}` to recover.
+
+### Secrets (#18)
+
+| Method and path | Body | Response |
+|---|---|---|
+| `GET /v1/secrets` | | `{ secrets: [{ name, allowedHosts, createdAt, updatedAt }] }` (never values) |
+| `PUT /v1/secrets/{NAME}` | `{ value, allowedHosts: ["api.example.com"] }` | `{ secret }` (summary). `NAME` is `UPPER_SNAKE_CASE`; hosts are lowercase host names without scheme, port or path; value ≥ 4 characters |
+| `DELETE /v1/secrets/{NAME}` | | `204` or `404` |
+
+All of the user's secrets are sent to the engine for every chat, approval and builder run (account level, v1). Autopilot runs get none (§6 q4).
+
+### Visual Builder and Autopilot (#20, #21)
+
+Same paths and bodies as the engine (§2), under `/v1/minds/{mindId}/workflows…`, after the ownership check. The backend adds `userId`, the Mind config and secrets, so the browser sends only:
+
+- `POST …/workflows/{workflowId}/runs`: `{ input? }` → SSE (stored like chat runs, `run.workflowId` set).
+- `PUT …/workflows/{workflowId}/autopilot`: `{ input?, enabled? }` → engine answer as is (`200` or `409 cannot_autopilot`).
