@@ -1,0 +1,42 @@
+# Backend CI (#8): typecheck, unit tests, and integration tests against Postgres + pgvector with the fake engine.
+# No secrets are needed: the tests generate their own keys and never call NEAR AI or the NEAR RPC.
+name: be
+
+on:
+  pull_request:
+    paths: ['apps/be/**', '.github/workflows/be.yml']
+  push:
+    branches: [main]
+    paths: ['apps/be/**', '.github/workflows/be.yml']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/be
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: hellonear
+          POSTGRES_PASSWORD: hellonear-dev-only
+          POSTGRES_DB: hellonear
+        ports: ['55432:5432']
+        options: >-
+          --health-cmd "pg_isready -U hellonear -d hellonear"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.22.1
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.9
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run test
+        env:
+          DATABASE_URL: postgresql://hellonear:hellonear-dev-only@localhost:55432/hellonear
