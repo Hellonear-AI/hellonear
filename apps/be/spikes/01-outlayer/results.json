@@ -1,0 +1,94 @@
+[
+  {
+    "at": "2026-11-04T08:40:12.733Z",
+    "step": "1-register",
+    "request": "POST /register",
+    "body": null,
+    "status": 200,
+    "response": {
+      "wallet_id": "02f56de2-0f42-4672-bd4b-f40abda856c7",
+      "api_key": "wk_••••",
+      "near_account_id": "99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f",
+      "handoff_url": "https://app.outlayer.ai/wallet?key=••••",
+      "trial": {
+        "available": true,
+        "calls": 50,
+        "days": 7,
+        "claim_url": "POST /trial-key",
+        "scope": "connectors.outlayer.testnet/*"
+      }
+    }
+  },
+  {
+    "at": "2026-11-04T08:40:23.199Z",
+    "step": "status-address",
+    "request": "GET /wallet/v1/address?chain=near",
+    "body": null,
+    "status": 200,
+    "response": {
+      "wallet_id": "02f56de2-0f42-4672-bd4b-f40abda856c7",
+      "chain": "near",
+      "address": "99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f",
+      "public_key": "ed25519:99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f",
+      "asset_account_id": null,
+      "executor_account_id": "99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f"
+    }
+  },
+  {
+    "at": "2026-11-04T08:40:23.961Z",
+    "step": "status-balance",
+    "request": "GET /wallet/v1/balance?chain=near",
+    "body": null,
+    "status": 200,
+    "response": {
+      "balance": "0",
+      "token": "near",
+      "account_id": "99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f",
+      "account": "executor"
+    }
+  },
+  {
+    "at": "2026-11-04T08:40:25.321Z",
+    "step": "6-subwallet-skill-payments",
+    "request": "PUT /wallet/v1/api-key",
+    "body": {
+      "seed": "skill-payments",
+      "key_hash": "ad5c8b6faac65bfa3ad4d249cfb48347252b9cb76702a690a131cdf52f0c03ae"
+    },
+    "status": 200,
+    "response": {
+      "wallet_id": "29ad0a10-ab36-8c6d-5700-87ed88d7cd75",
+      "near_account_id": "b8c4019c680812815bde5c36424d9396fe1b6eed6a0d3cd2bc2e8d641b827337"
+    }
+  },
+  {
+    "at": "2026-11-04T08:40:25.610Z",
+    "step": "6-subwallet-skill-payments-address",
+    "request": "GET /wallet/v1/address?chain=near",
+    "body": null,
+    "status": 200,
+    "response": {
+      "wallet_id": "29ad0a10-ab36-8c6d-5700-87ed88d7cd75",
+      "chain": "near",
+      "address": "b8c4019c680812815bde5c36424d9396fe1b6eed6a0d3cd2bc2e8d641b827337",
+      "public_key": "ed25519:b8c4019c680812815bde5c36424d9396fe1b6eed6a0d3cd2bc2e8d641b827337",
+      "asset_account_id": null,
+      "executor_account_id": "b8c4019c680812815bde5c36424d9396fe1b6eed6a0d3cd2bc2e8d641b827337"
+    }
+  },
+  {
+    "at": "2026-11-04T08:40:33.204Z",
+    "step": "transfer",
+    "request": "POST /wallet/v1/transfer",
+    "body": {
+      "chain": "near",
+      "to": "b8c4019c680812815bde5c36424d9396fe1b6eed6a0d3cd2bc2e8d641b827337",
+      "amount": "10000000000000000000000"
+    },
+    "status": 422,
+    "response": {
+      "error": "chain_refused",
+      "message": "the account 99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f is not visible on the network, so there is no key to sign with. Most often that means it has never taken part in a transaction. Retrying will not change it — the chain answered, and this is its answer."
+    }
+  }
+]
