@@ -265,5 +265,53 @@
       "account_id": "99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f",
       "account": "executor"
     }
+  },
+  {
+    "at": "2026-11-04T10:05:04.382Z",
+    "step": "transfer",
+    "request": "POST /wallet/v1/transfer",
+    "body": {
+      "chain": "near",
+      "to": "lin1er.testnet",
+      "amount": "10000000000000000000000"
+    },
+    "status": 200,
+    "response": {
+      "request_id": "218b9761-a3eb-4c21-86f5-7207bdfae94a",
+      "status": "success",
+      "tx_hash": "DoHQzcaYu5V7PQJhVoxkrZyhixZSEbvZC1emfHtJgdtx"
+    }
+  },
+  {
+    "at": "2026-11-04T10:05:06.034Z",
+    "step": "call",
+    "request": "POST /wallet/v1/call",
+    "body": {
+      "receiver_id": "lin1er.testnet",
+      "method_name": "hello",
+      "args": {},
+      "gas": "30000000000000",
+      "deposit": "0"
+    },
+    "status": 403,
+    "response": {
+      "error": "policy_denied",
+      "message": "Transaction type 'call' is not allowed by policy"
+    }
+  },
+  {
+    "at": "2026-11-04T10:05:12.615Z",
+    "step": "transfer",
+    "request": "POST /wallet/v1/transfer",
+    "body": {
+      "chain": "near",
+      "to": "lin1er.testnet",
+      "amount": "200000000000000000000000"
+    },
+    "status": 403,
+    "response": {
+      "error": "policy_denied",
+      "message": "Per-transaction limit exceeded for native: 200000000000000000000000 > 50000000000000000000000"
+    }
   }
 ]

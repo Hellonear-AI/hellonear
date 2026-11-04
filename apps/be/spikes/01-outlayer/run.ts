@@ -6,6 +6,7 @@
 //   register                 POST /register; saves OUTLAYER_API_KEY and OUTLAYER_HANDOFF_URL to .env
 //   status [sub]             address + NEAR balance of the wallet (or of sub-wallet `sub`)
 //   transfer <to> <near> [sub]   POST /wallet/v1/transfer (amount in NEAR, converted to yocto)
+//   call <receiver> <method> POST /wallet/v1/call with empty args and no deposit
 //   subwallet <seed>         PUT /wallet/v1/api-key: a sub-wallet; saves OUTLAYER_SUB_<SEED> to .env
 //   requests                 GET /wallet/v1/requests (recent operations and their status)
 //   pending                  GET /wallet/v1/pending_approvals
@@ -70,6 +71,10 @@ if (command === 'register') {
   const [to, near, sub] = args
   if (!to || !near) throw new Error('usage: transfer <to> <near> [sub]')
   await call(`transfer${sub ? `-${sub}` : ''}`, 'POST', '/wallet/v1/transfer', keyOf(sub), { chain: 'near', to, amount: yocto(near) })
+} else if (command === 'call') {
+  const [receiver, method] = args
+  if (!receiver || !method) throw new Error('usage: call <receiver> <method>')
+  await call('call', 'POST', '/wallet/v1/call', keyOf(), { receiver_id: receiver, method_name: method, args: {}, gas: '30000000000000', deposit: '0' })
 } else if (command === 'subwallet') {
   const [seed] = args
   if (!seed || !/^[a-zA-Z0-9._-]{1,64}$/.test(seed)) throw new Error('usage: subwallet <seed>  ([a-zA-Z0-9._-])')

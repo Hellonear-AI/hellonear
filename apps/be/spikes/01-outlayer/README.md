@@ -50,6 +50,39 @@ The policy James set (from the dashboard, 4 Nov; key hash shortened):
 }
 ```
 
+### Policy v2: the one to use for demo wallets (decided 4 Nov)
+
+The dashboard's approval is per transaction type with a count of approvers ("Require approval for: …"); no amount threshold was found in its policy form (read from its JS bundle, 4 Nov). With approval on, every payment would wait for the owner in the OutLayer dashboard on top of the app's own approval inbox. **Decision (James): approval lives in the app (engine `requireApproval` + the backend approval inbox); OutLayer is the hard stop (per-transaction limit, whitelist, transfer only, freeze).** Worst case if the app is compromised: transfers of at most the limit, only to the owner's whitelisted addresses.
+
+Changes from v1: `transaction_types` is only `transfer` (`call` could move tokens the native limit does not cover; `delete` empties the wallet; intents are mainnet-only), and `transfer` is in `approval.excluded_types`.
+
+```json
+{
+  "rules": {
+    "limits": { "per_transaction": { "native": "50000000000000000000000" } },
+    "addresses": { "mode": "whitelist", "list": ["b8c4019c680812815bde5c36424d9396fe1b6eed6a0d3cd2bc2e8d641b827337", "lin1er.testnet"] },
+    "transaction_types": ["transfer"]
+  },
+  "capabilities": { "evm_sign": { "allowed": false }, "solana_sign": { "allowed": false } },
+  "authorized_key_hashes": ["a51600a7…798c7"],
+  "approval": {
+    "threshold": { "required": 1 },
+    "excluded_types": ["transfer", "call", "delete", "intents_swap", "cross_chain_withdraw"],
+    "approvers": [{ "id": "lin1er.testnet", "role": "admin" }]
+  }
+}
+```
+
+Checked on testnet after the owner unfroze the wallet (4 Nov):
+
+| Call | Result |
+|---|---|
+| 0.01 NEAR to `lin1er.testnet` | ✅ `200 { status: "success" }` at once, no approval; tx `DoHQzcaYu5V7PQJhVoxkrZyhixZSEbvZC1emfHtJgdtx` |
+| `call` to `lin1er.testnet` (whitelisted) | ✅ `403 policy_denied` "Transaction type 'call' is not allowed by policy" |
+| 0.2 NEAR to `lin1er.testnet` | ✅ still `403 policy_denied` "Per-transaction limit exceeded" |
+
+This wallet's key was visible in a screenshot during the spike: use a **new** wallet with policy v2 for the demo.
+
 ## Open design question found on the way
 
 The `handoff_url` that lets the owner set a policy carries the wallet's `wk_` key in its query string (`…/wallet?key=wk_…`). `apps/be/CLAUDE.md` says keys are never returned to the FE. To be decided after step 2: whether the dashboard can open a wallet another way (e.g. `…/wallet/manage` after the owner signs in), or whether showing the link to the wallet's own owner is acceptable.
