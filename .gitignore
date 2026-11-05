@@ -20,3 +20,6 @@ target/
 # claude code (local / runtime)
 .claude/settings.local.json
 .claude/*.lock
+
+# design reference images (third-party, kept local only)
+design/hellonear-assets/
