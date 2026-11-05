@@ -31,6 +31,9 @@ export const config = {
   // OutLayer (#14, #15): the wallet API and the contract owners sign policy and freeze calls on.
   outlayerUrl: process.env.OUTLAYER_URL ?? 'https://testnet-api.outlayer.ai',
   outlayerContractId: process.env.OUTLAYER_CONTRACT_ID ?? 'outlayer.testnet',
+  // Composio (#13). Without a key the connection routes answer 503 composio_not_configured.
+  composioApiKey: process.env.COMPOSIO_API_KEY ?? '',
+  composioUrl: process.env.COMPOSIO_URL ?? 'https://backend.composio.dev/api/v3.1',
   nonceTtlMs: 5 * 60 * 1000,
   sessionTtlMs: 7 * 24 * 60 * 60 * 1000,
 }

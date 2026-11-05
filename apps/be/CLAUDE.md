@@ -9,7 +9,7 @@ Backend API: Postgres + pgvector, NEP-413 login, run/event storage + SSE, encryp
 - Plain `node:http` + `zod` + `pg`, like the engine; tests with `node:test`. Runtime **Node ≥ 24.22.1**, package manager **Bun** (`bun.lock`). Versions pinned in `package.json`; do not upgrade during the hackathon.
 - `near-api-js` 7.4.0. Auth: `near-api-js/nep413` `verifyMessage` (main), `near-sign-verify` (alternative).
 - OutLayer on **testnet** (`https://testnet-api.outlayer.ai`). Intents routes (`/intents/*`, swaps, limit orders) are mainnet-only and out of scope.
-- Composio via `@composio/mastra`; always use a per-user Session (calls outside a Session are capped at 10K/month).
+- Composio REST **v3.1** (`https://backend.composio.dev/api/v3.1`, header `x-api-key`, a **project** key `ak_…`; a personal "For you" `ck_…` key gets `401`). The backend calls it with `fetch` (no SDK): Connect Links, status, delete (`src/connections.ts`). Tool execution happens in the engine through a per-user Session (calls outside a Session are capped at 10K/month).
 
 ## Conventions
 
@@ -32,16 +32,17 @@ Backend API: Postgres + pgvector, NEP-413 login, run/event storage + SSE, encryp
 - A Mind's skills are validated against the engine's `GET /v1/skills` (the whole catalog, cached 60 s), not the skills templates offer: `near-account` and `http-request` are in no template but the Visual Builder needs them. The backend's own `GET /v1/skills` returns the same list for the skill picker.
 - **Decided (#42): option B.** The engine's payment tools call `/internal/v1/wallet/*` with `X-Engine-Key` and a wallet token (`src/walletToken.ts`: HMAC with a key derived from `SECRETS_MASTER_KEY`, one Mind, 15 min). The backend adds `walletToken` to chat, approve/decline and builder runs only when the Mind has a wallet; never to Autopilot. `src/payments.ts` calls OutLayer and stores every attempt in `wallet_payments`. Internal routes sit before the session check; keep them that way and keep both checks.
 - **Judge try-out mode (#43, `src/demo.ts`)**, on only with `DEMO_MODE=true`. `POST /v1/auth/demo` makes a fresh user (`is_demo`, `demo:<random>`, which no NEAR account can be). Limits in `config.demo`: 20 runs per user, 60 runs and 10 sign-ups per IP per hour (in memory, IP from `CF-Connecting-IP`: only the tunnel host can reach the backend), 2 sent payments per user. Owner actions (`denyDemo`) answer `403 demo_not_allowed`. Their Minds pay from the shared demo wallet (`DEMO_OUTLAYER_API_KEY`, `keyOf` in `src/wallets.ts`). Runs carry `demo: true` so the engine uses a sample inbox. Demo users are deleted after 7 days (at start and daily). Every finished run logs `run usage` (tokens, cost) to the journal.
+- App connections (#13): the Composio user id is our `users.id`, which the engine already receives as `userId`. `POST /v1/connections/gmail` creates a Tool Router session for that user and a Connect Link (callback `{FE_ORIGIN}/connections?toolkit=gmail`), removing unfinished attempts first; never trust the callback's query string, re-read `GET /v1/connections`. Composio-managed OAuth (no Google app of our own). Tests use `test/fake-composio.ts`.
 - Autopilot (#21): `PUT …/workflows/{id}/autopilot` stores a copy of the Mind config in the engine. **Send it again for every Autopilot workflow of a Mind whenever that Mind changes** (persona, model, skills); a `409` means the engine paused it, show `pausedFor`. Scheduled runs get no secrets yet (`docs/api-contract.md` §6 q4).
 
 ## Commands
 
 - `bun run dev` (port 4000, applies migrations at start), `bun run migrate`, `bun run test:unit` (offline), `bun run test` (unit + integration: local Postgres + fake engine), `bun run load` (fake engine; fails if a run loses events), `bun run typecheck`.
-- Postgres: `docker compose up -d postgres` from the repo root; `docker compose stop` when done.
+- Postgres: `docker compose up -d postgres` from the repo root; `docker compose stop` when done. If port 55432 is taken by another project, run it on another host port with a compose override (`ports: !override ["55433:5432"]`) and pass `DATABASE_URL=…:55433/hellonear` to `bun run test` / `bun run load`.
 - Schema changes: add a new `migrations/NNN_name.sql` (never edit an applied one) and update `docs/api-contract.md` §5.
 - Tests never call NEAR AI or the NEAR RPC: `test/fake-engine.ts` stands in for the engine and `setProvider()` fakes the access-key lookup; signatures are real. Run `bun run test` and `bun run load` before every push/merge that touches `apps/be`, and report results in the PR. CI: `.github/workflows/be.yml`.
 - End-to-end checks against the real engine need `NEARAI_API_KEY` in `engine/.env`; a real wallet login needs `NEAR_TEST_ACCOUNT_ID` / `NEAR_TEST_PRIVATE_KEY` (`scripts/login-smoke.ts`).
 
 ## Env
 
-See `.env.example`: `DATABASE_URL`, `ENGINE_URL`, `ENGINE_API_KEY`, `SECRETS_MASTER_KEY` (32 bytes base64; losing it loses every stored secret), optional `PORT`, `FE_ORIGIN`, `AUTH_RECIPIENT`, `NEAR_RPC_URL`, `COOKIE_SECURE`, `OUTLAYER_URL`, `OUTLAYER_CONTRACT_ID`, `DEMO_MODE`, `DEMO_OUTLAYER_API_KEY`. `.env` is gitignored; never commit it.
+See `.env.example`: `DATABASE_URL`, `ENGINE_URL`, `ENGINE_API_KEY`, `SECRETS_MASTER_KEY` (32 bytes base64; losing it loses every stored secret), optional `PORT`, `FE_ORIGIN`, `AUTH_RECIPIENT`, `NEAR_RPC_URL`, `COOKIE_SECURE`, `OUTLAYER_URL`, `OUTLAYER_CONTRACT_ID`, `DEMO_MODE`, `DEMO_OUTLAYER_API_KEY`, `COMPOSIO_API_KEY`, `COMPOSIO_URL`. `.env` is gitignored; never commit it.
