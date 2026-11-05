@@ -44,4 +44,8 @@ Tokens live as variables in `hellonear.pen`, with a `mode` theme (`light`, `dark
 
 ## Screens (v0.1, main states only)
 
-Login, Choose a Mind, Chat + Mind Graph, Skills, Skill permission, Wallet, Approvals + Freeze, Attack Playground, Connections, Builder, Autopilot. Edge states (offline, loading, empty, errors) come after the main screens are agreed.
+Login, Choose a Mind, Chat + Mind Graph, Skills, Skill permission, Wallet, Approvals + Freeze, Attack Playground, Connections, Builder, Autopilot. Each has a light frame (`NN Name`) and a dark copy (`NN Name · Dark`, frame theme `mode: dark`). Edge states (offline, loading, empty, errors) come after the main screens are agreed.
+
+- The sidebar is a reusable component; mark the active item by overriding `Nav <Item>`, `Nav <Item> Icon` and `Nav <Item> Label`.
+- `node-mind` flips to near-white in dark mode, so icons on it use `on-primary` there (lime on near-white is unreadable).
+- The example Mind in every screen is "Penny" (Payments Mind); it is sample content, not a product name.
