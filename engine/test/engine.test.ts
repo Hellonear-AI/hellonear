@@ -73,7 +73,7 @@ describe('engine HTTP API', () => {
     const { templates } = await res.json()
     assert.deepEqual(templates.map((t: Ev) => t.templateId), ['email-manager', 'general-assistant', 'payments-mind'])
     const email = templates.find((t: Ev) => t.templateId === 'email-manager')
-    assert.equal(email.skills.find((s: Ev) => s.skillId === 'email-triage').status, 'simulated')
+    assert.equal(email.skills.find((s: Ev) => s.skillId === 'email-triage').status, 'available')
   })
 
   test('skills endpoint lists the whole catalog for the backend and the Builder', async () => {
@@ -194,7 +194,8 @@ describe('engine HTTP API', () => {
     })
   })
 
-  // Email tools (#13, #43): try-out runs read the sample inbox; owners get "not connected" until Composio is wired.
+  // Email tools (#13, #43): try-out runs read the sample inbox; owners read their Gmail through Composio. With the
+  // real COMPOSIO_API_KEY from .env, a test user has no Gmail connection, so this also checks Composio's live answer.
   describe('email tools', () => {
     const inbox = mind('Ivy', { templateId: 'email-manager', skills: [{ skillId: 'email-triage' }] })
 
@@ -208,7 +209,7 @@ describe('engine HTTP API', () => {
       assert.equal(evs.at(-1)?.type, 'run.verified')
     })
 
-    test('without demo the email tools say Gmail is not connected', async () => {
+    test('an owner without a Gmail connection is told to connect it (live Composio answer)', async () => {
       const evs = await events(await post('/v1/minds/inbox/chat', { userId, threadId: randomUUID(), mind: inbox, message: 'List my latest emails with gmail_list_emails.' }))
       const err = evs.find((e) => e.type === 'tool.error' && e.tool === 'gmail_list_emails')
       assert.match(err?.error ?? '', /Gmail is not connected/, JSON.stringify(evs.filter((e) => e.tool)))

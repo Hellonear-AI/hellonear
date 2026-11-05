@@ -4,7 +4,8 @@ import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import { SECRETS_KEY, assertHostAllowed, assertPublicHttpsUrl, assertResolvesPublic, fillSecrets, redact, type Secret } from './secrets.ts'
 import { walletCall } from './wallet.ts'
-import { GmailNotConnectedError, draftSample, isDemo, listSample, readSample } from './email.ts'
+import { draftSample, isDemo, listSample, readSample } from './email.ts'
+import { addressOf, gmail, toListed, toRead } from './composio.ts'
 
 const getTime = createTool({
   id: 'get_time',
@@ -89,16 +90,17 @@ const httpRequest = createTool({
   },
 })
 
-// Email (#13, #43). Try-out runs read the sample inbox; owners' Gmail through Composio is not wired yet.
+// Email (#13, #43). Try-out runs read the sample inbox; owners read their own Gmail through Composio.
 // There is no send tool: drafts only, the owner sends them from Gmail.
 const gmailListEmails = createTool({
   id: 'gmail_list_emails',
   description: 'List recent emails in the owner\'s inbox, newest first, optionally filtered by a search text.',
   inputSchema: z.object({ query: z.string().max(200).optional(), maxResults: z.number().int().min(1).max(25).optional() }),
   outputSchema: z.object({ source: z.string(), emails: z.array(z.object({ id: z.string(), from: z.string(), subject: z.string(), snippet: z.string(), receivedAt: z.string(), unread: z.boolean() })) }),
-  execute: async (input, context) => {
-    if (isDemo(context)) return listSample(input)
-    throw new GmailNotConnectedError()
+  execute: async ({ query, maxResults }, context) => {
+    if (isDemo(context)) return listSample({ query, maxResults })
+    const data = await gmail(context, 'GMAIL_FETCH_EMAILS', { max_results: maxResults ?? 10, ...(query ? { query } : {}), verbose: false })
+    return { source: 'gmail', emails: (data?.messages ?? []).map(toListed) }
   },
 })
 
@@ -109,7 +111,7 @@ const gmailReadEmail = createTool({
   outputSchema: z.object({ source: z.string(), id: z.string(), from: z.string(), to: z.string(), subject: z.string(), body: z.string(), receivedAt: z.string() }),
   execute: async ({ id }, context) => {
     if (isDemo(context)) return readSample(id)
-    throw new GmailNotConnectedError()
+    return { source: 'gmail', ...toRead(await gmail(context, 'GMAIL_FETCH_MESSAGE_BY_MESSAGE_ID', { message_id: id, format: 'full' })) }
   },
 })
 
@@ -120,7 +122,12 @@ const gmailCreateDraft = createTool({
   outputSchema: z.object({ source: z.string(), draftId: z.string(), to: z.string(), subject: z.string(), body: z.string(), status: z.literal('draft_only') }),
   execute: async ({ replyToId, body }, context) => {
     if (isDemo(context)) return draftSample(replyToId, body)
-    throw new GmailNotConnectedError()
+    // Reply in the same thread, to the sender. GMAIL_CREATE_EMAIL_DRAFT only drafts; nothing is sent.
+    const original = await gmail(context, 'GMAIL_FETCH_MESSAGE_BY_MESSAGE_ID', { message_id: replyToId, format: 'metadata' })
+    const to = addressOf(original?.sender ?? '')
+    const subject = /^re:/i.test(original?.subject ?? '') ? original.subject : `Re: ${original?.subject ?? ''}`
+    const draft = await gmail(context, 'GMAIL_CREATE_EMAIL_DRAFT', { thread_id: original?.threadId, recipient_email: to, subject, body })
+    return { source: 'gmail', draftId: String(draft?.id ?? ''), to, subject, body, status: 'draft_only' as const }
   },
 })
 

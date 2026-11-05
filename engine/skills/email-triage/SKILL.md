@@ -5,8 +5,8 @@ metadata:
   hellonear:
     tools: [gmail_list_emails, gmail_read_email, gmail_create_draft, get_time]
     connections: [gmail]
-    status: simulated
-    note: Try-out visitors get a fixed sample inbox (#43). Owners' own Gmail through Composio is not wired yet (#13); until then the tools say Gmail is not connected.
+    status: available
+    note: The owner's own Gmail through Composio, after connecting it under Connections (#13). Try-out visitors get a fixed sample inbox instead (#43).
 ---
 
 # Email triage
