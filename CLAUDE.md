@@ -46,6 +46,7 @@ HelloNear is an AI agent persona platform on NEAR, built for NEAR HACKATHON (1â€
 | `engine` | AI engine (Mastra + NEAR AI Cloud) | Axel |
 | `sc` | Mind registry contract (Rust `near-sdk`) | Axel |
 | `docs` | Shared technical docs, incl. `api-contract.md` | James + Axel |
+| `deploy` | Hosted demo: systemd units + `deploy.sh` for one Proxmox LXC (#22) | James |
 
 ## Decided stack (see #4)
 
