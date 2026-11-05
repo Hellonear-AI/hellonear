@@ -23,3 +23,7 @@ target/
 
 # design reference images (third-party, kept local only)
 design/hellonear-assets/
+
+# blender backups and quick preview renders
+*.blend1
+design/characters/renders/_*
