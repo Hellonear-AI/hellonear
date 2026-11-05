@@ -7,6 +7,7 @@ import { newId } from './crypto.ts'
 import { migrate, query } from './db.ts'
 import { engineFetch, engineJson, skills, templates } from './engine.ts'
 import { HttpError, assertSameOrigin, cors, readBody, sendJson, setCookie } from './http.ts'
+import { TOOLKITS, connect, disconnect, listConnections, toolkitSchema } from './connections.ts'
 import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, requireMind, updateMind, updateMindSchema } from './minds.ts'
 import { getRun, listRuns, mindEvents, pendingApprovals, relayRun, runEvents } from './runs.ts'
 import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema, secretsForRun } from './secrets.ts'
@@ -102,6 +103,17 @@ export const server = createServer(async (req, res) => {
       if (req.method === 'PUT') denyDemo(user, 'secrets')
       if (req.method === 'PUT') return sendJson(res, 200, { secret: await putSecret(user.id, name.data, await readBody(req, putSecretSchema)) })
       if (req.method === 'DELETE') return (await deleteSecret(user.id, name.data)) ? res.writeHead(204).end() : sendJson(res, 404, { error: 'not_found' })
+      throw new HttpError(405, 'method_not_allowed')
+    }
+
+    // App connections through Composio (#13): status and Connect Links only, never tokens.
+    if (route('GET', /^\/v1\/connections$/)) return sendJson(res, 200, { connections: await listConnections(user.id) })
+    const connection = path.match(/^\/v1\/connections\/([^/]+)$/)
+    if (connection) {
+      const toolkit = toolkitSchema.safeParse(decodeURIComponent(connection[1]))
+      if (!toolkit.success) throw new HttpError(404, 'unknown_toolkit', { toolkits: TOOLKITS })
+      if (req.method === 'POST') return sendJson(res, 200, await connect(user.id, toolkit.data))
+      if (req.method === 'DELETE') return (await disconnect(user.id, toolkit.data)) ? res.writeHead(204).end() : sendJson(res, 404, { error: 'not_found' })
       throw new HttpError(405, 'method_not_allowed')
     }
 
