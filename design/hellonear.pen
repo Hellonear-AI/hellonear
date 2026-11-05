@@ -41285,6 +41285,41 @@
               ]
             }
           ]
+        },
+        {
+          "type": "frame",
+          "id": "dpTbP",
+          "name": "3/4 Reference",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 12,
+          "children": [
+            {
+              "type": "text",
+              "id": "b5uSMC",
+              "name": "Title",
+              "fill": "$text-primary",
+              "content": "3/4 view reference (for the 3D model)",
+              "fontFamily": "$font-body",
+              "fontSize": 24,
+              "fontWeight": "500",
+              "letterSpacing": -0.5
+            },
+            {
+              "type": "frame",
+              "id": "rAhho",
+              "name": "Three Quarter Art",
+              "width": 1100,
+              "height": 600,
+              "fill": {
+                "type": "image",
+                "enabled": true,
+                "url": "generated.png",
+                "mode": "cover"
+              },
+              "cornerRadius": "$radius-lg"
+            }
+          ]
         }
       ]
     }
