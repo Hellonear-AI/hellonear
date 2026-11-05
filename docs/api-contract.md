@@ -231,6 +231,7 @@ Postgres + pgvector. Mastra keeps its own tables (memory, threads, workflow snap
 | `runs` | `id` (= Mastra `runId`), `mind_id`, `thread_id`, `workflow_id`, `status`, `model`, `usage` (jsonb), `cost_usd`, `started_at`, `finished_at` | `status`: `running`, `awaiting_approval`, `finished`, `error`, or a builder run's `workflow.finished` status (`success`, `failed`, …) |
 | `run_events` | `run_id`, `seq`, `type`, `node_id`, `payload` (jsonb), `ts` | PK `(run_id, seq)`; source for the Mind Graph and Receipts |
 | `secrets` | `id`, `user_id`, `name`, `ciphertext`, `allowed_hosts` (text[]), `created_at`, `updated_at` | AES-256-GCM, AAD `user_id:name`; value never leaves the backend in clear except into the engine for a run (#18) |
+| `mind_wallets` | `mind_id` (pk, → `minds`), `wallet_id`, `near_account_id`, `key_ciphertext`, `created_at` | One OutLayer wallet per Mind (#14, #15). The agent key is AES-256-GCM, AAD `wallet:{mind_id}`; the `handoff_url` is never stored. `minds.outlayer_wallet_id` is unused |
 | `auth_nonces` | `nonce`, `expires_at`, `used_at` | NEP-413 challenges, single use, 5 minutes |
 | `sessions` | `token_hash`, `user_id`, `created_at`, `expires_at` | only the SHA-256 of the cookie value |
 | `autopilots` | `mind_id`, `workflow_id`, `input` (jsonb), `enabled` | the Autopilot input last sent, to resend the Mind config when the Mind changes (#21) |
@@ -272,6 +273,19 @@ The FE asks the wallet (NEAR Connect `signMessage`, Meteor first) to sign exactl
 | `DELETE /v1/minds/{mindId}` | | `204`; also deletes its workflows and schedules in the engine |
 
 `Mind` = `{ id, templateId, name, soul: { identity, invariants, priors }, model, skills: [skillId], outlayerWalletId, createdAt, updatedAt }`.
+
+### Mind wallet (#14, #15)
+
+One OutLayer wallet per Mind, on testnet. The backend keeps the agent key and never returns it or the `handoff_url`. Owner actions are calls on `outlayer.testnet` that the **owner signs in the FE** with NEAR Connect (`signAndSendTransaction(transaction)`, signer = the signed-in account); the backend only builds them. After the owner signs, read `GET …/wallet` again for the new state.
+
+| Route | Body | Answer |
+|---|---|---|
+| `POST /v1/minds/{mindId}/wallet` | `{}` | `201 { wallet }`; `409 wallet_exists` **[tested; live on testnet, 5 Nov]** |
+| `GET /v1/minds/{mindId}/wallet` | | `{ wallet: { address, balanceNear, frozen, policy: null \| { perTransactionNear, whitelist, transactionTypes, boundToThisWallet } } }`; `404 no_wallet`. `address` is the wallet's implicit NEAR account: fund it from the owner's wallet before it can pay **[tested]** |
+| `POST /v1/minds/{mindId}/wallet/policy` | `{ perTransactionNear: "0.05", whitelist: ["shop.testnet", …] }` | `{ transaction }` for `store_wallet_policy` (100 Tgas, deposit from the contract's `estimate_wallet_policy_cost`). Builds policy v2: per-transaction limit (≤ 10 NEAR), whitelist (1–20 accounts), `transfer` only, OutLayer approval off (the app approves), bound to this wallet's key, approver = the owner **[tested; built live on testnet; owner signing not run yet]** |
+| `POST /v1/minds/{mindId}/wallet/freeze`, `…/unfreeze` | `{}` | `{ transaction }` for `freeze_wallet` / `unfreeze_wallet` (30 Tgas, no deposit). A frozen wallet's transfers get `403 wallet_frozen` before signing **[tested]** |
+
+`transaction` = `{ receiverId: "outlayer.testnet", actions: [{ type: "FunctionCall", params: { methodName, args, gas, deposit } }] }`. OutLayer down or refusing → `502 outlayer_error`. Deleting a Mind deletes its wallet row: move the balance out first (a later route will do it).
 
 ### Chat, runs and the approval inbox
 
