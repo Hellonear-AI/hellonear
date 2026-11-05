@@ -95,23 +95,9 @@ The handoff page uses **mainnet** unless the browser says otherwise, so a testne
 localStorage.setItem("near-wallet-selector:selectedNetworkId", "testnet")
 ```
 
-## What James needs to do (about 15 minutes)
+## Rerun with a new wallet (owner steps)
 
-All on **testnet**, with the Meteor Wallet testnet account.
-
-1. **Fund the Mind wallet** with about 1 testnet NEAR: send it from Meteor to `99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f`. If Meteor has no testnet NEAR, use the testnet faucet linked from docs.near.org.
-2. **Set the policy.** Open the handoff link without printing it (it contains the key):
-   ```sh
-   xdg-open "$(grep '^OUTLAYER_HANDOFF_URL=' apps/be/.env | cut -d= -f2-)"
-   ```
-   Switch the dashboard to **testnet**, connect **Meteor**, and set: per-transaction limit **0.05 NEAR**, whitelist: `b8c4019c680812815bde5c36424d9396fe1b6eed6a0d3cd2bc2e8d641b827337` (the sub-wallet) and one testnet account of yours. Note whether Meteor could connect and sign; if not, which wallet worked.
-3. Tell the agent (or run, from `apps/be`):
-   ```sh
-   node --env-file=.env --import tsx spikes/01-outlayer/run.ts transfer <your-account>.testnet 0.01   # step 3: should succeed
-   node --env-file=.env --import tsx spikes/01-outlayer/run.ts transfer <your-account>.testnet 0.2    # step 4: should be refused
-   node --env-file=.env --import tsx spikes/01-outlayer/run.ts transfer someone-else.testnet 0.01      # whitelist: should be refused
-   ```
-4. **Freeze** the wallet from the dashboard with Meteor, copy the testnet tx link, then run the step-3 transfer again (should be refused).
+Done on 4 Nov (results above). To repeat it, e.g. for a fresh demo wallet with policy v2: `register`, fund the wallet from the owner's Meteor account, open the handoff link without printing it (`xdg-open "$(grep '^OUTLAYER_HANDOFF_URL=' apps/be/.env | cut -d= -f2-)"`), switch the dashboard to testnet, connect Meteor, paste policy v2 with the new key hash and the owner's whitelist, then run the `transfer` / `call` checks from "Policy v2".
 
 ## Run
 
