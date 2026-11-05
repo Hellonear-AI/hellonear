@@ -66,6 +66,10 @@ Resumes a run paused on `tool.approval_required`. Streams the remaining events a
 
 `{ "templates": [ { templateId, name, tagline, soul, model, skills: [ { skillId, description, status: "available" | "simulated" | "blocked", connections: [...], note? } ] } ] }` for the Choose a Mind screen. Status tells the UI what is simulated (e.g. payments before OutLayer) or blocked (e.g. email before Composio) **[tested, #13]**.
 
+### `GET /v1/skills`
+
+`{ "skills": [ { skillId, description, status, connections: [...], note?, tools: [toolKey] } ] }`: **every** skill a Mind may equip, in id order, not only those a template starts with (e.g. `near-account` and `http-request`, which the Visual Builder's tools need). This is the list to validate a Mind's `skills` against; `blocked` skills are listed so the UI can say why they are off, and the engine never loads them. `tools` are the tool keys the skill grants (the Builder palette) **[tested]**.
+
 ### `GET /v1/health`
 
 `{ "ok": true, "mastra": "1.81.0", "attestation": { "<modelId>": { "ok": true, "checkedAt": "…", "ms": 17558 } } }`: attestation is warmed at startup and every 50 minutes.
@@ -260,6 +264,7 @@ The FE asks the wallet (NEAR Connect `signMessage`, Meteor first) to sign exactl
 | Method and path | Body | Response |
 |---|---|---|
 | `GET /v1/templates` | | `{ templates }` (engine §2, cached 60 s) |
+| `GET /v1/skills` | | **[planned, backend]** `{ skills }` (engine §2): what the skill picker offers. `POST`/`PATCH /v1/minds` should validate `skills` against this list, not against the templates' skills (today `near-account` and `http-request` are refused with `unknown_skill`) |
 | `GET /v1/minds` | | `{ minds: [Mind] }`, newest first |
 | `POST /v1/minds` | `{ templateId, name, soul?, model?, skills?: [skillId] }` | `201 { mind }`; omitted fields come from the template. `400 unknown_template \| unknown_skill \| duplicate_skill \| invalid_body` |
 | `GET /v1/minds/{mindId}` | | `{ mind }` |
