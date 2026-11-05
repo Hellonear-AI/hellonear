@@ -193,6 +193,19 @@ describe('minds (#8, #13)', () => {
     const notJson = await fetch(base + '/v1/minds', { method: 'POST', headers: { cookie: alice.cookie }, body: '{nope' })
     assert.deepEqual([notJson.status, await notJson.json()], [400, { error: 'invalid_json' }])
   })
+
+  test('skills come from the engine catalog, so a skill no template offers can be equipped', async () => {
+    const alice = await signIn()
+    const catalog = await alice.call('GET', '/v1/skills')
+    assert.equal(catalog.status, 200)
+    assert.deepEqual((await catalog.json()).skills.map((s: any) => s.skillId), ['daily-planner', 'http-request', 'payments'])
+    assert.equal((await fetch(base + '/v1/skills')).status, 401)
+    const created = await alice.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Builder', skills: ['daily-planner', 'http-request'] })
+    assert.equal(created.status, 201)
+    const mind = (await created.json()).mind
+    assert.deepEqual(mind.skills.map((s: any) => s.skillId ?? s), ['daily-planner', 'http-request'])
+    assert.equal((await alice.call('PATCH', `/v1/minds/${mind.id}`, { skills: ['http-request'] })).status, 200)
+  })
 })
 
 describe('secrets (#18)', () => {

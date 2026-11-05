@@ -264,7 +264,7 @@ The FE asks the wallet (NEAR Connect `signMessage`, Meteor first) to sign exactl
 | Method and path | Body | Response |
 |---|---|---|
 | `GET /v1/templates` | | `{ templates }` (engine §2, cached 60 s) |
-| `GET /v1/skills` | | **[planned, backend]** `{ skills }` (engine §2): what the skill picker offers. `POST`/`PATCH /v1/minds` should validate `skills` against this list, not against the templates' skills (today `near-account` and `http-request` are refused with `unknown_skill`) |
+| `GET /v1/skills` | | `{ skills }` (engine §2, cached 60 s): what the skill picker offers. `POST`/`PATCH /v1/minds` validate `skills` against this list, so skills no template starts with (`near-account`, `http-request`) can be equipped **[tested]** |
 | `GET /v1/minds` | | `{ minds: [Mind] }`, newest first |
 | `POST /v1/minds` | `{ templateId, name, soul?, model?, skills?: [skillId] }` | `201 { mind }`; omitted fields come from the template. `400 unknown_template \| unknown_skill \| duplicate_skill \| invalid_body` |
 | `GET /v1/minds/{mindId}` | | `{ mind }` |
