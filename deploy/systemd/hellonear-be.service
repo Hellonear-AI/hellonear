@@ -1,0 +1,22 @@
+[Unit]
+Description=HelloNear backend API
+After=network-online.target postgresql.service hellonear-engine.service
+Wants=network-online.target hellonear-engine.service
+Requires=postgresql.service
+
+[Service]
+User=hellonear
+WorkingDirectory=/opt/hellonear/app/apps/be
+EnvironmentFile=/etc/hellonear/be.env
+ExecStart=/usr/local/bin/node --import tsx src/server.ts
+Restart=on-failure
+RestartSec=5
+MemoryMax=512M
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/hellonear
+
+[Install]
+WantedBy=multi-user.target
