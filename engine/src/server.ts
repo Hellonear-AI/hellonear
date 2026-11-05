@@ -10,6 +10,7 @@ import { resourceId, runRequestSchema, type Mind } from './mind.ts'
 import { SECRETS_KEY, redact, type Secret } from './secrets.ts'
 import { WALLET_KEY, walletContext, walletTokenSchema } from './wallet.ts'
 import { DEMO_KEY } from './email.ts'
+import { USER_KEY } from './composio.ts'
 import { missingTools, skillCatalogSummaries, usableSkills } from './skills.ts'
 import { attestationStatus, modelInfo, verifyCompletions, warmAttestation } from './models.ts'
 import { summarize } from './verify.ts'
@@ -67,9 +68,11 @@ function sendJson(res: ServerResponse, status: number, body: unknown) {
   res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body))
 }
 
-function contextFor(mind: Mind, secrets: Secret[], opts: { unattended?: boolean; walletToken?: string; demo?: boolean } = {}) {
+function contextFor(mind: Mind, secrets: Secret[], opts: { unattended?: boolean; walletToken?: string; demo?: boolean; userId?: string } = {}) {
   const requestContext = new RequestContext()
   requestContext.set(MIND_KEY, mind)
+  // The run's user: Composio sessions (Gmail) are opened for this user only (#13).
+  if (opts.userId) requestContext.set(USER_KEY, opts.userId)
   if (opts.unattended) requestContext.set(UNATTENDED_KEY, true)
   // Not registered as a tracing requestContextKey, so tracing never records it.
   requestContext.set(SECRETS_KEY, new Map(secrets.map((s) => [s.name, s])))
@@ -110,7 +113,7 @@ async function pipeRun(res: ServerResponse, stream: { fullStream: AsyncIterable<
 }
 
 // Streams a builder workflow run (#20) as HelloNear events, ending with run.verified like chat.
-async function pipeWorkflow(res: ServerResponse, run: { stream: (args: any) => { fullStream: AsyncIterable<any> } }, opts: { mindId: string; workflowId: string; model: string; skills: string[]; secrets: Secret[]; walletToken?: string; demo?: boolean; mind: Mind; input: Record<string, unknown>; steps: Parameters<typeof createWorkflowNormalizer>[0]['steps'] }) {
+async function pipeWorkflow(res: ServerResponse, run: { stream: (args: any) => { fullStream: AsyncIterable<any> } }, opts: { mindId: string; workflowId: string; model: string; skills: string[]; secrets: Secret[]; walletToken?: string; demo?: boolean; userId: string; mind: Mind; input: Record<string, unknown>; steps: Parameters<typeof createWorkflowNormalizer>[0]['steps'] }) {
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' })
   const secretValues = hiddenValues(opts.secrets, opts.walletToken)
   const normalize = createWorkflowNormalizer({ ...opts, secretValues })
@@ -122,7 +125,7 @@ async function pipeWorkflow(res: ServerResponse, run: { stream: (args: any) => {
     res.write(`data: ${JSON.stringify(event)}\n\n`)
   }
   try {
-    const out = run.stream({ inputData: opts.input, requestContext: contextFor(opts.mind, opts.secrets, { unattended: true, walletToken: opts.walletToken, demo: opts.demo }) })
+    const out = run.stream({ inputData: opts.input, requestContext: contextFor(opts.mind, opts.secrets, { unattended: true, walletToken: opts.walletToken, demo: opts.demo, userId: opts.userId }) })
     for await (const chunk of out.fullStream) for (const event of await normalize(chunk)) write(event)
     if (runId) {
       const info = await modelInfo(opts.model)
@@ -139,7 +142,7 @@ async function pipeWorkflow(res: ServerResponse, run: { stream: (args: any) => {
 const loadedSkills = (mind: Mind) => usableSkills(mind.skills.map((s) => s.skillId)).map((s) => s.name)
 
 const agentOptions = (mind: Mind, secrets: Secret[], userId: string, mindId: string, threadId: string, walletToken?: string, demo?: boolean) => ({
-  requestContext: contextFor(mind, secrets, { walletToken, demo }),
+  requestContext: contextFor(mind, secrets, { walletToken, demo, userId }),
   memory: { resource: resourceId(userId, mindId), thread: threadId },
   maxSteps: 8,
   // No automatic retries: each completion must map to one verifiable request (NEAR AI SDK guide).
@@ -205,7 +208,7 @@ export const server = createServer(async (req, res) => {
       if (wf?.[3] === '/runs' && req.method === 'POST') {
         const parsed = workflowRunSchema.safeParse(await readJson(req))
         if (!parsed.success) return sendJson(res, 400, { error: 'invalid_body', issues: parsed.error.issues })
-        const { mind, secrets, walletToken, demo, input } = parsed.data
+        const { userId, mind, secrets, walletToken, demo, input } = parsed.data
         const saved = await loadWorkflow(mindId, workflowId)
         if (!saved) return sendJson(res, 404, { error: 'not_found' })
         // A workflow may only use tools its Mind has equipped right now (skills can be unequipped after saving).
@@ -220,7 +223,7 @@ export const server = createServer(async (req, res) => {
           workflow = mastra.getWorkflow(mastraWorkflowId(mindId, workflowId))
         }
         const run = await workflow.createRun()
-        return pipeWorkflow(res, run as never, { mindId, workflowId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secrets, walletToken, demo, mind, input, steps: saved.steps })
+        return pipeWorkflow(res, run as never, { mindId, workflowId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secrets, walletToken, demo, userId, mind, input, steps: saved.steps })
       }
       if (wf?.[3] === '/runs' && req.method === 'GET') {
         const saved = await loadWorkflow(mindId, workflowId)
