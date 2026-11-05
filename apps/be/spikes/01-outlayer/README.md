@@ -95,6 +95,19 @@ The handoff page uses **mainnet** unless the browser says otherwise, so a testne
 localStorage.setItem("near-wallet-selector:selectedNetworkId", "testnet")
 ```
 
+## Demo wallet (5 Nov)
+
+A fresh wallet replaces the spike wallet, whose key showed in a screenshot. Wallet `0fdc9294…d04e7a` (owner `lin1er.testnet`, 1 NEAR), sub-wallet `skill-payments` `e8179130…8f8b8a`, policy v2 (read back from `GET /wallet/v1/policy`: limit 0.05 NEAR, whitelist = the sub-wallet + `lin1er.testnet`, `transfer` only, `authorized_key_hashes` = this wallet's key). Checked on testnet:
+
+| Call | Result |
+|---|---|
+| 0.01 NEAR to `lin1er.testnet` | ✅ `success` at once, tx `GQ9qH3WDwcz11ruYW8XjnMN5vckd3Uf2cRv3Y4t2h3t4` |
+| 0.2 NEAR to `lin1er.testnet` | ✅ `403 policy_denied` "Per-transaction limit exceeded" |
+| 0.01 NEAR to `hellonear-registry.testnet` | ✅ `403 policy_denied` "not in whitelist" |
+| `call` to `lin1er.testnet` | ✅ `403 policy_denied` "Transaction type 'call' is not allowed" |
+
+The spike wallet's balance was moved back to the owner in 0.05 NEAR transfers (the only way its policy allows), leaving 0.03 NEAR.
+
 ## Rerun with a new wallet (owner steps)
 
 Done on 4 Nov (results above). To repeat it, e.g. for a fresh demo wallet with policy v2: `register`, fund the wallet from the owner's Meteor account, open the handoff link without printing it (`xdg-open "$(grep '^OUTLAYER_HANDOFF_URL=' apps/be/.env | cut -d= -f2-)"`), switch the dashboard to testnet, connect Meteor, paste policy v2 with the new key hash and the owner's whitelist, then run the `transfer` / `call` checks from "Policy v2".
