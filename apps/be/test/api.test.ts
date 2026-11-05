@@ -691,6 +691,26 @@ describe('judge try-out mode (#43)', () => {
     assert.equal(fakeOutlayer.requests.filter((r) => r.path === '/wallet/v1/transfer').length, before)
   })
 
+  test('the payment cap holds for parallel payments', async () => {
+    const d = await demoSignIn()
+    const mindId = (await (await d.call('POST', '/v1/minds', { templateId: 'payments-mind', name: 'Judge race' }, origin)).json()).mind.id
+    await (await d.call('POST', `/v1/minds/${mindId}/chat`, { message: 'pay' }, origin)).text()
+    const token = lastChatBody(mindId).walletToken
+    const pay = () => fetch(`${base}/internal/v1/wallet/send_payment`, { method: 'POST', headers: { 'x-engine-key': ENGINE_KEY, 'x-wallet-token': token, 'content-type': 'application/json' }, body: JSON.stringify({ to: 'shop.testnet', amountNear: '0.01' }) }).then((r) => r.json())
+    const out = await Promise.all([pay(), pay(), pay(), pay(), pay()])
+    assert.equal(out.filter((p) => p.status === 'sent').length, 2, JSON.stringify(out.map((p) => p.status)))
+    assert.equal(out.filter((p) => p.status === 'failed' && /demo limit/.test(p.message)).length, 3)
+  })
+
+  test('hourly windows forget visitors after an hour', async () => {
+    const { sweepDemoWindows, resetDemoWindows } = await import('../src/demo.ts')
+    resetDemoWindows()
+    await demoSignIn()
+    await demoSignIn()
+    assert.equal(sweepDemoWindows(), 2)
+    assert.equal(sweepDemoWindows(Date.now() + 3601_000), 0)
+  })
+
   test('run limit per demo user, sign-up limit per IP, off when DEMO_MODE is not set', async () => {
     const { config } = await import('../src/config.ts')
     const { resetDemoWindows } = await import('../src/demo.ts')
