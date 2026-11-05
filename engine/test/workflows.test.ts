@@ -54,7 +54,7 @@ describe('builder workflows', () => {
 
   test('invalid canvases are rejected with issues; ids and auth are checked', async () => {
     const approval = balanceAlert()
-    approval.nodes[1] = { id: 'balance', type: 'tool', data: { tool: 'demo_transfer', args: { to: 'bob.testnet', amountUsdc: 1 } } } as any
+    approval.nodes[1] = { id: 'balance', type: 'tool', data: { tool: 'send_payment', args: { to: 'bob.testnet', amountNear: '0.01' } } } as any
     const res = await call('PUT', path('bad'), approval)
     assert.equal(res.status, 400)
     assert.match(JSON.stringify((await res.json()).issues), /needs the owner's approval/)
@@ -135,12 +135,12 @@ describe('builder workflows', () => {
   test('agents inside a workflow never get approval tools', async () => {
     const canvas = {
       name: 'Pay',
-      nodes: [{ id: 't', type: 'trigger', data: {} }, { id: 'ask', type: 'agent', data: { prompt: 'Use the demo_transfer tool to send 1 USDC to bob.testnet now, then say done.' } }],
+      nodes: [{ id: 't', type: 'trigger', data: {} }, { id: 'ask', type: 'agent', data: { prompt: 'Use the send_payment tool to send 0.01 NEAR to bob.testnet now, then say done.' } }],
       edges: [{ source: 't', target: 'ask' }],
     }
     assert.equal((await call('PUT', path('pay'), canvas)).status, 200)
     const evs = await events(await call('POST', `${path('pay')}/runs`, { userId: 'u1', mind: mind(['payments']), secrets: [] }))
-    assert.ok(!evs.some((e) => e.tool === 'demo_transfer'), JSON.stringify(evs.filter((e) => e.tool)))
+    assert.ok(!evs.some((e) => e.tool === 'send_payment'), JSON.stringify(evs.filter((e) => e.tool)))
     assert.equal(ofType(evs, 'tool.approval_required').length, 0)
     assert.equal(ofType(evs, 'workflow.finished')[0].status, 'success')
   })

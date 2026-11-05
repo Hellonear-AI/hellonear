@@ -1,5 +1,5 @@
 // Mind Graph node ids (docs/api-contract.md §4). Pure functions, no config or network.
-const WALLET_TOOLS = new Set(['demo_transfer'])
+const WALLET_TOOLS = new Set(['send_payment', 'get_balance', 'list_payments'])
 
 // Mastra's built-in skill tools take the skill name in different arguments.
 const SKILL_NAME_ARG: Record<string, string> = { skill: 'name', skill_read: 'skillName' }

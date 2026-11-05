@@ -3,6 +3,7 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import { SECRETS_KEY, assertHostAllowed, assertPublicHttpsUrl, assertResolvesPublic, fillSecrets, redact, type Secret } from './secrets.ts'
+import { walletCall } from './wallet.ts'
 
 const getTime = createTool({
   id: 'get_time',
@@ -20,14 +21,43 @@ const addNumbers = createTool({
   execute: async ({ a, b }) => ({ sum: a + b }),
 })
 
-// Stand-in for a wallet action until the OutLayer tools land (#13, #14). Moves no money.
-const demoTransfer = createTool({
-  id: 'demo_transfer',
-  description: 'Send a payment to a recipient. Always requires the owner to approve.',
-  inputSchema: z.object({ to: z.string(), amountUsdc: z.number().positive() }),
-  outputSchema: z.object({ status: z.literal('simulated'), to: z.string(), amountUsdc: z.number() }),
+// The Mind's own wallet (#42): calls go through the backend, which holds the OutLayer key.
+const NEAR_ACCOUNT_ID = /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/
+const paymentSchema = z.object({
+  paymentId: z.string(),
+  status: z.enum(['sent', 'policy_denied', 'wallet_frozen', 'failed', 'pending']),
+  to: z.string(),
+  amountNear: z.string(),
+  txHash: z.string().optional(),
+  message: z.string().optional(),
+})
+
+const sendPayment = createTool({
+  id: 'send_payment',
+  description: 'Send testnet NEAR from this Mind\'s wallet. Always waits for the owner to approve. The wallet policy can still refuse it (policy_denied, wallet_frozen).',
+  inputSchema: z.object({
+    to: z.string().min(2).max(64).regex(NEAR_ACCOUNT_ID, 'not a valid NEAR account id'),
+    amountNear: z.string().regex(/^\d{1,3}(\.\d{1,24})?$/, 'a decimal string, e.g. "0.01"').refine((a) => /[1-9]/.test(a), 'must be more than 0'),
+  }),
+  outputSchema: paymentSchema,
   requireApproval: true,
-  execute: async ({ to, amountUsdc }) => ({ status: 'simulated' as const, to, amountUsdc }),
+  execute: async ({ to, amountNear }, context) => walletCall(context, 'POST', '/internal/v1/wallet/send_payment', { to, amountNear }),
+})
+
+const getBalance = createTool({
+  id: 'get_balance',
+  description: 'Get this Mind\'s own wallet address and its balance in testnet NEAR.',
+  inputSchema: z.object({}),
+  outputSchema: z.object({ address: z.string(), balanceNear: z.string() }),
+  execute: async (_, context) => walletCall(context, 'GET', '/internal/v1/wallet/balance'),
+})
+
+const listPayments = createTool({
+  id: 'list_payments',
+  description: 'List this Mind\'s recent payments, newest first, including refused ones.',
+  inputSchema: z.object({ limit: z.number().int().min(1).max(50).optional() }),
+  outputSchema: z.object({ payments: z.array(paymentSchema.extend({ at: z.string() })) }),
+  execute: async ({ limit }, context) => walletCall(context, 'GET', `/internal/v1/wallet/payments?limit=${limit ?? 20}`),
 })
 
 // Generic HTTPS call that can use the owner's secrets as {{secrets.NAME}} (#18).
@@ -64,7 +94,7 @@ const YOCTO_PER_NEAR = 10n ** 24n
 const nearViewAccount = createTool({
   id: 'near_view_account',
   description: 'Look up a NEAR testnet account: its available balance in NEAR and storage used. Read-only.',
-  inputSchema: z.object({ accountId: z.string().min(2).max(64).regex(/^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/, 'not a valid NEAR account id') }),
+  inputSchema: z.object({ accountId: z.string().min(2).max(64).regex(NEAR_ACCOUNT_ID, 'not a valid NEAR account id') }),
   outputSchema: z.object({ accountId: z.string(), balanceNear: z.number(), amountYocto: z.string(), storageUsage: z.number() }),
   execute: async ({ accountId }) => {
     const res = await fetch(NEAR_RPC_URL, {
@@ -82,7 +112,10 @@ const nearViewAccount = createTool({
   },
 })
 
-export const toolRegistry = { get_time: getTime, add_numbers: addNumbers, demo_transfer: demoTransfer, http_request: httpRequest, near_view_account: nearViewAccount } as const
+export const toolRegistry = {
+  get_time: getTime, add_numbers: addNumbers, http_request: httpRequest, near_view_account: nearViewAccount,
+  send_payment: sendPayment, get_balance: getBalance, list_payments: listPayments,
+} as const
 export type ToolKey = keyof typeof toolRegistry
 
 // Tools that only run after the owner approves them in the chat (wallet actions).

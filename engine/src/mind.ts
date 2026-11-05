@@ -1,6 +1,7 @@
 // A Mind's config as sent by the backend (docs/api-contract.md §2), and the system prompt built from it.
 import { z } from 'zod'
 import { secretSchema } from './secrets.ts'
+import { walletTokenSchema } from './wallet.ts'
 import { skillCatalog } from './skills.ts'
 
 export const mindSchema = z.object({
@@ -23,6 +24,8 @@ export const runRequestSchema = z.object({
   mind: mindSchema,
   // The owner's secrets for this run (#18). Values reach tools only, never the model or events.
   secrets: z.array(secretSchema).default([]),
+  // Run-scoped token for the payment tools, only when the Mind has a wallet (#42). Never the wallet key.
+  walletToken: walletTokenSchema.optional(),
 })
 
 export function buildInstructions(mind: Mind): string {

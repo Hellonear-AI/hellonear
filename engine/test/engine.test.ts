@@ -2,6 +2,7 @@
 // Run: npm test   (needs engine/.env and `docker compose up -d postgres`)
 import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert/strict'
+import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { randomUUID } from 'node:crypto'
 import pg from 'pg'
@@ -186,28 +187,90 @@ describe('engine HTTP API', () => {
     })
   })
 
-  for (const action of ['approve', 'decline'] as const) {
-    test(`a tool that requires approval pauses, then ${action} resumes the run`, async () => {
+  // Payment tools (#42) call the backend; here a fake one stands in for it (the real one is e2e-tested with James's branch).
+  describe('payments through the wallet token', () => {
+    const TOKEN = `wt_${randomUUID()}`
+    const payments: { token: unknown; key: unknown; body: { to: string; amountNear: string } }[] = []
+    const backend = createServer(async (req, res) => {
+      let raw = ''
+      for await (const c of req) raw += c
+      const send = (json: unknown) => res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(json))
+      if (req.url !== '/internal/v1/wallet/send_payment') return send({ address: 'abc', balanceNear: '0.5', payments: [] })
+      const body = JSON.parse(raw)
+      payments.push({ token: req.headers['x-wallet-token'], key: req.headers['x-engine-key'], body })
+      if (body.to === 'stranger.testnet') return send({ paymentId: 'p-denied', status: 'policy_denied', to: body.to, amountNear: body.amountNear, message: "Address 'stranger.testnet' is not in whitelist" })
+      send({ paymentId: 'p-sent', status: 'sent', to: body.to, amountNear: body.amountNear, txHash: 'FakeTxHash1' })
+    })
+    before(async () => {
+      await new Promise<void>((r) => backend.listen(0, '127.0.0.1', r))
+      process.env.BACKEND_URL = `http://127.0.0.1:${(backend.address() as AddressInfo).port}`
+    })
+    after(() => new Promise<void>((r) => backend.close(() => r())))
+    const m = mind('Pay', { skills: [{ skillId: 'payments' }] })
+
+    for (const action of ['approve', 'decline'] as const) {
+      test(`send_payment pauses for approval, then ${action} resumes the run`, async () => {
+        const threadId = randomUUID()
+        const before = payments.length
+        const first = await events(await post('/v1/minds/pay/chat', { userId, threadId, walletToken: TOKEN, message: 'Send 0.01 NEAR to alice.testnet with send_payment.', mind: m }))
+        const ask = first.find((e) => e.type === 'tool.approval_required')
+        assert.ok(ask, 'tool.approval_required emitted')
+        assert.equal(ask.tool, 'send_payment')
+        assert.equal(ask.nodeId, 'wallet:pay')
+        assert.equal(payments.length, before, 'nothing reached the wallet before approval')
+
+        const res = await post(`/v1/runs/${ask.runId}/${action}?mindId=pay`, { userId, threadId, walletToken: TOKEN, mind: m, toolCallId: ask.toolCallId, reason: action === 'decline' ? 'Owner declined' : undefined })
+        const rest = await events(res)
+        assert.ok(rest.every((e) => e.runId === ask.runId), 'same run continues')
+        assert.ok(rest[0].seq > ask.seq, 'seq continues after the pause')
+        const sent = rest.find((e) => e.type === 'tool.result' && e.tool === 'send_payment')
+        if (action === 'approve') {
+          assert.equal(sent?.result?.status, 'sent')
+          assert.equal(sent?.result?.txHash, 'FakeTxHash1')
+          assert.deepEqual(payments.at(-1), { token: TOKEN, key: key, body: { to: 'alice.testnet', amountNear: '0.01' } })
+        } else {
+          assert.equal(sent, undefined, 'declined payment never runs')
+          assert.equal(payments.length, before, 'declined payment never reaches the wallet')
+        }
+        assert.equal(rest.at(-1)?.type, 'run.verified')
+        assert.ok(![...first, ...rest].some((e) => JSON.stringify(e).includes(TOKEN)), 'the wallet token is in no event')
+      })
+    }
+
+    test('a policy refusal is a tool.error with status policy_denied and no tx hash', async () => {
       const threadId = randomUUID()
-      const m = mind('Pay', { skills: [{ skillId: 'payments' }] })
-      const first = await events(await post('/v1/minds/pay/chat', { userId, threadId, message: 'Send 3 USDC to alice.testnet using demo_transfer.', mind: m }))
+      const first = await events(await post('/v1/minds/pay/chat', { userId, threadId, walletToken: TOKEN, message: 'Send 0.01 NEAR to stranger.testnet with send_payment.', mind: m }))
       const ask = first.find((e) => e.type === 'tool.approval_required')
       assert.ok(ask, 'tool.approval_required emitted')
-      assert.equal(ask.nodeId, 'wallet:pay')
-      // The Mind may load the payments skill first (tool `skill`); only the transfer must wait.
-      assert.ok(!first.some((e) => e.type === 'tool.result' && e.tool === 'demo_transfer'), 'transfer did not run before approval')
-
-      const res = await post(`/v1/runs/${ask.runId}/${action}?mindId=pay`, { userId, threadId, mind: m, toolCallId: ask.toolCallId, reason: action === 'decline' ? 'Owner declined' : undefined })
-      const rest = await events(res)
-      assert.ok(rest.length > 0)
-      assert.ok(rest.every((e) => e.runId === ask.runId), 'same run continues')
-      assert.ok(rest[0].seq > ask.seq, 'seq continues after the pause')
-      // Only the paused transfer matters; after a decline the model may still call other tools.
-      const transfer = rest.find((e) => e.type === 'tool.result' && e.tool === 'demo_transfer' && e.result?.status === 'simulated')
-      if (action === 'approve') assert.ok(transfer, 'approved transfer ran')
-      else assert.equal(transfer, undefined, 'declined transfer never runs')
-      assert.ok(rest.some((e) => e.type === 'run.finished'))
-      assert.equal(rest.at(-1)?.type, 'run.verified')
+      const rest = await events(await post(`/v1/runs/${ask.runId}/approve?mindId=pay`, { userId, threadId, walletToken: TOKEN, mind: m, toolCallId: ask.toolCallId }))
+      const refused = rest.find((e) => e.tool === 'send_payment' && e.type === 'tool.error')
+      assert.equal(refused?.status, 'policy_denied')
+      assert.equal(refused?.nodeId, 'wallet:pay')
+      assert.match(refused?.error, /whitelist/)
+      assert.equal(refused?.result?.txHash, undefined)
+      assert.ok(!rest.some((e) => e.type === 'tool.result' && e.tool === 'send_payment'), 'not reported as a success')
     })
-  }
+
+    test('the wallet token is stored in no mastra table', async () => {
+      const db = new pg.Client({ connectionString: process.env.DATABASE_URL })
+      await db.connect()
+      try {
+        const { rows: tables } = await db.query(`select table_name from information_schema.tables where table_schema = 'mastra'`)
+        for (const { table_name } of tables) {
+          const { rows } = await db.query(`select count(*)::int as n from mastra."${table_name}" t where t::text like $1`, [`%${TOKEN}%`])
+          assert.equal(rows[0].n, 0, `wallet token found in mastra.${table_name}`)
+        }
+      } finally {
+        await db.end()
+      }
+    })
+
+    test('a Mind without a wallet gets "no wallet yet" and the backend is not called', async () => {
+      const before = payments.length
+      const evs = await events(await post('/v1/minds/pay/chat', { userId, threadId: randomUUID(), message: 'What is your wallet balance? Use get_balance.', mind: m }))
+      const err = evs.find((e) => e.type === 'tool.error' && e.tool === 'get_balance')
+      assert.match(err?.error ?? '', /no wallet yet/)
+      assert.equal(payments.length, before)
+    })
+  })
 })
