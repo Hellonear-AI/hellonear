@@ -14,6 +14,7 @@ An AI agent persona ("Mind") platform on NEAR: each Mind has an identity, memory
 | `engine` | AI engine (Mastra, NEAR AI Cloud) | Axel | #5, #11 |
 | `sc` | Mind registry contract (Rust `near-sdk`) | Axel | #12 |
 | `docs` | API contract and technical docs | James + Axel | #7 |
+| `design` | Design tokens, screens, Mind characters (pen.dev) | Nabil | #10 |
 | `research.md` | Research notes (draft, Indonesian) | everyone | — |
 
 Plan: #3. Decisions: #4. Guidance for AI coding agents: `CLAUDE.md` (root and per folder).
