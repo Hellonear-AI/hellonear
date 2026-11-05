@@ -8,7 +8,7 @@ test('regular tools map to tool nodes', () => {
 })
 
 test('wallet tools map to the Mind\'s wallet node', () => {
-  assert.equal(nodeIdFor('m1', 'demo_transfer', { to: 'x', amountUsdc: 1 }), 'wallet:m1')
+  for (const tool of ['send_payment', 'get_balance', 'list_payments']) assert.equal(nodeIdFor('m1', tool, {}), 'wallet:m1')
 })
 
 test('skill activations and reads map to skill nodes', () => {

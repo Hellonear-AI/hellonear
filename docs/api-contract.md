@@ -86,7 +86,7 @@ Resumes a run paused on `tool.approval_required`. Streams the remaining events a
 
 ### `GET /v1/templates`
 
-`{ "templates": [ { templateId, name, tagline, soul, model, skills: [ { skillId, description, status: "available" | "simulated" | "blocked", connections: [...], note? } ] } ] }` for the Choose a Mind screen. Status tells the UI what is simulated (e.g. payments before OutLayer) or blocked (e.g. email before Composio) **[tested, #13]**.
+`{ "templates": [ { templateId, name, tagline, soul, model, skills: [ { skillId, description, status: "available" | "simulated" | "blocked", connections: [...], note? } ] } ] }` for the Choose a Mind screen. Status tells the UI what is simulated or blocked (e.g. email before Composio) **[tested, #13]**.
 
 ### `GET /v1/skills`
 
@@ -181,7 +181,7 @@ Common fields on every event:
 | `text.delta` | `text` | `text-delta` **[tested]** |
 | `tool.called` | `toolCallId`, `tool`, `nodeId`, `args` | `tool-call` **[tested]**: payload `{ toolCallId, toolName, args }` |
 | `tool.result` | `toolCallId`, `tool`, `nodeId`, `result`, `status: "ok"` | `tool-result` **[tested]**: payload `{ toolCallId, toolName, args, result }` |
-| `tool.error` | `toolCallId`, `tool`, `nodeId`, `status: "error" \| "policy_denied"`, `error`, `rule?` | `tool-error` **[docs]**; `policy_denied` when the wallet tool gets an OutLayer policy rejection (#6) |
+| `tool.error` | `toolCallId`, `tool`, `nodeId`, `status: "error" \| "policy_denied" \| "wallet_frozen"`, `error`, `result?` | `tool-error` **[tested]**; for `send_payment`, a `tool-result` whose `status` is `policy_denied` / `wallet_frozen` (the wallet refused before signing, #42): `error` is OutLayer's message, `result` the payment receipt without `txHash` **[tested, fake backend]** |
 | `tool.approval_required` | `toolCallId`, `tool`, `nodeId`, `args` | `tool-call-approval` **[tested, #11]** |
 | `step.finished` | `step`, `usage` | `step-finish` **[tested]** |
 | `run.finished` | `finishReason`, `text`, `usage`, `costUsd`, `verification: { status: "pending" }` | `finish` **[tested]** |
