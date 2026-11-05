@@ -587,6 +587,24 @@ describe('payment tools through the backend (#42, option B)', () => {
     }
   })
 
+  test('internal routes answer only on loopback', async () => {
+    const { isLoopback } = await import('../src/http.ts')
+    for (const a of ['127.0.0.1', '127.1.2.3', '::1', '::ffff:127.0.0.1']) assert.equal(isLoopback(a), true, a)
+    for (const a of [undefined, '', '192.168.18.10', '::ffff:192.168.18.10', '10.0.0.1', '2001:db8::1', '127.0.0.1.evil']) assert.equal(isLoopback(a), false, String(a))
+
+    const a = await signIn()
+    const { mindId } = await walletMind(a)
+    const token = await tokenFromChat(a, mindId)
+    assert.equal((await engineCall('GET', '/internal/v1/wallet/balance', token)).status, 200)
+    // The same valid call from a non-loopback address of this machine (the test server listens on all interfaces).
+    const { networkInterfaces } = await import('node:os')
+    const lan = Object.values(networkInterfaces()).flat().find((i) => i && i.family === 'IPv4' && !i.internal)?.address
+    if (!lan) return console.log('no non-loopback IPv4 address here; remote check skipped')
+    const remote = await fetch(base.replace('127.0.0.1', lan) + '/internal/v1/wallet/balance', { headers: { 'x-engine-key': ENGINE_KEY, 'x-wallet-token': token! } })
+    assert.equal(remote.status, 404)
+    assert.deepEqual(await remote.json(), { error: 'not_found' })
+  })
+
   test('an unfunded wallet fails with a clear message', async () => {
     const a = await signIn()
     const { mindId } = await walletMind(a, { balanceNear: '0', policy: false })
