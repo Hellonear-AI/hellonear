@@ -5,7 +5,7 @@ import { SESSION_COOKIE, createChallenge, login, loginSchema, logout, requireUse
 import { config } from './config.ts'
 import { newId } from './crypto.ts'
 import { migrate, query } from './db.ts'
-import { engineFetch, engineJson, templates } from './engine.ts'
+import { engineFetch, engineJson, skills, templates } from './engine.ts'
 import { HttpError, assertSameOrigin, cors, readBody, sendJson, setCookie } from './http.ts'
 import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, requireMind, updateMind, updateMindSchema } from './minds.ts'
 import { getRun, listRuns, mindEvents, pendingApprovals, relayRun, runEvents } from './runs.ts'
@@ -56,6 +56,7 @@ export const server = createServer(async (req, res) => {
     const user = await requireUser(req)
     if (route('GET', /^\/v1\/me$/)) return sendJson(res, 200, { user })
     if (route('GET', /^\/v1\/templates$/)) return sendJson(res, 200, { templates: await templates() })
+    if (route('GET', /^\/v1\/skills$/)) return sendJson(res, 200, { skills: await skills() })
 
     // Secrets (#18): names and hosts only ever leave the backend, never values.
     if (route('GET', /^\/v1\/secrets$/)) return sendJson(res, 200, { secrets: await listSecrets(user.id) })

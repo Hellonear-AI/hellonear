@@ -2,7 +2,7 @@
 import { z } from 'zod'
 import { newId } from './crypto.ts'
 import { pool, query } from './db.ts'
-import { templates, type MindConfig } from './engine.ts'
+import { skills, templates, type MindConfig } from './engine.ts'
 import { HttpError } from './http.ts'
 
 const soulSchema = z.object({
@@ -52,10 +52,9 @@ export const mindConfig = (m: Mind): MindConfig => ({
   templateId: m.templateId, name: m.name, soul: m.soul, ...(m.model ? { model: m.model } : {}), skills: m.skills.map((skillId) => ({ skillId })),
 })
 
-// Skills a Mind may equip: any skill some template offers. The engine catalog is the source of truth,
-// and it only exposes skills through templates.
+// Skills a Mind may equip: the engine's whole catalog (docs/api-contract.md §2 `GET /v1/skills`).
 async function knownSkills(): Promise<Set<string>> {
-  return new Set((await templates()).flatMap((t) => t.skills.map((s) => s.skillId)))
+  return new Set((await skills()).map((s) => s.skillId))
 }
 
 async function assertSkills(skills: string[]) {
