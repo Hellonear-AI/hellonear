@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Deploy the committed HEAD to a Proxmox LXC prepared as in deploy/README.md.
-# Usage: DEPLOY_HOST=root@<proxmox-node> DEPLOY_CT=<vmid> deploy/deploy.sh
+# Usage: DEPLOY_HOST=root@<proxmox-node> DEPLOY_CT=<vmid> deploy/deploy.sh   (from an up-to-date main)
 # Ships `git archive HEAD` (never the working tree, so no local .env), installs dependencies with the
 # lockfiles, swaps the release in, restarts the services and checks their health.
 set -euo pipefail
@@ -8,6 +8,11 @@ set -euo pipefail
 : "${DEPLOY_CT:?set DEPLOY_CT, the LXC vmid}"
 cd "$(git rev-parse --show-toplevel)"
 [ -z "$(git status --porcelain -- engine apps/be deploy)" ] || { echo "commit engine/, apps/be/ and deploy/ first" >&2; exit 1; }
+# Only what is merged: HEAD must be origin/main (DEPLOY_ALLOW_BRANCH=1 to deploy a branch, e.g. to try a fix; ask first).
+git fetch -q origin main
+if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ] && [ "${DEPLOY_ALLOW_BRANCH:-}" != 1 ]; then
+  echo "HEAD is not origin/main; check out an up-to-date main, or set DEPLOY_ALLOW_BRANCH=1" >&2; exit 1
+fi
 rev=$(git rev-parse --short HEAD)
 ct() { ssh -o BatchMode=yes "$DEPLOY_HOST" "pct exec $DEPLOY_CT -- $*"; }
 
