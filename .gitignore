@@ -30,3 +30,6 @@ design/characters/renders/_*
 
 # python
 __pycache__/
+
+# raw 3D downloads (tens of MB): keep local, commit only optimized files
+design/characters/hunyuan/*-raw.*
