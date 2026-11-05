@@ -44,6 +44,7 @@ Frame `Mind Characters v0.3` in `hellonear.pen` (earlier tries were removed). On
 - 3D (Three.js) is only considered for the landing page hero; in the app, characters are images and their use is up to `apps/fe`.
 - Current art: `generated-10.png` (base) to `generated-14.png` (cream base), AI renders from pen.dev. More poses and expressions are planned in Blender, exported as transparent PNGs.
 - Character references live in `hellonear-assets/char-ref/` (gitignored).
+- Prompts used for v0.3 (and tips to stay on-model in other generators): `characters/prompts.md`. pen.dev images are made by Google generative AI (C2PA label, SynthID watermark); the files are JPEG despite the `.png` name.
 
 ## Copywriting (UX first, draft; Ancung may extend)
 
