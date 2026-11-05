@@ -1,6 +1,6 @@
 # Spike 01: OutLayer wallet + policy on testnet (#6)
 
-**Status: core flow proven on testnet (4 Nov 2026).** Conclusion for #4: **OutLayer directly is enough for the security demo; the vault-contract fallback is not needed.** Proven: per-transaction limit and whitelist refuse with `403 policy_denied` before any tx; owner approval (`pending_approval` → approved in the dashboard → on-chain tx); freeze refuses with `403 wallet_frozen`; Meteor works as the owner wallet; sub-wallets get their own address. Still open: whether a freeze is an on-chain tx, step 5 (no API to test), and step 6b (sub-wallet policy).
+**Status: core flow proven on testnet (4 Nov 2026).** Conclusion for #4: **OutLayer directly is enough for the security demo; the vault-contract fallback is not needed.** Proven: per-transaction limit and whitelist refuse with `403 policy_denied` before any tx; owner approval (`pending_approval` → approved in the dashboard → on-chain tx); freeze refuses with `403 wallet_frozen`; Meteor works as the owner wallet; sub-wallets get their own address. Freeze **is** an on-chain tx (found 5 Nov, see "Owner actions on-chain"). Still open: step 5 (no API to test) and step 6b (sub-wallet policy).
 
 Demo wording: the policy is enforced by OutLayer **before signing**, so a refused transfer has no transaction. Never say "rejected on-chain" or show a tx link for it (root `CLAUDE.md`).
 
@@ -22,14 +22,14 @@ Every call is in `results.json` (request, status, response), with API keys and h
 | Whitelist: 0.01 NEAR to `hellonear-registry.testnet` | ✅ refused: `403 { error: "policy_denied", message: "Address 'hellonear-registry.testnet' is not in whitelist" }` | `transfer` |
 | 5. Change the policy with `wk_…` | ⏳ The docs list **no** endpoint that changes a policy with an agent key; policies are set in the dashboard by the owner. Not tested, so not proven | |
 | 6b. Fund the sub-wallet from the parent, own policy, transfer above its limit | ⏳ after 2 | |
-| 7. Freeze signed by the owner (Meteor) in the dashboard, then a whitelisted 0.01 NEAR transfer | ✅ refused: `403 { error: "wallet_frozen", message: "Wallet is frozen by controller" }`; balance untouched (0.98996 NEAR). No freeze tx was found: neither the audit log nor the dashboard shows one (see Findings) | `transfer`, James, 4 Nov |
+| 7. Freeze signed by the owner (Meteor) in the dashboard, then a whitelisted 0.01 NEAR transfer | ✅ refused: `403 { error: "wallet_frozen", message: "Wallet is frozen by controller" }`; balance untouched (0.98996 NEAR). The 4 Nov freeze tx was not looked up; the 5 Nov freeze of this wallet is tx `848cXteg2spf8E8gG1BUNDa2LT91wiBX2L2qwAA1Whu7` (see "Owner actions on-chain") | `transfer`, James, 4 Nov |
 
 ## Findings for the backend (#14, #15)
 
 - The engine's `tool.error { status: "policy_denied" }` maps to OutLayer `403 policy_denied`; `wallet_frozen` (`403`) needs the same treatment (a hard stop shown red in the Mind Graph).
 - A transfer under the limit came back `pending_approval` with `required: 1` **because the owner's policy sets it**: `approval.threshold.required: 1`, approver `lin1er.testnet` (admin), all types except `intents_swap` (policy below). The backend must handle `pending_approval` (poll `GET /wallet/v1/requests/{id}` until `success` / `failed`), and the approval inbox can list `GET /wallet/v1/pending_approvals`; the approval itself is signed by the owner in the OutLayer dashboard.
 - The policy is bound to the agent key: `authorized_key_hashes` holds the SHA-256 of the parent `wk_` key (checked locally, 4 Nov), not the sub-wallet's key. A sub-wallet needs its own policy (step 6b).
-- The wallet's audit log (`GET /wallet/v1/audit`, and the dashboard's Audit log page) shows `transfer_pending_approval`, `approval`, `transfer_auto_executed` with the tx hash: usable for Receipts. **The freeze does not appear there**, and the dashboard showed no tx for it, so whether freezing is an on-chain transaction is not proven; the demo can show the `wallet_frozen` refusal, not a freeze tx link.
+- The wallet's audit log (`GET /wallet/v1/audit`, and the dashboard's Audit log page) shows `transfer_pending_approval`, `approval`, `transfer_auto_executed` with the tx hash: usable for Receipts. The freeze does not appear there because it is not a wallet operation: it is an owner call on the `outlayer.testnet` contract (next section).
 
 The policy James set (from the dashboard, 4 Nov; key hash shortened):
 
@@ -94,6 +94,28 @@ The handoff page uses **mainnet** unless the browser says otherwise, so a testne
 ```js
 localStorage.setItem("near-wallet-selector:selectedNetworkId", "testnet")
 ```
+
+## Owner actions on-chain (5 Nov)
+
+Read from the dashboard's JS bundle (`app.outlayer.ai`, 5 Nov) and checked on testnet:
+
+- **Policy and freeze live in the `outlayer.testnet` contract**, signed by the owner. View `get_wallet_policies_by_owner({ owner })` lists the owner's wallets with `frozen` (for `lin1er.testnet` on 5 Nov: the spike wallet `frozen: true`, the demo wallet `frozen: false`).
+- **Freeze** = `freeze_wallet({ wallet_pubkey: "ed25519:<hex>" })`, 30 Tgas, no deposit; `unfreeze_wallet` the same. The spike wallet's freeze is tx `848cXteg2spf8E8gG1BUNDa2LT91wiBX2L2qwAA1Whu7` (signer `lin1er.testnet`, `FINAL`, `SuccessValue`), found by scanning the blocks around the policy's `updated_at` (the explorer API had not indexed the account). So #14's "tx link for the freeze" is possible.
+- **Setting a policy** = (1) `POST /wallet/v1/encrypt-policy` with the agent key → `encrypted_base64`; (2) `POST /wallet/v1/sign-policy { encrypted_data, caller: <owner> }` with the agent key → `signature_hex`; (3) view `estimate_wallet_policy_cost` for the deposit; (4) the owner signs `store_wallet_policy({ wallet_pubkey, encrypted_data, wallet_signature })`, 100 Tgas. Steps 1 and 2 return `200` for the demo wallet (5 Nov); steps 3 and 4 are not run yet.
+- So the app can build every owner transaction itself (the backend holds the agent key; the owner signs in our FE with Meteor) and the `handoff_url`, which carries the key, never has to leave the backend. Owners can still use `https://app.outlayer.ai/wallet/manage`: it lists wallets by the signed-in owner, no key needed.
+
+## Demo wallet (5 Nov)
+
+A fresh wallet replaces the spike wallet, whose key showed in a screenshot. Wallet `0fdc9294…d04e7a` (owner `lin1er.testnet`, 1 NEAR), sub-wallet `skill-payments` `e8179130…8f8b8a`, policy v2 (read back from `GET /wallet/v1/policy`: limit 0.05 NEAR, whitelist = the sub-wallet + `lin1er.testnet`, `transfer` only, `authorized_key_hashes` = this wallet's key). Checked on testnet:
+
+| Call | Result |
+|---|---|
+| 0.01 NEAR to `lin1er.testnet` | ✅ `success` at once, tx `GQ9qH3WDwcz11ruYW8XjnMN5vckd3Uf2cRv3Y4t2h3t4` |
+| 0.2 NEAR to `lin1er.testnet` | ✅ `403 policy_denied` "Per-transaction limit exceeded" |
+| 0.01 NEAR to `hellonear-registry.testnet` | ✅ `403 policy_denied` "not in whitelist" |
+| `call` to `lin1er.testnet` | ✅ `403 policy_denied` "Transaction type 'call' is not allowed" |
+
+The spike wallet's balance was moved back to the owner in 0.05 NEAR transfers (the only way its policy allows), leaving 0.03 NEAR.
 
 ## Rerun with a new wallet (owner steps)
 

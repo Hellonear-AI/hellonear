@@ -313,5 +313,145 @@
       "error": "policy_denied",
       "message": "Per-transaction limit exceeded for native: 200000000000000000000000 > 50000000000000000000000"
     }
+  },
+  {
+    "at": "2026-11-05T11:08:33.744Z",
+    "step": "1-register",
+    "request": "POST /register",
+    "body": null,
+    "status": 200,
+    "response": {
+      "wallet_id": "d79a2195-b10d-48bd-ba19-f2f7ba8ade0e",
+      "api_key": "wk_••••",
+      "near_account_id": "0fdc9294b3f4f9be1ef5a9e2440e9f37dc03a641f236c8e1877c55f953d04e7a",
+      "handoff_url": "https://app.outlayer.ai/wallet?key=••••",
+      "trial": {
+        "available": true,
+        "calls": 50,
+        "days": 7,
+        "claim_url": "POST /trial-key",
+        "scope": "connectors.outlayer.testnet/*"
+      }
+    }
+  },
+  {
+    "at": "2026-11-05T11:08:34.989Z",
+    "step": "6-subwallet-skill-payments",
+    "request": "PUT /wallet/v1/api-key",
+    "body": {
+      "seed": "skill-payments",
+      "key_hash": "8d1208ba81c93f1f5268331c76597d77062f3e815ba5314d6a46635d535c50a1"
+    },
+    "status": 200,
+    "response": {
+      "wallet_id": "8850dfaa-d9b5-677d-a91a-1dfa406b57e3",
+      "near_account_id": "e81791309e25c72f894f2d376e7a6ea35fbfe4e05b908da9fe18d8690e8f8b8a"
+    }
+  },
+  {
+    "at": "2026-11-05T11:08:35.358Z",
+    "step": "6-subwallet-skill-payments-address",
+    "request": "GET /wallet/v1/address?chain=near",
+    "body": null,
+    "status": 200,
+    "response": {
+      "wallet_id": "8850dfaa-d9b5-677d-a91a-1dfa406b57e3",
+      "chain": "near",
+      "address": "e81791309e25c72f894f2d376e7a6ea35fbfe4e05b908da9fe18d8690e8f8b8a",
+      "public_key": "ed25519:e81791309e25c72f894f2d376e7a6ea35fbfe4e05b908da9fe18d8690e8f8b8a",
+      "asset_account_id": null,
+      "executor_account_id": "e81791309e25c72f894f2d376e7a6ea35fbfe4e05b908da9fe18d8690e8f8b8a"
+    }
+  },
+  {
+    "at": "2026-11-05T12:36:38.325Z",
+    "step": "status-address",
+    "request": "GET /wallet/v1/address?chain=near",
+    "body": null,
+    "status": 200,
+    "response": {
+      "wallet_id": "d79a2195-b10d-48bd-ba19-f2f7ba8ade0e",
+      "chain": "near",
+      "address": "0fdc9294b3f4f9be1ef5a9e2440e9f37dc03a641f236c8e1877c55f953d04e7a",
+      "public_key": "ed25519:0fdc9294b3f4f9be1ef5a9e2440e9f37dc03a641f236c8e1877c55f953d04e7a",
+      "asset_account_id": null,
+      "executor_account_id": "0fdc9294b3f4f9be1ef5a9e2440e9f37dc03a641f236c8e1877c55f953d04e7a"
+    }
+  },
+  {
+    "at": "2026-11-05T12:36:39.069Z",
+    "step": "status-balance",
+    "request": "GET /wallet/v1/balance?chain=near",
+    "body": null,
+    "status": 200,
+    "response": {
+      "balance": "1000000000000000000000000",
+      "token": "near",
+      "account_id": "0fdc9294b3f4f9be1ef5a9e2440e9f37dc03a641f236c8e1877c55f953d04e7a",
+      "account": "executor"
+    }
+  },
+  {
+    "at": "2026-11-05T12:38:25.156Z",
+    "step": "transfer",
+    "request": "POST /wallet/v1/transfer",
+    "body": {
+      "chain": "near",
+      "to": "lin1er.testnet",
+      "amount": "10000000000000000000000"
+    },
+    "status": 200,
+    "response": {
+      "request_id": "a6fe5328-fd12-4af6-aa51-6cb901be048c",
+      "status": "success",
+      "tx_hash": "GQ9qH3WDwcz11ruYW8XjnMN5vckd3Uf2cRv3Y4t2h3t4"
+    }
+  },
+  {
+    "at": "2026-11-05T12:38:26.723Z",
+    "step": "transfer",
+    "request": "POST /wallet/v1/transfer",
+    "body": {
+      "chain": "near",
+      "to": "lin1er.testnet",
+      "amount": "200000000000000000000000"
+    },
+    "status": 403,
+    "response": {
+      "error": "policy_denied",
+      "message": "Per-transaction limit exceeded for native: 200000000000000000000000 > 50000000000000000000000"
+    }
+  },
+  {
+    "at": "2026-11-05T12:38:28.331Z",
+    "step": "transfer",
+    "request": "POST /wallet/v1/transfer",
+    "body": {
+      "chain": "near",
+      "to": "hellonear-registry.testnet",
+      "amount": "10000000000000000000000"
+    },
+    "status": 403,
+    "response": {
+      "error": "policy_denied",
+      "message": "Address 'hellonear-registry.testnet' is not in whitelist"
+    }
+  },
+  {
+    "at": "2026-11-05T12:38:29.199Z",
+    "step": "call",
+    "request": "POST /wallet/v1/call",
+    "body": {
+      "receiver_id": "lin1er.testnet",
+      "method_name": "hello",
+      "args": {},
+      "gas": "30000000000000",
+      "deposit": "0"
+    },
+    "status": 403,
+    "response": {
+      "error": "policy_denied",
+      "message": "Transaction type 'call' is not allowed by policy"
+    }
   }
 ]
