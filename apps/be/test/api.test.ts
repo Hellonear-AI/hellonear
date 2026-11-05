@@ -4,13 +4,17 @@
 import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { AddressInfo } from 'node:net'
-import { randomBytes } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { KeyPair, KeyPairSigner } from 'near-api-js'
 import { ENGINE_KEY, engine, fake } from './fake-engine.ts'
+import { fakeOutlayer, outlayerServer } from './fake-outlayer.ts'
 
 await new Promise<void>((r) => engine.listen(0, r))
 process.env.ENGINE_URL = `http://127.0.0.1:${(engine.address() as AddressInfo).port}`
 process.env.ENGINE_API_KEY = ENGINE_KEY
+await new Promise<void>((r) => outlayerServer.listen(0, r))
+process.env.OUTLAYER_URL = `http://127.0.0.1:${(outlayerServer.address() as AddressInfo).port}`
+process.env.NEAR_RPC_URL = `${process.env.OUTLAYER_URL}/rpc`
 process.env.DATABASE_URL ??= 'postgresql://hellonear:hellonear-dev-only@localhost:55432/hellonear'
 process.env.SECRETS_MASTER_KEY = randomBytes(32).toString('base64')
 process.env.FE_ORIGIN = 'http://localhost:3000'
@@ -39,6 +43,7 @@ before(async () => {
 after(async () => {
   await new Promise<void>((r) => server.close(() => r()))
   await new Promise<void>((r) => engine.close(() => r()))
+  await new Promise<void>((r) => outlayerServer.close(() => r()))
   await pool.end()
 })
 
@@ -392,5 +397,105 @@ describe('workflows and Autopilot (#20, #21)', () => {
     assert.equal((await alice.call('DELETE', `/v1/minds/${mind.id}`)).status, 204)
     assert.equal(fake.workflows.has(key), false)
     assert.equal(fake.autopilots.has(key), false)
+  })
+})
+
+describe('Mind wallets (#14, #15)', () => {
+  const origin = { origin: 'http://localhost:3000' }
+  async function mindOf(c: Client) {
+    const res = await c.call('POST', '/v1/minds', { templateId: 'payments-mind', name: `Pay ${randomBytes(3).toString('hex')}` }, origin)
+    assert.equal(res.status, 201, await res.clone().text())
+    return (await res.json()).mind.id as string
+  }
+
+  test('create: the key is stored encrypted and never returned; one wallet per Mind; owner only', async () => {
+    const a = await signIn()
+    const mindId = await mindOf(a)
+    let res = await a.call('GET', `/v1/minds/${mindId}/wallet`)
+    assert.equal(res.status, 404)
+    assert.equal((await res.json()).error, 'no_wallet')
+
+    res = await a.call('POST', `/v1/minds/${mindId}/wallet`, {}, origin)
+    assert.equal(res.status, 201, await res.clone().text())
+    const text = await res.text()
+    const { wallet } = JSON.parse(text)
+    assert.match(wallet.address, /^[0-9a-f]{64}$/)
+    assert.deepEqual({ ...wallet, address: 'x' }, { address: 'x', balanceNear: '0', frozen: false, policy: null })
+    const w = fakeOutlayer.byAccount(wallet.address)
+    assert.ok(!text.includes(w.key) && !text.includes('wk_') && !text.includes('handoff'))
+    const [row] = await query('select key_ciphertext from mind_wallets where mind_id = $1', [mindId])
+    assert.ok(!row.key_ciphertext.includes(w.key.slice(3)))
+
+    res = await a.call('POST', `/v1/minds/${mindId}/wallet`, {}, origin)
+    assert.equal(res.status, 409)
+    const b = await signIn()
+    for (const [method, path] of [['GET', '/wallet'], ['POST', '/wallet/freeze'], ['POST', '/wallet/policy']] as const) {
+      res = await b.call(method, `/v1/minds/${mindId}${path}`, method === 'POST' ? { perTransactionNear: '0.05', whitelist: ['x.testnet'] } : undefined, origin)
+      assert.equal(res.status, 404, `${method} ${path}`)
+    }
+
+    // Deleting the Mind removes its wallet row (funds must be moved out first; see docs).
+    res = await a.call('DELETE', `/v1/minds/${mindId}`, undefined, origin)
+    assert.equal(res.status, 204)
+    assert.equal((await query('select 1 from mind_wallets where mind_id = $1', [mindId])).length, 0)
+  })
+
+  test('policy: v2 bound to the wallet key, approver = the owner, returned as a store_wallet_policy tx', async () => {
+    const a = await signIn()
+    const mindId = await mindOf(a)
+    const { wallet } = await (await a.call('POST', `/v1/minds/${mindId}/wallet`, {}, origin)).json()
+    const w = fakeOutlayer.byAccount(wallet.address)
+
+    for (const bad of [{ perTransactionNear: '0', whitelist: ['a.testnet'] }, { perTransactionNear: '11', whitelist: ['a.testnet'] }, { perTransactionNear: '0.05', whitelist: [] }, { perTransactionNear: '0.05', whitelist: ['Not An Account!'] }, { perTransactionNear: 0.05, whitelist: ['a.testnet'] }]) {
+      const res = await a.call('POST', `/v1/minds/${mindId}/wallet/policy`, bad, origin)
+      assert.equal(res.status, 400, JSON.stringify(bad))
+    }
+
+    const res = await a.call('POST', `/v1/minds/${mindId}/wallet/policy`, { perTransactionNear: '0.05', whitelist: ['shop.testnet', 'Shop.testnet', a.accountId] }, origin)
+    assert.equal(res.status, 200, await res.clone().text())
+    const { transaction } = await res.json()
+    assert.equal(transaction.receiverId, 'outlayer.testnet')
+    const [action] = transaction.actions
+    assert.equal(action.type, 'FunctionCall')
+    assert.equal(action.params.methodName, 'store_wallet_policy')
+    assert.equal(action.params.gas, '100000000000000')
+    assert.equal(action.params.deposit, fakeOutlayer.policyCost)
+    assert.equal(action.params.args.wallet_pubkey, `ed25519:${wallet.address}`)
+    assert.match(action.params.args.wallet_signature, /^[0-9a-f]+$/)
+    const sign = fakeOutlayer.requests.findLast((r) => r.path === '/wallet/v1/sign-policy')!
+    assert.equal(sign.body.caller, a.accountId)
+
+    const policy = JSON.parse(Buffer.from(action.params.args.encrypted_data, 'base64').toString('utf8'))
+    assert.deepEqual(policy.rules, { limits: { per_transaction: { native: '50000000000000000000000' } }, addresses: { mode: 'whitelist', list: ['shop.testnet', a.accountId] }, transaction_types: ['transfer'] })
+    assert.deepEqual(policy.authorized_key_hashes, [createHash('sha256').update(w.key).digest('hex')])
+    assert.deepEqual(policy.approval.approvers, [{ id: a.accountId, role: 'admin' }])
+    assert.ok(policy.approval.excluded_types.includes('transfer'))
+
+    // After the owner signs it, the wallet reads it back.
+    fakeOutlayer.store(action.params.args.encrypted_data)
+    const got = (await (await a.call('GET', `/v1/minds/${mindId}/wallet`)).json()).wallet
+    assert.deepEqual(got.policy, { perTransactionNear: '0.05', whitelist: ['shop.testnet', a.accountId], transactionTypes: ['transfer'], boundToThisWallet: true })
+  })
+
+  test('freeze and unfreeze come back as owner transactions; OutLayer failures are 502', async () => {
+    const a = await signIn()
+    const mindId = await mindOf(a)
+    const { wallet } = await (await a.call('POST', `/v1/minds/${mindId}/wallet`, {}, origin)).json()
+    for (const [path, methodName] of [['freeze', 'freeze_wallet'], ['unfreeze', 'unfreeze_wallet']]) {
+      const res = await a.call('POST', `/v1/minds/${mindId}/wallet/${path}`, {}, origin)
+      assert.equal(res.status, 200)
+      assert.deepEqual((await res.json()).transaction, { receiverId: 'outlayer.testnet', actions: [{ type: 'FunctionCall', params: { methodName, args: { wallet_pubkey: `ed25519:${wallet.address}` }, gas: '30000000000000', deposit: '0' } }] })
+    }
+    fakeOutlayer.byAccount(wallet.address).frozen = true
+    assert.equal((await (await a.call('GET', `/v1/minds/${mindId}/wallet`)).json()).wallet.frozen, true)
+
+    let res = await a.call('POST', `/v1/minds/${mindId}/wallet/freeze`, {}, { origin: 'https://evil.example' })
+    assert.equal(res.status, 403)
+    res = await a.call('DELETE', `/v1/minds/${mindId}/wallet`, undefined, origin)
+    assert.equal(res.status, 405)
+    fakeOutlayer.failNext = 1
+    res = await a.call('GET', `/v1/minds/${mindId}/wallet`)
+    assert.equal(res.status, 502)
+    assert.equal((await res.json()).error, 'outlayer_error')
   })
 })
