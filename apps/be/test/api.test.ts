@@ -8,6 +8,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { KeyPair, KeyPairSigner } from 'near-api-js'
 import { ENGINE_KEY, engine, fake } from './fake-engine.ts'
 import { fakeOutlayer, outlayerServer } from './fake-outlayer.ts'
+import { COMPOSIO_KEY, composioServer, fakeComposio } from './fake-composio.ts'
 
 await new Promise<void>((r) => engine.listen(0, r))
 process.env.ENGINE_URL = `http://127.0.0.1:${(engine.address() as AddressInfo).port}`
@@ -18,6 +19,9 @@ process.env.NEAR_RPC_URL = `${process.env.OUTLAYER_URL}/rpc`
 const demoWallet = fakeOutlayer.addWallet()
 process.env.DEMO_MODE = 'true'
 process.env.DEMO_OUTLAYER_API_KEY = demoWallet.key
+await new Promise<void>((r) => composioServer.listen(0, r))
+process.env.COMPOSIO_URL = `http://127.0.0.1:${(composioServer.address() as AddressInfo).port}`
+process.env.COMPOSIO_API_KEY = COMPOSIO_KEY
 process.env.DATABASE_URL ??= 'postgresql://hellonear:hellonear-dev-only@localhost:55432/hellonear'
 process.env.SECRETS_MASTER_KEY = randomBytes(32).toString('base64')
 process.env.FE_ORIGIN = 'http://localhost:3000'
@@ -47,6 +51,7 @@ after(async () => {
   await new Promise<void>((r) => server.close(() => r()))
   await new Promise<void>((r) => engine.close(() => r()))
   await new Promise<void>((r) => outlayerServer.close(() => r()))
+  await new Promise<void>((r) => composioServer.close(() => r()))
   await pool.end()
 })
 
@@ -733,5 +738,85 @@ describe('judge try-out mode (#43)', () => {
     const left = (await query('select id from users where id = any($1)', [[d.user.id, real.id, fresh.user.id]])).map((r) => r.id).sort()
     assert.deepEqual(left, [real.id, fresh.user.id].sort())
     assert.equal((await d.call('GET', '/v1/me')).status, 401)
+  })
+})
+
+describe('app connections through Composio (#13)', () => {
+  test('connect Gmail: Connect Link for this user, pending, then connected; no Composio ids or tokens leave the backend', async () => {
+    const a = await signIn()
+    const { user } = await (await a.call('GET', '/v1/me')).json()
+
+    let res = await a.call('GET', '/v1/connections')
+    assert.equal(res.status, 200)
+    assert.deepEqual((await res.json()).connections, [{ toolkit: 'gmail', status: 'not_connected' }])
+
+    res = await a.call('POST', '/v1/connections/gmail', {}, { origin: 'http://localhost:3000' })
+    assert.equal(res.status, 200, await res.clone().text())
+    const { redirectUrl } = await res.json()
+    assert.match(redirectUrl, /^https:\/\//)
+    const session = fakeComposio.requests.findLast((r) => r.path === '/tool_router/session')!
+    assert.equal(session.body.user_id, user.id)
+    assert.deepEqual(session.body.toolkits, { enable: ['gmail'] })
+    const link = fakeComposio.requests.findLast((r) => r.path.endsWith('/link'))!
+    assert.equal(link.body.callback_url, 'http://localhost:3000/connections?toolkit=gmail')
+
+    res = await a.call('GET', '/v1/connections')
+    const pending = (await res.json()).connections[0]
+    assert.equal(pending.status, 'pending')
+    assert.deepEqual(Object.keys(pending).sort(), ['since', 'status', 'toolkit'])
+
+    // A second attempt replaces the unfinished one: one connection per user and toolkit.
+    res = await a.call('POST', '/v1/connections/gmail', {}, { origin: 'http://localhost:3000' })
+    assert.equal(res.status, 200)
+    assert.equal(fakeComposio.accounts.filter((x) => x.user_id === user.id).length, 1)
+
+    fakeComposio.activate(user.id)
+    res = await a.call('GET', '/v1/connections')
+    assert.equal((await res.json()).connections[0].status, 'connected')
+    res = await a.call('POST', '/v1/connections/gmail', {}, { origin: 'http://localhost:3000' })
+    assert.equal(res.status, 409)
+    assert.equal((await res.json()).error, 'already_connected')
+
+    // Another user neither sees nor deletes it.
+    const b = await signIn()
+    res = await b.call('GET', '/v1/connections')
+    assert.equal((await res.json()).connections[0].status, 'not_connected')
+    res = await b.call('DELETE', '/v1/connections/gmail', undefined, { origin: 'http://localhost:3000' })
+    assert.equal(res.status, 404)
+    assert.equal(fakeComposio.accounts.filter((x) => x.user_id === user.id).length, 1)
+
+    res = await a.call('DELETE', '/v1/connections/gmail', undefined, { origin: 'http://localhost:3000' })
+    assert.equal(res.status, 204)
+    assert.equal(fakeComposio.accounts.filter((x) => x.user_id === user.id).length, 0)
+    res = await a.call('GET', '/v1/connections')
+    assert.equal((await res.json()).connections[0].status, 'not_connected')
+  })
+
+  test('unknown toolkit, wrong method, CSRF, Composio failure and no key', async () => {
+    const a = await signIn()
+    let res = await a.call('POST', '/v1/connections/slack', {}, { origin: 'http://localhost:3000' })
+    assert.equal(res.status, 404)
+    assert.equal((await res.json()).error, 'unknown_toolkit')
+    res = await a.call('PUT', '/v1/connections/gmail', {}, { origin: 'http://localhost:3000' })
+    assert.equal(res.status, 405)
+    res = await a.call('POST', '/v1/connections/gmail', {}, { origin: 'https://evil.example' })
+    assert.equal(res.status, 403)
+    res = await client()('GET', '/v1/connections')
+    assert.equal(res.status, 401)
+
+    fakeComposio.failNext = 1
+    res = await a.call('GET', '/v1/connections')
+    assert.equal(res.status, 502)
+    assert.equal((await res.json()).error, 'composio_error')
+
+    const key = config.composioApiKey
+    config.composioApiKey = ''
+    try {
+      res = await a.call('GET', '/v1/connections')
+      assert.equal(res.status, 503)
+      assert.equal((await res.json()).error, 'composio_not_configured')
+    } finally {
+      config.composioApiKey = key
+    }
   })
 })
