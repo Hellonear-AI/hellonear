@@ -6,7 +6,7 @@ import { config } from './config.ts'
 import { newId } from './crypto.ts'
 import { migrate, query } from './db.ts'
 import { engineFetch, engineJson, skills, templates } from './engine.ts'
-import { HttpError, assertSameOrigin, cors, readBody, sendJson, setCookie } from './http.ts'
+import { HttpError, assertSameOrigin, cors, readBody, sendJson, setCookie, isLoopback } from './http.ts'
 import { TOOLKITS, connect, disconnect, listConnections, toolkitSchema } from './connections.ts'
 import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, requireMind, updateMind, updateMindSchema } from './minds.ts'
 import { getRun, listRuns, mindEvents, pendingApprovals, relayRun, runEvents } from './runs.ts'
@@ -73,7 +73,9 @@ export const server = createServer(async (req, res) => {
       return res.writeHead(204).end()
     }
 
-    // Internal routes for the engine's payment tools (#42, option B): engine key + wallet token, no session.
+    // Internal routes for the engine's payment tools (#42, option B): loopback only (the engine runs next to the
+    // backend; anything through the tunnel gets 404), then engine key + wallet token, no session.
+    if (path.startsWith('/internal/') && !isLoopback(req.socket.remoteAddress)) throw new HttpError(404, 'not_found')
     const internal = path.match(/^\/internal\/v1\/wallet\/(send_payment|balance|payments)$/)
     if (internal) {
       if (!sameSecret(String(req.headers['x-engine-key'] ?? ''), config.engineApiKey)) throw new HttpError(401, 'unauthorized')
