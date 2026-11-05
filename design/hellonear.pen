@@ -200,6 +200,90 @@
     },
     {
       "type": "frame",
+      "id": "EWLDZ",
+      "x": 5045,
+      "y": -1080,
+      "name": "Char Reference",
+      "clip": true,
+      "width": 5358,
+      "height": 3944,
+      "fill": "#FFFFFF",
+      "layout": "none",
+      "children": [
+        {
+          "type": "rectangle",
+          "id": "gcwRh",
+          "x": 41,
+          "y": 51,
+          "fill": {
+            "type": "image",
+            "enabled": true,
+            "url": "hellonear-assets/char-ref/image.png",
+            "mode": "cover"
+          },
+          "width": 969,
+          "height": 1817
+        },
+        {
+          "type": "rectangle",
+          "id": "rQbeT",
+          "x": 1010,
+          "y": 96,
+          "fill": {
+            "type": "image",
+            "enabled": true,
+            "url": "hellonear-assets/char-ref/image-1.png",
+            "mode": "cover"
+          },
+          "width": 1233,
+          "height": 1772
+        },
+        {
+          "type": "rectangle",
+          "id": "skUUo",
+          "x": 2316,
+          "y": 96,
+          "fill": {
+            "type": "image",
+            "enabled": true,
+            "url": "hellonear-assets/char-ref/image-2.png",
+            "mode": "cover"
+          },
+          "width": 1000,
+          "height": 1500
+        },
+        {
+          "type": "rectangle",
+          "id": "edkHI",
+          "x": 3408,
+          "y": 136,
+          "fill": {
+            "type": "image",
+            "enabled": true,
+            "url": "hellonear-assets/char-ref/image-3.png",
+            "mode": "cover"
+          },
+          "width": 1051,
+          "height": 2022
+        },
+        {
+          "type": "rectangle",
+          "id": "m6itcz",
+          "x": 2316,
+          "y": 1682,
+          "fill": {
+            "type": "image",
+            "enabled": true,
+            "url": "hellonear-assets/char-ref/image-4.png",
+            "mode": "cover"
+          },
+          "width": 1000,
+          "height": 1599
+        }
+      ]
+    },
+    {
+      "type": "frame",
       "id": "JhySz",
       "x": -398,
       "y": 3064,
@@ -7463,22 +7547,26 @@
                   "name": "Mind Avatar",
                   "width": 36,
                   "height": 36,
-                  "fill": "$accent",
+                  "fill": [
+                    "$surface-muted",
+                    {
+                      "type": "image",
+                      "enabled": true,
+                      "url": "generated-11.png",
+                      "mode": "cover",
+                      "transform": [
+                        2.708,
+                        0,
+                        0,
+                        1.477,
+                        -0.856,
+                        -0.02
+                      ]
+                    }
+                  ],
                   "cornerRadius": "$radius-full",
                   "justifyContent": "center",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "n3xPj",
-                      "name": "Mind Avatar Icon",
-                      "width": 18,
-                      "height": 18,
-                      "icon": "wallet",
-                      "library": "lucide",
-                      "fill": "$on-accent"
-                    }
-                  ]
+                  "alignItems": "center"
                 },
                 {
                   "type": "frame",
@@ -8578,47 +8666,27 @@
                   "type": "frame",
                   "id": "jmpVy",
                   "name": "Character Art",
+                  "clip": true,
                   "width": "fill_container",
                   "height": 220,
                   "fill": "$info-soft",
                   "cornerRadius": "$radius-lg",
-                  "layout": "vertical",
-                  "gap": 8,
-                  "justifyContent": "center",
-                  "alignItems": "center",
+                  "layout": "none",
                   "children": [
                     {
-                      "type": "frame",
-                      "id": "rLSGN",
-                      "name": "Character Placeholder",
-                      "width": 88,
-                      "height": 88,
-                      "fill": "$surface",
-                      "cornerRadius": "$radius-full",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "XG2EZ",
-                          "name": "Icon",
-                          "width": 36,
-                          "height": 36,
-                          "icon": "sparkles",
-                          "library": "lucide",
-                          "fill": "$info"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "text",
-                      "id": "cwinY",
-                      "name": "Art Note",
-                      "fill": "$info",
-                      "content": "Character art (#13)",
-                      "fontFamily": "$font-body",
-                      "fontSize": 11,
-                      "fontWeight": "normal"
+                      "type": "rectangle",
+                      "id": "c2uVu",
+                      "x": 0,
+                      "y": 0,
+                      "name": "General Assistant Character",
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "generated-12.png",
+                        "mode": "cover"
+                      },
+                      "width": 408,
+                      "height": 220
                     }
                   ]
                 },
@@ -8870,47 +8938,27 @@
                   "type": "frame",
                   "id": "GEY2K",
                   "name": "Character Art",
+                  "clip": true,
                   "width": "fill_container",
                   "height": 220,
                   "fill": "$accent-soft",
                   "cornerRadius": "$radius-lg",
-                  "layout": "vertical",
-                  "gap": 8,
-                  "justifyContent": "center",
-                  "alignItems": "center",
+                  "layout": "none",
                   "children": [
                     {
-                      "type": "frame",
-                      "id": "rhQu7",
-                      "name": "Character Placeholder",
-                      "width": 88,
-                      "height": 88,
-                      "fill": "$surface",
-                      "cornerRadius": "$radius-full",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "CsYY9",
-                          "name": "Icon",
-                          "width": 36,
-                          "height": 36,
-                          "icon": "wallet",
-                          "library": "lucide",
-                          "fill": "$accent-strong"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "text",
-                      "id": "E6fsvX",
-                      "name": "Art Note",
-                      "fill": "$accent-strong",
-                      "content": "Character art (#13)",
-                      "fontFamily": "$font-body",
-                      "fontSize": 11,
-                      "fontWeight": "normal"
+                      "type": "rectangle",
+                      "id": "hI1y6",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Payments Mind Character",
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "generated-11.png",
+                        "mode": "cover"
+                      },
+                      "width": 408,
+                      "height": 220
                     }
                   ]
                 },
@@ -9235,47 +9283,27 @@
                   "type": "frame",
                   "id": "rHS1V",
                   "name": "Character Art",
+                  "clip": true,
                   "width": "fill_container",
                   "height": 220,
                   "fill": "$warning-soft",
                   "cornerRadius": "$radius-lg",
-                  "layout": "vertical",
-                  "gap": 8,
-                  "justifyContent": "center",
-                  "alignItems": "center",
+                  "layout": "none",
                   "children": [
                     {
-                      "type": "frame",
-                      "id": "nho85",
-                      "name": "Character Placeholder",
-                      "width": 88,
-                      "height": 88,
-                      "fill": "$surface",
-                      "cornerRadius": "$radius-full",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "vDxXZ",
-                          "name": "Icon",
-                          "width": 36,
-                          "height": 36,
-                          "icon": "mail",
-                          "library": "lucide",
-                          "fill": "$warning"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "text",
-                      "id": "Flyzb",
-                      "name": "Art Note",
-                      "fill": "$warning",
-                      "content": "Character art (#13)",
-                      "fontFamily": "$font-body",
-                      "fontSize": 11,
-                      "fontWeight": "normal"
+                      "type": "rectangle",
+                      "id": "rMAQl",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Email Manager Character",
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "generated-13.png",
+                        "mode": "cover"
+                      },
+                      "width": 408,
+                      "height": 220
                     }
                   ]
                 },
@@ -24992,47 +25020,27 @@
                   "type": "frame",
                   "id": "CqL9T",
                   "name": "Character Art",
+                  "clip": true,
                   "width": "fill_container",
                   "height": 220,
                   "fill": "$info-soft",
                   "cornerRadius": "$radius-lg",
-                  "layout": "vertical",
-                  "gap": 8,
-                  "justifyContent": "center",
-                  "alignItems": "center",
+                  "layout": "none",
                   "children": [
                     {
-                      "type": "frame",
-                      "id": "fQCFh",
-                      "name": "Character Placeholder",
-                      "width": 88,
-                      "height": 88,
-                      "fill": "$surface",
-                      "cornerRadius": "$radius-full",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "Rwo1u",
-                          "name": "Icon",
-                          "width": 36,
-                          "height": 36,
-                          "icon": "sparkles",
-                          "library": "lucide",
-                          "fill": "$info"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "text",
-                      "id": "NAdCf",
-                      "name": "Art Note",
-                      "fill": "$info",
-                      "content": "Character art (#13)",
-                      "fontFamily": "$font-body",
-                      "fontSize": 11,
-                      "fontWeight": "normal"
+                      "type": "rectangle",
+                      "id": "WrJhA",
+                      "x": 0,
+                      "y": 0,
+                      "name": "General Assistant Character",
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "generated-12.png",
+                        "mode": "cover"
+                      },
+                      "width": 408,
+                      "height": 220
                     }
                   ]
                 },
@@ -25284,47 +25292,27 @@
                   "type": "frame",
                   "id": "P1opPW",
                   "name": "Character Art",
+                  "clip": true,
                   "width": "fill_container",
                   "height": 220,
                   "fill": "$accent-soft",
                   "cornerRadius": "$radius-lg",
-                  "layout": "vertical",
-                  "gap": 8,
-                  "justifyContent": "center",
-                  "alignItems": "center",
+                  "layout": "none",
                   "children": [
                     {
-                      "type": "frame",
-                      "id": "OWJBL",
-                      "name": "Character Placeholder",
-                      "width": 88,
-                      "height": 88,
-                      "fill": "$surface",
-                      "cornerRadius": "$radius-full",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "Ry8MD",
-                          "name": "Icon",
-                          "width": 36,
-                          "height": 36,
-                          "icon": "wallet",
-                          "library": "lucide",
-                          "fill": "$accent-strong"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "text",
-                      "id": "bYqur",
-                      "name": "Art Note",
-                      "fill": "$accent-strong",
-                      "content": "Character art (#13)",
-                      "fontFamily": "$font-body",
-                      "fontSize": 11,
-                      "fontWeight": "normal"
+                      "type": "rectangle",
+                      "id": "e9WMQe",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Payments Mind Character",
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "generated-11.png",
+                        "mode": "cover"
+                      },
+                      "width": 408,
+                      "height": 220
                     }
                   ]
                 },
@@ -25649,47 +25637,27 @@
                   "type": "frame",
                   "id": "yDfHs",
                   "name": "Character Art",
+                  "clip": true,
                   "width": "fill_container",
                   "height": 220,
                   "fill": "$warning-soft",
                   "cornerRadius": "$radius-lg",
-                  "layout": "vertical",
-                  "gap": 8,
-                  "justifyContent": "center",
-                  "alignItems": "center",
+                  "layout": "none",
                   "children": [
                     {
-                      "type": "frame",
-                      "id": "N0pjn",
-                      "name": "Character Placeholder",
-                      "width": 88,
-                      "height": 88,
-                      "fill": "$surface",
-                      "cornerRadius": "$radius-full",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "aTyUT",
-                          "name": "Icon",
-                          "width": 36,
-                          "height": 36,
-                          "icon": "mail",
-                          "library": "lucide",
-                          "fill": "$warning"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "text",
-                      "id": "ubSBp",
-                      "name": "Art Note",
-                      "fill": "$warning",
-                      "content": "Character art (#13)",
-                      "fontFamily": "$font-body",
-                      "fontSize": 11,
-                      "fontWeight": "normal"
+                      "type": "rectangle",
+                      "id": "t1l8sF",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Email Manager Character",
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "generated-13.png",
+                        "mode": "cover"
+                      },
+                      "width": 408,
+                      "height": 220
                     }
                   ]
                 },
@@ -40792,6 +40760,523 @@
                           "fontFamily": "$font-body",
                           "fontSize": 13,
                           "fontWeight": "500"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "wfX5o",
+      "x": 5045,
+      "y": 12640,
+      "name": "Mind Characters v0.3",
+      "theme": {
+        "mode": "light"
+      },
+      "width": 2200,
+      "fill": "$bg",
+      "layout": "vertical",
+      "gap": 48,
+      "padding": 80,
+      "children": [
+        {
+          "type": "frame",
+          "id": "gYg3E",
+          "name": "Header",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 10,
+          "children": [
+            {
+              "type": "text",
+              "id": "K7v4PU",
+              "name": "Eyebrow",
+              "fill": "$text-tertiary",
+              "content": "HELLONEAR · MIND CHARACTERS · v0.3 DRAFT (#13)",
+              "fontFamily": "$font-body",
+              "fontSize": 12,
+              "fontWeight": "500",
+              "letterSpacing": 1.5
+            },
+            {
+              "type": "text",
+              "id": "bRElL",
+              "name": "Title",
+              "fill": "$text-primary",
+              "content": "Cloud head, deadpan eyes, lime beak",
+              "fontFamily": "$font-heading",
+              "fontSize": 56,
+              "fontWeight": "500",
+              "letterSpacing": -2
+            },
+            {
+              "type": "text",
+              "id": "QXI0E",
+              "name": "Subtitle",
+              "fill": "$text-secondary",
+              "textGrowth": "fixed-width",
+              "width": 960,
+              "content": "Inspired by big-head designer toys, drawn our own way: a puffy cloud head, a small lime beak and the HelloNear sprout. Outfits change per Mind.",
+              "lineHeight": 1.5,
+              "fontFamily": "$font-body",
+              "fontSize": 18,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "oSxFK",
+          "name": "1. Base color",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 20,
+          "children": [
+            {
+              "type": "frame",
+              "id": "JVHQJ",
+              "name": "Heading",
+              "width": "fill_container",
+              "stroke": "$border",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                0,
+                0,
+                12,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "L2haA0",
+                  "name": "Title",
+                  "fill": "$text-primary",
+                  "content": "1. Base color",
+                  "fontFamily": "$font-body",
+                  "fontSize": 24,
+                  "fontWeight": "500",
+                  "letterSpacing": -0.5
+                },
+                {
+                  "type": "text",
+                  "id": "P9KU1",
+                  "name": "Sub",
+                  "fill": "$text-secondary",
+                  "content": "Same shape, two colors. Charcoal reads strong on light screens; cream feels softer.",
+                  "fontFamily": "$font-body",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "oLmO7",
+              "name": "1. Base color Row",
+              "width": "fill_container",
+              "gap": 24,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "x6iiHB",
+                  "name": "Charcoal Card",
+                  "width": "fill_container",
+                  "fill": "$surface",
+                  "cornerRadius": "$radius-xl",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 14,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "arv2m",
+                      "name": "Charcoal Art",
+                      "width": "fill_container",
+                      "height": 520,
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "generated-10.png",
+                        "mode": "cover"
+                      },
+                      "cornerRadius": "$radius-lg"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "mHFqS",
+                      "name": "Text",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "padding": [
+                        2,
+                        8,
+                        8,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "cnovM",
+                          "name": "Name",
+                          "fill": "$text-primary",
+                          "content": "Charcoal",
+                          "fontFamily": "$font-body",
+                          "fontSize": 18,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "v1PCx",
+                          "name": "Desc",
+                          "fill": "$text-secondary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Strong and graphic. Outfit colors pop on it.",
+                          "fontFamily": "$font-body",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "dlk5h",
+                  "name": "Cream Card",
+                  "width": "fill_container",
+                  "fill": "$surface",
+                  "cornerRadius": "$radius-xl",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 14,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "H36Ic9",
+                      "name": "Cream Art",
+                      "width": "fill_container",
+                      "height": 520,
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "generated-14.png",
+                        "mode": "cover"
+                      },
+                      "cornerRadius": "$radius-lg"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "V9O7e",
+                      "name": "Text",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "padding": [
+                        2,
+                        8,
+                        8,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "cxyoR",
+                          "name": "Name",
+                          "fill": "$text-primary",
+                          "content": "Cream",
+                          "fontFamily": "$font-body",
+                          "fontSize": 18,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "CpQNB",
+                          "name": "Desc",
+                          "fill": "$text-secondary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Soft and warm. Matches the Stone palette.",
+                          "fontFamily": "$font-body",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "M1WASB",
+          "name": "2. The three Minds (charcoal)",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 20,
+          "children": [
+            {
+              "type": "frame",
+              "id": "CLVoF",
+              "name": "Heading",
+              "width": "fill_container",
+              "stroke": "$border",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                0,
+                0,
+                12,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ym8Di",
+                  "name": "Title",
+                  "fill": "$text-primary",
+                  "content": "2. The three Minds (charcoal)",
+                  "fontFamily": "$font-body",
+                  "fontSize": 24,
+                  "fontWeight": "500",
+                  "letterSpacing": -0.5
+                },
+                {
+                  "type": "text",
+                  "id": "r2NWF",
+                  "name": "Sub",
+                  "fill": "$text-secondary",
+                  "content": "Outfit color tells them apart: lime for help, mustard for money, orange for mail.",
+                  "fontFamily": "$font-body",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "m2zdQS",
+              "name": "2. The three Minds (charcoal) Row",
+              "width": "fill_container",
+              "gap": 24,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "dbekM",
+                  "name": "General Assistant · lime Card",
+                  "width": "fill_container",
+                  "fill": "$surface",
+                  "cornerRadius": "$radius-xl",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 14,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "X5xkmN",
+                      "name": "General Assistant · lime Art",
+                      "width": "fill_container",
+                      "height": 520,
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "generated-12.png",
+                        "mode": "cover"
+                      },
+                      "cornerRadius": "$radius-lg"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "LDX2q",
+                      "name": "Text",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "padding": [
+                        2,
+                        8,
+                        8,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "in0cJ",
+                          "name": "Name",
+                          "fill": "$text-primary",
+                          "content": "General Assistant · lime",
+                          "fontFamily": "$font-body",
+                          "fontSize": 18,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Hd528",
+                          "name": "Desc",
+                          "fill": "$text-secondary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Helpful and easygoing.",
+                          "fontFamily": "$font-body",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "bnrAt",
+                  "name": "Payments Mind · mustard Card",
+                  "width": "fill_container",
+                  "fill": "$surface",
+                  "cornerRadius": "$radius-xl",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 14,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "z2RxW0",
+                      "name": "Payments Mind · mustard Art",
+                      "width": "fill_container",
+                      "height": 520,
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "generated-11.png",
+                        "mode": "cover"
+                      },
+                      "cornerRadius": "$radius-lg"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Qc9q0",
+                      "name": "Text",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "padding": [
+                        2,
+                        8,
+                        8,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "FycDC",
+                          "name": "Name",
+                          "fill": "$text-primary",
+                          "content": "Payments Mind · mustard",
+                          "fontFamily": "$font-body",
+                          "fontSize": 18,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Iuxk1",
+                          "name": "Desc",
+                          "fill": "$text-secondary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Careful with money. Not easily fooled.",
+                          "fontFamily": "$font-body",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "ZpmFA",
+                  "name": "Email Manager · orange Card",
+                  "width": "fill_container",
+                  "fill": "$surface",
+                  "cornerRadius": "$radius-xl",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 14,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "r7Xqz",
+                      "name": "Email Manager · orange Art",
+                      "width": "fill_container",
+                      "height": 520,
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "generated-13.png",
+                        "mode": "cover"
+                      },
+                      "cornerRadius": "$radius-lg"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "k9KZEY",
+                      "name": "Text",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "padding": [
+                        2,
+                        8,
+                        8,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "X3R8vN",
+                          "name": "Name",
+                          "fill": "$text-primary",
+                          "content": "Email Manager · orange",
+                          "fontFamily": "$font-body",
+                          "fontSize": 18,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "ZHGlE",
+                          "name": "Desc",
+                          "fill": "$text-secondary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Always delivering, slightly tired of spam.",
+                          "fontFamily": "$font-body",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
                         }
                       ]
                     }
