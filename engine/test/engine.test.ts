@@ -68,6 +68,17 @@ describe('engine HTTP API', () => {
     assert.equal(email.skills.find((s: Ev) => s.skillId === 'email-triage').status, 'blocked')
   })
 
+  test('skills endpoint lists the whole catalog for the backend and the Builder', async () => {
+    assert.equal((await fetch(base + '/v1/skills')).status, 401)
+    const res = await fetch(base + '/v1/skills', { headers: { 'x-engine-key': key } })
+    assert.equal(res.status, 200)
+    const { skills } = await res.json()
+    assert.deepEqual(skills.map((s: Ev) => s.skillId), ['daily-planner', 'email-triage', 'http-request', 'near-account', 'payments'])
+    assert.deepEqual(skills.find((s: Ev) => s.skillId === 'near-account'), {
+      skillId: 'near-account', description: skills.find((s: Ev) => s.skillId === 'near-account').description, status: 'available', connections: [], tools: ['near_view_account'],
+    })
+  })
+
   test('persona comes from the request and can change without a restart', async () => {
     const a = await events(await post('/v1/minds/persona/chat', { userId, threadId: randomUUID(), message: 'Say hello in one short sentence.', mind: mind('Penny') }))
     assert.match(finalText(a), /Penny/)

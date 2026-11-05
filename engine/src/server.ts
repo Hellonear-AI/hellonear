@@ -8,7 +8,7 @@ import { createNormalizer, createWorkflowNormalizer } from './events.ts'
 import { MIND_KEY, UNATTENDED_KEY, mastra, storage } from './mastra.ts'
 import { resourceId, runRequestSchema, type Mind } from './mind.ts'
 import { SECRETS_KEY, redact, type Secret } from './secrets.ts'
-import { missingTools, usableSkills } from './skills.ts'
+import { missingTools, skillCatalogSummaries, usableSkills } from './skills.ts'
 import { attestationStatus, modelInfo, verifyCompletions, warmAttestation } from './models.ts'
 import { summarize } from './verify.ts'
 import { templateSummaries, templates } from './templates.ts'
@@ -144,6 +144,7 @@ export const server = createServer(async (req, res) => {
     if (!authorized(req)) return sendJson(res, 401, { error: 'unauthorized' })
 
     if (req.method === 'GET' && url.pathname === '/v1/templates') return sendJson(res, 200, { templates: templateSummaries() })
+    if (req.method === 'GET' && url.pathname === '/v1/skills') return sendJson(res, 200, { skills: skillCatalogSummaries() })
 
     const agent = mastra.getAgent('mind')
 

@@ -29,6 +29,7 @@ Backend API: Postgres + pgvector, NEP-413 login, run/event storage + SSE, encryp
 - Deleting a Mind deletes its engine workflows first (which removes their Autopilot schedules).
 - Schema and events follow `docs/api-contract.md` (#7).
 - Builder workflows (#20) are stored by the engine; the backend proxies `…/workflows` calls after the ownership check and sends the Mind config and secrets on each run, as for chat.
+- Validate a Mind's skills against the engine's `GET /v1/skills` (the whole catalog), not the skills templates offer: `near-account` and `http-request` are in no template but the Visual Builder needs them.
 - Autopilot (#21): `PUT …/workflows/{id}/autopilot` stores a copy of the Mind config in the engine. **Send it again for every Autopilot workflow of a Mind whenever that Mind changes** (persona, model, skills); a `409` means the engine paused it, show `pausedFor`. Scheduled runs get no secrets yet (`docs/api-contract.md` §6 q4).
 
 ## Commands

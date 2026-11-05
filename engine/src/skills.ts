@@ -61,6 +61,17 @@ export function usableSkills(skillIds: string[]): SkillEntry[] {
   return skillIds.map((id) => skillCatalog.get(id)).filter((s): s is SkillEntry => !!s && s.status !== 'blocked')
 }
 
+// How a skill is shown to the UI: status and connections, so blocked or simulated features are visible, not hidden.
+export function skillSummary(id: string) {
+  const s = skillCatalog.get(id)
+  if (!s) throw new Error(`unknown skill ${id}`)
+  return { skillId: id, description: s.description, status: s.status, connections: s.connections, ...(s.note ? { note: s.note } : {}) }
+}
+
+// Every skill a Mind may equip, not only those a template starts with (e.g. the Visual Builder's
+// near-account and http-request). Blocked skills are listed so the UI can say why they are off.
+export const skillCatalogSummaries = () => [...skillCatalog.values()].map((s) => ({ ...skillSummary(s.name), tools: s.tools }))
+
 // Workflow tools the Mind has not equipped (skills can be unequipped after a workflow is saved).
 export function missingTools(skillIds: string[], tools: string[]): string[] {
   const allowed = Object.keys(toolsFor(usableSkills(skillIds).flatMap((s) => s.tools), { unattended: true }))
