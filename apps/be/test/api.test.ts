@@ -15,6 +15,9 @@ process.env.ENGINE_API_KEY = ENGINE_KEY
 await new Promise<void>((r) => outlayerServer.listen(0, r))
 process.env.OUTLAYER_URL = `http://127.0.0.1:${(outlayerServer.address() as AddressInfo).port}`
 process.env.NEAR_RPC_URL = `${process.env.OUTLAYER_URL}/rpc`
+const demoWallet = fakeOutlayer.addWallet()
+process.env.DEMO_MODE = 'true'
+process.env.DEMO_OUTLAYER_API_KEY = demoWallet.key
 process.env.DATABASE_URL ??= 'postgresql://hellonear:hellonear-dev-only@localhost:55432/hellonear'
 process.env.SECRETS_MASTER_KEY = randomBytes(32).toString('base64')
 process.env.FE_ORIGIN = 'http://localhost:3000'
@@ -420,7 +423,7 @@ describe('Mind wallets (#14, #15)', () => {
     const text = await res.text()
     const { wallet } = JSON.parse(text)
     assert.match(wallet.address, /^[0-9a-f]{64}$/)
-    assert.deepEqual({ ...wallet, address: 'x' }, { address: 'x', balanceNear: '0', frozen: false, policy: null })
+    assert.deepEqual({ ...wallet, address: 'x' }, { address: 'x', shared: false, balanceNear: '0', frozen: false, policy: null })
     const w = fakeOutlayer.byAccount(wallet.address)
     assert.ok(!text.includes(w.key) && !text.includes('wk_') && !text.includes('handoff'))
     const [row] = await query('select key_ciphertext from mind_wallets where mind_id = $1', [mindId])
@@ -613,5 +616,122 @@ describe('payment tools through the backend (#42, option B)', () => {
     await a.call('DELETE', `/v1/minds/${mindId}`, undefined, origin)
     res = await engineCall('GET', '/internal/v1/wallet/balance', token)
     assert.equal(res.status, 404)
+  })
+})
+
+describe('judge try-out mode (#43)', () => {
+  const origin = { origin: 'http://localhost:3000' }
+  const ip = () => `198.51.100.${Math.floor(Math.random() * 250) + 1}`
+  async function demoSignIn(fromIp = ip()) {
+    const res = await client()('POST', '/v1/auth/demo', {}, { ...origin, 'cf-connecting-ip': fromIp })
+    assert.equal(res.status, 201, await res.clone().text())
+    const cookie = res.headers.get('set-cookie')!.split(';')[0]
+    const { user } = await res.json()
+    const call = client(cookie)
+    return { user, call: ((m, p, b, h = {}) => call(m, p, b, { 'cf-connecting-ip': fromIp, ...h })) as Client['call'] }
+  }
+  const lastChatBody = (mindId: string) => fake.requests.findLast((r) => r.path.endsWith(`/v1/minds/${mindId}/chat`))!.body
+
+  test('a demo session without a wallet; the engine is told; payments use the shared demo wallet', async () => {
+    const d = await demoSignIn()
+    assert.equal(d.user.demo, true)
+    assert.match(d.user.nearAccountId, /^demo:/)
+    assert.equal((await (await d.call('GET', '/v1/me')).json()).user.demo, true)
+    const mindId = (await (await d.call('POST', '/v1/minds', { templateId: 'payments-mind', name: 'Judge pay' }, origin)).json()).mind.id
+    await (await d.call('POST', `/v1/minds/${mindId}/chat`, { message: 'hi' }, origin)).text()
+    const body = lastChatBody(mindId)
+    assert.equal(body.demo, true)
+    assert.match(body.walletToken, /^wt_/)
+    assert.ok(!JSON.stringify(body).includes(demoWallet.key))
+    const { wallet } = await (await d.call('GET', `/v1/minds/${mindId}/wallet`)).json()
+    assert.equal(wallet.address, demoWallet.account)
+    assert.equal(wallet.shared, true)
+
+    // A wallet-login user's run carries no demo flag.
+    const a = await signIn()
+    const own = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Own' }, origin)).json()).mind.id
+    await (await a.call('POST', `/v1/minds/${own}/chat`, { message: 'hi' }, origin)).text()
+    assert.equal(lastChatBody(own).demo, undefined)
+  })
+
+  test('owner-only actions are refused for demo users', async () => {
+    const d = await demoSignIn()
+    const mindId = (await (await d.call('POST', '/v1/minds', { templateId: 'payments-mind', name: 'Judge' }, origin)).json()).mind.id
+    const cases: [string, string, unknown, string][] = [
+      ['PUT', '/v1/secrets/SHOP_KEY', { value: 'abcd1234', allowedHosts: ['api.shop.com'] }, 'secrets'],
+      ['POST', `/v1/minds/${mindId}/wallet`, {}, 'create_wallet'],
+      ['POST', `/v1/minds/${mindId}/wallet/policy`, { perTransactionNear: '0.05', whitelist: ['a.testnet'] }, 'set_policy'],
+      ['POST', `/v1/minds/${mindId}/wallet/freeze`, {}, 'freeze'],
+      ['PUT', `/v1/minds/${mindId}/workflows/daily-report/autopilot`, {}, 'autopilot'],
+    ]
+    for (const [method, path, body, action] of cases) {
+      const res = await d.call(method, path, body, origin)
+      assert.equal(res.status, 403, `${method} ${path}`)
+      assert.deepEqual(await res.json(), { error: 'demo_not_allowed', action })
+    }
+  })
+
+  test('at most 2 sent payments per demo user, then a recorded refusal without calling OutLayer', async () => {
+    const d = await demoSignIn()
+    const mindId = (await (await d.call('POST', '/v1/minds', { templateId: 'payments-mind', name: 'Judge cap' }, origin)).json()).mind.id
+    await (await d.call('POST', `/v1/minds/${mindId}/chat`, { message: 'pay' }, origin)).text()
+    const token = lastChatBody(mindId).walletToken
+    const pay = () => fetch(`${base}/internal/v1/wallet/send_payment`, { method: 'POST', headers: { 'x-engine-key': ENGINE_KEY, 'x-wallet-token': token, 'content-type': 'application/json' }, body: JSON.stringify({ to: 'shop.testnet', amountNear: '0.01' }) }).then((r) => r.json())
+    assert.equal((await pay()).status, 'sent')
+    assert.equal((await pay()).status, 'sent')
+    const before = fakeOutlayer.requests.filter((r) => r.path === '/wallet/v1/transfer').length
+    const third = await pay()
+    assert.equal(third.status, 'failed')
+    assert.match(third.message, /demo limit/)
+    assert.equal(fakeOutlayer.requests.filter((r) => r.path === '/wallet/v1/transfer').length, before)
+  })
+
+  test('run limit per demo user, sign-up limit per IP, off when DEMO_MODE is not set', async () => {
+    const { config } = await import('../src/config.ts')
+    const { resetDemoWindows } = await import('../src/demo.ts')
+    const saved = { ...config.demo }
+    try {
+      config.demo.runsPerUser = 1
+      const d = await demoSignIn()
+      const mindId = (await (await d.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Judge runs' }, origin)).json()).mind.id
+      let res = await d.call('POST', `/v1/minds/${mindId}/chat`, { message: 'one' }, origin)
+      assert.equal(res.status, 200)
+      await res.text()
+      res = await d.call('POST', `/v1/minds/${mindId}/chat`, { message: 'two' }, origin)
+      assert.equal(res.status, 429)
+      assert.deepEqual(await res.json(), { error: 'demo_run_limit', limit: 1 })
+
+      config.demo.signupsPerIpPerHour = 2
+      const fixed = ip()
+      await demoSignIn(fixed)
+      await demoSignIn(fixed)
+      res = await client()('POST', '/v1/auth/demo', {}, { ...origin, 'cf-connecting-ip': fixed })
+      assert.equal(res.status, 429)
+      assert.equal((await res.json()).error, 'demo_rate_limited')
+
+      config.demoMode = false
+      res = await client()('POST', '/v1/auth/demo', {}, { ...origin, 'cf-connecting-ip': ip() })
+      assert.equal(res.status, 404)
+    } finally {
+      Object.assign(config.demo, saved)
+      config.demoMode = true
+      resetDemoWindows()
+    }
+  })
+
+  test('demo users older than the retention are deleted with their Minds; others stay', async () => {
+    const { cleanupDemoUsers } = await import('../src/demo.ts')
+    const d = await demoSignIn()
+    const mindId = (await (await d.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Old judge' }, origin)).json()).mind.id
+    const a = await signIn()
+    const { user: real } = await (await a.call('GET', '/v1/me')).json()
+    await query(`update users set created_at = now() - interval '8 days' where id = any($1)`, [[d.user.id, real.id]])
+    const fresh = await demoSignIn()
+    const dropped: string[] = []
+    await cleanupDemoUsers(async (id) => { dropped.push(id) })
+    assert.ok(dropped.includes(mindId))
+    const left = (await query('select id from users where id = any($1)', [[d.user.id, real.id, fresh.user.id]])).map((r) => r.id).sort()
+    assert.deepEqual(left, [real.id, fresh.user.id].sort())
+    assert.equal((await d.call('GET', '/v1/me')).status, 401)
   })
 })
