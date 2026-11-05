@@ -33,6 +33,16 @@ Tokens live as variables in `hellonear.pen`, with a `mode` theme (`light`, `dark
 - Mind characters: do not copy HelloMinds/Animoca characters or their "collector toy box" look.
 - Copy follows `apps/landing/CLAUDE.md` (never "rejected on-chain"; "private" only for Confidential TEE models).
 
+## Mind characters (#13, v0.1 draft)
+
+Frame `Mind Characters v0.1` in `hellonear.pen`. One shared base character for every Mind; only the outfit and one prop change with its job.
+
+- Same for all: bean-shaped body, big head, short limbs, warm stone matte clay finish, small black eyes, pink blush, a lime sprout on the head (the HelloNear mark).
+- Per Mind: General Assistant wears a charcoal cardigan with lime buttons; Payments Mind a charcoal vest, wallet bag and lime padlock pin; Email Manager an amber mail cap and messenger bag.
+- Avoid: collector-toy look or packaging, fur or busy textures, logos or text on outfits, gradients behind characters in the app UI.
+- 3D (Three.js) is only considered for the landing page hero; in the app, characters are images and their use is up to `apps/fe`.
+- Character references live in `hellonear-assets/char-ref/` (gitignored).
+
 ## Copywriting (UX first, draft; Ancung may extend)
 
 - Write for the user, not the engineer. No technical words in the UI: say "Blocked" not `policy_denied`, "your limits are saved where your Mind can't change them" not "TEE-enforced policy", "sign with your wallet" not "NEP-413".
