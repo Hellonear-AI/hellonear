@@ -26,6 +26,8 @@ export const runRequestSchema = z.object({
   secrets: z.array(secretSchema).default([]),
   // Run-scoped token for the payment tools, only when the Mind has a wallet (#42). Never the wallet key.
   walletToken: walletTokenSchema.optional(),
+  // A judge try-out user (#43): email tools read the sample inbox, never Gmail.
+  demo: z.boolean().optional(),
 })
 
 export function buildInstructions(mind: Mind): string {
