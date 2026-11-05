@@ -8,7 +8,7 @@ Source of truth for HelloNear's visual design: design tokens, app screens, Mind 
 
 | Path | What |
 |---|---|
-| `hellonear.pen` | Main design file (pen.dev / Pencil). Frames: Design Reference, Font Reference, Design Tokens — Light, Design Tokens — Dark |
+| `hellonear.pen` | Main design file (pen.dev / Pencil). Frames: Design Reference, Font Reference, Design Tokens · Light, Design Tokens · Dark, and one frame per screen |
 | `hellonear-assets/` | Reference images (third-party, from Pinterest) used by the Design Reference and Font Reference frames. **Gitignored and kept on Nabil's machine only**, so those two frames look empty for everyone else. Never commit or ship them |
 
 `.pen` files are encrypted. Open them in pen.dev, or through the Pencil MCP tools; do not read or edit them as text.
@@ -32,3 +32,16 @@ Tokens live as variables in `hellonear.pen`, with a `mode` theme (`light`, `dark
 - Every screen must work in light and dark mode.
 - Mind characters: do not copy HelloMinds/Animoca characters or their "collector toy box" look.
 - Copy follows `apps/landing/CLAUDE.md` (never "rejected on-chain"; "private" only for Confidential TEE models).
+
+## Copywriting (UX first, draft; Ancung may extend)
+
+- Write for the user, not the engineer. No technical words in the UI: say "Blocked" not `policy_denied`, "your limits are saved where your Mind can't change them" not "TEE-enforced policy", "sign with your wallet" not "NEP-413".
+- **No em dashes (—).** Use a period, a comma, or a colon instead.
+- Be transparent: when something is blocked, waiting, or costs money, say what happened, why, and what the user can do next.
+- Short sentences, plain verbs, sentence case for buttons ("Connect wallet", "Allow").
+- Amounts always show the token (`2 NEAR`). Wallet addresses use the mono font.
+- Testnet is stated plainly: "Running on NEAR testnet. No real money."
+
+## Screens (v0.1, main states only)
+
+Login, Choose a Mind, Chat + Mind Graph, Skills, Skill permission, Wallet, Approvals + Freeze, Attack Playground, Connections, Builder, Autopilot. Edge states (offline, loading, empty, errors) come after the main screens are agreed.
