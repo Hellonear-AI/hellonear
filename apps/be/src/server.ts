@@ -14,7 +14,7 @@ import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema
 import { createWallet, freezeTransaction, getWallet, hasWallet, policySchema, policyTransaction } from './wallets.ts'
 import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
 import { issueWalletToken, verifyWalletToken } from './walletToken.ts'
-import { assertDemoRunAllowed, cleanupDemoUsers, createDemoUser, demoPaymentRefusal, denyDemo } from './demo.ts'
+import { assertDemoRunAllowed, cleanupDemoUsers, createDemoUser, demoPaymentCap, denyDemo } from './demo.ts'
 import type { User } from './auth.ts'
 import { timingSafeEqual } from 'node:crypto'
 import { autopilotSchema, deleteAllWorkflows, deleteAutopilot, putAutopilot, runWorkflowSchema, syncAutopilots, workflowIdSchema, workflowPath } from './workflows.ts'
@@ -81,7 +81,7 @@ export const server = createServer(async (req, res) => {
       await requireMind(userId, mindId)
       if (internal[1] === 'send_payment' && req.method === 'POST') {
         const [owner] = await query<{ is_demo: boolean }>('select is_demo from users where id = $1', [userId])
-        return sendJson(res, 200, await sendPayment(mindId, await readBody(req, sendPaymentSchema), { refuse: owner?.is_demo ? () => demoPaymentRefusal(userId) : undefined }))
+        return sendJson(res, 200, await sendPayment(mindId, await readBody(req, sendPaymentSchema), { cap: owner?.is_demo ? demoPaymentCap(userId) : undefined }))
       }
       if (internal[1] === 'balance' && req.method === 'GET') return sendJson(res, 200, await walletBalance(mindId))
       if (internal[1] === 'payments' && req.method === 'GET') return sendJson(res, 200, { payments: await listPayments(mindId, limitOf(url, 20, 100)) })

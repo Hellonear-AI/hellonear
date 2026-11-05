@@ -22,6 +22,12 @@ function hit(key: string, max: number, now = Date.now()): boolean {
   return true
 }
 export const resetDemoWindows = () => windows.clear()
+// Drops keys with no hit in the last hour, so one-off visitors do not stay in memory until a restart.
+export function sweepDemoWindows(now = Date.now()): number {
+  for (const [key, times] of windows) if (!times.some((t) => t > now - 3600_000)) windows.delete(key)
+  return windows.size
+}
+setInterval(sweepDemoWindows, 10 * 60_000).unref()
 
 export async function createDemoUser(req: IncomingMessage): Promise<{ user: User; token: string }> {
   if (!config.demoMode) throw new HttpError(404, 'not_found')
@@ -47,11 +53,8 @@ export function denyDemo(user: User, action: string) {
   if (user.demo) throw new HttpError(403, 'demo_not_allowed', { action })
 }
 
-// Sent payments per demo user, across their Minds (the shared demo wallet holds ~1 NEAR).
-export async function demoPaymentRefusal(userId: string): Promise<string | null> {
-  const [{ n }] = await query<{ n: number }>(`select count(*)::int as n from wallet_payments p join minds m on m.id = p.mind_id where m.user_id = $1 and p.status = 'sent'`, [userId])
-  return n >= config.demo.paymentsPerUser ? `demo limit: ${config.demo.paymentsPerUser} payments per visitor` : null
-}
+// The payment cap for a demo user, enforced in sendPayment (src/payments.ts) under a per-user lock.
+export const demoPaymentCap = (userId: string) => ({ userId, max: config.demo.paymentsPerUser, message: `demo limit: ${config.demo.paymentsPerUser} payments per visitor` })
 
 // Deletes demo users older than the retention (their Minds, runs, sessions cascade). `dropMind` removes what the
 // engine stores for a Mind (workflows, schedules) first.
