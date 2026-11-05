@@ -24,13 +24,18 @@ async function finish(id: string, status: PaymentStatus, fields: { txHash?: stri
     [id, status, fields.txHash ?? null, fields.requestId ?? null, fields.message?.slice(0, 500) ?? null])
 }
 
-export async function sendPayment(mindId: string, body: z.infer<typeof sendPaymentSchema>, opts: { allowSend?: () => Promise<void> } = {}): Promise<PaymentResult> {
+// `refuse` returns a reason to stop before OutLayer (e.g. the demo cap); it is recorded as a failed payment.
+export async function sendPayment(mindId: string, body: z.infer<typeof sendPaymentSchema>, opts: { refuse?: () => Promise<string | null> } = {}): Promise<PaymentResult> {
   const { key } = await keyOf(mindId)
-  await opts.allowSend?.()
   const id = newId('pay')
   const amount = toYocto(body.amountNear)
   await query('insert into wallet_payments (id, mind_id, to_account, amount_yocto, status) values ($1, $2, $3, $4, $5)', [id, mindId, body.to, amount.toString(), 'pending'])
   const base = { paymentId: id, to: body.to, amountNear: toNear(amount) }
+  const reason = await opts.refuse?.()
+  if (reason) {
+    await finish(id, 'failed', { message: reason })
+    return { ...base, status: 'failed', message: reason }
+  }
 
   let out: { status: number; body: any }
   try {
@@ -74,10 +79,10 @@ export async function sendPayment(mindId: string, body: z.infer<typeof sendPayme
 }
 
 export async function walletBalance(mindId: string): Promise<{ address: string; balanceNear: string }> {
-  const { r, key } = await keyOf(mindId)
+  const { address, key } = await keyOf(mindId)
   const out = await outlayerRaw('GET', '/wallet/v1/balance?chain=near', key)
   if (out.status !== 200) throw new HttpError(502, 'outlayer_error', { outlayerStatus: out.status })
-  return { address: r.near_account_id, balanceNear: toNear(out.body?.balance ?? '0') }
+  return { address, balanceNear: toNear(out.body?.balance ?? '0') }
 }
 
 export async function listPayments(mindId: string, limit = 20) {

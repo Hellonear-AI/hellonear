@@ -30,3 +30,9 @@ Rollback: `mv /opt/hellonear/app /opt/hellonear/release-bad && mv /opt/hellonear
 Logs: `journalctl -u hellonear-engine -u hellonear-be -f`.
 
 Deploying needs Axel's approval each time (root `CLAUDE.md`).
+
+## Watching the NEAR AI credit and the demo wallet (#43)
+
+- Each finished run logs one line: `journalctl -u hellonear-be | grep 'run usage'` (tokens and cost, no content).
+- Totals: `sudo -u postgres psql hellonear -c "select count(*), sum(cost_usd) from runs where started_at > now() - interval '1 day'"`.
+- Demo wallet payments: `sudo -u postgres psql hellonear -c "select status, count(*) from wallet_payments group by 1"`.

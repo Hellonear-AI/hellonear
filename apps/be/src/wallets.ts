@@ -78,13 +78,28 @@ async function row(mindId: string): Promise<Row | null> {
   const [r] = await query<Row>('select mind_id, wallet_id, near_account_id, key_ciphertext from mind_wallets where mind_id = $1', [mindId])
   return r ?? null
 }
+// Judge try-out mode (#43): every demo user's Mind pays from one shared demo wallet (DEMO_OUTLAYER_API_KEY).
+let demoWallet: { walletId: string; address: string } | undefined
+async function isDemoMind(mindId: string): Promise<boolean> {
+  const [r] = await query<{ is_demo: boolean }>('select u.is_demo from minds m join users u on u.id = m.user_id where m.id = $1', [mindId])
+  return r?.is_demo === true
+}
+
 export async function hasWallet(mindId: string): Promise<boolean> {
+  if (await isDemoMind(mindId)) return config.demoWalletKey !== ''
   return (await row(mindId)) !== null
 }
-export async function keyOf(mindId: string): Promise<{ r: Row; key: string }> {
+
+export type WalletKey = { walletId: string; address: string; key: string; shared: boolean }
+export async function keyOf(mindId: string): Promise<WalletKey> {
+  if (await isDemoMind(mindId)) {
+    if (!config.demoWalletKey) throw new HttpError(404, 'no_wallet')
+    demoWallet ??= await outlayer('GET', '/wallet/v1/address?chain=near', config.demoWalletKey).then((a) => ({ walletId: a.wallet_id, address: a.address }))
+    return { ...demoWallet!, key: config.demoWalletKey, shared: true }
+  }
   const r = await row(mindId)
   if (!r) throw new HttpError(404, 'no_wallet')
-  return { r, key: decrypt(config.secretsMasterKey, r.key_ciphertext, `wallet:${mindId}`) }
+  return { walletId: r.wallet_id, address: r.near_account_id, key: decrypt(config.secretsMasterKey, r.key_ciphertext, `wallet:${mindId}`), shared: false }
 }
 
 // A transaction for NEAR Connect's signAndSendTransaction, signed by the owner.
@@ -106,11 +121,12 @@ export async function createWallet(mindId: string) {
 }
 
 export async function getWallet(mindId: string) {
-  const { r, key } = await keyOf(mindId)
+  const { address, key, shared } = await keyOf(mindId)
   const [p, b] = await Promise.all([outlayer('GET', '/wallet/v1/policy', key), outlayer('GET', '/wallet/v1/balance?chain=near', key)])
   const stored = p.policy === 'stored'
   return {
-    address: r.near_account_id,
+    address,
+    shared,
     balanceNear: toNear(b.balance ?? '0'),
     frozen: p.frozen === true,
     policy: stored
@@ -127,9 +143,9 @@ export async function getWallet(mindId: string) {
 
 // Builds policy v2 for this wallet, has OutLayer encrypt and sign it, and returns the owner's store_wallet_policy tx.
 export async function policyTransaction(mindId: string, ownerAccountId: string, body: z.infer<typeof policySchema>): Promise<OwnerTransaction> {
-  const { r, key } = await keyOf(mindId)
+  const { walletId, key } = await keyOf(mindId)
   const policy = {
-    wallet_id: r.wallet_id,
+    wallet_id: walletId,
     rules: {
       limits: { per_transaction: { native: toYocto(body.perTransactionNear).toString() } },
       addresses: { mode: 'whitelist', list: [...new Set(body.whitelist)] },
@@ -149,6 +165,6 @@ export async function policyTransaction(mindId: string, ownerAccountId: string, 
 }
 
 export async function freezeTransaction(mindId: string, frozen: boolean): Promise<OwnerTransaction> {
-  const { r } = await keyOf(mindId)
-  return call(frozen ? 'freeze_wallet' : 'unfreeze_wallet', { wallet_pubkey: `ed25519:${r.near_account_id}` }, '30000000000000')
+  const { address } = await keyOf(mindId)
+  return call(frozen ? 'freeze_wallet' : 'unfreeze_wallet', { wallet_pubkey: `ed25519:${address}` }, '30000000000000')
 }

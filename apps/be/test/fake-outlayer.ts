@@ -9,6 +9,12 @@ export const fakeOutlayer = {
   wallets: [] as Wallet[],
   policyCost: '10690000000000000000000',
   failNext: 0,
+  // A wallet created outside the backend (the shared demo wallet), funded with 1 NEAR, no policy.
+  addWallet(): Wallet {
+    const w: Wallet = { walletId: randomUUID(), key: `wk_${randomBytes(32).toString('hex')}`, account: randomBytes(32).toString('hex'), frozen: false, policy: null, balance: (10n ** 24n).toString() }
+    this.wallets.push(w)
+    return w
+  },
   byAccount(account: string) { return this.wallets.find((w) => w.account === account)! },
   // What the owner's signed store_wallet_policy does: the policy the backend had encrypted becomes the wallet's policy.
   store(encrypted: string) {
@@ -48,6 +54,7 @@ export const outlayerServer = createServer(async (req, res) => {
       ? { wallet_id: w.walletId, controller: `ed25519:${w.account}`, frozen: w.frozen, policy: 'stored', rules: w.policy.rules, approval: w.policy.approval, capabilities: w.policy.capabilities, authorized_key_hashes: w.policy.authorized_key_hashes, usage: {} }
       : { wallet_id: w.walletId, controller: `ed25519:${w.account}`, frozen: w.frozen, policy: 'none', usage: {} })
   }
+  if (req.method === 'GET' && url.pathname === '/wallet/v1/address') return send(res, 200, { wallet_id: w.walletId, chain: 'near', address: w.account, public_key: `ed25519:${w.account}` })
   if (req.method === 'GET' && url.pathname === '/wallet/v1/balance') return send(res, 200, { balance: w.balance, token: 'near', account_id: w.account, account: 'executor' })
   if (req.method === 'POST' && url.pathname === '/wallet/v1/encrypt-policy') {
     if (body.wallet_id !== w.walletId) return send(res, 400, { error: 'wallet_mismatch' })

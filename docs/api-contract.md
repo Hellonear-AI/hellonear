@@ -46,6 +46,7 @@ Starts a run and streams HelloNear events as SSE (`text/event-stream`, one JSON 
 - The backend sends the Mind config it loaded from its DB; the engine builds the agent from it per request through `RequestContext` (`research.md` 8.2).
 - **`secrets`** (optional, #18): the owner's secrets for this run, decrypted by the backend from its store. Names are `UPPER_SNAKE_CASE`, each with at least one allowed host. The engine puts them in the run's `RequestContext` only; the model writes `{{secrets.NAME}}` placeholders that the `http_request` tool fills at execution. A secret only goes to its `allowedHosts`, only over public `https`, never through a redirect. Values are redacted from tool results (before the model reads them), from every event, and are not stored in the `mastra` schema **[tested, #18]**. Invalid secrets → `400`. Send the same `secrets` again on approve/decline.
 - **Skills are sent by id only.** The engine's catalog (`engine/skills/<id>/SKILL.md`) decides which tools and playbook each skill grants, so the backend cannot grant arbitrary tools. An unknown `skillId` → `400`. A skill with status `blocked` is accepted but not loaded **[tested, #13]**.
+- **`demo: true`** (only for judge try-out users, #43; absent otherwise): the run is from a visitor without a wallet login. The engine should give email tools a sample inbox instead of Composio. Also sent on approve/decline and builder runs.
 - Response: SSE stream of events (§3). The first event is `run.started` and carries `runId`.
 
 ### Payment tools: `walletToken` and the backend's internal wallet routes (#42, option B)
@@ -255,6 +256,7 @@ Postgres + pgvector. Mastra keeps its own tables (memory, threads, workflow snap
 | `secrets` | `id`, `user_id`, `name`, `ciphertext`, `allowed_hosts` (text[]), `created_at`, `updated_at` | AES-256-GCM, AAD `user_id:name`; value never leaves the backend in clear except into the engine for a run (#18) |
 | `mind_wallets` | `mind_id` (pk, → `minds`), `wallet_id`, `near_account_id`, `key_ciphertext`, `created_at` | One OutLayer wallet per Mind (#14, #15). The agent key is AES-256-GCM, AAD `wallet:{mind_id}`; the `handoff_url` is never stored. `minds.outlayer_wallet_id` is unused |
 | `wallet_payments` | `id`, `mind_id` (→ `minds`), `to_account`, `amount_yocto`, `status` (`pending`/`sent`/`policy_denied`/`wallet_frozen`/`failed`), `tx_hash`, `outlayer_request_id`, `message`, `created_at`, `updated_at` | Receipts of the payment tools (#42); refusals have no `tx_hash` |
+| `users.is_demo` | `boolean`, default `false` | Judge try-out users (#43), `near_account_id` = `demo:<random>`; deleted with their data after 7 days |
 | `auth_nonces` | `nonce`, `expires_at`, `used_at` | NEP-413 challenges, single use, 5 minutes |
 | `sessions` | `token_hash`, `user_id`, `created_at`, `expires_at` | only the SHA-256 of the cookie value |
 | `autopilots` | `mind_id`, `workflow_id`, `input` (jsonb), `enabled` | the Autopilot input last sent, to resend the Mind config when the Mind changes (#21) |
@@ -278,8 +280,11 @@ Implemented in `apps/be` (#8). Base URL `http://localhost:4000` locally. JSON bo
 |---|---|---|
 | `POST /v1/auth/challenge` | | `{ message: "Sign in to HelloNear", recipient, nonce }` (`nonce` = 32 bytes base64, single use, 5 min) |
 | `POST /v1/auth/login` | `{ accountId, publicKey: "ed25519:…", signature: base64, nonce }` | `200 { user: { id, nearAccountId } }` + `Set-Cookie: hn_session` (7 days), or `401 invalid_nonce \| invalid_signature` |
+| `POST /v1/auth/demo` | `{}` | Judge try-out mode (#43), only when the backend runs with `DEMO_MODE=true` (else `404`): `201 { user: { id, nearAccountId: "demo:…", demo: true } }` + the same cookie. A new user each time; `429 demo_rate_limited` after 10 per IP per hour **[tested]** |
 | `POST /v1/auth/logout` | | `204` |
-| `GET /v1/me` | | `{ user }` or `401` |
+| `GET /v1/me` | | `{ user }` or `401`; `user.demo: true` for a try-out user |
+
+**Try-out users (#43)** have no wallet login. Their limits: 20 runs each (chat, approve/decline, builder runs; then `429 demo_run_limit { limit }`), 60 runs per IP per hour (`429 demo_rate_limited`), at most 2 sent payments each. Owner actions answer `403 { error: "demo_not_allowed", action }` with `action` = `secrets` \| `create_wallet` \| `set_policy` \| `freeze` \| `autopilot`: show "connect a wallet to do this". Their Minds pay from one shared demo wallet (`GET …/wallet` shows `shared: true`; it already has policy v2). Demo users and everything they made are deleted after 7 days.
 
 The FE asks the wallet (NEAR Connect `signMessage`, Meteor first) to sign exactly `{ message, recipient, nonce }` from the challenge, then posts the wallet's `accountId`, `publicKey` and `signature` with the same `nonce`. The key must be a full-access key of the account (checked on the RPC). Login is tested with real NEP-413 signatures and a faked RPC lookup; a Meteor login from the FE is **not proven yet**.
 
@@ -304,7 +309,7 @@ One OutLayer wallet per Mind, on testnet. The backend keeps the agent key and ne
 | Route | Body | Answer |
 |---|---|---|
 | `POST /v1/minds/{mindId}/wallet` | `{}` | `201 { wallet }`; `409 wallet_exists` **[tested; live on testnet, 5 Nov]** |
-| `GET /v1/minds/{mindId}/wallet` | | `{ wallet: { address, balanceNear, frozen, policy: null \| { perTransactionNear, whitelist, transactionTypes, boundToThisWallet } } }`; `404 no_wallet`. `address` is the wallet's implicit NEAR account: fund it from the owner's wallet before it can pay **[tested]** |
+| `GET /v1/minds/{mindId}/wallet` | | `{ wallet: { address, shared, balanceNear, frozen, policy: null \| { perTransactionNear, whitelist, transactionTypes, boundToThisWallet } } }`; `404 no_wallet`. `address` is the wallet's implicit NEAR account: fund it from the owner's wallet before it can pay **[tested]** |
 | `POST /v1/minds/{mindId}/wallet/policy` | `{ perTransactionNear: "0.05", whitelist: ["shop.testnet", …] }` | `{ transaction }` for `store_wallet_policy` (100 Tgas, deposit from the contract's `estimate_wallet_policy_cost`). Builds policy v2: per-transaction limit (≤ 10 NEAR), whitelist (1–20 accounts), `transfer` only, OutLayer approval off (the app approves), bound to this wallet's key, approver = the owner **[tested; built live on testnet; owner signing not run yet]** |
 | `POST /v1/minds/{mindId}/wallet/freeze`, `…/unfreeze` | `{}` | `{ transaction }` for `freeze_wallet` / `unfreeze_wallet` (30 Tgas, no deposit). A frozen wallet's transfers get `403 wallet_frozen` before signing **[tested]** |
 | `GET /v1/minds/{mindId}/wallet/payments?limit=20` | | `{ payments }`, the same receipts the engine's `list_payments` reads (Receipts screen) **[tested]** |

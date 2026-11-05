@@ -16,7 +16,7 @@ type AccessKeyProvider = Parameters<typeof verifyMessage>[0]['provider']
 let provider: AccessKeyProvider = new JsonRpcProvider({ url: config.nearRpcUrl })
 export const setProvider = (p: AccessKeyProvider) => { provider = p }
 
-export type User = { id: string; nearAccountId: string }
+export type User = { id: string; nearAccountId: string; demo?: boolean }
 
 export async function createChallenge() {
   const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64')
@@ -65,11 +65,11 @@ export async function login(body: z.infer<typeof loginSchema>): Promise<{ user: 
 export async function sessionUser(req: IncomingMessage): Promise<User | null> {
   const token = cookie(req, SESSION_COOKIE)
   if (!token) return null
-  const [row] = await query<{ id: string; near_account_id: string }>(
-    'select u.id, u.near_account_id from sessions s join users u on u.id = s.user_id where s.token_hash = $1 and s.expires_at > now()',
+  const [row] = await query<{ id: string; near_account_id: string; is_demo: boolean }>(
+    'select u.id, u.near_account_id, u.is_demo from sessions s join users u on u.id = s.user_id where s.token_hash = $1 and s.expires_at > now()',
     [sha256(token)],
   )
-  return row ? { id: row.id, nearAccountId: row.near_account_id } : null
+  return row ? { id: row.id, nearAccountId: row.near_account_id, ...(row.is_demo ? { demo: true } : {}) } : null
 }
 
 export async function requireUser(req: IncomingMessage): Promise<User> {

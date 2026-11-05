@@ -25,6 +25,8 @@ async function updateRun(e: Event) {
   if (e.type === 'run.finished') {
     await query(`update runs set status = case when status = 'awaiting_approval' then status else 'finished' end, usage = $2, cost_usd = $3, finished_at = now() where id = $1`,
       [e.runId, e.usage ?? null, e.costUsd ?? null])
+    // One line per run in the journal, to watch the shared NEAR AI credit (#43). No content, only counts.
+    console.log('run usage', JSON.stringify({ runId: e.runId, mindId: e.mindId ?? null, model: e.model ?? null, usage: e.usage ?? null, costUsd: e.costUsd ?? null }))
   }
   if (e.type === 'workflow.finished') await query('update runs set status = $2, finished_at = now() where id = $1', [e.runId, String(e.status ?? 'finished')])
   if (e.type === 'run.error') await query(`update runs set status = 'error', finished_at = now() where id = $1`, [e.runId])
