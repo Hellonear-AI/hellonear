@@ -28,6 +28,22 @@ export function toNear(yocto: string | bigint): string {
   return frac ? `${v / YOCTO}.${frac}` : `${v / YOCTO}`
 }
 
+// OutLayer's answer as is (status + JSON), for callers that handle refusals themselves (payments).
+export async function outlayerRaw(method: string, path: string, key: string, body?: unknown): Promise<{ status: number; body: any }> {
+  let res: Response
+  try {
+    res = await fetch(config.outlayerUrl + path, {
+      method,
+      headers: { authorization: `Bearer ${key}`, ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: AbortSignal.timeout(30_000),
+    })
+  } catch {
+    throw new HttpError(502, 'outlayer_unreachable')
+  }
+  return { status: res.status, body: await res.json().catch(() => null) }
+}
+
 async function outlayer(method: string, path: string, key?: string, body?: unknown): Promise<any> {
   let res: Response
   try {
@@ -62,7 +78,10 @@ async function row(mindId: string): Promise<Row | null> {
   const [r] = await query<Row>('select mind_id, wallet_id, near_account_id, key_ciphertext from mind_wallets where mind_id = $1', [mindId])
   return r ?? null
 }
-async function keyOf(mindId: string): Promise<{ r: Row; key: string }> {
+export async function hasWallet(mindId: string): Promise<boolean> {
+  return (await row(mindId)) !== null
+}
+export async function keyOf(mindId: string): Promise<{ r: Row; key: string }> {
   const r = await row(mindId)
   if (!r) throw new HttpError(404, 'no_wallet')
   return { r, key: decrypt(config.secretsMasterKey, r.key_ciphertext, `wallet:${mindId}`) }

@@ -58,5 +58,17 @@ export const outlayerServer = createServer(async (req, res) => {
     const hash = createHash('sha256').update(`${body.encrypted_data}:${body.caller}`).digest('hex')
     return send(res, 200, { signature_hex: hash + hash, public_key_hex: w.account })
   }
+  if (req.method === 'POST' && url.pathname === '/wallet/v1/transfer') {
+    // Same order and messages as testnet (spike 01): frozen, policy, then the chain.
+    if (w.frozen) return send(res, 403, { error: 'wallet_frozen', message: 'Wallet is frozen by controller' })
+    const amount = BigInt(body.amount)
+    const limit = w.policy?.rules?.limits?.per_transaction?.native
+    if (limit && amount > BigInt(limit)) return send(res, 403, { error: 'policy_denied', message: `Per-transaction limit exceeded for native: ${amount} > ${limit}` })
+    const list = w.policy?.rules?.addresses?.list
+    if (list && !list.includes(body.to)) return send(res, 403, { error: 'policy_denied', message: `Address '${body.to}' is not in whitelist` })
+    if (BigInt(w.balance) < amount) return send(res, 422, { error: 'chain_refused', message: `the account ${w.account} is not visible on the network` })
+    w.balance = (BigInt(w.balance) - amount).toString()
+    return send(res, 200, { request_id: randomUUID(), status: 'success', tx_hash: randomBytes(24).toString('base64url') })
+  }
   send(res, 404, { error: 'not_found' })
 })

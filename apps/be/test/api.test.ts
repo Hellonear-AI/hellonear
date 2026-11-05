@@ -499,3 +499,119 @@ describe('Mind wallets (#14, #15)', () => {
     assert.equal((await res.json()).error, 'outlayer_error')
   })
 })
+
+describe('payment tools through the backend (#42, option B)', () => {
+  const origin = { origin: 'http://localhost:3000' }
+  async function walletMind(c: Client, opts: { balanceNear?: string; policy?: boolean } = {}) {
+    const mindId = (await (await c.call('POST', '/v1/minds', { templateId: 'payments-mind', name: `Pay ${randomBytes(3).toString('hex')}` }, origin)).json()).mind.id as string
+    const { wallet } = await (await c.call('POST', `/v1/minds/${mindId}/wallet`, {}, origin)).json()
+    const w = fakeOutlayer.byAccount(wallet.address)
+    w.balance = (BigInt(Math.round(Number(opts.balanceNear ?? '1') * 1000)) * 10n ** 21n).toString()
+    if (opts.policy !== false) {
+      const { transaction } = await (await c.call('POST', `/v1/minds/${mindId}/wallet/policy`, { perTransactionNear: '0.05', whitelist: ['shop.testnet'] }, origin)).json()
+      fakeOutlayer.store(transaction.actions[0].params.args.encrypted_data)
+    }
+    return { mindId, w }
+  }
+  // What the engine does: take the walletToken from the run body and call the internal route with the engine key.
+  async function tokenFromChat(c: Client, mindId: string) {
+    const res = await c.call('POST', `/v1/minds/${mindId}/chat`, { message: 'hi' }, origin)
+    await res.text()
+    return fake.requests.findLast((r) => r.path.endsWith(`/v1/minds/${mindId}/chat`))!.body.walletToken as string | undefined
+  }
+  const engineCall = (method: string, path: string, token: string | undefined, body?: unknown, engineKey = ENGINE_KEY) => fetch(base + path, {
+    method,
+    headers: { 'x-engine-key': engineKey, ...(token ? { 'x-wallet-token': token } : {}), ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+
+  test('the engine gets a wallet token only for a Mind with a wallet, never the key', async () => {
+    const a = await signIn()
+    const plain = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Plain' }, origin)).json()).mind.id
+    assert.equal(await tokenFromChat(a, plain), undefined)
+    const { mindId, w } = await walletMind(a)
+    const token = await tokenFromChat(a, mindId)
+    assert.match(token!, /^wt_[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/)
+    const sent = JSON.stringify(fake.requests.findLast((r) => r.path.endsWith(`/v1/minds/${mindId}/chat`))!.body)
+    assert.ok(!sent.includes(w.key) && !sent.includes('wk_'))
+  })
+
+  test('send_payment: sent with a tx hash, refusals recorded without one, receipts listed', async () => {
+    const a = await signIn()
+    const { mindId, w } = await walletMind(a)
+    const token = await tokenFromChat(a, mindId)
+
+    let res = await engineCall('POST', '/internal/v1/wallet/send_payment', token, { to: 'shop.testnet', amountNear: '0.01' })
+    assert.equal(res.status, 200, await res.clone().text())
+    const ok = await res.json()
+    assert.equal(ok.status, 'sent')
+    assert.match(ok.txHash, /^[A-Za-z0-9_-]+$/)
+    assert.equal(ok.amountNear, '0.01')
+    const transfer = fakeOutlayer.requests.findLast((r) => r.path === '/wallet/v1/transfer')!
+    assert.deepEqual(transfer.body, { chain: 'near', to: 'shop.testnet', amount: '10000000000000000000000' })
+    assert.equal(transfer.key, w.key)
+
+    res = await engineCall('POST', '/internal/v1/wallet/send_payment', token, { to: 'shop.testnet', amountNear: '0.2' })
+    const over = await res.json()
+    assert.equal(over.status, 'policy_denied')
+    assert.match(over.message, /Per-transaction limit exceeded/)
+    assert.equal(over.txHash, undefined)
+    res = await engineCall('POST', '/internal/v1/wallet/send_payment', token, { to: 'thief.testnet', amountNear: '0.01' })
+    assert.equal((await res.json()).status, 'policy_denied')
+    w.frozen = true
+    res = await engineCall('POST', '/internal/v1/wallet/send_payment', token, { to: 'shop.testnet', amountNear: '0.01' })
+    assert.equal((await res.json()).status, 'wallet_frozen')
+    w.frozen = false
+
+    res = await engineCall('GET', '/internal/v1/wallet/balance', token)
+    assert.deepEqual(await res.json(), { address: w.account, balanceNear: '0.99' })
+    res = await engineCall('GET', '/internal/v1/wallet/payments', token)
+    const engineList = (await res.json()).payments
+    res = await a.call('GET', `/v1/minds/${mindId}/wallet/payments`)
+    const ownerList = (await res.json()).payments
+    assert.deepEqual(engineList, ownerList)
+    assert.deepEqual(ownerList.map((p: any) => p.status), ['wallet_frozen', 'policy_denied', 'policy_denied', 'sent'])
+    assert.ok(ownerList[3].txHash && !ownerList[0].txHash)
+
+    for (const bad of [{ to: 'shop.testnet', amountNear: '0' }, { to: 'shop.testnet', amountNear: 0.01 }, { to: 'NOT VALID', amountNear: '0.01' }]) {
+      res = await engineCall('POST', '/internal/v1/wallet/send_payment', token, bad)
+      assert.equal(res.status, 400, JSON.stringify(bad))
+    }
+  })
+
+  test('an unfunded wallet fails with a clear message', async () => {
+    const a = await signIn()
+    const { mindId } = await walletMind(a, { balanceNear: '0', policy: false })
+    const res = await engineCall('POST', '/internal/v1/wallet/send_payment', await tokenFromChat(a, mindId), { to: 'shop.testnet', amountNear: '0.01' })
+    const out = await res.json()
+    assert.equal(out.status, 'failed')
+    assert.match(out.message, /not funded/)
+  })
+
+  test('internal routes need the engine key and a valid, unexpired token for a Mind that still exists', async () => {
+    const a = await signIn()
+    const { mindId } = await walletMind(a)
+    const token = await tokenFromChat(a, mindId)
+    const { issueWalletToken } = await import('../src/walletToken.ts')
+    const { user } = await (await a.call('GET', '/v1/me')).json()
+
+    let res = await engineCall('GET', '/internal/v1/wallet/balance', token, undefined, 'wrong-key')
+    assert.equal(res.status, 401)
+    res = await engineCall('GET', '/internal/v1/wallet/balance', undefined)
+    assert.equal(res.status, 401)
+    res = await engineCall('GET', '/internal/v1/wallet/balance', token!.slice(0, -2) + (token!.endsWith('A') ? 'BB' : 'AA'))
+    assert.equal((await res.json()).error, 'invalid_wallet_token')
+    res = await engineCall('GET', '/internal/v1/wallet/balance', issueWalletToken(user.id, mindId, Date.now() - 16 * 60 * 1000))
+    assert.equal((await res.json()).error, 'wallet_token_expired')
+    // A token for another user's Mind (forged with the wrong user) or a deleted Mind gets 404.
+    const b = await signIn()
+    const { user: other } = await (await b.call('GET', '/v1/me')).json()
+    res = await engineCall('GET', '/internal/v1/wallet/balance', issueWalletToken(other.id, mindId))
+    assert.equal(res.status, 404)
+    res = await engineCall('PUT', '/internal/v1/wallet/balance', token)
+    assert.equal(res.status, 405)
+    await a.call('DELETE', `/v1/minds/${mindId}`, undefined, origin)
+    res = await engineCall('GET', '/internal/v1/wallet/balance', token)
+    assert.equal(res.status, 404)
+  })
+})

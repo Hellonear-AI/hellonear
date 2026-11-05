@@ -48,6 +48,28 @@ Starts a run and streams HelloNear events as SSE (`text/event-stream`, one JSON 
 - **Skills are sent by id only.** The engine's catalog (`engine/skills/<id>/SKILL.md`) decides which tools and playbook each skill grants, so the backend cannot grant arbitrary tools. An unknown `skillId` → `400`. A skill with status `blocked` is accepted but not loaded **[tested, #13]**.
 - Response: SSE stream of events (§3). The first event is `run.started` and carries `runId`.
 
+### Payment tools: `walletToken` and the backend's internal wallet routes (#42, option B)
+
+When the Mind has a wallet, the backend adds **`walletToken`** (`wt_…`) to the chat, approve/decline and builder-run bodies. It names that Mind and user and expires after 15 minutes; a new one comes with every call. Autopilot bodies never carry one, so payment tools stay out of Autopilot. The engine never gets the wallet key. Payment tools call the backend (`BACKEND_URL` in the engine's env) with **both** headers `X-Engine-Key: <ENGINE_API_KEY>` and `X-Wallet-Token: <walletToken>`:
+
+| Route | Body | Answer |
+|---|---|---|
+| `POST /internal/v1/wallet/send_payment` | `{ to: "shop.testnet", amountNear: "0.01" }` (decimal string) | `{ paymentId, status, to, amountNear, txHash?, message? }`, `status` = `sent` (with `txHash`) \| `policy_denied` \| `wallet_frozen` \| `failed` \| `pending`. Refusals have **no** `txHash` (OutLayer refuses before signing) and carry OutLayer's message **[tested; live on testnet, 5 Nov]** |
+| `GET /internal/v1/wallet/balance` | | `{ address, balanceNear }` **[tested]** |
+| `GET /internal/v1/wallet/payments?limit=20` | | `{ payments: [{ paymentId, to, amountNear, status, txHash?, message?, at }] }`, newest first **[tested]** |
+
+`401 unauthorized` (engine key), `401 invalid_wallet_token` / `wallet_token_expired`, `404` (Mind deleted), `400 invalid_body`. Every attempt is stored as a receipt, refusals included.
+
+Tools for the engine (replacing `demo_transfer`):
+
+| Tool | Input | Output | Notes |
+|---|---|---|---|
+| `send_payment` | `{ to, amountNear }` | the `send_payment` answer | `requireApproval: true`. Show `policy_denied` / `wallet_frozen` as a hard stop (red in the Mind Graph), never as "rejected on-chain", never with a tx link |
+| `get_balance` | `{}` | `{ address, balanceNear }` | |
+| `list_payments` | `{ limit? }` | `{ payments }` | |
+
+No `walletToken` in the body (Mind without a wallet): the tools should answer "this Mind has no wallet yet" without calling the backend.
+
 ### `POST /v1/runs/{runId}/approve?mindId={mindId}` and `POST /v1/runs/{runId}/decline?mindId={mindId}`
 
 ```json
@@ -232,6 +254,7 @@ Postgres + pgvector. Mastra keeps its own tables (memory, threads, workflow snap
 | `run_events` | `run_id`, `seq`, `type`, `node_id`, `payload` (jsonb), `ts` | PK `(run_id, seq)`; source for the Mind Graph and Receipts |
 | `secrets` | `id`, `user_id`, `name`, `ciphertext`, `allowed_hosts` (text[]), `created_at`, `updated_at` | AES-256-GCM, AAD `user_id:name`; value never leaves the backend in clear except into the engine for a run (#18) |
 | `mind_wallets` | `mind_id` (pk, → `minds`), `wallet_id`, `near_account_id`, `key_ciphertext`, `created_at` | One OutLayer wallet per Mind (#14, #15). The agent key is AES-256-GCM, AAD `wallet:{mind_id}`; the `handoff_url` is never stored. `minds.outlayer_wallet_id` is unused |
+| `wallet_payments` | `id`, `mind_id` (→ `minds`), `to_account`, `amount_yocto`, `status` (`pending`/`sent`/`policy_denied`/`wallet_frozen`/`failed`), `tx_hash`, `outlayer_request_id`, `message`, `created_at`, `updated_at` | Receipts of the payment tools (#42); refusals have no `tx_hash` |
 | `auth_nonces` | `nonce`, `expires_at`, `used_at` | NEP-413 challenges, single use, 5 minutes |
 | `sessions` | `token_hash`, `user_id`, `created_at`, `expires_at` | only the SHA-256 of the cookie value |
 | `autopilots` | `mind_id`, `workflow_id`, `input` (jsonb), `enabled` | the Autopilot input last sent, to resend the Mind config when the Mind changes (#21) |
@@ -284,6 +307,7 @@ One OutLayer wallet per Mind, on testnet. The backend keeps the agent key and ne
 | `GET /v1/minds/{mindId}/wallet` | | `{ wallet: { address, balanceNear, frozen, policy: null \| { perTransactionNear, whitelist, transactionTypes, boundToThisWallet } } }`; `404 no_wallet`. `address` is the wallet's implicit NEAR account: fund it from the owner's wallet before it can pay **[tested]** |
 | `POST /v1/minds/{mindId}/wallet/policy` | `{ perTransactionNear: "0.05", whitelist: ["shop.testnet", …] }` | `{ transaction }` for `store_wallet_policy` (100 Tgas, deposit from the contract's `estimate_wallet_policy_cost`). Builds policy v2: per-transaction limit (≤ 10 NEAR), whitelist (1–20 accounts), `transfer` only, OutLayer approval off (the app approves), bound to this wallet's key, approver = the owner **[tested; built live on testnet; owner signing not run yet]** |
 | `POST /v1/minds/{mindId}/wallet/freeze`, `…/unfreeze` | `{}` | `{ transaction }` for `freeze_wallet` / `unfreeze_wallet` (30 Tgas, no deposit). A frozen wallet's transfers get `403 wallet_frozen` before signing **[tested]** |
+| `GET /v1/minds/{mindId}/wallet/payments?limit=20` | | `{ payments }`, the same receipts the engine's `list_payments` reads (Receipts screen) **[tested]** |
 
 `transaction` = `{ receiverId: "outlayer.testnet", actions: [{ type: "FunctionCall", params: { methodName, args, gas, deposit } }] }`. OutLayer down or refusing → `502 outlayer_error`. Deleting a Mind deletes its wallet row: move the balance out first (a later route will do it).
 

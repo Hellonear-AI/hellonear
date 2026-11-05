@@ -30,6 +30,7 @@ Backend API: Postgres + pgvector, NEP-413 login, run/event storage + SSE, encryp
 - Schema and events follow `docs/api-contract.md` (#7).
 - Builder workflows (#20) are stored by the engine; the backend proxies `…/workflows` calls after the ownership check and sends the Mind config and secrets on each run, as for chat.
 - A Mind's skills are validated against the engine's `GET /v1/skills` (the whole catalog, cached 60 s), not the skills templates offer: `near-account` and `http-request` are in no template but the Visual Builder needs them. The backend's own `GET /v1/skills` returns the same list for the skill picker.
+- **Decided (#42): option B.** The engine's payment tools call `/internal/v1/wallet/*` with `X-Engine-Key` and a wallet token (`src/walletToken.ts`: HMAC with a key derived from `SECRETS_MASTER_KEY`, one Mind, 15 min). The backend adds `walletToken` to chat, approve/decline and builder runs only when the Mind has a wallet; never to Autopilot. `src/payments.ts` calls OutLayer and stores every attempt in `wallet_payments`. Internal routes sit before the session check; keep them that way and keep both checks.
 - Autopilot (#21): `PUT …/workflows/{id}/autopilot` stores a copy of the Mind config in the engine. **Send it again for every Autopilot workflow of a Mind whenever that Mind changes** (persona, model, skills); a `409` means the engine paused it, show `pausedFor`. Scheduled runs get no secrets yet (`docs/api-contract.md` §6 q4).
 
 ## Commands

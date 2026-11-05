@@ -10,7 +10,10 @@ import { HttpError, assertSameOrigin, cors, readBody, sendJson, setCookie } from
 import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, requireMind, updateMind, updateMindSchema } from './minds.ts'
 import { getRun, listRuns, mindEvents, pendingApprovals, relayRun, runEvents } from './runs.ts'
 import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema, secretsForRun } from './secrets.ts'
-import { createWallet, freezeTransaction, getWallet, policySchema, policyTransaction } from './wallets.ts'
+import { createWallet, freezeTransaction, getWallet, hasWallet, policySchema, policyTransaction } from './wallets.ts'
+import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
+import { issueWalletToken, verifyWalletToken } from './walletToken.ts'
+import { timingSafeEqual } from 'node:crypto'
 import { autopilotSchema, deleteAllWorkflows, deleteAutopilot, putAutopilot, runWorkflowSchema, syncAutopilots, workflowIdSchema, workflowPath } from './workflows.ts'
 
 const chatSchema = z.object({
@@ -25,6 +28,11 @@ const limitOf = (url: URL, fallback: number, max: number) => Math.min(Math.max(N
 // Engine JSON answers go to the browser unchanged (status and body).
 const passthrough = (res: Parameters<typeof sendJson>[0], out: { status: number; body: unknown }) =>
   out.status === 204 ? res.writeHead(204).end() : sendJson(res, out.status, out.body)
+
+// The wallet token for one engine call (#42): only for a Mind that has a wallet. Autopilot gets none.
+const walletTokenFor = async (userId: string, mindId: string) => ((await hasWallet(mindId)) ? { walletToken: issueWalletToken(userId, mindId) } : {})
+
+const sameSecret = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b))
 
 export const server = createServer(async (req, res) => {
   try {
@@ -51,6 +59,18 @@ export const server = createServer(async (req, res) => {
       await logout(req)
       setCookie(res, SESSION_COOKIE, '', 0)
       return res.writeHead(204).end()
+    }
+
+    // Internal routes for the engine's payment tools (#42, option B): engine key + wallet token, no session.
+    const internal = path.match(/^\/internal\/v1\/wallet\/(send_payment|balance|payments)$/)
+    if (internal) {
+      if (!sameSecret(String(req.headers['x-engine-key'] ?? ''), config.engineApiKey)) throw new HttpError(401, 'unauthorized')
+      const { userId, mindId } = verifyWalletToken(req.headers['x-wallet-token'] as string | undefined)
+      await requireMind(userId, mindId)
+      if (internal[1] === 'send_payment' && req.method === 'POST') return sendJson(res, 200, await sendPayment(mindId, await readBody(req, sendPaymentSchema)))
+      if (internal[1] === 'balance' && req.method === 'GET') return sendJson(res, 200, await walletBalance(mindId))
+      if (internal[1] === 'payments' && req.method === 'GET') return sendJson(res, 200, { payments: await listPayments(mindId, limitOf(url, 20, 100)) })
+      throw new HttpError(405, 'method_not_allowed')
     }
 
     // Everything below needs a session.
@@ -89,7 +109,7 @@ export const server = createServer(async (req, res) => {
         const mind = await requireMind(user.id, found.mindId)
         const engineRes = await engineFetch(`/v1/runs/${encodeURIComponent(found.runId)}${run[2]}?mindId=${encodeURIComponent(mind.id)}`, {
           method: 'POST',
-          body: { userId: user.id, threadId: found.threadId, mind: mindConfig(mind), secrets: await secretsForRun(user.id), toolCallId: body.toolCallId, reason: body.reason },
+          body: { userId: user.id, threadId: found.threadId, mind: mindConfig(mind), secrets: await secretsForRun(user.id), toolCallId: body.toolCallId, reason: body.reason, ...(await walletTokenFor(user.id, mind.id)) },
         })
         return relayRun(req, res, engineRes, { mindId: mind.id, threadId: found.threadId ?? undefined, resumeOf: found.runId })
       }
@@ -104,6 +124,7 @@ export const server = createServer(async (req, res) => {
       // The Mind's OutLayer wallet (#14, #15). Owner actions come back as transactions for the owner to sign.
       if (sub === '/wallet' && req.method === 'POST') return sendJson(res, 201, { wallet: await createWallet(mind.id) })
       if (sub === '/wallet' && req.method === 'GET') return sendJson(res, 200, { wallet: await getWallet(mind.id) })
+      if (sub === '/wallet/payments' && req.method === 'GET') return sendJson(res, 200, { payments: await listPayments(mind.id, limitOf(url, 20, 100)) })
       if (sub === '/wallet/policy' && req.method === 'POST') return sendJson(res, 200, { transaction: await policyTransaction(mind.id, user.nearAccountId, await readBody(req, policySchema)) })
       if ((sub === '/wallet/freeze' || sub === '/wallet/unfreeze') && req.method === 'POST') return sendJson(res, 200, { transaction: await freezeTransaction(mind.id, sub === '/wallet/freeze') })
       if (sub.startsWith('/wallet')) throw new HttpError(req.method === 'GET' || req.method === 'POST' ? 404 : 405, req.method === 'GET' || req.method === 'POST' ? 'not_found' : 'method_not_allowed')
@@ -128,7 +149,7 @@ export const server = createServer(async (req, res) => {
         const threadId = body.threadId ?? `thr_${newId('x').slice(2)}`
         const engineRes = await engineFetch(`/v1/minds/${encodeURIComponent(mind.id)}/chat`, {
           method: 'POST',
-          body: { userId: user.id, threadId, message: body.message, mind: mindConfig(mind), secrets: await secretsForRun(user.id) },
+          body: { userId: user.id, threadId, message: body.message, mind: mindConfig(mind), secrets: await secretsForRun(user.id), ...(await walletTokenFor(user.id, mind.id)) },
         })
         return relayRun(req, res, engineRes, { mindId: mind.id, threadId })
       }
@@ -158,7 +179,7 @@ export const server = createServer(async (req, res) => {
         }
         if (wf[2] === '/runs' && req.method === 'POST') {
           const body = await readBody(req, runWorkflowSchema)
-          const engineRes = await engineFetch(`${p}/runs`, { method: 'POST', body: { userId: user.id, mind: mindConfig(mind), secrets: await secretsForRun(user.id), input: body.input } })
+          const engineRes = await engineFetch(`${p}/runs`, { method: 'POST', body: { userId: user.id, mind: mindConfig(mind), secrets: await secretsForRun(user.id), input: body.input, ...(await walletTokenFor(user.id, mind.id)) } })
           return relayRun(req, res, engineRes, { mindId: mind.id, workflowId: id.data })
         }
         if (wf[2] === '/runs' && req.method === 'GET') return passthrough(res, await engineJson(`${p}/runs?limit=${limitOf(url, 20, 100)}`))
