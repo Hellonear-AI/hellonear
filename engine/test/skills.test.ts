@@ -8,12 +8,19 @@ test('every SKILL.md in engine/skills parses and only uses registered tools', ()
   assert.deepEqual(skillCatalog.get('daily-planner')?.tools, ['get_time', 'add_numbers'])
   assert.equal(skillCatalog.get('payments')?.status, 'available')
   assert.deepEqual(skillCatalog.get('payments')?.tools, ['send_payment', 'get_balance', 'list_payments', 'get_time'])
-  assert.equal(skillCatalog.get('email-triage')?.status, 'blocked')
+  assert.equal(skillCatalog.get('email-triage')?.status, 'simulated')
+  assert.deepEqual(skillCatalog.get('email-triage')?.tools, ['gmail_list_emails', 'gmail_read_email', 'gmail_create_draft', 'get_time'])
   assert.equal(skillCatalog.get('daily-planner')?.skill.name, 'daily-planner')
 })
 
 test('blocked and unknown skills are never usable', () => {
-  assert.deepEqual(usableSkills(['daily-planner', 'email-triage', 'nope']).map((s) => s.name), ['daily-planner'])
+  // No catalog skill is blocked right now, so add one for this test only.
+  skillCatalog.set('test-blocked', parseSkillMd(`---\nname: test-blocked\ndescription: d\nmetadata:\n  hellonear:\n    tools: [get_time]\n    connections: []\n    status: blocked\n---\n# Body\n`, 'test-blocked'))
+  try {
+    assert.deepEqual(usableSkills(['daily-planner', 'test-blocked', 'nope']).map((s) => s.name), ['daily-planner'])
+  } finally {
+    skillCatalog.delete('test-blocked')
+  }
 })
 
 test('the catalog lists every skill, including ones no template starts with', () => {
@@ -22,7 +29,7 @@ test('the catalog lists every skill, including ones no template starts with', ()
   assert.deepEqual(all.find((s) => s.skillId === 'near-account')?.tools, ['near_view_account'])
   assert.deepEqual(all.find((s) => s.skillId === 'http-request')?.tools, ['http_request'])
   const email = all.find((s) => s.skillId === 'email-triage')!
-  assert.equal(email.status, 'blocked')
+  assert.equal(email.status, 'simulated')
   assert.ok(email.note)
 })
 

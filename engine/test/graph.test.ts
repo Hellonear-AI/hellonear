@@ -11,6 +11,10 @@ test('wallet tools map to the Mind\'s wallet node', () => {
   for (const tool of ['send_payment', 'get_balance', 'list_payments']) assert.equal(nodeIdFor('m1', tool, {}), 'wallet:m1')
 })
 
+test('Gmail tools map to the gmail App node', () => {
+  for (const tool of ['gmail_list_emails', 'gmail_read_email', 'gmail_create_draft']) assert.equal(nodeIdFor('m1', tool, {}), 'app:gmail')
+})
+
 test('skill activations and reads map to skill nodes', () => {
   assert.equal(nodeIdFor('m1', 'skill', { name: 'payments' }), 'skill:payments')
   assert.equal(nodeIdFor('m1', 'skill_read', { skillName: 'payments', path: 'x.md' }), 'skill:payments')
