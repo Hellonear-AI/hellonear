@@ -1,7 +1,7 @@
 // Unit tests for the skill catalog (no network, no database).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseSkillMd, skillCatalog, usableSkills } from '../src/skills.ts'
+import { parseSkillMd, skillCatalog, skillCatalogSummaries, usableSkills } from '../src/skills.ts'
 
 test('every SKILL.md in engine/skills parses and only uses registered tools', () => {
   assert.deepEqual([...skillCatalog.keys()], ['daily-planner', 'email-triage', 'http-request', 'near-account', 'payments'])
@@ -13,6 +13,16 @@ test('every SKILL.md in engine/skills parses and only uses registered tools', ()
 
 test('blocked and unknown skills are never usable', () => {
   assert.deepEqual(usableSkills(['daily-planner', 'email-triage', 'nope']).map((s) => s.name), ['daily-planner'])
+})
+
+test('the catalog lists every skill, including ones no template starts with', () => {
+  const all = skillCatalogSummaries()
+  assert.deepEqual(all.map((s) => s.skillId), [...skillCatalog.keys()])
+  assert.deepEqual(all.find((s) => s.skillId === 'near-account')?.tools, ['near_view_account'])
+  assert.deepEqual(all.find((s) => s.skillId === 'http-request')?.tools, ['http_request'])
+  const email = all.find((s) => s.skillId === 'email-triage')!
+  assert.equal(email.status, 'blocked')
+  assert.ok(email.note)
 })
 
 const md = (fm: string) => `---\n${fm}\n---\n# Body\n`
