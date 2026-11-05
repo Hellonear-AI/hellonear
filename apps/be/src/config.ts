@@ -24,6 +24,9 @@ export const config = {
   authMessage: 'Sign in to HelloNear',
   nearRpcUrl: process.env.NEAR_RPC_URL ?? 'https://rpc.testnet.near.org',
   cookieSecure: process.env.COOKIE_SECURE === 'true',
+  // OutLayer (#14, #15): the wallet API and the contract owners sign policy and freeze calls on.
+  outlayerUrl: process.env.OUTLAYER_URL ?? 'https://testnet-api.outlayer.ai',
+  outlayerContractId: process.env.OUTLAYER_CONTRACT_ID ?? 'outlayer.testnet',
   nonceTtlMs: 5 * 60 * 1000,
   sessionTtlMs: 7 * 24 * 60 * 60 * 1000,
 }
