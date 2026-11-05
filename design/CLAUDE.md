@@ -33,14 +33,16 @@ Tokens live as variables in `hellonear.pen`, with a `mode` theme (`light`, `dark
 - Mind characters: do not copy HelloMinds/Animoca characters or their "collector toy box" look.
 - Copy follows `apps/landing/CLAUDE.md` (never "rejected on-chain"; "private" only for Confidential TEE models).
 
-## Mind characters (#13, v0.1 draft)
+## Mind characters (#13, v0.3 draft)
 
-Frame `Mind Characters v0.1` in `hellonear.pen`. One shared base character for every Mind; only the outfit and one prop change with its job.
+Frame `Mind Characters v0.3` in `hellonear.pen` (earlier tries were removed). One shared base character for every Mind; the outfit color and one prop change with its job.
 
-- Same for all: bean-shaped body, big head, short limbs, warm stone matte clay finish, small black eyes, pink blush, a lime sprout on the head (the HelloNear mark).
-- Per Mind: General Assistant wears a charcoal cardigan with lime buttons; Payments Mind a charcoal vest, wallet bag and lime padlock pin; Email Manager an amber mail cap and messenger bag.
-- Avoid: collector-toy look or packaging, fur or busy textures, logos or text on outfits, gradients behind characters in the app UI.
+- Same for all: big puffy cloud-shaped head on a small body with short limbs, matte vinyl finish, **charcoal** base color (cream was the alternative), flat half-moon eyes with a heavy lid and pupils glancing sideways (deadpan but cute), a small rounded **lime beak**, pink blush, and a lime sprout on top (the HelloNear mark).
+- Per Mind: General Assistant = lime hoodie, waving; Payments Mind = mustard quilted vest, brown pouch, lime padlock pin, arms crossed; Email Manager = orange mail cap and messenger bag, holding an envelope.
+- Inspired by big-head designer toys, but drawn our own way. Never copy a specific existing character (e.g. ZXSW's duck, HUH, HelloMinds): references are for mood only.
+- Avoid: collector-toy packaging, fur or busy textures, logos, text or currency symbols on props, gradients behind characters in the app UI.
 - 3D (Three.js) is only considered for the landing page hero; in the app, characters are images and their use is up to `apps/fe`.
+- Current art: `generated-10.png` (base) to `generated-14.png` (cream base), AI renders from pen.dev. More poses and expressions are planned in Blender, exported as transparent PNGs.
 - Character references live in `hellonear-assets/char-ref/` (gitignored).
 
 ## Copywriting (UX first, draft; Ancung may extend)
