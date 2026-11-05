@@ -27,3 +27,6 @@ design/hellonear-assets/
 # blender backups and quick preview renders
 *.blend1
 design/characters/renders/_*
+
+# python
+__pycache__/
