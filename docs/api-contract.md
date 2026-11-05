@@ -59,7 +59,7 @@ When the Mind has a wallet, the backend adds **`walletToken`** (`wt_…`) to the
 | `GET /internal/v1/wallet/balance` | | `{ address, balanceNear }` **[tested]** |
 | `GET /internal/v1/wallet/payments?limit=20` | | `{ payments: [{ paymentId, to, amountNear, status, txHash?, message?, at }] }`, newest first **[tested]** |
 
-`401 unauthorized` (engine key), `401 invalid_wallet_token` / `wallet_token_expired`, `404` (Mind deleted), `400 invalid_body`. Every attempt is stored as a receipt, refusals included.
+Loopback only: from any other address these routes answer `404 not_found`, so they are not reachable through the tunnel **[tested]**. `401 unauthorized` (engine key), `401 invalid_wallet_token` / `wallet_token_expired`, `404` (Mind deleted), `400 invalid_body`. Every attempt is stored as a receipt, refusals included.
 
 Tools for the engine (replacing `demo_transfer`):
 
