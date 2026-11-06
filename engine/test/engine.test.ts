@@ -74,6 +74,7 @@ describe('engine HTTP API', () => {
     assert.deepEqual(templates.map((t: Ev) => t.templateId), ['email-manager', 'general-assistant', 'payments-mind'])
     const email = templates.find((t: Ev) => t.templateId === 'email-manager')
     assert.equal(email.skills.find((s: Ev) => s.skillId === 'email-triage').status, 'available')
+    assert.equal(email.quote, 'I read the noise so you only see what matters.')
   })
 
   test('skills endpoint lists the whole catalog for the backend and the Builder', async () => {
