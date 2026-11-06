@@ -146833,190 +146833,25 @@
                                       }
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "p6gXt",
+                                      "id": "eWVvj",
+                                      "type": "ref",
+                                      "ref": "wqjwo",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 230,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 12,
-                                      "padding": 20,
-                                      "children": [
-                                        {
-                                          "type": "frame",
-                                          "id": "O2U3Q",
-                                          "name": "Head",
-                                          "width": "fill_container",
-                                          "gap": 12,
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 12,
-                                              "id": "M6jHL",
-                                              "name": "Icon",
-                                              "fill": "$surface-muted",
-                                              "width": 40,
-                                              "height": 40
-                                            },
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 7,
-                                              "id": "e2suP",
-                                              "name": "Name",
-                                              "fill": "$surface-muted",
-                                              "width": 120,
-                                              "height": 14
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "XS2jK",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": "fill_container",
-                                          "height": 12
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "jwc8X",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": 180,
-                                          "height": 12
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "OvsIa",
+                                      "id": "d2uVH",
+                                      "type": "ref",
+                                      "ref": "wqjwo",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 230,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 12,
-                                      "padding": 20,
-                                      "children": [
-                                        {
-                                          "type": "frame",
-                                          "id": "i0jHk",
-                                          "name": "Head",
-                                          "width": "fill_container",
-                                          "gap": 12,
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 12,
-                                              "id": "fSqCf",
-                                              "name": "Icon",
-                                              "fill": "$surface-muted",
-                                              "width": 40,
-                                              "height": 40
-                                            },
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 7,
-                                              "id": "N2TUmk",
-                                              "name": "Name",
-                                              "fill": "$surface-muted",
-                                              "width": 120,
-                                              "height": 14
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "ohEmM",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": "fill_container",
-                                          "height": 12
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "G6EdfC",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": 180,
-                                          "height": 12
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "JG8LB",
+                                      "id": "X4EAH0",
+                                      "type": "ref",
+                                      "ref": "wqjwo",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 230,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 12,
-                                      "padding": 20,
-                                      "children": [
-                                        {
-                                          "type": "frame",
-                                          "id": "i9YdKZ",
-                                          "name": "Head",
-                                          "width": "fill_container",
-                                          "gap": 12,
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 12,
-                                              "id": "KBebx",
-                                              "name": "Icon",
-                                              "fill": "$surface-muted",
-                                              "width": 40,
-                                              "height": 40
-                                            },
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 7,
-                                              "id": "r1UxGF",
-                                              "name": "Name",
-                                              "fill": "$surface-muted",
-                                              "width": 120,
-                                              "height": 14
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "sxpiv",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": "fill_container",
-                                          "height": 12
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "h2DGSu",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": 180,
-                                          "height": 12
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     }
                                   ]
                                 },
@@ -147150,128 +146985,18 @@
                                       }
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "jicpV",
+                                      "id": "YcUqc",
+                                      "type": "ref",
+                                      "ref": "wqjwo",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 230,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 12,
-                                      "padding": 20,
-                                      "children": [
-                                        {
-                                          "type": "frame",
-                                          "id": "peVvd",
-                                          "name": "Head",
-                                          "width": "fill_container",
-                                          "gap": 12,
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 12,
-                                              "id": "FwOZc",
-                                              "name": "Icon",
-                                              "fill": "$surface-muted",
-                                              "width": 40,
-                                              "height": 40
-                                            },
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 7,
-                                              "id": "q9Vshp",
-                                              "name": "Name",
-                                              "fill": "$surface-muted",
-                                              "width": 120,
-                                              "height": 14
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "ElaWF",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": "fill_container",
-                                          "height": 12
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "Y9GfFs",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": 180,
-                                          "height": 12
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "y0big",
+                                      "id": "wpz2B",
+                                      "type": "ref",
+                                      "ref": "wqjwo",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 230,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 12,
-                                      "padding": 20,
-                                      "children": [
-                                        {
-                                          "type": "frame",
-                                          "id": "y164FU",
-                                          "name": "Head",
-                                          "width": "fill_container",
-                                          "gap": 12,
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 12,
-                                              "id": "yWjEC",
-                                              "name": "Icon",
-                                              "fill": "$surface-muted",
-                                              "width": 40,
-                                              "height": 40
-                                            },
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 7,
-                                              "id": "NcomD",
-                                              "name": "Name",
-                                              "fill": "$surface-muted",
-                                              "width": 120,
-                                              "height": 14
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "O1dR9H",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": "fill_container",
-                                          "height": 12
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "kmgaU",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": 180,
-                                          "height": 12
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     },
                                     {
                                       "type": "frame",
@@ -147567,128 +147292,18 @@
                                       }
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "p5B3Lm",
+                                      "id": "OxYSs",
+                                      "type": "ref",
+                                      "ref": "wqjwo",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 230,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 12,
-                                      "padding": 20,
-                                      "children": [
-                                        {
-                                          "type": "frame",
-                                          "id": "GyiPM",
-                                          "name": "Head",
-                                          "width": "fill_container",
-                                          "gap": 12,
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 12,
-                                              "id": "t5kVbk",
-                                              "name": "Icon",
-                                              "fill": "$surface-muted",
-                                              "width": 40,
-                                              "height": 40
-                                            },
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 7,
-                                              "id": "ATZk2",
-                                              "name": "Name",
-                                              "fill": "$surface-muted",
-                                              "width": 120,
-                                              "height": 14
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "HCju8",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": "fill_container",
-                                          "height": 12
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "J6hAq",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": 180,
-                                          "height": 12
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "YW08e",
+                                      "id": "DdRvM",
+                                      "type": "ref",
+                                      "ref": "wqjwo",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 230,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 12,
-                                      "padding": 20,
-                                      "children": [
-                                        {
-                                          "type": "frame",
-                                          "id": "wrWMR",
-                                          "name": "Head",
-                                          "width": "fill_container",
-                                          "gap": 12,
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 12,
-                                              "id": "A47Sl",
-                                              "name": "Icon",
-                                              "fill": "$surface-muted",
-                                              "width": 40,
-                                              "height": 40
-                                            },
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 7,
-                                              "id": "VVcqI",
-                                              "name": "Name",
-                                              "fill": "$surface-muted",
-                                              "width": 120,
-                                              "height": 14
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "g6doD",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": "fill_container",
-                                          "height": 12
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "Pu8UV",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": 180,
-                                          "height": 12
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     }
                                   ]
                                 },
@@ -147822,128 +147437,18 @@
                                       }
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "kambq",
+                                      "id": "EjjWJ",
+                                      "type": "ref",
+                                      "ref": "wqjwo",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 230,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 12,
-                                      "padding": 20,
-                                      "children": [
-                                        {
-                                          "type": "frame",
-                                          "id": "g1BmXt",
-                                          "name": "Head",
-                                          "width": "fill_container",
-                                          "gap": 12,
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 12,
-                                              "id": "whYFL",
-                                              "name": "Icon",
-                                              "fill": "$surface-muted",
-                                              "width": 40,
-                                              "height": 40
-                                            },
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 7,
-                                              "id": "gczGA",
-                                              "name": "Name",
-                                              "fill": "$surface-muted",
-                                              "width": 120,
-                                              "height": 14
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "cLXMR",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": "fill_container",
-                                          "height": 12
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "Fhfe2",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": 180,
-                                          "height": 12
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "qsism",
+                                      "id": "Uc5n1",
+                                      "type": "ref",
+                                      "ref": "wqjwo",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 230,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 12,
-                                      "padding": 20,
-                                      "children": [
-                                        {
-                                          "type": "frame",
-                                          "id": "hGWxQ",
-                                          "name": "Head",
-                                          "width": "fill_container",
-                                          "gap": 12,
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 12,
-                                              "id": "x1Wp33",
-                                              "name": "Icon",
-                                              "fill": "$surface-muted",
-                                              "width": 40,
-                                              "height": 40
-                                            },
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 7,
-                                              "id": "eykLy",
-                                              "name": "Name",
-                                              "fill": "$surface-muted",
-                                              "width": 120,
-                                              "height": 14
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "oB6im",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": "fill_container",
-                                          "height": 12
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "ptOYA",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": 180,
-                                          "height": 12
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     }
                                   ]
                                 },
@@ -148016,66 +147521,11 @@
                                       }
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "c2L2fX",
+                                      "id": "h8Ibvh",
+                                      "type": "ref",
+                                      "ref": "wqjwo",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 230,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 12,
-                                      "padding": 20,
-                                      "children": [
-                                        {
-                                          "type": "frame",
-                                          "id": "JUIRU",
-                                          "name": "Head",
-                                          "width": "fill_container",
-                                          "gap": 12,
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 12,
-                                              "id": "pn7qa",
-                                              "name": "Icon",
-                                              "fill": "$surface-muted",
-                                              "width": 40,
-                                              "height": 40
-                                            },
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 7,
-                                              "id": "uT5Ej",
-                                              "name": "Name",
-                                              "fill": "$surface-muted",
-                                              "width": 120,
-                                              "height": 14
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "M2uU25",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": "fill_container",
-                                          "height": 12
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "cHeO0",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": 180,
-                                          "height": 12
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     },
                                     {
                                       "type": "frame",
@@ -148288,66 +147738,11 @@
                                       }
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "XF1U0",
+                                      "id": "GJNXr",
+                                      "type": "ref",
+                                      "ref": "wqjwo",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 230,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 12,
-                                      "padding": 20,
-                                      "children": [
-                                        {
-                                          "type": "frame",
-                                          "id": "t8cpc",
-                                          "name": "Head",
-                                          "width": "fill_container",
-                                          "gap": 12,
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 12,
-                                              "id": "YDzHV",
-                                              "name": "Icon",
-                                              "fill": "$surface-muted",
-                                              "width": 40,
-                                              "height": 40
-                                            },
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 7,
-                                              "id": "CPzDw",
-                                              "name": "Name",
-                                              "fill": "$surface-muted",
-                                              "width": 120,
-                                              "height": 14
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "uEIIo",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": "fill_container",
-                                          "height": 12
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "KO4ZM",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": 180,
-                                          "height": 12
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     }
                                   ]
                                 },
@@ -148426,66 +147821,11 @@
                                       }
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "aletE",
+                                      "id": "C8Mtn",
+                                      "type": "ref",
+                                      "ref": "wqjwo",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 230,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 12,
-                                      "padding": 20,
-                                      "children": [
-                                        {
-                                          "type": "frame",
-                                          "id": "rdHjn",
-                                          "name": "Head",
-                                          "width": "fill_container",
-                                          "gap": 12,
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 12,
-                                              "id": "s9Yt6",
-                                              "name": "Icon",
-                                              "fill": "$surface-muted",
-                                              "width": 40,
-                                              "height": 40
-                                            },
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 7,
-                                              "id": "tgORw",
-                                              "name": "Name",
-                                              "fill": "$surface-muted",
-                                              "width": 120,
-                                              "height": 14
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "X8y3a",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": "fill_container",
-                                          "height": 12
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "lbSll",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": 180,
-                                          "height": 12
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     }
                                   ]
                                 },
@@ -148558,66 +147898,11 @@
                                       }
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "SXRoL",
+                                      "id": "CXFg5",
+                                      "type": "ref",
+                                      "ref": "wqjwo",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 230,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 12,
-                                      "padding": 20,
-                                      "children": [
-                                        {
-                                          "type": "frame",
-                                          "id": "Yeipx",
-                                          "name": "Head",
-                                          "width": "fill_container",
-                                          "gap": 12,
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 12,
-                                              "id": "B9Hjd",
-                                              "name": "Icon",
-                                              "fill": "$surface-muted",
-                                              "width": 40,
-                                              "height": 40
-                                            },
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 7,
-                                              "id": "D7hka",
-                                              "name": "Name",
-                                              "fill": "$surface-muted",
-                                              "width": 120,
-                                              "height": 14
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "zfus1",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": "fill_container",
-                                          "height": 12
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "y5ebE",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": 180,
-                                          "height": 12
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     }
                                   ]
                                 },
@@ -148690,66 +147975,11 @@
                                       }
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "u5hpJg",
+                                      "id": "u2Vto",
+                                      "type": "ref",
+                                      "ref": "wqjwo",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 230,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 12,
-                                      "padding": 20,
-                                      "children": [
-                                        {
-                                          "type": "frame",
-                                          "id": "dPWmO",
-                                          "name": "Head",
-                                          "width": "fill_container",
-                                          "gap": 12,
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 12,
-                                              "id": "PchLl",
-                                              "name": "Icon",
-                                              "fill": "$surface-muted",
-                                              "width": 40,
-                                              "height": 40
-                                            },
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 7,
-                                              "id": "hpTjy",
-                                              "name": "Name",
-                                              "fill": "$surface-muted",
-                                              "width": 120,
-                                              "height": 14
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "UdNQ5",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": "fill_container",
-                                          "height": 12
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "vhCcJ",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": 180,
-                                          "height": 12
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     }
                                   ]
                                 },
@@ -148822,66 +148052,11 @@
                                       }
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "gSvJp",
+                                      "id": "I2LMMB",
+                                      "type": "ref",
+                                      "ref": "wqjwo",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 230,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 12,
-                                      "padding": 20,
-                                      "children": [
-                                        {
-                                          "type": "frame",
-                                          "id": "KJZJC",
-                                          "name": "Head",
-                                          "width": "fill_container",
-                                          "gap": 12,
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 12,
-                                              "id": "RsZlr",
-                                              "name": "Icon",
-                                              "fill": "$surface-muted",
-                                              "width": 40,
-                                              "height": 40
-                                            },
-                                            {
-                                              "type": "rectangle",
-                                              "cornerRadius": 7,
-                                              "id": "uZXvh",
-                                              "name": "Name",
-                                              "fill": "$surface-muted",
-                                              "width": 120,
-                                              "height": 14
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "wF5FA",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": "fill_container",
-                                          "height": 12
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 6,
-                                          "id": "xVuO5",
-                                          "name": "Line",
-                                          "fill": "$surface-muted",
-                                          "width": 180,
-                                          "height": 12
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     }
                                   ]
                                 }
@@ -211816,106 +210991,25 @@
                                       ]
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "xLtsv",
+                                      "id": "lqUCr",
+                                      "type": "ref",
+                                      "ref": "M4iOW",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 76,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 10,
-                                      "padding": 16,
-                                      "children": [
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 7,
-                                          "id": "PZXNQ",
-                                          "name": "Bar",
-                                          "fill": "$surface-muted",
-                                          "width": 160,
-                                          "height": 14
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 5,
-                                          "id": "C3U03",
-                                          "name": "Bar",
-                                          "fill": "$surface-muted",
-                                          "width": 100,
-                                          "height": 10
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "UvL1R",
+                                      "id": "d9ujFe",
+                                      "type": "ref",
+                                      "ref": "M4iOW",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 76,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 10,
-                                      "padding": 16,
-                                      "children": [
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 7,
-                                          "id": "t47b2",
-                                          "name": "Bar",
-                                          "fill": "$surface-muted",
-                                          "width": 160,
-                                          "height": 14
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 5,
-                                          "id": "gcBO8",
-                                          "name": "Bar",
-                                          "fill": "$surface-muted",
-                                          "width": 100,
-                                          "height": 10
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "c9E9u",
+                                      "id": "gtJGj",
+                                      "type": "ref",
+                                      "ref": "M4iOW",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 76,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 10,
-                                      "padding": 16,
-                                      "children": [
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 7,
-                                          "id": "o1RLtC",
-                                          "name": "Bar",
-                                          "fill": "$surface-muted",
-                                          "width": 160,
-                                          "height": 14
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 5,
-                                          "id": "HhtpL",
-                                          "name": "Bar",
-                                          "fill": "$surface-muted",
-                                          "width": 100,
-                                          "height": 10
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     }
                                   ]
                                 },
@@ -213253,106 +212347,25 @@
                                       ]
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "v09wGm",
+                                      "id": "XoOR4",
+                                      "type": "ref",
+                                      "ref": "M4iOW",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 76,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 10,
-                                      "padding": 16,
-                                      "children": [
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 7,
-                                          "id": "S7e3st",
-                                          "name": "Bar",
-                                          "fill": "$surface-muted",
-                                          "width": 160,
-                                          "height": 14
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 5,
-                                          "id": "z5kjKW",
-                                          "name": "Bar",
-                                          "fill": "$surface-muted",
-                                          "width": 100,
-                                          "height": 10
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "CqMFs",
+                                      "id": "vXKT9",
+                                      "type": "ref",
+                                      "ref": "M4iOW",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 76,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 10,
-                                      "padding": 16,
-                                      "children": [
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 7,
-                                          "id": "Q1llPw",
-                                          "name": "Bar",
-                                          "fill": "$surface-muted",
-                                          "width": 160,
-                                          "height": 14
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 5,
-                                          "id": "bGrGR",
-                                          "name": "Bar",
-                                          "fill": "$surface-muted",
-                                          "width": 100,
-                                          "height": 10
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "tim4u",
+                                      "id": "uo9tT",
+                                      "type": "ref",
+                                      "ref": "M4iOW",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 76,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 10,
-                                      "padding": 16,
-                                      "children": [
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 7,
-                                          "id": "MBm1X",
-                                          "name": "Bar",
-                                          "fill": "$surface-muted",
-                                          "width": 160,
-                                          "height": 14
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 5,
-                                          "id": "Od51F",
-                                          "name": "Bar",
-                                          "fill": "$surface-muted",
-                                          "width": 100,
-                                          "height": 10
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     }
                                   ]
                                 },
@@ -214616,106 +213629,25 @@
                                       ]
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "Fji5o",
+                                      "id": "IMs2x",
+                                      "type": "ref",
+                                      "ref": "M4iOW",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 76,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 10,
-                                      "padding": 16,
-                                      "children": [
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 7,
-                                          "id": "LBxJy",
-                                          "name": "Bar",
-                                          "fill": "$surface-muted",
-                                          "width": 160,
-                                          "height": 14
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 5,
-                                          "id": "q7Syw",
-                                          "name": "Bar",
-                                          "fill": "$surface-muted",
-                                          "width": 100,
-                                          "height": 10
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "QSOUU",
+                                      "id": "DnTPG",
+                                      "type": "ref",
+                                      "ref": "M4iOW",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 76,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 10,
-                                      "padding": 16,
-                                      "children": [
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 7,
-                                          "id": "FOyof",
-                                          "name": "Bar",
-                                          "fill": "$surface-muted",
-                                          "width": 160,
-                                          "height": 14
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 5,
-                                          "id": "BQLoe",
-                                          "name": "Bar",
-                                          "fill": "$surface-muted",
-                                          "width": 100,
-                                          "height": 10
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "wKqR0",
+                                      "id": "buzW1",
+                                      "type": "ref",
+                                      "ref": "M4iOW",
                                       "name": "Skeleton",
-                                      "width": "fill_container",
-                                      "height": 76,
-                                      "fill": "$surface",
-                                      "cornerRadius": "$radius-lg",
-                                      "stroke": "$border",
-                                      "strokeWidth": 1,
-                                      "layout": "vertical",
-                                      "gap": 10,
-                                      "padding": 16,
-                                      "children": [
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 7,
-                                          "id": "n2NBjs",
-                                          "name": "Bar",
-                                          "fill": "$surface-muted",
-                                          "width": 160,
-                                          "height": 14
-                                        },
-                                        {
-                                          "type": "rectangle",
-                                          "cornerRadius": 5,
-                                          "id": "yh0jl",
-                                          "name": "Bar",
-                                          "fill": "$surface-muted",
-                                          "width": 100,
-                                          "height": 10
-                                        }
-                                      ]
+                                      "width": "fill_container"
                                     }
                                   ]
                                 },
@@ -308739,6 +307671,112 @@
                               "fontFamily": "$font-body",
                               "fontSize": 14,
                               "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "r7BYGl",
+                      "name": "Skeletons",
+                      "gap": 48,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "wqjwo",
+                          "name": "Skeleton/Skill Card",
+                          "reusable": true,
+                          "width": 320,
+                          "height": 230,
+                          "fill": "$surface",
+                          "cornerRadius": "$radius-lg",
+                          "stroke": "$border",
+                          "strokeWidth": 1,
+                          "layout": "vertical",
+                          "gap": 12,
+                          "padding": 20,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "f0zPUP",
+                              "name": "Head",
+                              "width": "fill_container",
+                              "gap": 12,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": 12,
+                                  "id": "nZZz6",
+                                  "name": "Icon",
+                                  "fill": "$surface-muted",
+                                  "width": 40,
+                                  "height": 40
+                                },
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": 7,
+                                  "id": "heVNf",
+                                  "name": "Name",
+                                  "fill": "$surface-muted",
+                                  "width": 120,
+                                  "height": 14
+                                }
+                              ]
+                            },
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 6,
+                              "id": "Z6cGr",
+                              "name": "Line",
+                              "fill": "$surface-muted",
+                              "width": "fill_container",
+                              "height": 12
+                            },
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 6,
+                              "id": "ihX8B",
+                              "name": "Line",
+                              "fill": "$surface-muted",
+                              "width": 180,
+                              "height": 12
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "M4iOW",
+                          "name": "Skeleton/Job",
+                          "reusable": true,
+                          "width": 560,
+                          "height": 76,
+                          "fill": "$surface",
+                          "cornerRadius": "$radius-lg",
+                          "stroke": "$border",
+                          "strokeWidth": 1,
+                          "layout": "vertical",
+                          "gap": 10,
+                          "padding": 16,
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 7,
+                              "id": "Pe1vI",
+                              "name": "Bar",
+                              "fill": "$surface-muted",
+                              "width": 160,
+                              "height": 14
+                            },
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 5,
+                              "id": "H9zsH",
+                              "name": "Bar",
+                              "fill": "$surface-muted",
+                              "width": 100,
+                              "height": 10
                             }
                           ]
                         }
