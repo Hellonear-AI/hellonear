@@ -18,7 +18,7 @@ Open `.pen` files in pen.dev or through the Pencil MCP tools. `hellonear.pen` is
 Tokens live as variables in `hellonear.pen`, with a `mode` theme (`light`, `dark`). Code in `apps/fe` and `apps/landing` should use the same token names.
 
 - Color: `bg`, `surface`, `surface-muted`, `border`, `border-strong`, `text-primary`, `text-secondary`, `text-tertiary`, `primary`, `on-primary`, `accent` (lime), `on-accent`, `accent-soft`, `accent-strong`, `success`, `warning`, `danger`, `on-danger`, `info` (each status has a `-soft` background), `shadow`.
-- Interaction colors (v0.2): `primary-hover`, `accent-hover`, `danger-hover`, `surface-hover`, `focus` (keyboard focus ring; dark lime in light mode because bright lime on cream is about 1.2:1), `toast-bg`, `toast-fg`.
+- Interaction colors (v0.2): `primary-hover`, `accent-hover`, `danger-hover`, `surface-hover`, `focus` (keyboard focus ring; dark lime in light mode because bright lime on cream is about 1.2:1), `toast-bg`, `toast-fg`, `scrim`, `scrim-soft` (backdrops behind dialogs and sheets), `danger-fill` (solid red buttons; a deeper red in dark mode so `on-danger`, white in both modes, keeps about 5:1; `danger` stays the bright red for red text and icons).
 - Contrast (v0.2): light-mode `success` #1A7340, `warning` #945800, `danger` #BF3220, `info` #2A5BC7 and `text-tertiary` (#696660 light, #8E8B83 dark) were darkened so text on `bg`, `surface` and the `-soft` backgrounds passes WCAG AA (4.5:1). The v0.1 values measured 3.5 to 4.49.
 - Mind Graph node colors: `node-mind`, `node-skill`, `node-tool`, `node-app`, `node-wallet`, `node-memory`, `node-model`; denied/error edges use `danger`.
 - Type: `font-heading` (Geist, placeholder until a heading font is chosen), `font-body` (Geist), `font-mono` (Geist Mono). Sizes `size-display` 64, `size-h1` 48, `size-h2` 36, `size-h3` 24, `size-title` 18, `size-body` 16, `size-small` 14, `size-caption` 12.
@@ -70,6 +70,7 @@ Frame `Mind Characters v0.3` in `hellonear.pen` (earlier tries were removed). On
 - Short sentences, plain verbs, sentence case for buttons ("Connect wallet", "Allow").
 - Amounts always show the token (`2 NEAR`). Wallet addresses use the mono font.
 - Testnet is stated plainly: "Running on NEAR testnet. No real money."
+- Never mention the hackathon or call the product a "demo" in the UI. The shared try-out wallet's addresses are "test addresses".
 
 ## Screens (v0.2)
 
@@ -81,5 +82,8 @@ Screens live in sections `3 · Start` to `8 · Attack Playground`, one board per
 - Builder is a full-screen mode, like a design tool: no sidebar or rail, only a top bar with a back arrow (no label, since people may arrive from a link; it always goes to Autopilot), approvals with their count, Test run and Save. It opens only from Autopilot (Edit steps, New job); there is no Builder menu item (decided 6 Nov). Adding a block: drag from the block list on desktop, and on every size a + marks each spot the engine accepts (between steps, before the If, an empty Yes or No ending; never before Start or after an ending). On phones there is no dragging: tap a +, pick from a sheet that only lists blocks that fit there, and the new block's settings open (WCAG 2.2, 2.5.7). A tapped block opens its settings in a sheet. Phones have no schedule switch in Builder; turning a job on or off lives in Autopilot. The If block's endings are labeled Yes and No.
 - Empty, no results and couldn't-load states fill the whole content area (full width and height, content centered) instead of a small box at the top. Phone frames for those states are one screen (844), not full page.
 - Autopilot on tablet and phone is list first: tapping a job opens its own detail page (P1.6); desktop keeps list and detail side by side.
-- The v0.1 screens (light and dark) moved to `Archive · v0.1 screens`; don't build from them. Dark mode for the new screens comes from the tokens; the States board shows the dark check.
+- The v0.1 screens (light and dark) moved to `Archive · v0.1 screens`; don't build from them.
+- Dark mode: each section `3 · Start` to `8 · Attack Playground` is a component, and `<section> · Dark` beside it (400 px to the right, same y) is an instance of it with the `dark` theme. **Edit only the light section**; the dark one follows by itself. Never edit inside a dark mirror. When restacking sections, move each dark mirror with its section.
+- Colors in screens come from tokens. The only fixed colors are the Gmail logo red and the white caption card on the sign-in photo (it sits on a photo, so it stays light). Dialog and sheet backdrops use `scrim` / `scrim-soft` (v0.2), which are darker in dark mode.
+- L1.5 "What is a Mind?": opened from the link on sign-in; three points (talks with you, has its own wallet, can't go past your limits) and Got it. Dialog on desktop and tablet, bottom sheet on phone.
 - The example Mind in every screen is "Penny" (Payments Mind); it is sample content, not a product name.
