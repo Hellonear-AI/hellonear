@@ -11,21 +11,22 @@ Records Mind ↔ owner ↔ wallet ↔ skills on NEAR (#12). No custody logic: a 
 | `new()` | init | Call in the **same transaction as the deploy** so nobody can front-run initialization |
 | `migrate(skill_ids)` | private init | Upgrades v0.1.0 state to versioned records; only the contract account can call it (see below) |
 | `register_mind(mind_id, metadata_uri, wallet)` | payable | Owner = caller. Attach NEAR for storage; excess refunded. Max 100 Minds per account |
-| `publish_skill(skill_id, metadata_uri, price: U128)` | payable | Publisher = caller. `price` is recorded only (no payments in v1) |
-| `equip_skill(mind_id, skill_id)` | payable | Owner only; skill must be published; max 32 skills per Mind |
+| `publish_skill(skill_id, metadata_uri, price: U128)` | payable | Publisher = caller. `price` in yoctoNEAR (`"0"` = free); it cannot be changed later |
+| `equip_skill(mind_id, skill_id)` | payable | Owner only; skill must be published; max 32 skills per Mind. Attach `price` + storage: the price goes to the publisher, the excess is refunded; equipping again after an unequip pays again (#56). The sandbox test attaches price + 0.01 NEAR and 30 Tgas (5.6 Tgas burnt) |
+| `on_skill_paid(…)` | private callback | Refunds the owner if the transfer to the publisher fails (e.g. the account was deleted); never panics |
 | `unequip_skill(mind_id, skill_id)` | 1 yoctoNEAR | Owner only; freed storage refunded |
 | `set_wallet(mind_id, wallet)` | ≥ 1 yoctoNEAR | Owner only; pays extra storage if the address is longer |
 | `get_mind`, `get_skill`, `minds_of(owner, from_index?, limit?)`, `total_minds` | view | `minds_of` returns at most 50 per call |
 
-Events (NEP-297, standard `hellonear_registry` v1.0.0): `mind_registered`, `skill_published`, `skill_equipped`, `skill_unequipped`, `wallet_set`.
+Events (NEP-297, standard `hellonear_registry` v1.1.0): `mind_registered`, `skill_published`, `skill_equipped` (`mind_id`, `skill_id`, `price`, `publisher`; price and publisher added in 1.1.0), `skill_payment_refunded` (`mind_id`, `skill_id`, `payer`, `price`), `skill_unequipped`, `wallet_set`.
 
 ## Build and test
 
 ```sh
-cargo near build non-reproducible-wasm     # target/near/hellonear_mind_registry.wasm (~174 KB)
-cargo test --lib                           # 12 unit tests
-cargo test --test test_registry            # deploys the WASM to a local NEAR sandbox and runs real transactions
-cargo test --test test_migration           # deploys v0.1.0 (tests/fixtures), writes data, upgrades + migrates, checks nothing is lost
+cargo near build non-reproducible-wasm     # target/near/hellonear_mind_registry.wasm (~193 KB)
+cargo test --lib                           # 17 unit tests
+cargo test --test test_registry            # deploys the WASM to a local NEAR sandbox and runs real transactions, incl. publisher payment and refund
+cargo test --test test_migration           # upgrades from v0.1.0 (+ migrate) and from v0.2.0 (code only), checks nothing is lost
 cargo clippy --all-targets
 ```
 
@@ -39,6 +40,12 @@ Follows [Updating Contracts](https://docs.near.org/smart-contracts/release/upgra
 - A change to the **top-level** contract struct needs a migration: keep the old layout as a struct (like `ContractV0_1` in `src/migrate.rs`), add a `#[private] #[init(ignore_state)] migrate`, deploy and call it **in the same transaction**, and add a sandbox test that upgrades from the previous WASM (keep it in `tests/fixtures/`).
 - Storage prefixes in `StorageKey` are append-only.
 - Upgrades are possible because the account keeps a full-access key (Axel's keychain). Removing every full-access key would lock the code ([docs](https://docs.near.org/smart-contracts/release/upgrade)); not planned during the hackathon.
+
+v0.2.0 → v0.3.0 upgrade (#56): the state layout did not change, so it is a code-only deploy (no init call; `test_migration` covers it from the exact v0.2.0 WASM). Not deployed yet: it needs Axel's key and approval.
+
+```sh
+cargo near deploy build-non-reproducible-wasm hellonear-registry.testnet without-init-call network-config testnet sign-with-keychain send
+```
 
 v0.1.0 → v0.2.0 upgrade (skills from the `skill_published` events):
 
