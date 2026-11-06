@@ -7,7 +7,7 @@ import { AccountMenu } from "@/components/layout/AccountMenu"
 import { LogoMark } from "@/components/layout/AppSidebar"
 import { MindSwitcher } from "@/components/layout/MindSwitcher"
 import { mindHref } from "@/components/layout/nav"
-import { NavList, RecentChats, TestnetNotice, useActiveSegment } from "@/components/layout/SidebarParts"
+import { NavList, RecentChats, useActiveSegment } from "@/components/layout/SidebarParts"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { useApprovalsCount } from "@/modules/minds/hooks/useMinds"
@@ -28,7 +28,7 @@ export function MobileHeader({ mindId }: { mindId: string }) {
         <SheetTrigger render={<Button variant="ghost" size="icon" aria-label="Open the menu" />}>
           <MenuIcon />
         </SheetTrigger>
-        <SheetContent side="left" showCloseButton={false} className="gap-5 overflow-y-auto overscroll-contain p-4 [scrollbar-width:thin] data-[side=left]:w-[86%] data-[side=left]:max-w-80 data-[side=left]:sm:max-w-80">
+        <SheetContent side="left" showCloseButton={false} className="gap-5 overflow-y-auto overscroll-contain p-4 data-[side=left]:w-[86%] data-[side=left]:max-w-80 data-[side=left]:sm:max-w-80">
           <div className="flex items-center gap-2 py-1 pl-2">
             <LogoMark />
             <SheetTitle className="text-[15px] font-semibold">HelloNear</SheetTitle>
@@ -37,8 +37,7 @@ export function MobileHeader({ mindId }: { mindId: string }) {
           </div>
           <NavList mindId={mindId} onNavigate={close} />
           <RecentChats mindId={mindId} onNavigate={close} />
-          <TestnetNotice />
-        </SheetContent>
+            </SheetContent>
       </Sheet>
 
       <MindSwitcher mindId={mindId} variant="header" segment={segment} />

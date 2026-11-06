@@ -4,7 +4,7 @@ import { PanelLeftCloseIcon, PanelLeftOpenIcon, SproutIcon } from "lucide-react"
 import Link from "next/link"
 import { AccountMenu } from "@/components/layout/AccountMenu"
 import { MindSwitcher } from "@/components/layout/MindSwitcher"
-import { NavList, RailNav, RecentChats, TestnetNotice, useActiveSegment } from "@/components/layout/SidebarParts"
+import { NavList, RailNav, RecentChats, useActiveSegment } from "@/components/layout/SidebarParts"
 import { Button } from "@/components/ui/button"
 
 // Placeholder mark until Nabil's logo lands (design/CLAUDE.md).
@@ -32,7 +32,7 @@ export function AppSidebar({
   const segment = useActiveSegment(mindId) || "chat"
   return (
     // The whole sidebar scrolls as one (not only Recent chats); the account row stays pinned at the bottom.
-    <div className="flex h-full w-64 flex-col gap-5 overflow-y-auto overscroll-contain border-r border-border bg-surface p-4 pb-0 [scrollbar-width:thin]">
+    <div className="flex h-full w-64 flex-col gap-5 overflow-y-auto overscroll-contain border-r border-border bg-surface p-4 pb-0">
       <div className="flex items-center gap-2 py-1 pl-2">
         <Link href={`/minds/${mindId}/chat`} onClick={onNavigate} className="flex items-center gap-2">
           <LogoMark />
@@ -48,7 +48,6 @@ export function AppSidebar({
       <MindSwitcher mindId={mindId} variant="card" segment={segment} />
       <NavList mindId={mindId} onNavigate={onNavigate} />
       <RecentChats mindId={mindId} onNavigate={onNavigate} />
-      <TestnetNotice />
       <div className="sticky bottom-0 -mx-4 mt-auto bg-surface px-4 pb-4">
         <AccountMenu variant="row" />
       </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { InfoIcon, SquarePenIcon } from "lucide-react"
+import { SquarePenIcon } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "cn"
@@ -134,15 +134,5 @@ export function RecentChats({ mindId, onNavigate }: { mindId: string; onNavigate
         })}
       </div>
     </section>
-  )
-}
-
-/** Notice/Info: "Running on NEAR testnet. No real money." */
-export function TestnetNotice() {
-  return (
-    <p className="flex items-center gap-2 rounded-md bg-info-soft px-3 py-2.5 text-xs text-foreground">
-      <InfoIcon className="size-4 shrink-0 text-info" />
-      Testnet. No real money.
-    </p>
   )
 }
