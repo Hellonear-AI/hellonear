@@ -11,7 +11,7 @@ export type MindConfig = {
 }
 export type EngineSecret = { name: string; value: string; allowedHosts: string[] }
 export type SkillInfo = { skillId: string; description: string; status: string; connections: string[]; note?: string }
-export type Template = MindConfig & { tagline: string; skills: SkillInfo[] }
+export type Template = MindConfig & { tagline: string; quote: string; skills: SkillInfo[] }
 export type CatalogSkill = SkillInfo & { tools: string[] }
 
 export async function engineFetch(path: string, init: { method?: string; body?: unknown } = {}): Promise<Response> {

@@ -16,12 +16,12 @@ export const fake = {
 
 export const templates = [
   {
-    templateId: 'general-assistant', name: 'General Assistant', tagline: 'Helps.',
+    templateId: 'general-assistant', name: 'General Assistant', tagline: 'Helps.', quote: 'I keep your day in order.',
     soul: { identity: 'You help.', invariants: ['Never invent facts.'], priors: [] }, model: 'z-ai/glm-5.3-flash',
     skills: [{ skillId: 'daily-planner', description: 'Plans days.', status: 'available', connections: [] }],
   },
   {
-    templateId: 'payments-mind', name: 'Payments Mind', tagline: 'Pays.',
+    templateId: 'payments-mind', name: 'Payments Mind', tagline: 'Pays.', quote: 'I keep your bills paid and your limits boring.',
     soul: { identity: 'You pay bills.', invariants: ['Every payment waits for approval.'], priors: [] }, model: 'z-ai/glm-5.3-flash',
     skills: [
       { skillId: 'payments', description: 'Pays.', status: 'simulated', connections: ['near-wallet'] },

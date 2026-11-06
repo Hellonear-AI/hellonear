@@ -196,6 +196,12 @@ describe('minds (#8, #13)', () => {
     assert.equal((await alice.call('GET', `/v1/minds/${mind.id}`)).status, 404)
   })
 
+  test('templates pass through the engine card quote (#63)', async () => {
+    const a = await signIn()
+    const { templates } = await (await a.call('GET', '/v1/templates')).json()
+    assert.deepEqual(templates.map((t: any) => [t.templateId, t.quote]), [['general-assistant', 'I keep your day in order.'], ['payments-mind', 'I keep your bills paid and your limits boring.']])
+  })
+
   test('unknown templates and skills, duplicates, and bad bodies are refused', async () => {
     const alice = await signIn()
     assert.equal((await alice.call('POST', '/v1/minds', { templateId: 'nope', name: 'X' })).status, 400)
