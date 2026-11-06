@@ -157,6 +157,7 @@ async fn equip_pays_the_skill_publisher() -> testresult::TestResult<()> {
     let paid = paid.assert_success();
     println!("equip_skill with a price: gas burnt {}", paid.total_gas_burnt);
     assert!(logs.iter().any(|l| l.contains("\"skill_equipped\"") && l.contains(&format!("\"price\":\"{}\"", price.as_yoctonear())) && l.contains("\"publisher\":\"bob.sandbox\"")), "{logs:?}");
+    assert!(!logs.iter().any(|l| l.contains("\"skill_payment_refunded\"")), "a paid transfer must not be refunded too: {logs:?}");
     assert_eq!(balance(&bob).await?, bob0.saturating_add(price));
     let spent = alice0.saturating_sub(balance(&alice).await?);
     println!("owner spent on a 0.5 NEAR skill: {spent}");
