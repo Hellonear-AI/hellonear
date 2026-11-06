@@ -218,6 +218,45 @@ describe('engine HTTP API', () => {
     })
   })
 
+  // Calendar tools (#57): same split as email. A test user has no Calendar connection, so Composio answers live.
+  describe('calendar tools', () => {
+    const planner = mind('Cal', { skills: [{ skillId: 'daily-planner' }] })
+
+    test('a try-out run reads the sample calendar on the googlecalendar App node', async () => {
+      const evs = await events(await post('/v1/minds/cal/chat', { userId, threadId: randomUUID(), demo: true, mind: planner, message: 'What is on my calendar this week? Use googlecalendar_list_events.' }))
+      const listed = evs.find((e) => e.type === 'tool.result' && e.tool === 'googlecalendar_list_events')
+      assert.ok(listed, JSON.stringify(evs.filter((e) => e.tool)))
+      assert.equal(listed.nodeId, 'app:googlecalendar')
+      assert.equal(listed.result.source, 'sample_calendar')
+      assert.ok(listed.result.events.length > 0)
+      assert.equal(evs.at(-1)?.type, 'run.verified')
+    })
+
+    for (const action of ['approve', 'decline'] as const) {
+      test(`googlecalendar_create_event pauses for approval, then ${action} resumes the run`, async () => {
+        const threadId = randomUUID()
+        const first = await events(await post('/v1/minds/cal/chat', { userId, threadId, demo: true, mind: planner, message: 'Add "Dentist" to my calendar on 2026-11-20 from 15:00 to 16:00 at +07:00 with googlecalendar_create_event.' }))
+        const ask = first.find((e) => e.type === 'tool.approval_required')
+        assert.ok(ask, JSON.stringify(first.filter((e) => e.tool)))
+        assert.equal(ask.tool, 'googlecalendar_create_event')
+        assert.equal(ask.nodeId, 'app:googlecalendar')
+        assert.ok(!first.some((e) => e.type === 'tool.result' && e.tool === 'googlecalendar_create_event'), 'nothing written before approval')
+        const rest = await events(await post(`/v1/runs/${ask.runId}/${action}?mindId=cal`, { userId, threadId, demo: true, mind: planner, toolCallId: ask.toolCallId, reason: action === 'decline' ? 'Owner declined' : undefined }))
+        const made = rest.find((e) => e.type === 'tool.result' && e.tool === 'googlecalendar_create_event')
+        if (action === 'approve') assert.equal(made?.result?.status, 'created')
+        else assert.equal(made, undefined, 'a declined event is never created')
+        assert.equal(rest.at(-1)?.type, 'run.verified')
+      })
+    }
+
+    test('an owner without a Calendar connection is told to connect it (live Composio answer)', async () => {
+      const evs = await events(await post('/v1/minds/cal/chat', { userId, threadId: randomUUID(), mind: planner, message: 'What is on my calendar this week? Use googlecalendar_list_events.' }))
+      const err = evs.find((e) => e.type === 'tool.error' && e.tool === 'googlecalendar_list_events')
+      assert.match(err?.error ?? '', /Google Calendar is not connected/, JSON.stringify(evs.filter((e) => e.tool)))
+      assert.ok(!evs.some((e) => e.type === 'tool.result' && e.result?.source === 'sample_calendar'), 'owners never see the sample calendar')
+    })
+  })
+
   // Payment tools (#42) call the backend; here a fake one stands in for it (the real one is e2e-tested with James's branch).
   describe('payments through the wallet token', () => {
     const TOKEN = `wt_${randomUUID()}`
