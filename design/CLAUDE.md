@@ -40,6 +40,7 @@ Tokens live as variables in `hellonear.pen`, with a `mode` theme (`light`, `dark
 - `HelloNear · Atomic Components` holds every reusable component, named `Group/Variant` (`Button/Primary`, `Badge/Warning`, `Meter/Frozen`, `Nav/Active`, ...), in three sections: atoms, molecules, organisms. Screens should use instances of these, not hand-built copies.
 - `HelloNear · States & Interactions` shows each component in every state (default, hover, pressed, focus, disabled, loading, error and the money lifecycle: waiting, signing in Meteor, approved, declined, expired), the motion rules, and a dark-mode check.
 - Motion: see "Motion (v0.3)" below.
+- The sidebar has no testnet notice (team call, 6 Nov); testnet is stated on sign-in and in try-out.
 - Recent chats (#54) show in the desktop and tablet sidebar too, under the menu, with a New chat button; the open chat is highlighted only on chat screens. The folded rail has no chat list.
 - Theme lives in the account menu (N1.8), opened from the account row at the bottom of the sidebar, the rail avatar, or the phone drawer's gear: Appearance System (default, follows the device), Light or Dark, then Sign out. It applies to the whole app, not per Mind.
 - Sidebar opens and folds: desktop starts open (256) with a fold button that turns it into the icon rail (72) and widens the content, and remembers the choice; tablet starts as the rail, whose top button opens the full sidebar over the content with the page dimmed (N1.5, N1.6).

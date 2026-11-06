@@ -281651,7 +281651,8 @@
                                   "type": "ref",
                                   "ref": "YAyTV",
                                   "name": "Testnet",
-                                  "width": "fill_container",
+                                  "width": "fill_container(224)",
+                                  "enabled": false,
                                   "descendants": {
                                     "hYPZe": {
                                       "width": 16,
