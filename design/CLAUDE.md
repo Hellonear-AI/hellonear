@@ -8,7 +8,7 @@ Source of truth for HelloNear's visual design: design tokens, app screens, Mind 
 
 | Path | What |
 |---|---|
-| `hellonear.pen` | Main design file (pen.dev / Pencil). Frames: Design Reference, Font Reference, Design Tokens · Light, Design Tokens · Dark, `HelloNear · Atomic Components`, `HelloNear · States & Interactions`, and one frame per screen |
+| `hellonear.pen` | Main design file (pen.dev / Pencil). Frames: `0 · Start here` (how to read the file), Design Reference, Font Reference, Design Tokens · Light/Dark, `HelloNear · Atomic Components`, `HelloNear · States & Interactions`, `HelloNear · Product map`, sections `3 · Start` to `8 · Attack Playground`, and `Archive · v0.1 screens` |
 | `hellonear-assets/` | Reference images (third-party, from Pinterest) used by the Design Reference and Font Reference frames. **Gitignored and kept on Nabil's machine only**, so those two frames look empty for everyone else. Never commit or ship them |
 
 Open `.pen` files in pen.dev or through the Pencil MCP tools. `hellonear.pen` is plain JSON on disk, but edit it only through pen.dev / Pencil so ids and layout stay valid. pen.dev keeps edits in memory until you press Ctrl+S; check `git diff` before committing.
@@ -43,6 +43,8 @@ Tokens live as variables in `hellonear.pen`, with a `mode` theme (`light`, `dark
 - Navigation by size: sidebar (256) on desktop 1440, icon rail (72) on tablet 834, and on phone 390 a top bar (menu, Mind switcher, Approvals with a count) plus a left drawer with every place and Recent chats (picked over a bottom bar on 6 Nov; Recent chats needs #54). Approvals always show their count: sidebar, rail and phone top bar. Screens are designed at those three widths and checked at 320.
 - Limit meter: "coin tiles", 10 tiles of 1 NEAR with a lock cap; the headline is what is left today. Amber from 80%, red at the limit, grey with a snowflake when frozen.
 - No shield, zap, sparkles or rocket icons; "Verified private" uses `badge-check`.
+- `node-mind` flips to near-white in dark mode, so icons on it use `on-primary` there (lime on near-white is unreadable).
+- The live view map sits in a centered 360 x 240 `Graph` frame, so it stays centered in any panel width.
 
 ## Mind characters (#13, v0.3 draft)
 
@@ -66,10 +68,12 @@ Frame `Mind Characters v0.3` in `hellonear.pen` (earlier tries were removed). On
 - Amounts always show the token (`2 NEAR`). Wallet addresses use the mono font.
 - Testnet is stated plainly: "Running on NEAR testnet. No real money."
 
-## Screens (v0.1, main states only)
+## Screens (v0.2)
 
-Login, Choose a Mind, Chat + Mind Graph, Skills, Skill permission, Wallet, Approvals + Freeze, Attack Playground, Connections, Builder, Autopilot. Each has a light frame (`NN Name`) and a dark copy (`NN Name · Dark`, frame theme `mode: dark`). Edge states (offline, loading, empty, errors) come after the main screens are agreed.
+Screens live in sections `3 · Start` to `8 · Attack Playground`, one board per screen code from the Product map (L1 to L3, C1, C2, N1, W1 to W3, A1, S1, S2, K1, P1, B1, X1). Each row of a board is one state with a code (`W1.3`), a name and a note; frames are drawn at desktop 1440, tablet 834 and phone 390 ("full page" phone frames show the whole scroll). Every main screen has its empty, loading, error and blocked states.
 
-- The sidebar is a reusable component; mark the active item by overriding `Nav <Item>`, `Nav <Item> Icon` and `Nav <Item> Label`.
-- `node-mind` flips to near-white in dark mode, so icons on it use `on-primary` there (lime on near-white is unreadable).
+- Content follows what the backend and engine really do (`docs/api-contract.md`): the five real skills, Gmail as the only app, keys with allowed sites, Autopilot that can't move money or use keys, Attack Playground stops from per payment limits, allowed addresses and freeze (#16), no transaction link for a stop.
+- Builder is a full-screen mode, like a design tool: no sidebar or rail, only a top bar with a back arrow (no label, since people may arrive from a link; it always goes to Autopilot), approvals with their count, Test run and Save. It opens only from Autopilot (Edit steps, New job); there is no Builder menu item (decided 6 Nov). On phones the canvas can be panned and zoomed and a tapped block opens a sheet to change its settings (like n8n's and Figma's mobile helpers); adding, removing or connecting blocks and making new jobs need a bigger screen.
+- Autopilot on tablet and phone is list first: tapping a job opens its own detail page (P1.6); desktop keeps list and detail side by side.
+- The v0.1 screens (light and dark) moved to `Archive · v0.1 screens`; don't build from them. Dark mode for the new screens comes from the tokens; the States board shows the dark check.
 - The example Mind in every screen is "Penny" (Payments Mind); it is sample content, not a product name.
