@@ -63,11 +63,21 @@ fn emit(event: &str, data: near_sdk::serde_json::Value) {
 
 /// Charges the caller for storage added since `initial_storage`, refunding any excess.
 fn charge_storage(initial_storage: u64) {
+    charge_storage_plus(initial_storage, NearToken::from_yoctonear(0));
+}
+
+/// Like `charge_storage`, but the deposit must also cover `extra` (kept by the contract to pay out).
+fn charge_storage_plus(initial_storage: u64, extra: NearToken) {
     let used = env::storage_usage().saturating_sub(initial_storage);
     let cost = env::storage_byte_cost().saturating_mul(used as u128);
+    let required = cost.saturating_add(extra);
     let attached = env::attached_deposit();
-    require!(attached >= cost, format!("Insufficient deposit for storage. Required: {} yoctoNEAR", cost.as_yoctonear()));
-    let refund = attached.saturating_sub(cost);
+    if extra.is_zero() {
+        require!(attached >= cost, format!("Insufficient deposit for storage. Required: {} yoctoNEAR", cost.as_yoctonear()));
+    } else {
+        require!(attached >= required, format!("Insufficient deposit for the skill price and storage. Required: {} yoctoNEAR", required.as_yoctonear()));
+    }
+    let refund = attached.saturating_sub(required);
     if refund > NearToken::from_yoctonear(0) {
         Promise::new(env::predecessor_account_id()).transfer(refund).detach();
     }
