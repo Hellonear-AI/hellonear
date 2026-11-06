@@ -492,7 +492,7 @@
                       "fill": "$text-secondary",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "is checked against your limits before it's sent",
+                      "content": "asks you first, then checks your limits",
                       "lineHeight": 1.4,
                       "fontFamily": "$font-body",
                       "fontSize": 14,
@@ -549,7 +549,7 @@
                       "id": "RUUnh",
                       "name": "Big",
                       "fill": "$text-primary",
-                      "content": "Private replies",
+                      "content": "Verifiable replies",
                       "fontFamily": "$font-body",
                       "fontSize": 22,
                       "fontWeight": "500",
@@ -562,7 +562,7 @@
                       "fill": "$text-secondary",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "from AI that runs in a sealed, verifiable space",
+                      "content": "from AI running in a sealed space you can check",
                       "lineHeight": 1.4,
                       "fontFamily": "$font-body",
                       "fontSize": 14,
@@ -664,7 +664,7 @@
               "id": "IXK7e",
               "name": "Title",
               "fill": "$text-secondary",
-              "content": "Works inside the apps you already use",
+              "content": "Works with the apps you already use",
               "fontFamily": "$font-body",
               "fontSize": 15,
               "fontWeight": "normal"
@@ -717,6 +717,7 @@
                   "type": "frame",
                   "id": "f4OqT",
                   "name": "App Google Calendar",
+                  "opacity": 0.55,
                   "width": "fill_container",
                   "fill": "$surface",
                   "cornerRadius": "$radius-lg",
@@ -743,81 +744,7 @@
                       "id": "tkaHa",
                       "name": "Name",
                       "fill": "$text-secondary",
-                      "content": "Google Calendar",
-                      "fontFamily": "$font-body",
-                      "fontSize": 14,
-                      "fontWeight": "500"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "PxeUn",
-                  "name": "App Slack",
-                  "width": "fill_container",
-                  "fill": "$surface",
-                  "cornerRadius": "$radius-lg",
-                  "gap": 10,
-                  "padding": [
-                    18,
-                    12
-                  ],
-                  "justifyContent": "center",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "hMmX0",
-                      "name": "Icon",
-                      "width": 18,
-                      "height": 18,
-                      "icon": "hash",
-                      "library": "lucide",
-                      "fill": "$text-secondary"
-                    },
-                    {
-                      "type": "text",
-                      "id": "B9Wt3k",
-                      "name": "Name",
-                      "fill": "$text-secondary",
-                      "content": "Slack",
-                      "fontFamily": "$font-body",
-                      "fontSize": 14,
-                      "fontWeight": "500"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "t9DO89",
-                  "name": "App Telegram",
-                  "width": "fill_container",
-                  "fill": "$surface",
-                  "cornerRadius": "$radius-lg",
-                  "gap": 10,
-                  "padding": [
-                    18,
-                    12
-                  ],
-                  "justifyContent": "center",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "c5JkXB",
-                      "name": "Icon",
-                      "width": 18,
-                      "height": 18,
-                      "icon": "send",
-                      "library": "lucide",
-                      "fill": "$text-secondary"
-                    },
-                    {
-                      "type": "text",
-                      "id": "f9yMt",
-                      "name": "Name",
-                      "fill": "$text-secondary",
-                      "content": "Telegram",
+                      "content": "Google Calendar · soon",
                       "fontFamily": "$font-body",
                       "fontSize": 14,
                       "fontWeight": "500"
@@ -855,43 +782,6 @@
                       "name": "Name",
                       "fill": "$text-secondary",
                       "content": "Meteor Wallet",
-                      "fontFamily": "$font-body",
-                      "fontSize": 14,
-                      "fontWeight": "500"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "Rs9P9",
-                  "name": "App Any website",
-                  "width": "fill_container",
-                  "fill": "$surface",
-                  "cornerRadius": "$radius-lg",
-                  "gap": 10,
-                  "padding": [
-                    18,
-                    12
-                  ],
-                  "justifyContent": "center",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "uBPdO",
-                      "name": "Icon",
-                      "width": 18,
-                      "height": 18,
-                      "icon": "globe",
-                      "library": "lucide",
-                      "fill": "$text-secondary"
-                    },
-                    {
-                      "type": "text",
-                      "id": "NPZgD",
-                      "name": "Name",
-                      "fill": "$text-secondary",
-                      "content": "Any website",
                       "fontFamily": "$font-body",
                       "fontSize": 14,
                       "fontWeight": "500"
@@ -1066,7 +956,7 @@
                               "fill": "$text-primary",
                               "textGrowth": "fixed-width",
                               "width": "fill_container",
-                              "content": "\"Booked. Thursday, 3pm, and I moved the dentist.\"",
+                              "content": "\"Done. The reply is drafted, you just hit send.\"",
                               "lineHeight": 1.45,
                               "fontFamily": "$font-body",
                               "fontSize": 14,
@@ -1153,7 +1043,7 @@
                               "fill": "$text-primary",
                               "textGrowth": "fixed-width",
                               "width": "fill_container",
-                              "content": "\"Internet paid: 1.5 NEAR. Rent waits for your OK.\"",
+                              "content": "\"Paid. Biznet's 1.5 NEAR went out after your OK.\"",
                               "lineHeight": 1.45,
                               "fontFamily": "$font-body",
                               "fontSize": 14,
@@ -1411,7 +1301,7 @@
                       "id": "CeREJ",
                       "name": "Text",
                       "fill": "$text-primary",
-                      "content": "Private replies you can verify",
+                      "content": "Replies you can verify",
                       "fontFamily": "$font-body",
                       "fontSize": 15,
                       "fontWeight": "500"
@@ -1453,7 +1343,7 @@
                       "id": "XfXTK",
                       "name": "Text",
                       "fill": "$text-primary",
-                      "content": "Big payments wait for your OK",
+                      "content": "Every payment waits for your OK",
                       "fontFamily": "$font-body",
                       "fontSize": 15,
                       "fontWeight": "500"
@@ -1494,7 +1384,7 @@
                   "fill": "$text-tertiary",
                   "textGrowth": "fixed-width",
                   "width": 240,
-                  "content": "Product shot: chat with Penny + the live Mind Graph panel (from screen 03)",
+                  "content": "Product shot: chat with Penny (an approval card for a payment) + the live Mind Graph panel (from screen 03)",
                   "textAlign": "center",
                   "fontFamily": "$font-body",
                   "fontSize": 13,
@@ -1626,7 +1516,7 @@
                       "fill": "$text-tertiary",
                       "textGrowth": "fixed-width",
                       "width": 240,
-                      "content": "Video loop: Attack Playground, a tricky email, the payment gets blocked",
+                      "content": "Video loop, Attack Playground in two layers: 1) a tricky email makes Penny ask to pay, the approval card is flagged as suspicious and the owner declines; 2) the owner approves anyway, the wallet refuses before signing (off the list / over the limit, no tx)",
                       "textAlign": "center",
                       "fontFamily": "$font-body",
                       "fontSize": 13,
@@ -1699,7 +1589,7 @@
                           "fill": "$on-accent",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "You set the number. Anything above it waits for you.",
+                          "content": "You set the number. Anything above it is refused before signing.",
                           "lineHeight": 1.45,
                           "fontFamily": "$font-body",
                           "fontSize": 14,
@@ -1922,7 +1812,7 @@
                       "fill": "$text-tertiary",
                       "textGrowth": "fixed-width",
                       "width": 280,
-                      "content": "Animated Mind Graph: bubbles light up as Penny pays a bill",
+                      "content": "Animated Mind Graph: bubbles light up as Penny asks, gets your OK and pays a bill",
                       "textAlign": "center",
                       "fontFamily": "$font-body",
                       "fontSize": 13,
@@ -2046,7 +1936,7 @@
                           "id": "D9fyTg",
                           "name": "Text",
                           "fill": "$text-primary",
-                          "content": "Checked your balance",
+                          "content": "Checked your limits: allowed",
                           "fontFamily": "$font-body",
                           "fontSize": 14,
                           "fontWeight": "normal"
@@ -2097,7 +1987,7 @@
                           "id": "onEIz",
                           "name": "Text",
                           "fill": "$text-primary",
-                          "content": "Checked your limits: allowed",
+                          "content": "Asked you first: you approved",
                           "fontFamily": "$font-body",
                           "fontSize": 14,
                           "fontWeight": "normal"
@@ -2148,7 +2038,7 @@
                           "id": "N6OjI",
                           "name": "Text",
                           "fill": "$text-primary",
-                          "content": "Paid 1.5 NEAR",
+                          "content": "Paid 1.5 NEAR to Biznet",
                           "fontFamily": "$font-body",
                           "fontSize": 14,
                           "fontWeight": "normal"
@@ -2739,7 +2629,7 @@
                       "fill": "$text-secondary",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Approve big payments, or freeze everything in one tap.",
+                      "content": "Approve every payment, or freeze everything in one tap.",
                       "lineHeight": 1.45,
                       "fontFamily": "$font-body",
                       "fontSize": 14,
