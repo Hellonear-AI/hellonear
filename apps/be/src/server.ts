@@ -14,7 +14,7 @@ import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema
 import { createWallet, freezeTransaction, getWallet, hasWallet, policySchema, policyTransaction } from './wallets.ts'
 import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
 import { issueWalletToken, verifyWalletToken } from './walletToken.ts'
-import { listThreads, threadExists, threadMessages } from './threads.ts'
+import { listThreads, parseCursor, threadExists, threadMessages } from './threads.ts'
 import { assertDemoRunAllowed, cleanupDemoUsers, createDemoUser, demoPaymentCap, denyDemo } from './demo.ts'
 import type { User } from './auth.ts'
 import { timingSafeEqual } from 'node:crypto'
@@ -202,8 +202,8 @@ export const server = createServer(async (req, res) => {
       if (thread && req.method === 'GET') {
         if (!(await threadExists(mind.id, thread[1]))) throw new HttpError(404, 'thread_not_found')
         const raw = url.searchParams.get('before')
-        const before = raw === null ? undefined : new Date(raw)
-        if (before && Number.isNaN(before.getTime())) throw new HttpError(400, 'invalid_before')
+        const before = raw === null ? undefined : parseCursor(raw)
+        if (before === null) throw new HttpError(400, 'invalid_before')
         return sendJson(res, 200, await threadMessages(mind.id, thread[1], limitOf(url, 50, 200), before))
       }
       if (sub.startsWith('/threads')) throw new HttpError(req.method === 'GET' ? 404 : 405, req.method === 'GET' ? 'thread_not_found' : 'method_not_allowed')

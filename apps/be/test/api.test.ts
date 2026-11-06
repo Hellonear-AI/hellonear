@@ -196,6 +196,12 @@ describe('minds (#8, #13)', () => {
     assert.equal((await alice.call('GET', `/v1/minds/${mind.id}`)).status, 404)
   })
 
+  test('templates pass through the engine card quote (#63)', async () => {
+    const a = await signIn()
+    const { templates } = await (await a.call('GET', '/v1/templates')).json()
+    assert.deepEqual(templates.map((t: any) => [t.templateId, t.quote]), [['general-assistant', 'I keep your day in order.'], ['payments-mind', 'I keep your bills paid and your limits boring.']])
+  })
+
   test('unknown templates and skills, duplicates, and bad bodies are refused', async () => {
     const alice = await signIn()
     assert.equal((await alice.call('POST', '/v1/minds', { templateId: 'nope', name: 'X' })).status, 400)
@@ -644,7 +650,9 @@ describe('payment tools through the backend (#42, option B)', () => {
 
 describe('judge try-out mode (#43)', () => {
   const origin = { origin: 'http://localhost:3000' }
-  const ip = () => `198.51.100.${Math.floor(Math.random() * 250) + 1}`
+  // A new address per call, so two sign-ups never share an hourly window by chance.
+  let nextIp = 0
+  const ip = () => `198.51.100.${(nextIp++ % 250) + 1}`
   async function demoSignIn(fromIp = ip()) {
     const res = await client()('POST', '/v1/auth/demo', {}, { ...origin, 'cf-connecting-ip': fromIp })
     assert.equal(res.status, 201, await res.clone().text())
@@ -922,6 +930,28 @@ describe('chat threads (#54)', () => {
     assert.deepEqual(p2.messages.map((m: any) => m.role), ['user', 'assistant'])
     assert.equal(p2.messages[0].text, long)
     assert.equal(p2.nextBefore, null)
+  })
+
+  test('paging keeps runs that started in the same millisecond', async () => {
+    const a = await signIn()
+    const mindId = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Same time' }, origin)).json()).mind.id
+    const threadId = (await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { message: 'first' }, origin)))[0].threadId
+    for (const message of ['second', 'third']) await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { threadId, message }, origin))
+    // All three runs start at the same instant, down to the microsecond.
+    await query(`update runs set started_at = '2026-11-06T12:00:00.123456Z' where thread_id = $1`, [threadId])
+    const seen: string[] = []
+    let before: string | null = ''
+    for (let page = 0; before !== null && page < 5; page++) {
+      const q: string = before ? `&before=${encodeURIComponent(before)}` : ''
+      const body: any = await (await a.call('GET', `/v1/minds/${mindId}/threads/${threadId}/messages?limit=1${q}`)).json()
+      seen.push(...body.messages.filter((m: any) => m.role === 'user').map((m: any) => m.text))
+      before = body.nextBefore
+    }
+    assert.deepEqual(seen.sort(), ['first', 'second', 'third'])
+    // A plain ISO time still works: everything that started before it.
+    const old = await (await a.call('GET', `/v1/minds/${mindId}/threads/${threadId}/messages?before=2026-11-06T12:00:00.124Z`)).json()
+    assert.equal(old.messages.filter((m: any) => m.role === 'user').length, 3)
+    assert.equal((await a.call('GET', `/v1/minds/${mindId}/threads/${threadId}/messages?before=x~y~z`)).status, 400)
   })
 
   test('a run paused for approval keeps its user message; resumed text joins its reply', async () => {
