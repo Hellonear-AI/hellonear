@@ -644,7 +644,9 @@ describe('payment tools through the backend (#42, option B)', () => {
 
 describe('judge try-out mode (#43)', () => {
   const origin = { origin: 'http://localhost:3000' }
-  const ip = () => `198.51.100.${Math.floor(Math.random() * 250) + 1}`
+  // A new address per call, so two sign-ups never share an hourly window by chance.
+  let nextIp = 0
+  const ip = () => `198.51.100.${(nextIp++ % 250) + 1}`
   async function demoSignIn(fromIp = ip()) {
     const res = await client()('POST', '/v1/auth/demo', {}, { ...origin, 'cf-connecting-ip': fromIp })
     assert.equal(res.status, 201, await res.clone().text())
