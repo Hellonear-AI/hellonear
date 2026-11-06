@@ -45,6 +45,7 @@ Tokens live as variables in `hellonear.pen`, with a `mode` theme (`light`, `dark
 - Sidebar opens and folds: desktop starts open (256) with a fold button that turns it into the icon rail (72) and widens the content, and remembers the choice; tablet starts as the rail, whose top button opens the full sidebar over the content with the page dimmed (N1.5, N1.6).
 - Navigation by size: sidebar (256) on desktop 1440, icon rail (72) on tablet 834, and on phone 390 a top bar (menu, Mind switcher, Approvals with a count) plus a left drawer with every place and Recent chats (picked over a bottom bar on 6 Nov; Recent chats needs #54). Approvals always show their count: sidebar, rail and phone top bar. Screens are designed at those three widths and checked at 320.
 - Limit meter: "coin tiles", 10 tiles of 1 NEAR with a lock cap; the headline is what is left today. Amber from 80%, red at the limit, grey with a snowflake when frozen.
+- Page titles are the `Page Title/Large` (32/15, desktop and tablet) and `Page Title/Small` (26/14, phone) components; the actions beside them (buttons, search, balance) stay free per screen. All 178 page headers in sections 3 to 8 use them. The Gmail logo is `Logo/Gmail`.
 - No shield, zap, sparkles or rocket icons; "Verified private" uses `badge-check`.
 - `node-mind` flips to near-white in dark mode, so icons on it use `on-primary` there (lime on near-white is unreadable).
 - The live view map sits in a centered 360 x 240 `Graph` frame, so it stays centered in any panel width.
