@@ -3,7 +3,7 @@
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::json;
 use near_sdk::store::{IterableMap, LookupMap};
-use near_sdk::{AccountId, BorshStorageKey, NearToken, PanicOnDefault, Promise, assert_one_yocto, env, near, require};
+use near_sdk::{AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise, PromiseError, assert_one_yocto, env, near, require};
 
 mod migrate;
 pub mod versioned;
@@ -17,7 +17,9 @@ const MAX_SKILLS_PER_MIND: usize = 32;
 const MAX_MINDS_PER_OWNER: usize = 100;
 const MAX_PAGE: u32 = 50;
 const EVENT_STANDARD: &str = "hellonear_registry";
-const EVENT_VERSION: &str = "1.0.0";
+const EVENT_VERSION: &str = "1.1.0";
+// Gas for `on_skill_paid`: reads the transfer result and, if it failed, sends one refund.
+const GAS_FOR_PAID_CALLBACK: Gas = Gas::from_tgas(5);
 
 /// Storage prefixes. The borsh tag of each variant is its prefix, so only ever append
 /// variants; never reorder or remove them (audit: storage-collision).
@@ -140,10 +142,12 @@ impl Contract {
         emit("skill_published", json!({ "skill_id": skill_id, "publisher": publisher, "price": price }));
     }
 
-    /// Equips a published skill on a Mind the caller owns. Attach enough NEAR for storage.
+    /// Equips a published skill on a Mind the caller owns. Attach the skill's price plus storage:
+    /// the price goes to the skill's publisher and any excess is refunded. Equipping again after
+    /// an unequip pays again (the contract keeps no record of past payments).
     #[payable]
     pub fn equip_skill(&mut self, mind_id: String, skill_id: String) {
-        require!(self.skills.contains_key(&skill_id), "skill_id is not published");
+        let skill: Skill = self.skills.get(&skill_id).cloned().map(Skill::from).unwrap_or_else(|| env::panic_str("skill_id is not published"));
         let initial = env::storage_usage();
         let mut mind = self.owned_mind(&mind_id);
         require!(!mind.skills.contains(&skill_id), "skill is already equipped");
@@ -151,8 +155,32 @@ impl Contract {
         mind.skills.push(skill_id.clone());
         self.save_mind(&mind_id, mind);
 
-        charge_storage(initial);
-        emit("skill_equipped", json!({ "mind_id": mind_id, "skill_id": skill_id }));
+        let price = NearToken::from_yoctonear(skill.price.0);
+        charge_storage_plus(initial, price);
+        if !price.is_zero() {
+            // If the transfer fails (e.g. the publisher deleted their account) the NEAR comes back to
+            // this contract, so the callback refunds the owner (docs.near.org security: refunds).
+            Promise::new(skill.publisher.clone())
+                .transfer(price)
+                .then(
+                    Self::ext(env::current_account_id())
+                        .with_static_gas(GAS_FOR_PAID_CALLBACK)
+                        .on_skill_paid(mind_id.clone(), skill_id.clone(), env::predecessor_account_id(), skill.price),
+                )
+                .detach();
+        }
+        emit("skill_equipped", json!({ "mind_id": mind_id, "skill_id": skill_id, "price": skill.price, "publisher": skill.publisher }));
+    }
+
+    /// Refunds the owner when paying the publisher failed. Never panics: a panic here would keep the NEAR.
+    #[private]
+    pub fn on_skill_paid(&mut self, mind_id: String, skill_id: String, payer: AccountId, price: U128, #[callback_result] paid: Result<(), PromiseError>) -> bool {
+        if paid.is_ok() {
+            return true;
+        }
+        Promise::new(payer.clone()).transfer(NearToken::from_yoctonear(price.0)).detach();
+        emit("skill_payment_refunded", json!({ "mind_id": mind_id, "skill_id": skill_id, "payer": payer, "price": price }));
+        false
     }
 
     /// Unequips a skill. Requires exactly 1 yoctoNEAR (a full-access key signature); freed storage is refunded.
@@ -288,6 +316,44 @@ mod tests {
         ctx("alice.testnet", NearToken::from_yoctonear(1));
         c.unequip_skill("penny".into(), "pay".into());
         assert!(c.get_mind("penny".into()).unwrap().skills.is_empty());
+    }
+
+    const HALF_NEAR: NearToken = NearToken::from_millinear(500);
+
+    fn with_priced_skill() -> Contract {
+        let mut c = setup();
+        ctx("bob.testnet", ONE_NEAR);
+        c.publish_skill("pro".into(), "ipfs://pro".into(), U128(HALF_NEAR.as_yoctonear()));
+        c
+    }
+
+    #[test]
+    fn equipping_a_priced_skill_reports_the_payment_in_the_event() {
+        let mut c = with_priced_skill();
+        ctx("alice.testnet", ONE_NEAR);
+        c.equip_skill("penny".into(), "pro".into());
+        assert_eq!(c.get_mind("penny".into()).unwrap().skills, vec!["pro".to_string()]);
+        let event = get_logs().into_iter().find(|l| l.contains("\"skill_equipped\"")).unwrap();
+        assert!(event.contains("\"price\":\"500000000000000000000000\""), "{event}");
+        assert!(event.contains("\"publisher\":\"bob.testnet\""), "{event}");
+        assert!(event.contains("\"version\":\"1.1.0\""), "{event}");
+    }
+
+    #[test]
+    #[should_panic(expected = "Insufficient deposit for the skill price and storage")]
+    fn equip_requires_the_price_on_top_of_storage() {
+        let mut c = with_priced_skill();
+        ctx("alice.testnet", HALF_NEAR);
+        c.equip_skill("penny".into(), "pro".into());
+    }
+
+    #[test]
+    fn a_free_skill_reports_price_zero() {
+        let mut c = setup();
+        ctx("alice.testnet", ONE_NEAR);
+        c.equip_skill("penny".into(), "pay".into());
+        let event = get_logs().into_iter().find(|l| l.contains("\"skill_equipped\"")).unwrap();
+        assert!(event.contains("\"price\":\"0\""), "{event}");
     }
 
     #[test]
