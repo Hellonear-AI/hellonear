@@ -132,8 +132,9 @@ async fn equip_pays_the_skill_publisher() -> testresult::TestResult<()> {
         let (a, net) = (a.clone(), net.clone());
         async move { a.tokens().near_balance().fetch_from(&net).await.map(|b| b.total) }
     };
+    // 30 Tgas: what we tell the FE to attach (docs/api-contract.md §8), so the test proves it is enough.
     let call = |method: &str, args: Value, deposit: NearToken, who: &near_api::Account| {
-        contract.call_function(method, args).transaction().deposit(deposit).with_signer(who.account_id().clone(), signer.clone()).send_to(&net)
+        contract.call_function(method, args).transaction().gas(near_api::NearGas::from_tgas(30)).deposit(deposit).with_signer(who.account_id().clone(), signer.clone()).send_to(&net)
     };
     let price = NearToken::from_millinear(500);
 
@@ -161,9 +162,10 @@ async fn equip_pays_the_skill_publisher() -> testresult::TestResult<()> {
     println!("owner spent on a 0.5 NEAR skill: {spent}");
     assert!(spent > price && spent < price.saturating_add(NearToken::from_millinear(10)), "price + storage + gas, excess refunded: {spent}");
 
-    // Unequip, then equip again: pays again (the contract keeps no record of past payments).
+    // Unequip, then equip again: pays again (the contract keeps no record of past payments). Price + 0.01 NEAR
+    // is enough deposit (what docs/api-contract.md §8 tells the FE to attach).
     call("unequip_skill", json!({ "mind_id": "penny", "skill_id": "pro" }), NearToken::from_yoctonear(1), &alice).await?.assert_success();
-    call("equip_skill", json!({ "mind_id": "penny", "skill_id": "pro" }), NearToken::from_near(1), &alice).await?.assert_success();
+    call("equip_skill", json!({ "mind_id": "penny", "skill_id": "pro" }), price.saturating_add(NearToken::from_millinear(10)), &alice).await?.assert_success();
     assert_eq!(balance(&bob).await?, bob0.saturating_add(price).saturating_add(price));
 
     // The publisher deleted their account: the transfer fails and the owner gets the price back.
