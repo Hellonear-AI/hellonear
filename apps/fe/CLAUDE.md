@@ -8,7 +8,13 @@ Web app (Next.js App Router + NEAR Connect). Owner: Ancung. Design comes from Na
 
 - Scaffold with `npx create-near-app@latest fe --frontend next-app --install` in a temporary folder, then move the files here (create-near-app refuses non-empty folders). The `near-dapp` agent skill still mentions removed options (`--contract ts`, `next-page`); follow the create-near-app README. Then delete the generated `package-lock.json` and run `bun install` (the repo uses Bun, see the root `CLAUDE.md`).
 - Wallet: `@hot-labs/near-connect` 0.12.0 + `near-connect-hooks` 1.1.6, testnet. **Meteor Wallet is the primary wallet:** show it first and test every flow with it. Per the official manifest (`hot-dao/near-selector`, checked 2 Nov) it supports `signMessage`, `signAndSendTransaction(s)`, `signDelegateActions`, and testnet. Keep other wallets selectable for judges.
-- Mind Graph: `react-force-graph-2d` (1.29.2). Visual Builder (bonus): `@xyflow/react` 12.x.
+- Live view (Mind Graph): our own SVG with a `viewBox`, a fixed map like the design (Mind in the center, its nodes around it), not `react-force-graph-2d` (decided 6 Nov: lighter, responsive, and the lines can animate per the motion rules). Visual Builder (bonus): `@xyflow/react` 12.12.1.
+- Data and state: `@tanstack/react-query` 5.106.1 for all server data (cache, polling, refresh after approve or freeze). **No global state library.** The current Mind's id lives in the URL (`/minds/[mindId]/…`), every screen reads the Mind through the same React Query hook (one fetch, shared cache), and the last used Mind is kept in `localStorage`. One React context holds the chat run in progress so the chat, the live view and the Approvals badge read the same events. Add `zustand` only if that context gets heavy.
+- Streams: chat, approve/decline and builder runs are POST + SSE, so `EventSource` can't be used; read the `fetch` body with `eventsource-parser` 4.1.3.
+- Forms: `react-hook-form` 7.91.0 + `zod` 4.6.7 + `@hookform/resolvers` 7.0.3 (validate as you type, as in the design).
+- Toasts: `sonner` 2.0.8 (shadcn's). Theme: `next-themes` 0.4.6 (System, Light, Dark from the account menu). Mind replies: `react-markdown` 10.1.0. Springs (Penny is ready, freeze, Builder drag): `motion` 14.10.0; everything else is CSS.
+- Tests: `vitest` 5.1.0 (unit), `@playwright/test` 1.65.0 (flows).
+- Motion: easing tokens are in `src/styles/globals.css` (`ease-out`, `ease-in-out`, `ease-drawer` utilities; Tailwind only emits them once used). Rules, durations and chat streaming: `design/CLAUDE.md` "Motion (v0.3)". shadcn components keep their own animation classes; set menus and popovers to grow from `--transform-origin` (Base UI provides it) and make exits faster than entries.
 - Scaffolded with `create-near-app` 10.0.0 (`--frontend next-app`). All versions in `package.json` are pinned exactly; do not upgrade during the hackathon.
 - `near-connect-hooks` 1.1.6 itself depends on `@hot-labs/near-connect` ^0.11.1, so `package.json` has `"overrides": { "@hot-labs/near-connect": "0.12.0" }` to keep one copy at 0.12.0 (0.12.0 only adds gas-key APIs; checked against the 0.11.4 type definitions). After changing it, delete `node_modules` and run `bun install` so no nested 0.11.x copy is left.
 - Wallet order: on testnet the official manifest filters out HOT (no testnet support), so Meteor is already first in the NEAR Connect popup; no reordering code needed (checked 3 Nov).
@@ -49,7 +55,7 @@ Imports: `@/*` → `src/*`, `@app/*` → `app/*`. Keep route files in `app/` thi
 
 - Never hold or send the backend's API keys or grant tokens in the browser; the FE only talks to `apps/be`.
 - Wording: say "policy stored on-chain, enforced in a TEE". A rejected transfer shows `policy_denied` and the rule, never a tx link.
-- "Verified private" badge only for replies the backend marks as verified (Confidential TEE models).
+- Verification badge follows `docs/api-contract.md` §4: `gateway_tee` (a normal chat run) shows "Verified via NEAR AI TEE gateway", `model_tee` shows "Verified private (model TEE)", anything else no badge.
 - Redacted secrets render as `••••`; never try to unredact.
 - Use the event shapes in `docs/api-contract.md` (#7); do not invent fields.
 - Visual Builder (#20): save the React Flow `{ nodes, edges }` in the canvas format of `docs/api-contract.md` §2 "Visual Builder workflows" (node types `trigger`, `agent`, `tool`, `http`, `condition`; condition edges use `sourceHandle: "then" | "else"`). Show the engine's `issues` on a 400. Light nodes up from `node.started` / `node.finished` (`node` = your canvas node id).
