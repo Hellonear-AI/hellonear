@@ -343,12 +343,12 @@ All of the user's secrets are sent to the engine for every chat, approval and bu
 
 ### App connections through Composio (#13)
 
-The owner connects an app (only `gmail` for now) once per account; Composio stores and refreshes the OAuth tokens. The Composio user id is the backend user id, the same `userId` the engine already gets on every run, so the engine opens a Composio session for that user and its Gmail tools act on that user's account only. Tokens never reach the backend, the browser or the model.
+The owner connects an app (`gmail` or `googlecalendar`, #57) once per account; Composio stores and refreshes the OAuth tokens. The Composio user id is the backend user id, the same `userId` the engine already gets on every run, so the engine opens a Composio session for that user and its Gmail tools act on that user's account only. Tokens never reach the backend, the browser or the model.
 
 | Route | Body | Answer |
 |---|---|---|
-| `GET /v1/connections` | | `{ connections: [{ toolkit: "gmail", status: "connected" \| "pending" \| "expired" \| "not_connected", since? }] }` (no Composio ids) **[tested]** |
-| `POST /v1/connections/{toolkit}` | `{}` | `{ redirectUrl }`: a Composio Connect Link (`https://connect.composio.dev/…`). Open it in the browser; after sign-in Composio sends the owner to `{FE_ORIGIN}/connections?toolkit=gmail&status=success\|failed`, then the FE reads `GET /v1/connections` (the query string proves nothing). An unfinished attempt is replaced. `409 already_connected` **[tested; live against Composio, 5 Nov]** |
+| `GET /v1/connections` | | `{ connections: [{ toolkit: "gmail" \| "googlecalendar", status: "connected" \| "pending" \| "expired" \| "not_connected", since? }] }` (no Composio ids) **[tested]** |
+| `POST /v1/connections/{toolkit}` | `{}` | `{ redirectUrl }`: a Composio Connect Link (`https://connect.composio.dev/…`). Open it in the browser; after sign-in Composio sends the owner to `{FE_ORIGIN}/connections?toolkit={toolkit}&status=success\|failed`, then the FE reads `GET /v1/connections` (the query string proves nothing). An unfinished attempt is replaced. `409 already_connected` **[tested; live against Composio, 5 Nov]** |
 | `DELETE /v1/connections/{toolkit}` | | `204` (Composio deletes the connection and its tokens) or `404` **[tested]** |
 
 Unknown toolkit → `404 unknown_toolkit`; Composio down or refusing → `502 composio_error`; no `COMPOSIO_API_KEY` → `503 composio_not_configured`.

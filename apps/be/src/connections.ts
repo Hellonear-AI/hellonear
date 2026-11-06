@@ -6,7 +6,9 @@ import { z } from 'zod'
 import { config } from './config.ts'
 import { HttpError } from './http.ts'
 
-export const TOOLKITS = ['gmail'] as const
+// Composio toolkit slugs, checked live (6 Nov): both use Composio-managed Google OAuth. Calendar's default scopes are
+// calendar + calendar.events; the engine only exposes list and create (with approval), see #57.
+export const TOOLKITS = ['gmail', 'googlecalendar'] as const
 export const toolkitSchema = z.enum(TOOLKITS)
 export type Toolkit = z.infer<typeof toolkitSchema>
 

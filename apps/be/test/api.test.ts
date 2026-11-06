@@ -780,13 +780,42 @@ describe('judge try-out mode (#43)', () => {
 })
 
 describe('app connections through Composio (#13)', () => {
+  test('Google Calendar connects on its own, next to Gmail (#57)', async () => {
+    const a = await signIn()
+    const { user } = await (await a.call('GET', '/v1/me')).json()
+    const origin = { origin: 'http://localhost:3000' }
+    let res = await a.call('POST', '/v1/connections/gmail', {}, origin)
+    assert.equal(res.status, 200)
+    fakeComposio.activate(user.id, 'gmail')
+
+    res = await a.call('POST', '/v1/connections/googlecalendar', {}, origin)
+    assert.equal(res.status, 200, await res.clone().text())
+    assert.match((await res.json()).redirectUrl, /^https:\/\//)
+    const session = fakeComposio.requests.findLast((r) => r.path === '/tool_router/session')!
+    assert.equal(session.body.user_id, user.id)
+    assert.deepEqual(session.body.toolkits, { enable: ['googlecalendar'] })
+    const link = fakeComposio.requests.findLast((r) => r.path.endsWith('/link'))!
+    assert.equal(link.body.toolkit, 'googlecalendar')
+    assert.equal(link.body.callback_url, 'http://localhost:3000/connections?toolkit=googlecalendar')
+
+    let list = (await (await a.call('GET', '/v1/connections')).json()).connections
+    assert.deepEqual(list.map((c: any) => [c.toolkit, c.status]), [['gmail', 'connected'], ['googlecalendar', 'pending']])
+    fakeComposio.activate(user.id, 'googlecalendar')
+    assert.equal((await a.call('POST', '/v1/connections/googlecalendar', {}, origin)).status, 409)
+
+    // Disconnecting the calendar leaves Gmail connected.
+    assert.equal((await a.call('DELETE', '/v1/connections/googlecalendar', undefined, origin)).status, 204)
+    list = (await (await a.call('GET', '/v1/connections')).json()).connections
+    assert.deepEqual(list.map((c: any) => [c.toolkit, c.status]), [['gmail', 'connected'], ['googlecalendar', 'not_connected']])
+  })
+
   test('connect Gmail: Connect Link for this user, pending, then connected; no Composio ids or tokens leave the backend', async () => {
     const a = await signIn()
     const { user } = await (await a.call('GET', '/v1/me')).json()
 
     let res = await a.call('GET', '/v1/connections')
     assert.equal(res.status, 200)
-    assert.deepEqual((await res.json()).connections, [{ toolkit: 'gmail', status: 'not_connected' }])
+    assert.deepEqual((await res.json()).connections, [{ toolkit: 'gmail', status: 'not_connected' }, { toolkit: 'googlecalendar', status: 'not_connected' }])
 
     res = await a.call('POST', '/v1/connections/gmail', {}, { origin: 'http://localhost:3000' })
     assert.equal(res.status, 200, await res.clone().text())
