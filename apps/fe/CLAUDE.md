@@ -52,6 +52,12 @@ src/
 tests/                   unit tests
 ```
 
+Routes: `/` sign in (for now the old header in `PublicShell` and a temporary "Open Penny" link), `/minds/new` Choose a Mind, and `/minds/[mindId]/{chat,chat/[threadId],wallet,approvals,skills,autopilot,connections,attack,settings}` inside `AppShell`; `/minds/[mindId]` redirects to chat and an unknown Mind is not found. Builder will open from Autopilot (no nav item).
+
+App shell (`src/components/layout`, design N1): phone below 768 px (`md`) gets `MobileHeader` (menu, Mind switcher sheet, Approvals count) and a left drawer; tablet 768 to 1279 gets the 72 px rail whose top button opens the full sidebar over the page; desktop from 1280 (`xl`) gets the 256 px sidebar that folds into the rail (saved in `localStorage` as `hellonear.sidebar.folded`). `MindSwitcher` and `AccountMenu` (Appearance System/Light/Dark, Sign out) each have trigger variants for these places. Nav items live in `nav.ts`.
+
+Sample data: `src/modules/minds/data/minds.ts` (Penny with a wallet, Ava without, recent chats, approvals count) behind the hooks in `src/modules/minds/hooks/useMinds.ts`. Replace the `queryFn`s with API calls when the routes are wired; keep the hooks so screens don't change. Mind images are in `public/minds/` (from the design).
+
 Imports: `@/*` → `src/*`, `@app/*` → `app/*`. Keep route files in `app/` thin; put screens in `src/modules/<feature>/components`.
 
 ## Conventions
