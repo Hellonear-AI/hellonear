@@ -238,4 +238,35 @@
   html {
     @apply font-sans;
     }
+  /* Everything clickable shows a pointer (team rule, 6 Nov). Tailwind 4 dropped the default
+     for buttons. In the base layer, so a utility such as cursor-grab still wins. */
+  button,
+  a[href],
+  summary,
+  select,
+  label[for],
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="file"],
+  input[type="submit"],
+  input[type="button"],
+  input[type="range"],
+  [role="button"],
+  [role="link"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="menuitemcheckbox"],
+  [role="menuitemradio"],
+  [role="option"],
+  [role="switch"],
+  [role="checkbox"],
+  [role="radio"],
+  [role="combobox"] {
+    cursor: pointer;
+    }
+  :disabled,
+  [aria-disabled="true"],
+  [data-disabled] {
+    cursor: not-allowed;
+    }
 }

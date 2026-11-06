@@ -56,6 +56,7 @@ Imports: `@/*` → `src/*`, `@app/*` → `app/*`. Keep route files in `app/` thi
 
 ## Conventions
 
+- **Everything clickable shows a pointer cursor** (team rule, 6 Nov). `globals.css` sets it in the base layer for buttons, links, labels, tabs, menu items, options, switches, checkboxes and anything with `role="button"`; disabled gets `not-allowed`. If you make a clickable `div` or `span`, give it `role="button"` (and keyboard support) or `cursor-pointer`. Never use `cursor-default` on something clickable.
 - Never hold or send the backend's API keys or grant tokens in the browser; the FE only talks to `apps/be`.
 - Wording: say "policy stored on-chain, enforced in a TEE". A rejected transfer shows `policy_denied` and the rule, never a tx link.
 - Verification badge follows `docs/api-contract.md` §4: `gateway_tee` (a normal chat run) shows "Verified via NEAR AI TEE gateway", `model_tee` shows "Verified private (model TEE)", anything else no badge.
