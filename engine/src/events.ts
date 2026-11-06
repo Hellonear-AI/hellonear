@@ -1,9 +1,10 @@
 // Normalizes Mastra stream chunks into HelloNear events (docs/api-contract.md §3).
 // The UI and Mind Graph depend on these, never on raw Mastra chunks.
-import { nodeIdFor } from './graph.ts'
+import { builderNodeId, nodeIdFor, type BuilderStep } from './graph.ts'
 import { priceOf } from './models.ts'
 import { redact } from './secrets.ts'
 import type { Verification } from './verify.ts'
+import { HARD_STOPS } from './wallet.ts'
 
 export type HelloNearEvent = { v: 1; type: string; runId: string; mindId: string; seq: number; ts: string } & Record<string, unknown>
 type Usage = { inputTokens?: number; outputTokens?: number; reasoningTokens?: number; totalTokens?: number }
@@ -38,6 +39,10 @@ export function createNormalizer(opts: { mindId: string; threadId: string; model
       case 'tool-call':
         return [emit(chunk.runId, 'tool.called', { toolCallId: p.toolCallId, tool, nodeId: nodeIdFor(opts.mindId, tool!, p.args), args: p.args })]
       case 'tool-result':
+        // The wallet refused before signing (#42): a hard stop, red in the Mind Graph, never with a tx link.
+        if (HARD_STOPS.has(p.result?.status)) {
+          return [emit(chunk.runId, 'tool.error', { toolCallId: p.toolCallId, tool, nodeId: nodeIdFor(opts.mindId, tool!, p.args), status: p.result.status, error: String(p.result.message ?? p.result.status), result: p.result })]
+        }
         return [emit(chunk.runId, 'tool.result', { toolCallId: p.toolCallId, tool, nodeId: nodeIdFor(opts.mindId, tool!, p.args), result: p.result, status: 'ok' })]
       case 'tool-error':
         return [emit(chunk.runId, 'tool.error', { toolCallId: p.toolCallId, tool, nodeId: nodeIdFor(opts.mindId, tool!, p.args), status: 'error', error: String(p.error) })]
@@ -67,15 +72,12 @@ export function createNormalizer(opts: { mindId: string; threadId: string; model
   })
 }
 
-type BuilderStep = { node: string; type: 'agent' | 'tool' | 'http'; tool?: string }
-
 // Workflow runs from the Visual Builder (#20). Workflow chunks become node.* events for the
 // canvas and the Mind Graph; chunks from inside an agent step go through the chat normalizer,
 // so tool calls, text and the badge work exactly as in chat.
 export function createWorkflowNormalizer(opts: { mindId: string; workflowId: string; model: string; skills: string[]; secretValues: string[]; steps: Record<string, BuilderStep> }) {
   const inner = createNormalizer({ mindId: opts.mindId, threadId: '', model: opts.model, skills: opts.skills, secretValues: opts.secretValues })
-  const graphNode = (s: BuilderStep) => (s.type === 'agent' ? `mind:${opts.mindId}` : nodeIdFor(opts.mindId, s.tool!))
-  const node = (s: BuilderStep) => ({ node: s.node, nodeType: s.type, nodeId: graphNode(s) })
+  const node = (s: BuilderStep) => ({ node: s.node, nodeType: s.type, nodeId: builderNodeId(opts.mindId, s) })
 
   const normalize = async function normalize(chunk: { type: string; runId: string; payload?: any }): Promise<HelloNearEvent[]> {
     const p = chunk.payload ?? {}

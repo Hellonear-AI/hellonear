@@ -2,7 +2,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { z } from 'zod'
-import { skillCatalog } from './skills.ts'
+import { skillCatalog, skillSummary } from './skills.ts'
 
 const templateSchema = z.object({
   templateId: z.string().regex(/^[a-z0-9-]+$/),
@@ -29,14 +29,7 @@ export function loadTemplates(dir: string): Template[] {
 
 export const templates = loadTemplates(new URL('../templates', import.meta.url).pathname)
 
-// What the frontend's "Choose a Mind" screen shows: each skill with its status and the
-// connections (apps) it needs, so blocked or simulated features are visible, not hidden.
+// What the frontend's "Choose a Mind" screen shows.
 export function templateSummaries() {
-  return templates.map((t) => ({
-    ...t,
-    skills: t.skills.map((id) => {
-      const s = skillCatalog.get(id)!
-      return { skillId: id, description: s.description, status: s.status, connections: s.connections, ...(s.note ? { note: s.note } : {}) }
-    }),
-  }))
+  return templates.map((t) => ({ ...t, skills: t.skills.map(skillSummary) }))
 }

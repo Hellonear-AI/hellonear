@@ -4,6 +4,7 @@ import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { AddressInfo } from 'node:net'
 import { randomUUID } from 'node:crypto'
+import pg from 'pg'
 import { server } from '../src/server.ts'
 import { mastra } from '../src/mastra.ts'
 import { mastraWorkflowId } from '../src/builder.ts'
@@ -53,7 +54,7 @@ describe('builder workflows', () => {
 
   test('invalid canvases are rejected with issues; ids and auth are checked', async () => {
     const approval = balanceAlert()
-    approval.nodes[1] = { id: 'balance', type: 'tool', data: { tool: 'demo_transfer', args: { to: 'bob.testnet', amountUsdc: 1 } } } as any
+    approval.nodes[1] = { id: 'balance', type: 'tool', data: { tool: 'send_payment', args: { to: 'bob.testnet', amountNear: '0.01' } } } as any
     const res = await call('PUT', path('bad'), approval)
     assert.equal(res.status, 400)
     assert.match(JSON.stringify((await res.json()).issues), /needs the owner's approval/)
@@ -93,6 +94,18 @@ describe('builder workflows', () => {
     assert.match(finished[1].output.body, /••••/, 'httpbin echoed the header, redacted')
     assert.match(finished[1].output.body, new RegExp(`${account.replace('.', '\\.')} has [0-9.]+ NEAR`))
     assert.ok(!JSON.stringify(evs).includes(SECRET), 'the secret value is in no event')
+    // Run snapshots store the requestContext (spike 03): the secrets Map must not end up there.
+    const db = new pg.Client({ connectionString: process.env.DATABASE_URL })
+    await db.connect()
+    try {
+      const { rows: tables } = await db.query(`select table_name from information_schema.tables where table_schema = 'mastra'`)
+      for (const { table_name } of tables) {
+        const { rows } = await db.query(`select count(*)::int as n from mastra."${table_name}" t where t::text like $1`, [`%${SECRET}%`])
+        assert.equal(rows[0].n, 0, `secret value found in mastra.${table_name}`)
+      }
+    } finally {
+      await db.end()
+    }
 
     assert.equal(ofType(evs, 'workflow.finished')[0].status, 'success')
     const last = evs.at(-1)!
@@ -122,12 +135,12 @@ describe('builder workflows', () => {
   test('agents inside a workflow never get approval tools', async () => {
     const canvas = {
       name: 'Pay',
-      nodes: [{ id: 't', type: 'trigger', data: {} }, { id: 'ask', type: 'agent', data: { prompt: 'Use the demo_transfer tool to send 1 USDC to bob.testnet now, then say done.' } }],
+      nodes: [{ id: 't', type: 'trigger', data: {} }, { id: 'ask', type: 'agent', data: { prompt: 'Use the send_payment tool to send 0.01 NEAR to bob.testnet now, then say done.' } }],
       edges: [{ source: 't', target: 'ask' }],
     }
     assert.equal((await call('PUT', path('pay'), canvas)).status, 200)
     const evs = await events(await call('POST', `${path('pay')}/runs`, { userId: 'u1', mind: mind(['payments']), secrets: [] }))
-    assert.ok(!evs.some((e) => e.tool === 'demo_transfer'), JSON.stringify(evs.filter((e) => e.tool)))
+    assert.ok(!evs.some((e) => e.tool === 'send_payment'), JSON.stringify(evs.filter((e) => e.tool)))
     assert.equal(ofType(evs, 'tool.approval_required').length, 0)
     assert.equal(ofType(evs, 'workflow.finished')[0].status, 'success')
   })

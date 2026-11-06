@@ -1,0 +1,22 @@
+[Unit]
+Description=HelloNear engine (Mastra + NEAR AI Cloud)
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+User=hellonear
+WorkingDirectory=/opt/hellonear/app/engine
+EnvironmentFile=/etc/hellonear/engine.env
+ExecStart=/usr/local/bin/node --import tsx src/server.ts
+Restart=on-failure
+RestartSec=5
+MemoryMax=1G
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/hellonear
+
+[Install]
+WantedBy=multi-user.target

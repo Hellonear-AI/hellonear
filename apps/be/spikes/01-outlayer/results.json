@@ -1,0 +1,457 @@
+[
+  {
+    "at": "2026-11-04T08:40:12.733Z",
+    "step": "1-register",
+    "request": "POST /register",
+    "body": null,
+    "status": 200,
+    "response": {
+      "wallet_id": "02f56de2-0f42-4672-bd4b-f40abda856c7",
+      "api_key": "wk_••••",
+      "near_account_id": "99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f",
+      "handoff_url": "https://app.outlayer.ai/wallet?key=••••",
+      "trial": {
+        "available": true,
+        "calls": 50,
+        "days": 7,
+        "claim_url": "POST /trial-key",
+        "scope": "connectors.outlayer.testnet/*"
+      }
+    }
+  },
+  {
+    "at": "2026-11-04T08:40:23.199Z",
+    "step": "status-address",
+    "request": "GET /wallet/v1/address?chain=near",
+    "body": null,
+    "status": 200,
+    "response": {
+      "wallet_id": "02f56de2-0f42-4672-bd4b-f40abda856c7",
+      "chain": "near",
+      "address": "99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f",
+      "public_key": "ed25519:99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f",
+      "asset_account_id": null,
+      "executor_account_id": "99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f"
+    }
+  },
+  {
+    "at": "2026-11-04T08:40:23.961Z",
+    "step": "status-balance",
+    "request": "GET /wallet/v1/balance?chain=near",
+    "body": null,
+    "status": 200,
+    "response": {
+      "balance": "0",
+      "token": "near",
+      "account_id": "99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f",
+      "account": "executor"
+    }
+  },
+  {
+    "at": "2026-11-04T08:40:25.321Z",
+    "step": "6-subwallet-skill-payments",
+    "request": "PUT /wallet/v1/api-key",
+    "body": {
+      "seed": "skill-payments",
+      "key_hash": "ad5c8b6faac65bfa3ad4d249cfb48347252b9cb76702a690a131cdf52f0c03ae"
+    },
+    "status": 200,
+    "response": {
+      "wallet_id": "29ad0a10-ab36-8c6d-5700-87ed88d7cd75",
+      "near_account_id": "b8c4019c680812815bde5c36424d9396fe1b6eed6a0d3cd2bc2e8d641b827337"
+    }
+  },
+  {
+    "at": "2026-11-04T08:40:25.610Z",
+    "step": "6-subwallet-skill-payments-address",
+    "request": "GET /wallet/v1/address?chain=near",
+    "body": null,
+    "status": 200,
+    "response": {
+      "wallet_id": "29ad0a10-ab36-8c6d-5700-87ed88d7cd75",
+      "chain": "near",
+      "address": "b8c4019c680812815bde5c36424d9396fe1b6eed6a0d3cd2bc2e8d641b827337",
+      "public_key": "ed25519:b8c4019c680812815bde5c36424d9396fe1b6eed6a0d3cd2bc2e8d641b827337",
+      "asset_account_id": null,
+      "executor_account_id": "b8c4019c680812815bde5c36424d9396fe1b6eed6a0d3cd2bc2e8d641b827337"
+    }
+  },
+  {
+    "at": "2026-11-04T08:40:33.204Z",
+    "step": "transfer",
+    "request": "POST /wallet/v1/transfer",
+    "body": {
+      "chain": "near",
+      "to": "b8c4019c680812815bde5c36424d9396fe1b6eed6a0d3cd2bc2e8d641b827337",
+      "amount": "10000000000000000000000"
+    },
+    "status": 422,
+    "response": {
+      "error": "chain_refused",
+      "message": "the account 99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f is not visible on the network, so there is no key to sign with. Most often that means it has never taken part in a transaction. Retrying will not change it — the chain answered, and this is its answer."
+    }
+  },
+  {
+    "at": "2026-11-04T09:42:24.550Z",
+    "step": "status-address",
+    "request": "GET /wallet/v1/address?chain=near",
+    "body": null,
+    "status": 200,
+    "response": {
+      "wallet_id": "02f56de2-0f42-4672-bd4b-f40abda856c7",
+      "chain": "near",
+      "address": "99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f",
+      "public_key": "ed25519:99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f",
+      "asset_account_id": null,
+      "executor_account_id": "99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f"
+    }
+  },
+  {
+    "at": "2026-11-04T09:42:25.057Z",
+    "step": "status-balance",
+    "request": "GET /wallet/v1/balance?chain=near",
+    "body": null,
+    "status": 200,
+    "response": {
+      "balance": "1000000000000000000000000",
+      "token": "near",
+      "account_id": "99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f",
+      "account": "executor"
+    }
+  },
+  {
+    "at": "2026-11-04T09:42:29.630Z",
+    "step": "transfer",
+    "request": "POST /wallet/v1/transfer",
+    "body": {
+      "chain": "near",
+      "to": "lin1er.testnet",
+      "amount": "10000000000000000000000"
+    },
+    "status": 200,
+    "response": {
+      "request_id": "563b0ce0-5cf6-4f71-9961-bf7487f4480d",
+      "status": "pending_approval",
+      "approval_id": "bb1cd146-b31f-4c53-a46e-52212c30a645",
+      "required": 1,
+      "approved": 0,
+      "request_hash": "c2e938dfeecea2697e14ace68ea87b02aa3110dd978ffa783807496afc63dad6"
+    }
+  },
+  {
+    "at": "2026-11-04T09:42:36.371Z",
+    "step": "transfer",
+    "request": "POST /wallet/v1/transfer",
+    "body": {
+      "chain": "near",
+      "to": "lin1er.testnet",
+      "amount": "200000000000000000000000"
+    },
+    "status": 403,
+    "response": {
+      "error": "policy_denied",
+      "message": "Per-transaction limit exceeded for native: 200000000000000000000000 > 50000000000000000000000"
+    }
+  },
+  {
+    "at": "2026-11-04T09:42:37.835Z",
+    "step": "transfer",
+    "request": "POST /wallet/v1/transfer",
+    "body": {
+      "chain": "near",
+      "to": "hellonear-registry.testnet",
+      "amount": "10000000000000000000000"
+    },
+    "status": 403,
+    "response": {
+      "error": "policy_denied",
+      "message": "Address 'hellonear-registry.testnet' is not in whitelist"
+    }
+  },
+  {
+    "at": "2026-11-04T09:42:42.692Z",
+    "step": "pending",
+    "request": "GET /wallet/v1/pending_approvals",
+    "body": null,
+    "status": 200,
+    "response": {
+      "approvals": [
+        {
+          "approval_id": "bb1cd146-b31f-4c53-a46e-52212c30a645",
+          "request_id": "563b0ce0-5cf6-4f71-9961-bf7487f4480d",
+          "type": "transfer",
+          "request_data": {
+            "to": "lin1er.testnet",
+            "amount": "10000000000000000000000",
+            "receiver_id": "lin1er.testnet"
+          },
+          "op": {
+            "amount": "10000000000000000000000",
+            "kind": "transfer",
+            "to": "lin1er.testnet"
+          },
+          "request_hash": "c2e938dfeecea2697e14ace68ea87b02aa3110dd978ffa783807496afc63dad6",
+          "decision": "requires_approval",
+          "required": 1,
+          "approved": 0,
+          "expires_at": "2026-11-05T09:42:30.066077+00:00"
+        }
+      ]
+    }
+  },
+  {
+    "at": "2026-11-04T09:44:10.605Z",
+    "step": "requests",
+    "request": "GET /wallet/v1/requests",
+    "body": null,
+    "status": 200,
+    "response": {
+      "requests": [
+        {
+          "request_id": "563b0ce0-5cf6-4f71-9961-bf7487f4480d",
+          "type": "transfer",
+          "status": "success",
+          "result": {
+            "result": null,
+            "tx_hash": "3wRbJJ5oq8r9uxcZBrghj7QGSffX3w1GCboD4gYqZCXt",
+            "signer_id": "99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f"
+          },
+          "created_at": "2026-11-04T09:42:30.069846+00:00",
+          "updated_at": "2026-11-04T09:43:50.103385+00:00"
+        }
+      ],
+      "total": 1
+    }
+  },
+  {
+    "at": "2026-11-04T09:49:02.892Z",
+    "step": "transfer",
+    "request": "POST /wallet/v1/transfer",
+    "body": {
+      "chain": "near",
+      "to": "lin1er.testnet",
+      "amount": "10000000000000000000000"
+    },
+    "status": 403,
+    "response": {
+      "error": "wallet_frozen",
+      "message": "Wallet is frozen by controller"
+    }
+  },
+  {
+    "at": "2026-11-04T09:49:04.176Z",
+    "step": "status-address",
+    "request": "GET /wallet/v1/address?chain=near",
+    "body": null,
+    "status": 200,
+    "response": {
+      "wallet_id": "02f56de2-0f42-4672-bd4b-f40abda856c7",
+      "chain": "near",
+      "address": "99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f",
+      "public_key": "ed25519:99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f",
+      "asset_account_id": null,
+      "executor_account_id": "99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f"
+    }
+  },
+  {
+    "at": "2026-11-04T09:49:04.639Z",
+    "step": "status-balance",
+    "request": "GET /wallet/v1/balance?chain=near",
+    "body": null,
+    "status": 200,
+    "response": {
+      "balance": "989955363487500000000000",
+      "token": "near",
+      "account_id": "99dbb9f703e4982ac61758945939e8d7ff8ea38cdfad8f79946f5d7240c8726f",
+      "account": "executor"
+    }
+  },
+  {
+    "at": "2026-11-04T10:05:04.382Z",
+    "step": "transfer",
+    "request": "POST /wallet/v1/transfer",
+    "body": {
+      "chain": "near",
+      "to": "lin1er.testnet",
+      "amount": "10000000000000000000000"
+    },
+    "status": 200,
+    "response": {
+      "request_id": "218b9761-a3eb-4c21-86f5-7207bdfae94a",
+      "status": "success",
+      "tx_hash": "DoHQzcaYu5V7PQJhVoxkrZyhixZSEbvZC1emfHtJgdtx"
+    }
+  },
+  {
+    "at": "2026-11-04T10:05:06.034Z",
+    "step": "call",
+    "request": "POST /wallet/v1/call",
+    "body": {
+      "receiver_id": "lin1er.testnet",
+      "method_name": "hello",
+      "args": {},
+      "gas": "30000000000000",
+      "deposit": "0"
+    },
+    "status": 403,
+    "response": {
+      "error": "policy_denied",
+      "message": "Transaction type 'call' is not allowed by policy"
+    }
+  },
+  {
+    "at": "2026-11-04T10:05:12.615Z",
+    "step": "transfer",
+    "request": "POST /wallet/v1/transfer",
+    "body": {
+      "chain": "near",
+      "to": "lin1er.testnet",
+      "amount": "200000000000000000000000"
+    },
+    "status": 403,
+    "response": {
+      "error": "policy_denied",
+      "message": "Per-transaction limit exceeded for native: 200000000000000000000000 > 50000000000000000000000"
+    }
+  },
+  {
+    "at": "2026-11-05T11:08:33.744Z",
+    "step": "1-register",
+    "request": "POST /register",
+    "body": null,
+    "status": 200,
+    "response": {
+      "wallet_id": "d79a2195-b10d-48bd-ba19-f2f7ba8ade0e",
+      "api_key": "wk_••••",
+      "near_account_id": "0fdc9294b3f4f9be1ef5a9e2440e9f37dc03a641f236c8e1877c55f953d04e7a",
+      "handoff_url": "https://app.outlayer.ai/wallet?key=••••",
+      "trial": {
+        "available": true,
+        "calls": 50,
+        "days": 7,
+        "claim_url": "POST /trial-key",
+        "scope": "connectors.outlayer.testnet/*"
+      }
+    }
+  },
+  {
+    "at": "2026-11-05T11:08:34.989Z",
+    "step": "6-subwallet-skill-payments",
+    "request": "PUT /wallet/v1/api-key",
+    "body": {
+      "seed": "skill-payments",
+      "key_hash": "8d1208ba81c93f1f5268331c76597d77062f3e815ba5314d6a46635d535c50a1"
+    },
+    "status": 200,
+    "response": {
+      "wallet_id": "8850dfaa-d9b5-677d-a91a-1dfa406b57e3",
+      "near_account_id": "e81791309e25c72f894f2d376e7a6ea35fbfe4e05b908da9fe18d8690e8f8b8a"
+    }
+  },
+  {
+    "at": "2026-11-05T11:08:35.358Z",
+    "step": "6-subwallet-skill-payments-address",
+    "request": "GET /wallet/v1/address?chain=near",
+    "body": null,
+    "status": 200,
+    "response": {
+      "wallet_id": "8850dfaa-d9b5-677d-a91a-1dfa406b57e3",
+      "chain": "near",
+      "address": "e81791309e25c72f894f2d376e7a6ea35fbfe4e05b908da9fe18d8690e8f8b8a",
+      "public_key": "ed25519:e81791309e25c72f894f2d376e7a6ea35fbfe4e05b908da9fe18d8690e8f8b8a",
+      "asset_account_id": null,
+      "executor_account_id": "e81791309e25c72f894f2d376e7a6ea35fbfe4e05b908da9fe18d8690e8f8b8a"
+    }
+  },
+  {
+    "at": "2026-11-05T12:36:38.325Z",
+    "step": "status-address",
+    "request": "GET /wallet/v1/address?chain=near",
+    "body": null,
+    "status": 200,
+    "response": {
+      "wallet_id": "d79a2195-b10d-48bd-ba19-f2f7ba8ade0e",
+      "chain": "near",
+      "address": "0fdc9294b3f4f9be1ef5a9e2440e9f37dc03a641f236c8e1877c55f953d04e7a",
+      "public_key": "ed25519:0fdc9294b3f4f9be1ef5a9e2440e9f37dc03a641f236c8e1877c55f953d04e7a",
+      "asset_account_id": null,
+      "executor_account_id": "0fdc9294b3f4f9be1ef5a9e2440e9f37dc03a641f236c8e1877c55f953d04e7a"
+    }
+  },
+  {
+    "at": "2026-11-05T12:36:39.069Z",
+    "step": "status-balance",
+    "request": "GET /wallet/v1/balance?chain=near",
+    "body": null,
+    "status": 200,
+    "response": {
+      "balance": "1000000000000000000000000",
+      "token": "near",
+      "account_id": "0fdc9294b3f4f9be1ef5a9e2440e9f37dc03a641f236c8e1877c55f953d04e7a",
+      "account": "executor"
+    }
+  },
+  {
+    "at": "2026-11-05T12:38:25.156Z",
+    "step": "transfer",
+    "request": "POST /wallet/v1/transfer",
+    "body": {
+      "chain": "near",
+      "to": "lin1er.testnet",
+      "amount": "10000000000000000000000"
+    },
+    "status": 200,
+    "response": {
+      "request_id": "a6fe5328-fd12-4af6-aa51-6cb901be048c",
+      "status": "success",
+      "tx_hash": "GQ9qH3WDwcz11ruYW8XjnMN5vckd3Uf2cRv3Y4t2h3t4"
+    }
+  },
+  {
+    "at": "2026-11-05T12:38:26.723Z",
+    "step": "transfer",
+    "request": "POST /wallet/v1/transfer",
+    "body": {
+      "chain": "near",
+      "to": "lin1er.testnet",
+      "amount": "200000000000000000000000"
+    },
+    "status": 403,
+    "response": {
+      "error": "policy_denied",
+      "message": "Per-transaction limit exceeded for native: 200000000000000000000000 > 50000000000000000000000"
+    }
+  },
+  {
+    "at": "2026-11-05T12:38:28.331Z",
+    "step": "transfer",
+    "request": "POST /wallet/v1/transfer",
+    "body": {
+      "chain": "near",
+      "to": "hellonear-registry.testnet",
+      "amount": "10000000000000000000000"
+    },
+    "status": 403,
+    "response": {
+      "error": "policy_denied",
+      "message": "Address 'hellonear-registry.testnet' is not in whitelist"
+    }
+  },
+  {
+    "at": "2026-11-05T12:38:29.199Z",
+    "step": "call",
+    "request": "POST /wallet/v1/call",
+    "body": {
+      "receiver_id": "lin1er.testnet",
+      "method_name": "hello",
+      "args": {},
+      "gas": "30000000000000",
+      "deposit": "0"
+    },
+    "status": 403,
+    "response": {
+      "error": "policy_denied",
+      "message": "Transaction type 'call' is not allowed by policy"
+    }
+  }
+]

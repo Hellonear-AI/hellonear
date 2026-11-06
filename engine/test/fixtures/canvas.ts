@@ -16,3 +16,17 @@ export const balanceAlert = () => ({
     { source: 'low', target: 'chill', sourceHandle: 'else' },
   ],
 })
+
+// The #21 example: every minute, the Payments Mind reports a balance in its own voice.
+export const balanceReport = (cron = '* * * * *') => ({
+  name: 'Balance report',
+  nodes: [
+    { id: 'start', type: 'trigger', data: { schedule: { cron }, inputs: [{ name: 'account', type: 'string' }] } },
+    { id: 'balance', type: 'tool', data: { tool: 'near_view_account', args: { accountId: '{{input.account}}' } } },
+    { id: 'report', type: 'agent', data: { prompt: 'In one short sentence, report that {{input.account}} holds {{steps.balance.balanceNear}} NEAR.' } },
+  ],
+  edges: [
+    { source: 'start', target: 'balance' },
+    { source: 'balance', target: 'report' },
+  ],
+})

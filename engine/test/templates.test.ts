@@ -11,9 +11,10 @@ test('the three starter templates load and reference known skills', () => {
 test('summaries expose skill status and connections for the UI', () => {
   const email = templateSummaries().find((t) => t.templateId === 'email-manager')!
   const triage = email.skills.find((s) => s.skillId === 'email-triage')!
-  assert.equal(triage.status, 'blocked')
+  assert.equal(triage.status, 'available')
   assert.deepEqual(triage.connections, ['gmail'])
   assert.ok(triage.note)
   const pay = templateSummaries().find((t) => t.templateId === 'payments-mind')!.skills[0]
-  assert.equal(pay.status, 'simulated')
+  assert.equal(pay.status, 'available')
+  assert.equal(pay.note, undefined)
 })
