@@ -270,3 +270,54 @@
     cursor: not-allowed;
     }
 }
+
+/* Quiet scrollbars: a thin rounded thumb, no arrows, no track (like Gemini's sidebar).
+   Chrome and Safari use ::-webkit-scrollbar. Don't set scrollbar-width or scrollbar-color for them:
+   Chrome then falls back to the system bar, which has arrows on Windows. Firefox only gets those. */
+:root {
+  --scrollbar-thumb: color-mix(in oklab, var(--foreground) 22%, transparent);
+  --scrollbar-thumb-hover: color-mix(in oklab, var(--foreground) 38%, transparent);
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-button {
+  display: none;
+}
+::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: var(--scrollbar-thumb);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+/* .scrollbar-on-hover: the thumb only shows while the pointer is over the area or focus is inside it
+   (sidebar and phone drawer). */
+.scrollbar-on-hover::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+.scrollbar-on-hover:hover::-webkit-scrollbar-thumb,
+.scrollbar-on-hover:focus-within::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+}
+.scrollbar-on-hover:hover::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+@supports (-moz-appearance: none) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+  .scrollbar-on-hover {
+    scrollbar-color: transparent transparent;
+  }
+  .scrollbar-on-hover:hover,
+  .scrollbar-on-hover:focus-within {
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+}

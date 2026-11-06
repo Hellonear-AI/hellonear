@@ -32,7 +32,7 @@ export function AppSidebar({
   const segment = useActiveSegment(mindId) || "chat"
   return (
     // The whole sidebar scrolls as one (not only Recent chats); the account row stays pinned at the bottom.
-    <div className="flex h-full w-64 flex-col gap-5 overflow-y-auto overscroll-contain border-r border-border bg-surface p-4 pb-0">
+    <div className="flex h-full w-64 flex-col gap-5 overflow-y-auto overscroll-contain scrollbar-on-hover border-r border-border bg-surface p-4 pb-0">
       <div className="flex items-center gap-2 py-1 pl-2">
         <Link href={`/minds/${mindId}/chat`} onClick={onNavigate} className="flex items-center gap-2">
           <LogoMark />
