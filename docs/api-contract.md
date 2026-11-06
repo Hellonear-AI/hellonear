@@ -87,7 +87,7 @@ Resumes a run paused on `tool.approval_required`. Streams the remaining events a
 
 ### `GET /v1/templates`
 
-`{ "templates": [ { templateId, name, tagline, soul, model, skills: [ { skillId, description, status: "available" | "simulated" | "blocked", connections: [...], note? } ] } ] }` for the Choose a Mind screen. Status tells the UI what is simulated or blocked (e.g. email before Composio) **[tested, #13]**.
+`{ "templates": [ { templateId, name, tagline, quote, soul, model, skills: [ { skillId, description, status: "available" | "simulated" | "blocked", connections: [...], note? } ] } ] }` for the Choose a Mind screen. Status tells the UI what is simulated or blocked (e.g. email before Composio) **[tested, #13]**. `quote` is one line (≤ 80 characters) in the Mind's own voice for the template card (#55) **[tested]**.
 
 ### `GET /v1/skills`
 
