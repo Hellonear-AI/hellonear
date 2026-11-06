@@ -39,7 +39,7 @@ Tokens live as variables in `hellonear.pen`, with a `mode` theme (`light`, `dark
 
 - `HelloNear · Atomic Components` holds every reusable component, named `Group/Variant` (`Button/Primary`, `Badge/Warning`, `Meter/Frozen`, `Nav/Active`, ...), in three sections: atoms, molecules, organisms. Screens should use instances of these, not hand-built copies.
 - `HelloNear · States & Interactions` shows each component in every state (default, hover, pressed, focus, disabled, loading, error and the money lifecycle: waiting, signing in Meteor, approved, declined, expired), the motion rules, and a dark-mode check.
-- Motion: press 98% for 100 ms; hover 150 ms ease out (mouse only); focus ring 2 px `focus`, 2 px outside, keyboard only; state change crossfade 200 ms; enter fade + 8 px rise 200 ms, leave 150 ms; ease out (0.2, 0, 0, 1), no bounce on money; reduced motion means fades only.
+- Motion: see "Motion (v0.3)" below.
 - Recent chats (#54) show in the desktop and tablet sidebar too, under the menu, with a New chat button; the open chat is highlighted only on chat screens. The folded rail has no chat list.
 - Theme lives in the account menu (N1.8), opened from the account row at the bottom of the sidebar, the rail avatar, or the phone drawer's gear: Appearance System (default, follows the device), Light or Dark, then Sign out. It applies to the whole app, not per Mind.
 - Sidebar opens and folds: desktop starts open (256) with a fold button that turns it into the icon rail (72) and widens the content, and remembers the choice; tablet starts as the rail, whose top button opens the full sidebar over the content with the page dimmed (N1.5, N1.6).
@@ -51,6 +51,47 @@ Tokens live as variables in `hellonear.pen`, with a `mode` theme (`light`, `dark
 - Verification badge wording follows `docs/api-contract.md` §4: a normal chat reply is "Verified via NEAR AI TEE gateway" (`gateway_tee`, the `Badge/Verified` default); "Verified private (model TEE)" only when every step ran in the model TEE; anything else, incognito models included, gets no badge. In the model picker, TEE models are marked "Private (model TEE)".
 - `node-mind` flips to near-white in dark mode, so icons on it use `on-primary` there (lime on near-white is unreadable).
 - The live view map sits in a centered 360 x 240 `Graph` frame, so it stays centered in any panel width.
+
+## Motion (v0.3, 6 Nov)
+
+Based on Emil Kowalski's rules (`emil-design-eng` skill): the more often people see something, the less it moves; delight only for rare moments. Animate `transform` and `opacity` only.
+
+**Tokens**
+- `--ease-out: cubic-bezier(0.23, 1, 0.32, 1)` for anything entering or responding. `--ease-in-out: cubic-bezier(0.77, 0, 0.175, 1)` for things moving on screen. `--ease-drawer: cubic-bezier(0.32, 0.72, 0, 1)` for drawers and sheets. Hover and color changes use `ease`. Never `ease-in`.
+- Durations: press 100 to 160 ms; tooltips and menus 150 ms; enter 200 ms, leave 150 ms; drawers and sheets 300 ms. UI motion stays under 300 ms; only the rare moments below run longer.
+
+**Rules**
+- Press: scale 0.97 to 0.98 on anything tappable, release faster than press.
+- Hover only for real pointers (`hover: hover` and `pointer: fine`).
+- Focus ring 2 px `focus`, 2 px outside, keyboard only.
+- Enter: fade + 8 px rise. Never from `scale(0)`; start at 0.95 or more with opacity 0.
+- Menus and popovers (Mind switcher, account menu) scale 0.96 to 1 from their trigger. Dialogs scale from the center.
+- State swaps on a button (Approve, Sending, Sent): 200 ms crossfade with a 2 px blur.
+- No animation for keyboard actions (Enter to send, Esc, shortcuts) or for switching menu items and tabs, except the active tab highlight sliding (clip-path).
+- Money amounts never count up or tick; a new balance crossfades. No bounce and no shake on anything about money.
+- Drawers, sheets and toasts can be swiped away; a quick flick (velocity over 0.11) dismisses, no distance threshold. Dragging past an edge slows down instead of stopping.
+- Reduced motion: keep fades and color changes, drop movement, scale and per-word fades.
+
+**Chat streaming** (events in `docs/api-contract.md` §3)
+- `run.started`: Penny's bubble appears with a thinking dot; Send turns into Stop.
+- `reasoning.delta` is not shown in the chat (at most a small "Thinking" label).
+- `tool.called`: the tool pill fades in (150 ms) and its live view line lights.
+- `tool.approval_required`: the approval card enters (200 ms) and the Approvals badge pops once (0.9 to 1).
+- `text.delta`: smoothed streaming. Chunks are buffered and revealed at a steady pace; each new word fades in over about 150 ms. No fake blinking cursor.
+- `run.verified`: the verification badge fades in under the bubble.
+- Old threads load instantly, no animation. The view follows new text unless the user scrolled up; then a "New message" button appears.
+
+**Moments**
+
+| Moment | How often | Motion |
+|---|---|---|
+| Live view line lights | Each tool call | Line draws from the Mind to the node (300 ms), the node pulses once |
+| Approve a payment | Several times a day | Press, label crossfade to Sending then Sent, the card shrinks to one line (250 ms) |
+| Skeleton to content | Sometimes | Slow linear shimmer, crossfade to content |
+| Freeze | Rare | Balance card fades to grey and the snowflake pops in with a small spring (400 ms) |
+| Penny is ready (L3.5) | Once per Mind | Character enters with a spring (bounce 0.2), limit lines stagger in 50 ms apart |
+| Attack blocked (X1) | Rare, the demo moment | Wallet line turns red, the lock clicks once, the proof items stagger in (about 500 ms total) |
+| Builder drag | While building | Block follows the pointer on a spring, + spots fade in (120 ms), the block settles with a small bounce |
 
 ## Mind characters (#13, v0.3 draft)
 
