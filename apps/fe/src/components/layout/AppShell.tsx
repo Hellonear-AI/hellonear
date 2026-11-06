@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, type ReactNode } from "react"
+import { cn } from "cn"
 import { AppRail, AppSidebar } from "@/components/layout/AppSidebar"
 import { MobileHeader } from "@/components/layout/MobileHeader"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
@@ -15,12 +16,16 @@ const FOLD_KEY = "hellonear.sidebar.folded"
  */
 export function AppShell({ mindId, children }: { mindId: string; children: ReactNode }) {
   const [folded, setFolded] = useState(false)
+  // No fold animation until the saved choice is applied, so the sidebar doesn't fold itself on load.
+  const [animate, setAnimate] = useState(false)
   const [overlayOpen, setOverlayOpen] = useState(false)
 
   // Read the saved choice after mount so the server and first client render match.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of localStorage
     setFolded(window.localStorage.getItem(FOLD_KEY) === "1")
+    const frame = requestAnimationFrame(() => setAnimate(true))
+    return () => cancelAnimationFrame(frame)
   }, [])
 
   function setFold(next: boolean) {
@@ -30,13 +35,33 @@ export function AppShell({ mindId, children }: { mindId: string; children: React
 
   return (
     <div className="flex min-h-dvh bg-background">
-      {/* Desktop */}
-      <aside className="sticky top-0 hidden h-dvh shrink-0 xl:block">
-        {folded ? (
-          <AppRail mindId={mindId} onExpand={() => setFold(false)} />
-        ) : (
-          <AppSidebar mindId={mindId} onFold={() => setFold(true)} />
+      {/* Desktop. Folding slides the width 256 <-> 72 (on-screen movement: ease-in-out, 200 ms)
+          and crossfades the full sidebar with the rail; the page widens with it. */}
+      <aside
+        className={cn(
+          "sticky top-0 hidden h-dvh shrink-0 overflow-hidden xl:block",
+          folded ? "w-18" : "w-64",
+          animate && "transition-[width] duration-200 ease-in-out motion-reduce:transition-none"
         )}
+      >
+        <div
+          inert={folded}
+          className={cn(
+            "absolute inset-y-0 left-0 transition-opacity duration-150 ease-out motion-reduce:transition-none",
+            folded ? "opacity-0" : "opacity-100 delay-50"
+          )}
+        >
+          <AppSidebar mindId={mindId} onFold={() => setFold(true)} />
+        </div>
+        <div
+          inert={!folded}
+          className={cn(
+            "absolute inset-y-0 left-0 transition-opacity duration-150 ease-out motion-reduce:transition-none",
+            folded ? "opacity-100 delay-50" : "opacity-0"
+          )}
+        >
+          <AppRail mindId={mindId} onExpand={() => setFold(false)} />
+        </div>
       </aside>
 
       {/* Tablet */}
