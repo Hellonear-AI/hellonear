@@ -40,7 +40,7 @@ Tokens live as variables in `hellonear.pen`, with a `mode` theme (`light`, `dark
 - `HelloNear · Atomic Components` holds every reusable component, named `Group/Variant` (`Button/Primary`, `Badge/Warning`, `Meter/Frozen`, `Nav/Active`, ...), in three sections: atoms, molecules, organisms. Screens should use instances of these, not hand-built copies.
 - `HelloNear · States & Interactions` shows each component in every state (default, hover, pressed, focus, disabled, loading, error and the money lifecycle: waiting, signing in Meteor, approved, declined, expired), the motion rules, and a dark-mode check.
 - Motion: press 98% for 100 ms; hover 150 ms ease out (mouse only); focus ring 2 px `focus`, 2 px outside, keyboard only; state change crossfade 200 ms; enter fade + 8 px rise 200 ms, leave 150 ms; ease out (0.2, 0, 0, 1), no bounce on money; reduced motion means fades only.
-- Navigation by size: sidebar (256) on desktop 1440, icon rail (72) on tablet 834, top bar + 5-tab bottom bar on phone 390. Screens are designed at those three widths and checked at 320.
+- Navigation by size: sidebar (256) on desktop 1440, icon rail (72) on tablet 834, and on phone 390 a top bar (menu, Mind switcher, Approvals with a count) plus a left drawer with every place and Recent chats (picked over a bottom bar on 6 Nov; Recent chats needs #54). Approvals always show their count: sidebar, rail and phone top bar. Screens are designed at those three widths and checked at 320.
 - Limit meter: "coin tiles", 10 tiles of 1 NEAR with a lock cap; the headline is what is left today. Amber from 80%, red at the limit, grey with a snowflake when frozen.
 - No shield, zap, sparkles or rocket icons; "Verified private" uses `badge-check`.
 
