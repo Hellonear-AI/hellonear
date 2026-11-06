@@ -7,8 +7,12 @@ export const DEMO_KEY = 'demo'
 type Ctx = { requestContext?: { get: (key: string) => unknown } } | undefined
 export const isDemo = (context: Ctx) => context?.requestContext?.get(DEMO_KEY) === true
 
-export class GmailNotConnectedError extends Error {
-  constructor() { super('Gmail is not connected for this Mind yet: the owner can connect it under Connections') }
+// Apps an owner connects through Composio (#13, #57), named by their Composio toolkit slug.
+export type App = 'gmail' | 'googlecalendar'
+const APP_NAMES: Record<App, string> = { gmail: 'Gmail', googlecalendar: 'Google Calendar' }
+
+export class AppNotConnectedError extends Error {
+  constructor(app: App) { super(`${APP_NAMES[app]} is not connected for this Mind yet: the owner can connect it under Connections`) }
 }
 
 export type SampleEmail = { id: string; from: string; to: string; subject: string; body: string; hoursAgo: number; unread: boolean }
