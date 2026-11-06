@@ -4,7 +4,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import dynamic from "next/dynamic"
 import { ThemeProvider } from "next-themes"
 import { useState, type ReactNode } from "react"
-import { AppShell } from "@/components/layout/AppShell"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { NETWORK_ID } from "@/lib/config"
@@ -29,7 +28,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <NearProvider config={nearConfig}>
           <TooltipProvider>
-            <AppShell>{children}</AppShell>
+            {children}
             <Toaster />
           </TooltipProvider>
         </NearProvider>
