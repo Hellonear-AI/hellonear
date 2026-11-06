@@ -858,3 +858,67 @@ describe('app connections through Composio (#13)', () => {
     }
   })
 })
+
+describe('chat threads (#54)', () => {
+  const origin = { origin: 'http://localhost:3000' }
+  test('threads newest first with a title from the first message; messages in order, paged by run', async () => {
+    const a = await signIn()
+    const mindId = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Threads' }, origin)).json()).mind.id
+    const long = 'Please plan my whole week around the dentist appointment on Thursday and the two client calls'
+    const first = (await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { message: long }, origin)))[0].threadId
+    await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { threadId: first, message: 'and Friday?' }, origin))
+    const second = (await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { message: 'hi' }, origin)))[0].threadId
+    // A builder run has no thread and must not show up.
+    await query(`insert into runs (id, mind_id, workflow_id, status) values ($1, $2, 'daily-report', 'finished')`, [`run_wf_${randomBytes(4).toString('hex')}`, mindId])
+
+    const { threads } = await (await a.call('GET', `/v1/minds/${mindId}/threads`)).json()
+    assert.deepEqual(threads.map((t: any) => t.threadId), [second, first])
+    assert.equal(threads[0].title, 'hi')
+    assert.ok(threads[1].title.endsWith('…') && threads[1].title.length <= 61 && long.startsWith(threads[1].title.slice(0, -1)), threads[1].title)
+    assert.deepEqual(threads.map((t: any) => t.messageCount), [2, 4])
+
+    let res = await a.call('GET', `/v1/minds/${mindId}/threads/${first}/messages`)
+    const all = (await res.json())
+    assert.equal(all.nextBefore, null)
+    assert.deepEqual(all.messages.map((m: any) => [m.role, m.text.slice(0, 6)]), [['user', long.slice(0, 6)], ['assistant', 'w0 w1 '], ['user', 'and Fr'], ['assistant', 'w0 w1 ']])
+    assert.equal(all.messages[1].text.split(' ').filter(Boolean).length, 40)
+    assert.equal(all.messages[0].runId, all.messages[1].runId)
+
+    // Two messages per page: the newest run first, then `nextBefore` for the older one.
+    res = await a.call('GET', `/v1/minds/${mindId}/threads/${first}/messages?limit=2`)
+    const p1 = await res.json()
+    assert.deepEqual(p1.messages.map((m: any) => m.text.slice(0, 6)), ['and Fr', 'w0 w1 '])
+    res = await a.call('GET', `/v1/minds/${mindId}/threads/${first}/messages?limit=2&before=${encodeURIComponent(p1.nextBefore)}`)
+    const p2 = await res.json()
+    assert.deepEqual(p2.messages.map((m: any) => m.role), ['user', 'assistant'])
+    assert.equal(p2.messages[0].text, long)
+    assert.equal(p2.nextBefore, null)
+  })
+
+  test('a run paused for approval keeps its user message; resumed text joins its reply', async () => {
+    const a = await signIn()
+    const mindId = (await (await a.call('POST', '/v1/minds', { templateId: 'payments-mind', name: 'Pay threads' }, origin)).json()).mind.id
+    const evs = await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { message: 'pay the bill' }, origin))
+    await events(await a.call('POST', `/v1/runs/${evs[0].runId}/approve?mindId=${mindId}`, { toolCallId: 'call_1' }, origin))
+    const { messages } = await (await a.call('GET', `/v1/minds/${mindId}/threads/${evs[0].threadId}/messages`)).json()
+    assert.deepEqual(messages.map((m: any) => [m.role, m.text]), [['user', 'pay the bill'], ['assistant', 'Paid.']])
+  })
+
+  test('another user, another Mind or an unknown thread answers 404', async () => {
+    const a = await signIn()
+    const b = await signIn()
+    const mindA = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'A' }, origin)).json()).mind.id
+    const mindA2 = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'A2' }, origin)).json()).mind.id
+    const threadId = (await events(await a.call('POST', `/v1/minds/${mindA}/chat`, { message: 'secret plans' }, origin)))[0].threadId
+    assert.equal((await b.call('GET', `/v1/minds/${mindA}/threads`)).status, 404)
+    assert.equal((await b.call('GET', `/v1/minds/${mindA}/threads/${threadId}/messages`)).status, 404)
+    let res = await a.call('GET', `/v1/minds/${mindA2}/threads/${threadId}/messages`)
+    assert.equal(res.status, 404)
+    assert.deepEqual(await res.json(), { error: 'thread_not_found' })
+    assert.equal((await a.call('GET', `/v1/minds/${mindA}/threads/thr_${'0'.repeat(24)}/messages`)).status, 404)
+    assert.equal((await a.call('GET', `/v1/minds/${mindA}/threads/not-a-thread/messages`)).status, 404)
+    assert.equal((await a.call('GET', `/v1/minds/${mindA}/threads/${threadId}/messages?before=yesterday`)).status, 400)
+    assert.equal((await a.call('DELETE', `/v1/minds/${mindA}/threads/${threadId}`, undefined, origin)).status, 405)
+    assert.deepEqual((await (await a.call('GET', `/v1/minds/${mindA2}/threads`)).json()).threads, [])
+  })
+})
