@@ -5,7 +5,7 @@ import { query } from './db.ts'
 import { sseEvents } from './sse.ts'
 
 type Event = Record<string, any> & { runId?: string; seq: number; type: string; ts: string }
-type RunContext = { mindId: string; threadId?: string; workflowId?: string; resumeOf?: string }
+type RunContext = { mindId: string; threadId?: string; workflowId?: string; resumeOf?: string; userMessage?: string }
 
 // Deltas arrive many per second; they are written in batches, everything else right away.
 const BATCHED = new Set(['text.delta', 'reasoning.delta'])
@@ -14,9 +14,9 @@ const HEARTBEAT_MS = 15_000
 
 async function upsertRun(e: Event, ctx: RunContext) {
   await query(
-    `insert into runs (id, mind_id, thread_id, workflow_id, status, model) values ($1, $2, $3, $4, 'running', $5)
+    `insert into runs (id, mind_id, thread_id, workflow_id, status, model, user_message) values ($1, $2, $3, $4, 'running', $5, $6)
      on conflict (id) do update set status = 'running', finished_at = null`,
-    [e.runId, ctx.mindId, ctx.threadId ?? null, ctx.workflowId ?? null, e.model ?? null],
+    [e.runId, ctx.mindId, ctx.threadId ?? null, ctx.workflowId ?? null, e.model ?? null, ctx.userMessage ?? null],
   )
 }
 
