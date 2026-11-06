@@ -47,7 +47,9 @@ Tokens live as variables in `hellonear.pen`, with a `mode` theme (`light`, `dark
 - Limit meter: "coin tiles", 10 tiles of 1 NEAR with a lock cap; the headline is what is left today. Amber from 80%, red at the limit, grey with a snowflake when frozen.
 - Page titles are the `Page Title/Large` (32/15, desktop and tablet) and `Page Title/Small` (26/14, phone) components; the actions beside them (buttons, search, balance) stay free per screen. All 178 page headers in sections 3 to 8 use them. The Gmail logo is `Logo/Gmail`. Loading uses `Skeleton/Skill Card` and `Skeleton/Job`.
 - Not components on purpose: phone sheets (only the shell and the `Grabber` are shared; each sheet's content is its own, and pen.dev components have no slot for free content) and the one-off Wallet loading layout (W1.5).
-- No shield, zap, sparkles or rocket icons; "Verified private" uses `badge-check`.
+- No shield, zap, sparkles or rocket icons; the verification badge uses `badge-check`.
+- Verification badge wording follows `docs/api-contract.md` §4: a normal chat reply is "Verified via NEAR AI TEE gateway" (`gateway_tee`, the `Badge/Verified` default); "Verified private (model TEE)" only when every step ran in the model TEE; anything else, incognito models included, gets no badge. In the model picker, TEE models are marked "Private (model TEE)".
+- Open decisions in #55 (approval vs limits, daily limit, per-skill wallets, Mind deletion, approval expiry): screens L3, C1, A1, W1, W2, S3 and X1 still show the old model until it is decided.
 - `node-mind` flips to near-white in dark mode, so icons on it use `on-primary` there (lime on near-white is unreadable).
 - The live view map sits in a centered 360 x 240 `Graph` frame, so it stays centered in any panel width.
 
@@ -76,7 +78,7 @@ Frame `Mind Characters v0.3` in `hellonear.pen` (earlier tries were removed). On
 
 ## Screens (v0.2)
 
-Screens live in sections `3 · Start` to `8 · Attack Playground`, one board per screen code from the Product map (L1 to L3, T1 try-out, C1, C2, N1 navigation, M1 Mind settings, E1 app states (signed out, offline, not found), W1 to W5, A1, S1 to S3, K1, K2, P1, B1, X1). Each row of a board is one state with a code (`W1.3`), a name and a note; frames are drawn at desktop 1440, tablet 834 and phone 390 ("full page" phone frames show the whole scroll). Every main screen has its empty, loading, error and blocked states.
+Screens live in sections `3 · Start` to `8 · Attack Playground`, one board per screen code from the Product map (L1 to L3, T1 try-out, C1, C2, N1 navigation, M1 Mind settings, E1 app states (signed out, offline, not found), W1 to W5, A1, S1 to S3, K1, K2, P1, B1, X1). Also W1.6 (a Mind with no wallet yet), W5.5 (a failed payment) and C1.7 (Email helper: summary and a Gmail draft, never sent by the Mind). Each row of a board is one state with a code (`W1.3`), a name and a note; frames are drawn at desktop 1440, tablet 834 and phone 390 ("full page" phone frames show the whole scroll). Every main screen has its empty, loading, error and blocked states.
 
 - Content follows what the backend and engine really do (`docs/api-contract.md`): the five real skills, Gmail as the only app, keys with allowed sites, Autopilot that can't move money or use keys, Attack Playground stops from per payment limits, allowed addresses and freeze (#16), no transaction link for a stop.
 - Try-out (T1, #43): "Try without a wallet" sits under the wallets on sign-in and skips Set limits. A lime banner shows messages left (20) and the shared test wallet's limit (0.05 NEAR per payment, approved addresses). Owner actions (freeze, limits, keys, Autopilot, own wallet) open "Connect a wallet to do this"; after 20 messages the chat ends with Connect Meteor.

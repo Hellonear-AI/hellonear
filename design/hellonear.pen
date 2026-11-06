@@ -557,7 +557,7 @@
       "type": "frame",
       "id": "vzhgV",
       "x": -1964,
-      "y": 15271,
+      "y": 15685,
       "name": "3 · Start",
       "theme": {
         "mode": "light"
@@ -30426,7 +30426,7 @@
                                       "id": "ff06v",
                                       "name": "Rule",
                                       "fill": "$text-secondary",
-                                      "content": "Allowed by: up to 2 NEAR per payment",
+                                      "content": "Allowed by: up to 0.05 NEAR per payment",
                                       "fontFamily": "$font-body",
                                       "fontSize": 12,
                                       "fontWeight": "normal"
@@ -30566,7 +30566,7 @@
                                       "name": "You",
                                       "descendants": {
                                         "q0J89": {
-                                          "content": "Pay the demo shop 0.05 NEAR.",
+                                          "content": "Pay the test shop 0.05 NEAR.",
                                           "textGrowth": "auto"
                                         }
                                       }
@@ -31114,7 +31114,7 @@
                                       "id": "NtpUG",
                                       "name": "Rule",
                                       "fill": "$text-secondary",
-                                      "content": "Allowed by: up to 2 NEAR per payment",
+                                      "content": "Allowed by: up to 0.05 NEAR per payment",
                                       "fontFamily": "$font-body",
                                       "fontSize": 12,
                                       "fontWeight": "normal"
@@ -31254,7 +31254,7 @@
                                       "name": "You",
                                       "descendants": {
                                         "q0J89": {
-                                          "content": "Pay the demo shop 0.05 NEAR.",
+                                          "content": "Pay the test shop 0.05 NEAR.",
                                           "textGrowth": "auto"
                                         }
                                       }
@@ -31619,7 +31619,7 @@
                                       "id": "tSdgx",
                                       "name": "Rule",
                                       "fill": "$text-secondary",
-                                      "content": "Allowed by: up to 2 NEAR per payment",
+                                      "content": "Allowed by: up to 0.05 NEAR per payment",
                                       "fontFamily": "$font-body",
                                       "fontSize": 12,
                                       "fontWeight": "normal"
@@ -31759,7 +31759,7 @@
                                       "name": "You",
                                       "descendants": {
                                         "q0J89": {
-                                          "content": "Pay the demo shop 0.05 NEAR.",
+                                          "content": "Pay the test shop 0.05 NEAR.",
                                           "textGrowth": "auto"
                                         }
                                       }
@@ -32115,7 +32115,7 @@
                                               "name": "Address",
                                               "descendants": {
                                                 "ARdEw": {
-                                                  "content": "hellonear-demo.testnet",
+                                                  "content": "test-shop.testnet",
                                                   "fontSize": 13
                                                 }
                                               }
@@ -32943,7 +32943,7 @@
                                               "name": "Address",
                                               "descendants": {
                                                 "ARdEw": {
-                                                  "content": "hellonear-demo.testnet",
+                                                  "content": "test-shop.testnet",
                                                   "fontSize": 13
                                                 }
                                               }
@@ -33754,7 +33754,7 @@
                                               "name": "Address",
                                               "descendants": {
                                                 "ARdEw": {
-                                                  "content": "hellonear-demo.testnet",
+                                                  "content": "test-shop.testnet",
                                                   "fontSize": 13
                                                 }
                                               }
@@ -34840,7 +34840,7 @@
                                       "id": "iU0qO",
                                       "name": "Rule",
                                       "fill": "$text-secondary",
-                                      "content": "Allowed by: up to 2 NEAR per payment",
+                                      "content": "Allowed by: up to 0.05 NEAR per payment",
                                       "fontFamily": "$font-body",
                                       "fontSize": 12,
                                       "fontWeight": "normal"
@@ -35548,7 +35548,7 @@
                                       "id": "XWtVO",
                                       "name": "Rule",
                                       "fill": "$text-secondary",
-                                      "content": "Allowed by: up to 2 NEAR per payment",
+                                      "content": "Allowed by: up to 0.05 NEAR per payment",
                                       "fontFamily": "$font-body",
                                       "fontSize": 12,
                                       "fontWeight": "normal"
@@ -36102,7 +36102,7 @@
                                       "id": "WIC4S",
                                       "name": "Rule",
                                       "fill": "$text-secondary",
-                                      "content": "Allowed by: up to 2 NEAR per payment",
+                                      "content": "Allowed by: up to 0.05 NEAR per payment",
                                       "fontFamily": "$font-body",
                                       "fontSize": 12,
                                       "fontWeight": "normal"
@@ -36399,7 +36399,7 @@
       "type": "frame",
       "id": "MpYJE",
       "x": -1964,
-      "y": 22347,
+      "y": 22761,
       "name": "4 · Chat",
       "theme": {
         "mode": "light"
@@ -46398,6 +46398,1016 @@
                         },
                         {
                           "id": "RTArx",
+                          "type": "ref",
+                          "ref": "AkuL3",
+                          "name": "Bottom Nav",
+                          "width": "fill_container(390)",
+                          "enabled": false,
+                          "descendants": {
+                            "QSx7p": {
+                              "icon": "inbox"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "U9hjYd",
+                  "name": "C1.7 Email helper",
+                  "gap": 48,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "t8trVz",
+                      "name": "Label",
+                      "width": 240,
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "X8pDmp",
+                          "name": "Code",
+                          "fill": "$primary",
+                          "cornerRadius": 6,
+                          "padding": [
+                            3,
+                            8
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Kjul3",
+                              "name": "Text",
+                              "fill": "$on-primary",
+                              "content": "C1.7",
+                              "fontFamily": "$font-body",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "zDnzk",
+                          "name": "State",
+                          "fill": "$text-primary",
+                          "content": "Email helper",
+                          "fontFamily": "$font-body",
+                          "fontSize": 18,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "SyZgX",
+                          "name": "Note",
+                          "fill": "$text-secondary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Penny with the Email helper skill: it reads the inbox, sums it up and saves draft replies in Gmail. It never sends email; the owner sends from Gmail. No money moves, so there is nothing to approve.",
+                          "lineHeight": 1.5,
+                          "fontFamily": "$font-body",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "F9p72S",
+                      "name": "C1.7 Chat · Desktop 1440",
+                      "clip": true,
+                      "width": 1440,
+                      "height": 960,
+                      "fill": "$bg",
+                      "cornerRadius": 12,
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "children": [
+                        {
+                          "id": "xfGvV",
+                          "type": "ref",
+                          "ref": "AuOSf",
+                          "name": "Sidebar",
+                          "height": "fill_container",
+                          "descendants": {
+                            "b0e1Sl/Y3bux": {
+                              "icon": "inbox"
+                            },
+                            "vuWjI": {
+                              "fill": "$surface-muted"
+                            },
+                            "uSigf": {
+                              "fontWeight": "500",
+                              "fill": "$text-primary"
+                            }
+                          }
+                        },
+                        {
+                          "type": "frame",
+                          "id": "KupCI",
+                          "name": "Chat",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "hicJt",
+                              "name": "Chat Head",
+                              "width": "fill_container",
+                              "stroke": "$border",
+                              "strokeWidth": {
+                                "bottom": 1
+                              },
+                              "gap": 12,
+                              "padding": [
+                                16,
+                                32
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "r4PPlb",
+                                  "name": "Text",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "b4bIrt",
+                                      "name": "Title",
+                                      "fill": "$text-primary",
+                                      "content": "Penny",
+                                      "fontFamily": "$font-body",
+                                      "fontSize": 17,
+                                      "fontWeight": "600"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "jVEoK",
+                                      "name": "Sub",
+                                      "fill": "$text-tertiary",
+                                      "content": "Payments Mind · Can spend 2 NEAR per payment, 10 a day",
+                                      "fontFamily": "$font-body",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "id": "wg0sV",
+                                  "type": "ref",
+                                  "ref": "WMmgH",
+                                  "name": "Verified"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "e6VwBG",
+                              "name": "Messages",
+                              "clip": true,
+                              "width": "fill_container",
+                              "height": "fill_container",
+                              "layout": "vertical",
+                              "gap": 20,
+                              "padding": [
+                                24,
+                                40
+                              ],
+                              "justifyContent": "end",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "eWP44",
+                                  "name": "Row You",
+                                  "width": "fill_container",
+                                  "justifyContent": "end",
+                                  "children": [
+                                    {
+                                      "id": "x3uy6",
+                                      "type": "ref",
+                                      "ref": "rLZ6J",
+                                      "name": "You",
+                                      "descendants": {
+                                        "q0J89": {
+                                          "content": "Anything important in my inbox today?",
+                                          "width": 320,
+                                          "textGrowth": "auto"
+                                        }
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "YtNHx",
+                                  "name": "Tool Pill",
+                                  "fill": "$surface-muted",
+                                  "cornerRadius": "$radius-full",
+                                  "gap": 8,
+                                  "padding": [
+                                    6,
+                                    12
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "id": "p8mFO",
+                                      "name": "Icon",
+                                      "width": 14,
+                                      "height": 14,
+                                      "icon": "mail",
+                                      "library": "lucide",
+                                      "fill": "$success"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "oZodc",
+                                      "name": "Text",
+                                      "fill": "$text-secondary",
+                                      "content": "Email helper · read 14 new emails",
+                                      "fontFamily": "$font-body",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "id": "f8tZl",
+                                  "type": "ref",
+                                  "ref": "fjqty",
+                                  "name": "Penny",
+                                  "width": 480,
+                                  "descendants": {
+                                    "U4F5Sx": {
+                                      "content": "Two need you today. Biznet says your November bill is ready (1.5 NEAR, due Friday), and Dina asked if Saturday still works. The other 12 are newsletters and receipts.\n\nI saved a draft reply to Dina in Gmail. I can't send email, so check it and send it from Gmail."
+                                    },
+                                    "l6v7l": {
+                                      "content": "09:14"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "sstxN",
+                                  "name": "Drafts",
+                                  "width": 480,
+                                  "fill": "$surface",
+                                  "cornerRadius": "$radius-lg",
+                                  "stroke": "$border",
+                                  "strokeWidth": 1,
+                                  "layout": "vertical",
+                                  "gap": 10,
+                                  "padding": 16,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "l2MRXN",
+                                      "name": "Top",
+                                      "width": "fill_container",
+                                      "gap": 10,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "LYjon",
+                                          "name": "Icon Wrap",
+                                          "width": 32,
+                                          "height": 32,
+                                          "fill": "$surface",
+                                          "cornerRadius": 8,
+                                          "stroke": "$border",
+                                          "strokeWidth": 1,
+                                          "justifyContent": "center",
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "id": "WBjsR",
+                                              "type": "ref",
+                                              "ref": "jz815",
+                                              "name": "Gmail logo"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "KbvCq",
+                                          "name": "Title",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "1 draft saved in Gmail",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 14,
+                                          "fontWeight": "600"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "sCEjk",
+                                      "name": "Draft",
+                                      "width": "fill_container",
+                                      "fill": "$surface-muted",
+                                      "cornerRadius": "$radius-md",
+                                      "layout": "vertical",
+                                      "gap": 2,
+                                      "padding": [
+                                        10,
+                                        12
+                                      ],
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "B9D45",
+                                          "name": "To",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Re: Saturday? · to Dina",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 13,
+                                          "fontWeight": "500"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "G0BQ9E",
+                                          "name": "Body",
+                                          "fill": "$text-secondary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Hi Dina, Saturday still works for me. See you at 10.",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 13,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "id": "D8Pfn",
+                                      "type": "ref",
+                                      "ref": "R8bwZ",
+                                      "name": "Open Gmail",
+                                      "descendants": {
+                                        "EpDOo": {
+                                          "content": "Open drafts in Gmail"
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "FS566",
+                              "name": "Composer Wrap",
+                              "width": "fill_container",
+                              "padding": [
+                                12,
+                                40,
+                                20,
+                                40
+                              ],
+                              "children": [
+                                {
+                                  "id": "Zxiv4",
+                                  "type": "ref",
+                                  "ref": "Savpy",
+                                  "name": "Composer",
+                                  "width": "fill_container"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "KIDSa",
+                          "name": "Live Panel",
+                          "width": 380,
+                          "height": "fill_container",
+                          "fill": "$surface",
+                          "stroke": "$border",
+                          "strokeWidth": {
+                            "left": 1
+                          },
+                          "layout": "vertical",
+                          "padding": 16,
+                          "children": [
+                            {
+                              "id": "V4Zp2l",
+                              "type": "ref",
+                              "ref": "BDdtn",
+                              "name": "Live View",
+                              "width": "fill_container",
+                              "strokeWidth": 0,
+                              "padding": 4,
+                              "descendants": {
+                                "GKFLD/a5GD1": {
+                                  "content": "Read your inbox"
+                                },
+                                "GKFLD/O6wTr": {
+                                  "content": "14 new emails"
+                                },
+                                "LTydN": {
+                                  "id": "AcpbB",
+                                  "type": "ref",
+                                  "ref": "vq1dY",
+                                  "name": "Step 2",
+                                  "width": "fill_container",
+                                  "descendants": {
+                                    "a5GD1": {
+                                      "content": "Saved a draft"
+                                    },
+                                    "O6wTr": {
+                                      "content": "In Gmail, not sent"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Q7r0f",
+                      "name": "C1.7 Chat · Tablet 834",
+                      "clip": true,
+                      "width": 834,
+                      "height": 1194,
+                      "fill": "$bg",
+                      "cornerRadius": 12,
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "children": [
+                        {
+                          "id": "W3AFv",
+                          "type": "ref",
+                          "ref": "lspo5",
+                          "name": "Rail",
+                          "height": "fill_container",
+                          "descendants": {
+                            "Srgoi": {
+                              "icon": "inbox"
+                            }
+                          }
+                        },
+                        {
+                          "type": "frame",
+                          "id": "B7V3H",
+                          "name": "Chat",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "low2r",
+                              "name": "Chat Head",
+                              "width": "fill_container",
+                              "stroke": "$border",
+                              "strokeWidth": {
+                                "bottom": 1
+                              },
+                              "gap": 12,
+                              "padding": [
+                                16,
+                                24
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "i3h00",
+                                  "name": "Text",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "CVtHD",
+                                      "name": "Title",
+                                      "fill": "$text-primary",
+                                      "content": "Penny",
+                                      "fontFamily": "$font-body",
+                                      "fontSize": 17,
+                                      "fontWeight": "600"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "Z3t2j",
+                                      "name": "Sub",
+                                      "fill": "$text-tertiary",
+                                      "content": "Payments Mind · Can spend 2 NEAR per payment, 10 a day",
+                                      "fontFamily": "$font-body",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "id": "G5Us7z",
+                                  "type": "ref",
+                                  "ref": "WMmgH",
+                                  "name": "Verified"
+                                },
+                                {
+                                  "id": "B8MFS",
+                                  "type": "ref",
+                                  "ref": "YlILB",
+                                  "name": "Live view",
+                                  "descendants": {
+                                    "Bt2h4": {
+                                      "content": "Live view"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "a4QJt",
+                              "name": "Messages",
+                              "clip": true,
+                              "width": "fill_container",
+                              "height": "fill_container",
+                              "layout": "vertical",
+                              "gap": 20,
+                              "padding": [
+                                24,
+                                32
+                              ],
+                              "justifyContent": "end",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "eGgAU",
+                                  "name": "Row You",
+                                  "width": "fill_container",
+                                  "justifyContent": "end",
+                                  "children": [
+                                    {
+                                      "id": "nzycX",
+                                      "type": "ref",
+                                      "ref": "rLZ6J",
+                                      "name": "You",
+                                      "descendants": {
+                                        "q0J89": {
+                                          "content": "Anything important in my inbox today?",
+                                          "width": 320,
+                                          "textGrowth": "auto"
+                                        }
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "IDrVh",
+                                  "name": "Tool Pill",
+                                  "fill": "$surface-muted",
+                                  "cornerRadius": "$radius-full",
+                                  "gap": 8,
+                                  "padding": [
+                                    6,
+                                    12
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "id": "qnnSX",
+                                      "name": "Icon",
+                                      "width": 14,
+                                      "height": 14,
+                                      "icon": "mail",
+                                      "library": "lucide",
+                                      "fill": "$success"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "bgvXT",
+                                      "name": "Text",
+                                      "fill": "$text-secondary",
+                                      "content": "Email helper · read 14 new emails",
+                                      "fontFamily": "$font-body",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "id": "Tip9A",
+                                  "type": "ref",
+                                  "ref": "fjqty",
+                                  "name": "Penny",
+                                  "width": 480,
+                                  "descendants": {
+                                    "U4F5Sx": {
+                                      "content": "Two need you today. Biznet says your November bill is ready (1.5 NEAR, due Friday), and Dina asked if Saturday still works. The other 12 are newsletters and receipts.\n\nI saved a draft reply to Dina in Gmail. I can't send email, so check it and send it from Gmail."
+                                    },
+                                    "l6v7l": {
+                                      "content": "09:14"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "CIxGR",
+                                  "name": "Drafts",
+                                  "width": 480,
+                                  "fill": "$surface",
+                                  "cornerRadius": "$radius-lg",
+                                  "stroke": "$border",
+                                  "strokeWidth": 1,
+                                  "layout": "vertical",
+                                  "gap": 10,
+                                  "padding": 16,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "BOXnU",
+                                      "name": "Top",
+                                      "width": "fill_container",
+                                      "gap": 10,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "IjFH1",
+                                          "name": "Icon Wrap",
+                                          "width": 32,
+                                          "height": 32,
+                                          "fill": "$surface",
+                                          "cornerRadius": 8,
+                                          "stroke": "$border",
+                                          "strokeWidth": 1,
+                                          "justifyContent": "center",
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "id": "eIS4H",
+                                              "type": "ref",
+                                              "ref": "jz815",
+                                              "name": "Gmail logo"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "OIrMH",
+                                          "name": "Title",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "1 draft saved in Gmail",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 14,
+                                          "fontWeight": "600"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "mCmyS",
+                                      "name": "Draft",
+                                      "width": "fill_container",
+                                      "fill": "$surface-muted",
+                                      "cornerRadius": "$radius-md",
+                                      "layout": "vertical",
+                                      "gap": 2,
+                                      "padding": [
+                                        10,
+                                        12
+                                      ],
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "ipiRW",
+                                          "name": "To",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Re: Saturday? · to Dina",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 13,
+                                          "fontWeight": "500"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "Yp2mc",
+                                          "name": "Body",
+                                          "fill": "$text-secondary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Hi Dina, Saturday still works for me. See you at 10.",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 13,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "id": "mEiNT",
+                                      "type": "ref",
+                                      "ref": "R8bwZ",
+                                      "name": "Open Gmail",
+                                      "descendants": {
+                                        "EpDOo": {
+                                          "content": "Open drafts in Gmail"
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "Syui3",
+                              "name": "Composer Wrap",
+                              "width": "fill_container",
+                              "padding": [
+                                12,
+                                32,
+                                20,
+                                32
+                              ],
+                              "children": [
+                                {
+                                  "id": "KM8H2",
+                                  "type": "ref",
+                                  "ref": "Savpy",
+                                  "name": "Composer",
+                                  "width": "fill_container"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "DCTN4",
+                      "name": "C1.7 Chat · Mobile 390",
+                      "clip": true,
+                      "width": 390,
+                      "height": 844,
+                      "fill": "$bg",
+                      "cornerRadius": 32,
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "layout": "vertical",
+                      "children": [
+                        {
+                          "id": "Dx8OQ",
+                          "type": "ref",
+                          "ref": "h1yI9",
+                          "name": "Header",
+                          "width": "fill_container",
+                          "descendants": {
+                            "i43ei/zDkho": {
+                              "icon": "inbox"
+                            }
+                          }
+                        },
+                        {
+                          "type": "frame",
+                          "id": "ncGhT",
+                          "name": "Chat",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "Zk9YI",
+                              "name": "Messages",
+                              "clip": true,
+                              "width": "fill_container",
+                              "height": "fill_container",
+                              "layout": "vertical",
+                              "gap": 20,
+                              "padding": 16,
+                              "justifyContent": "end",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "X1IwPC",
+                                  "name": "Row You",
+                                  "width": "fill_container",
+                                  "justifyContent": "end",
+                                  "children": [
+                                    {
+                                      "id": "HvhYp",
+                                      "type": "ref",
+                                      "ref": "rLZ6J",
+                                      "name": "You",
+                                      "descendants": {
+                                        "q0J89": {
+                                          "content": "Anything important in my inbox today?",
+                                          "width": 250,
+                                          "textGrowth": "fixed-width"
+                                        }
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "aTLm5",
+                                  "name": "Tool Pill",
+                                  "fill": "$surface-muted",
+                                  "cornerRadius": "$radius-full",
+                                  "gap": 8,
+                                  "padding": [
+                                    6,
+                                    12
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "id": "C3Jx35",
+                                      "name": "Icon",
+                                      "width": 14,
+                                      "height": 14,
+                                      "icon": "mail",
+                                      "library": "lucide",
+                                      "fill": "$success"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "IrKye",
+                                      "name": "Text",
+                                      "fill": "$text-secondary",
+                                      "content": "Email helper · read 14 new emails",
+                                      "fontFamily": "$font-body",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "id": "fxiCM",
+                                  "type": "ref",
+                                  "ref": "fjqty",
+                                  "name": "Penny",
+                                  "width": "fill_container",
+                                  "descendants": {
+                                    "U4F5Sx": {
+                                      "content": "Two need you today. Biznet says your November bill is ready (1.5 NEAR, due Friday), and Dina asked if Saturday still works. The other 12 are newsletters and receipts.\n\nI saved a draft reply to Dina in Gmail. I can't send email, so check it and send it from Gmail."
+                                    },
+                                    "l6v7l": {
+                                      "content": "09:14"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "BxIqH",
+                                  "name": "Drafts",
+                                  "width": "fill_container",
+                                  "fill": "$surface",
+                                  "cornerRadius": "$radius-lg",
+                                  "stroke": "$border",
+                                  "strokeWidth": 1,
+                                  "layout": "vertical",
+                                  "gap": 10,
+                                  "padding": 16,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "C3iJQ",
+                                      "name": "Top",
+                                      "width": "fill_container",
+                                      "gap": 10,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "K7DsM9",
+                                          "name": "Icon Wrap",
+                                          "width": 32,
+                                          "height": 32,
+                                          "fill": "$surface",
+                                          "cornerRadius": 8,
+                                          "stroke": "$border",
+                                          "strokeWidth": 1,
+                                          "justifyContent": "center",
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "id": "LDSwW",
+                                              "type": "ref",
+                                              "ref": "jz815",
+                                              "name": "Gmail logo"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "SPipG",
+                                          "name": "Title",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "1 draft saved in Gmail",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 14,
+                                          "fontWeight": "600"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "tPEM8",
+                                      "name": "Draft",
+                                      "width": "fill_container",
+                                      "fill": "$surface-muted",
+                                      "cornerRadius": "$radius-md",
+                                      "layout": "vertical",
+                                      "gap": 2,
+                                      "padding": [
+                                        10,
+                                        12
+                                      ],
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "dhdIJ",
+                                          "name": "To",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Re: Saturday? · to Dina",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 13,
+                                          "fontWeight": "500"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "Fo0wF",
+                                          "name": "Body",
+                                          "fill": "$text-secondary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Hi Dina, Saturday still works for me. See you at 10.",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 13,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "id": "fHc0L",
+                                      "type": "ref",
+                                      "ref": "R8bwZ",
+                                      "name": "Open Gmail",
+                                      "descendants": {
+                                        "EpDOo": {
+                                          "content": "Open drafts in Gmail"
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "n5fNE",
+                              "name": "Composer Wrap",
+                              "width": "fill_container",
+                              "padding": [
+                                8,
+                                12
+                              ],
+                              "children": [
+                                {
+                                  "id": "pTAAJ",
+                                  "type": "ref",
+                                  "ref": "Savpy",
+                                  "name": "Composer",
+                                  "width": "fill_container"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "id": "TOz0t",
                           "type": "ref",
                           "ref": "AkuL3",
                           "name": "Bottom Nav",
@@ -58083,7 +59093,12 @@
                                           "id": "N4bt8l",
                                           "type": "ref",
                                           "ref": "WMmgH",
-                                          "name": "Badge"
+                                          "name": "Badge",
+                                          "descendants": {
+                                            "DEDbs": {
+                                              "content": "Private (model TEE)"
+                                            }
+                                          }
                                         },
                                         {
                                           "type": "icon",
@@ -58104,7 +59119,7 @@
                                       "fill": "$text-tertiary",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
-                                      "content": "Replies from private models get the Verified private badge. Others don't.",
+                                      "content": "Replies get a badge only when NEAR AI can prove where they ran. Incognito models never get one.",
                                       "fontFamily": "$font-body",
                                       "fontSize": 12,
                                       "fontWeight": "normal"
@@ -58497,7 +59512,12 @@
                                           "id": "qBadI",
                                           "type": "ref",
                                           "ref": "WMmgH",
-                                          "name": "Badge"
+                                          "name": "Badge",
+                                          "descendants": {
+                                            "DEDbs": {
+                                              "content": "Private (model TEE)"
+                                            }
+                                          }
                                         },
                                         {
                                           "type": "icon",
@@ -58518,7 +59538,7 @@
                                       "fill": "$text-tertiary",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
-                                      "content": "Replies from private models get the Verified private badge. Others don't.",
+                                      "content": "Replies get a badge only when NEAR AI can prove where they ran. Incognito models never get one.",
                                       "fontFamily": "$font-body",
                                       "fontSize": 12,
                                       "fontWeight": "normal"
@@ -58904,7 +59924,12 @@
                                           "id": "HPhDc",
                                           "type": "ref",
                                           "ref": "WMmgH",
-                                          "name": "Badge"
+                                          "name": "Badge",
+                                          "descendants": {
+                                            "DEDbs": {
+                                              "content": "Private (model TEE)"
+                                            }
+                                          }
                                         },
                                         {
                                           "type": "icon",
@@ -58925,7 +59950,7 @@
                                       "fill": "$text-tertiary",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
-                                      "content": "Replies from private models get the Verified private badge. Others don't.",
+                                      "content": "Replies get a badge only when NEAR AI can prove where they ran. Incognito models never get one.",
                                       "fontFamily": "$font-body",
                                       "fontSize": 12,
                                       "fontWeight": "normal"
@@ -59391,7 +60416,12 @@
                                           "id": "muZID",
                                           "type": "ref",
                                           "ref": "WMmgH",
-                                          "name": "Badge"
+                                          "name": "Badge",
+                                          "descendants": {
+                                            "DEDbs": {
+                                              "content": "Private (model TEE)"
+                                            }
+                                          }
                                         },
                                         {
                                           "type": "icon",
@@ -59412,7 +60442,7 @@
                                       "fill": "$text-tertiary",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
-                                      "content": "Replies from private models get the Verified private badge. Others don't.",
+                                      "content": "Replies get a badge only when NEAR AI can prove where they ran. Incognito models never get one.",
                                       "fontFamily": "$font-body",
                                       "fontSize": 12,
                                       "fontWeight": "normal"
@@ -59873,7 +60903,12 @@
                                           "id": "p7ZX2d",
                                           "type": "ref",
                                           "ref": "WMmgH",
-                                          "name": "Badge"
+                                          "name": "Badge",
+                                          "descendants": {
+                                            "DEDbs": {
+                                              "content": "Private (model TEE)"
+                                            }
+                                          }
                                         },
                                         {
                                           "type": "icon",
@@ -59894,7 +60929,7 @@
                                       "fill": "$text-tertiary",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
-                                      "content": "Replies from private models get the Verified private badge. Others don't.",
+                                      "content": "Replies get a badge only when NEAR AI can prove where they ran. Incognito models never get one.",
                                       "fontFamily": "$font-body",
                                       "fontSize": 12,
                                       "fontWeight": "normal"
@@ -60348,7 +61383,12 @@
                                           "id": "t88cqa",
                                           "type": "ref",
                                           "ref": "WMmgH",
-                                          "name": "Badge"
+                                          "name": "Badge",
+                                          "descendants": {
+                                            "DEDbs": {
+                                              "content": "Private (model TEE)"
+                                            }
+                                          }
                                         },
                                         {
                                           "type": "icon",
@@ -60369,7 +61409,7 @@
                                       "fill": "$text-tertiary",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
-                                      "content": "Replies from private models get the Verified private badge. Others don't.",
+                                      "content": "Replies get a badge only when NEAR AI can prove where they ran. Incognito models never get one.",
                                       "fontFamily": "$font-body",
                                       "fontSize": 12,
                                       "fontWeight": "normal"
@@ -60903,7 +61943,12 @@
                                           "id": "yotwU",
                                           "type": "ref",
                                           "ref": "WMmgH",
-                                          "name": "Badge"
+                                          "name": "Badge",
+                                          "descendants": {
+                                            "DEDbs": {
+                                              "content": "Private (model TEE)"
+                                            }
+                                          }
                                         },
                                         {
                                           "type": "icon",
@@ -60924,7 +61969,7 @@
                                       "fill": "$text-tertiary",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
-                                      "content": "Replies from private models get the Verified private badge. Others don't.",
+                                      "content": "Replies get a badge only when NEAR AI can prove where they ran. Incognito models never get one.",
                                       "fontFamily": "$font-body",
                                       "fontSize": 12,
                                       "fontWeight": "normal"
@@ -61332,7 +62377,12 @@
                                           "id": "G0RfQq",
                                           "type": "ref",
                                           "ref": "WMmgH",
-                                          "name": "Badge"
+                                          "name": "Badge",
+                                          "descendants": {
+                                            "DEDbs": {
+                                              "content": "Private (model TEE)"
+                                            }
+                                          }
                                         },
                                         {
                                           "type": "icon",
@@ -61353,7 +62403,7 @@
                                       "fill": "$text-tertiary",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
-                                      "content": "Replies from private models get the Verified private badge. Others don't.",
+                                      "content": "Replies get a badge only when NEAR AI can prove where they ran. Incognito models never get one.",
                                       "fontFamily": "$font-body",
                                       "fontSize": 12,
                                       "fontWeight": "normal"
@@ -61754,7 +62804,12 @@
                                           "id": "YY86x",
                                           "type": "ref",
                                           "ref": "WMmgH",
-                                          "name": "Badge"
+                                          "name": "Badge",
+                                          "descendants": {
+                                            "DEDbs": {
+                                              "content": "Private (model TEE)"
+                                            }
+                                          }
                                         },
                                         {
                                           "type": "icon",
@@ -61775,7 +62830,7 @@
                                       "fill": "$text-tertiary",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
-                                      "content": "Replies from private models get the Verified private badge. Others don't.",
+                                      "content": "Replies get a badge only when NEAR AI can prove where they ran. Incognito models never get one.",
                                       "fontFamily": "$font-body",
                                       "fontSize": 12,
                                       "fontWeight": "normal"
@@ -62256,7 +63311,12 @@
                                           "id": "jS4nu",
                                           "type": "ref",
                                           "ref": "WMmgH",
-                                          "name": "Badge"
+                                          "name": "Badge",
+                                          "descendants": {
+                                            "DEDbs": {
+                                              "content": "Private (model TEE)"
+                                            }
+                                          }
                                         },
                                         {
                                           "type": "icon",
@@ -62277,7 +63337,7 @@
                                       "fill": "$text-tertiary",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
-                                      "content": "Replies from private models get the Verified private badge. Others don't.",
+                                      "content": "Replies get a badge only when NEAR AI can prove where they ran. Incognito models never get one.",
                                       "fontFamily": "$font-body",
                                       "fontSize": 12,
                                       "fontWeight": "normal"
@@ -62738,7 +63798,12 @@
                                           "id": "vYLNL",
                                           "type": "ref",
                                           "ref": "WMmgH",
-                                          "name": "Badge"
+                                          "name": "Badge",
+                                          "descendants": {
+                                            "DEDbs": {
+                                              "content": "Private (model TEE)"
+                                            }
+                                          }
                                         },
                                         {
                                           "type": "icon",
@@ -62759,7 +63824,7 @@
                                       "fill": "$text-tertiary",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
-                                      "content": "Replies from private models get the Verified private badge. Others don't.",
+                                      "content": "Replies get a badge only when NEAR AI can prove where they ran. Incognito models never get one.",
                                       "fontFamily": "$font-body",
                                       "fontSize": 12,
                                       "fontWeight": "normal"
@@ -63213,7 +64278,12 @@
                                           "id": "q2tzAl",
                                           "type": "ref",
                                           "ref": "WMmgH",
-                                          "name": "Badge"
+                                          "name": "Badge",
+                                          "descendants": {
+                                            "DEDbs": {
+                                              "content": "Private (model TEE)"
+                                            }
+                                          }
                                         },
                                         {
                                           "type": "icon",
@@ -63234,7 +64304,7 @@
                                       "fill": "$text-tertiary",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
-                                      "content": "Replies from private models get the Verified private badge. Others don't.",
+                                      "content": "Replies get a badge only when NEAR AI can prove where they ran. Incognito models never get one.",
                                       "fontFamily": "$font-body",
                                       "fontSize": 12,
                                       "fontWeight": "normal"
@@ -66739,7 +67809,7 @@
       "type": "frame",
       "id": "C0SsTJ",
       "x": -1964,
-      "y": 31610,
+      "y": 32342,
       "name": "5 · Money",
       "theme": {
         "mode": "light"
@@ -79794,6 +80864,482 @@
                         },
                         {
                           "id": "Y4y3KY",
+                          "type": "ref",
+                          "ref": "AkuL3",
+                          "name": "Bottom Nav",
+                          "width": "fill_container(390)",
+                          "enabled": false,
+                          "descendants": {
+                            "DhDmz": {
+                              "fill": "#00000000"
+                            },
+                            "d8EyaV": {
+                              "fill": "$text-secondary"
+                            },
+                            "RYESB": {
+                              "fill": "$text-secondary",
+                              "fontWeight": "500"
+                            },
+                            "RQnRE": {
+                              "fill": "$primary"
+                            },
+                            "Gbofz": {
+                              "fill": "$on-primary"
+                            },
+                            "x5DhWx": {
+                              "fill": "$text-primary",
+                              "fontWeight": "600"
+                            },
+                            "QSx7p": {
+                              "icon": "inbox"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "F1sois",
+                  "name": "W1.6 No wallet yet",
+                  "gap": 48,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "hLDDh",
+                      "name": "Label",
+                      "width": 240,
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "cpnqE",
+                          "name": "Code",
+                          "fill": "$primary",
+                          "cornerRadius": 6,
+                          "padding": [
+                            3,
+                            8
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "VAODv",
+                              "name": "Text",
+                              "fill": "$on-primary",
+                              "content": "W1.6",
+                              "fontFamily": "$font-body",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "h13UOl",
+                          "name": "State",
+                          "fill": "$text-primary",
+                          "content": "No wallet yet",
+                          "fontFamily": "$font-body",
+                          "fontSize": 18,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Xwel9",
+                          "name": "Note",
+                          "fill": "$text-secondary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "A Mind made without a wallet (a General Assistant, 404 no_wallet). It can chat and plan; paying needs a wallet, so the page says why and offers to set one up with limits first.",
+                          "lineHeight": 1.5,
+                          "fontFamily": "$font-body",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "wC9OY",
+                      "name": "W1.6 Wallet · Desktop 1440",
+                      "clip": true,
+                      "width": 1440,
+                      "height": 960,
+                      "fill": "$bg",
+                      "cornerRadius": 12,
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "children": [
+                        {
+                          "id": "BHAns",
+                          "type": "ref",
+                          "ref": "AuOSf",
+                          "name": "Sidebar",
+                          "height": "fill_container",
+                          "descendants": {
+                            "Yz93T": {
+                              "fill": [
+                                "$surface-muted",
+                                {
+                                  "type": "image",
+                                  "enabled": true,
+                                  "url": "generated-10.png",
+                                  "mode": "cover"
+                                }
+                              ]
+                            },
+                            "wxzin": {
+                              "content": "Ava"
+                            },
+                            "lPuYA": {
+                              "content": "General Assistant"
+                            },
+                            "kaDlL": {
+                              "id": "KFCN9",
+                              "type": "ref",
+                              "ref": "IHEj1",
+                              "name": "Nav Chat",
+                              "width": "fill_container",
+                              "descendants": {
+                                "qP5Qu": {
+                                  "icon": "message-circle"
+                                },
+                                "bLj1b": {
+                                  "content": "Chat"
+                                }
+                              }
+                            },
+                            "J6JNXc": {
+                              "id": "ssJ33",
+                              "type": "ref",
+                              "ref": "kJH9s",
+                              "name": "Nav Wallet",
+                              "width": "fill_container",
+                              "descendants": {
+                                "vPjL3": {
+                                  "icon": "wallet"
+                                },
+                                "mQtji": {
+                                  "content": "Wallet"
+                                }
+                              }
+                            },
+                            "b0e1Sl/Y3bux": {
+                              "icon": "inbox"
+                            }
+                          }
+                        },
+                        {
+                          "type": "frame",
+                          "id": "ofQvL",
+                          "name": "Main",
+                          "clip": true,
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "layout": "vertical",
+                          "gap": 24,
+                          "padding": 32,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "jCjHA",
+                              "name": "Page Header",
+                              "width": "fill_container",
+                              "gap": 24,
+                              "justifyContent": "space_between",
+                              "alignItems": "end",
+                              "children": [
+                                {
+                                  "id": "U1g6Kw",
+                                  "type": "ref",
+                                  "ref": "IWICI",
+                                  "name": "Text",
+                                  "width": "fill_container",
+                                  "descendants": {
+                                    "GnjY5": {
+                                      "content": "Wallet"
+                                    },
+                                    "UVpSF": {
+                                      "content": "Ava has no wallet, so it can't pay for anything yet."
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "id": "toBHc",
+                              "type": "ref",
+                              "ref": "t81AO",
+                              "name": "No wallet",
+                              "width": "fill_container",
+                              "height": "fill_container",
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "descendants": {
+                                "wnjgY": {
+                                  "icon": "wallet"
+                                },
+                                "Q8147": {
+                                  "content": "Ava doesn't have a wallet yet"
+                                },
+                                "BDyQ9": {
+                                  "content": "Ava can chat and plan without one. To let it pay for things, set up a wallet; you choose its limits first."
+                                },
+                                "PkfNr": {
+                                  "id": "NNltV",
+                                  "type": "ref",
+                                  "ref": "CrIB8",
+                                  "name": "Action",
+                                  "descendants": {
+                                    "wmGCl": {
+                                      "content": "Set up a wallet"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "zGpKS",
+                      "name": "W1.6 Wallet · Tablet 834",
+                      "clip": true,
+                      "width": 834,
+                      "height": 1194,
+                      "fill": "$bg",
+                      "cornerRadius": 12,
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "children": [
+                        {
+                          "id": "r0CAO",
+                          "type": "ref",
+                          "ref": "lspo5",
+                          "name": "Rail",
+                          "height": "fill_container",
+                          "descendants": {
+                            "hQMhi": {
+                              "fill": [
+                                "$surface-muted",
+                                {
+                                  "type": "image",
+                                  "enabled": true,
+                                  "url": "generated-10.png",
+                                  "mode": "cover"
+                                }
+                              ]
+                            },
+                            "C76axy": {
+                              "fill": "#00000000"
+                            },
+                            "Q5uPy": {
+                              "fill": "$text-secondary"
+                            },
+                            "cQBiJ": {
+                              "fill": "$primary"
+                            },
+                            "p8lPw": {
+                              "fill": "$on-primary"
+                            },
+                            "Srgoi": {
+                              "icon": "inbox"
+                            }
+                          }
+                        },
+                        {
+                          "type": "frame",
+                          "id": "AeVza",
+                          "name": "Main",
+                          "clip": true,
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "layout": "vertical",
+                          "gap": 24,
+                          "padding": 24,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "xRw72",
+                              "name": "Page Header",
+                              "width": "fill_container",
+                              "gap": 24,
+                              "justifyContent": "space_between",
+                              "alignItems": "end",
+                              "children": [
+                                {
+                                  "id": "ZKWvr",
+                                  "type": "ref",
+                                  "ref": "IWICI",
+                                  "name": "Text",
+                                  "width": "fill_container",
+                                  "descendants": {
+                                    "GnjY5": {
+                                      "content": "Wallet"
+                                    },
+                                    "UVpSF": {
+                                      "content": "Ava has no wallet, so it can't pay for anything yet."
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "id": "oBzN8",
+                              "type": "ref",
+                              "ref": "t81AO",
+                              "name": "No wallet",
+                              "width": "fill_container",
+                              "height": "fill_container",
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "descendants": {
+                                "wnjgY": {
+                                  "icon": "wallet"
+                                },
+                                "Q8147": {
+                                  "content": "Ava doesn't have a wallet yet"
+                                },
+                                "BDyQ9": {
+                                  "content": "Ava can chat and plan without one. To let it pay for things, set up a wallet; you choose its limits first."
+                                },
+                                "PkfNr": {
+                                  "id": "HBwlB",
+                                  "type": "ref",
+                                  "ref": "CrIB8",
+                                  "name": "Action",
+                                  "descendants": {
+                                    "wmGCl": {
+                                      "content": "Set up a wallet"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "V1kGaA",
+                      "name": "W1.6 Wallet · Mobile 390",
+                      "clip": true,
+                      "width": 390,
+                      "height": 844,
+                      "fill": "$bg",
+                      "cornerRadius": 32,
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "layout": "vertical",
+                      "children": [
+                        {
+                          "id": "dF9nh",
+                          "type": "ref",
+                          "ref": "h1yI9",
+                          "name": "Header",
+                          "width": "fill_container",
+                          "descendants": {
+                            "k5ZF2": {
+                              "fill": [
+                                "$surface-muted",
+                                {
+                                  "type": "image",
+                                  "enabled": true,
+                                  "url": "generated-10.png",
+                                  "mode": "cover"
+                                }
+                              ]
+                            },
+                            "d7bDXX": {
+                              "content": "Ava"
+                            },
+                            "YLDxZ": {
+                              "content": "General Assistant"
+                            },
+                            "i43ei/zDkho": {
+                              "icon": "inbox"
+                            }
+                          }
+                        },
+                        {
+                          "type": "frame",
+                          "id": "cbjcn",
+                          "name": "Main",
+                          "clip": true,
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "layout": "vertical",
+                          "gap": 16,
+                          "padding": 16,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "TfyIC",
+                              "name": "Page Header",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 12,
+                              "justifyContent": "space_between",
+                              "children": [
+                                {
+                                  "id": "FbHAX",
+                                  "type": "ref",
+                                  "ref": "K3ZxaC",
+                                  "name": "Text",
+                                  "width": "fill_container",
+                                  "descendants": {
+                                    "DeAkP": {
+                                      "content": "Wallet"
+                                    },
+                                    "bzh7t": {
+                                      "content": "Ava has no wallet, so it can't pay for anything yet."
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "id": "YeTSV",
+                              "type": "ref",
+                              "ref": "t81AO",
+                              "name": "No wallet",
+                              "width": "fill_container",
+                              "height": "fill_container",
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "descendants": {
+                                "wnjgY": {
+                                  "icon": "wallet"
+                                },
+                                "Q8147": {
+                                  "content": "Ava doesn't have a wallet yet"
+                                },
+                                "BDyQ9": {
+                                  "content": "Ava can chat and plan without one. To let it pay for things, set up a wallet; you choose its limits first."
+                                },
+                                "PkfNr": {
+                                  "id": "fL77A",
+                                  "type": "ref",
+                                  "ref": "CrIB8",
+                                  "name": "Action",
+                                  "descendants": {
+                                    "wmGCl": {
+                                      "content": "Set up a wallet"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "id": "AlJJf",
                           "type": "ref",
                           "ref": "AkuL3",
                           "name": "Bottom Nav",
@@ -97670,6 +99216,1481 @@
                                       "enabled": false
                                     }
                                   }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "i2R6Q",
+                  "name": "W5.5 Failed payment",
+                  "gap": 48,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "q4du0",
+                      "name": "Label",
+                      "width": 240,
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "od2xI",
+                          "name": "Code",
+                          "fill": "$primary",
+                          "cornerRadius": 6,
+                          "padding": [
+                            3,
+                            8
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "WmcyS",
+                              "name": "Text",
+                              "fill": "$on-primary",
+                              "content": "W5.5",
+                              "fontFamily": "$font-body",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "a9qXa",
+                          "name": "State",
+                          "fill": "$text-primary",
+                          "content": "Failed payment",
+                          "fontFamily": "$font-body",
+                          "fontSize": 18,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "j2HzE",
+                          "name": "Note",
+                          "fill": "$text-secondary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "A payment the network didn't finish (status failed), for example when the wallet can't cover it. It is not a stop by your limits, so it says what went wrong and how to fix it. Pending payments show in the list as Waiting with no link until they finish.",
+                          "lineHeight": 1.5,
+                          "fontFamily": "$font-body",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "o40yCd",
+                      "name": "W5.5 Activity · Desktop 1440",
+                      "clip": true,
+                      "width": 1440,
+                      "height": 960,
+                      "fill": "$bg",
+                      "cornerRadius": 12,
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "children": [
+                        {
+                          "id": "mygGK",
+                          "type": "ref",
+                          "ref": "AuOSf",
+                          "name": "Sidebar",
+                          "height": "fill_container",
+                          "descendants": {
+                            "kaDlL": {
+                              "id": "QMuhJ",
+                              "type": "ref",
+                              "ref": "IHEj1",
+                              "name": "Nav Chat",
+                              "width": "fill_container",
+                              "descendants": {
+                                "qP5Qu": {
+                                  "icon": "message-circle"
+                                },
+                                "bLj1b": {
+                                  "content": "Chat"
+                                }
+                              }
+                            },
+                            "J6JNXc": {
+                              "id": "s6Nueb",
+                              "type": "ref",
+                              "ref": "kJH9s",
+                              "name": "Nav Wallet",
+                              "width": "fill_container",
+                              "descendants": {
+                                "vPjL3": {
+                                  "icon": "wallet"
+                                },
+                                "mQtji": {
+                                  "content": "Wallet"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "frame",
+                          "id": "N10nY",
+                          "name": "Main",
+                          "clip": true,
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "layout": "vertical",
+                          "gap": 20,
+                          "padding": 32,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "PLz1z",
+                              "name": "Back",
+                              "gap": 6,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "mIvtK",
+                                  "name": "Icon",
+                                  "width": 16,
+                                  "height": 16,
+                                  "icon": "arrow-left",
+                                  "library": "lucide",
+                                  "fill": "$text-secondary"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "NhcgC",
+                                  "name": "Text",
+                                  "fill": "$text-secondary",
+                                  "content": "Wallet",
+                                  "fontFamily": "$font-body",
+                                  "fontSize": 14,
+                                  "fontWeight": "500"
+                                }
+                              ]
+                            },
+                            {
+                              "id": "L95cU",
+                              "type": "ref",
+                              "ref": "IWICI",
+                              "name": "Page Header",
+                              "width": "fill_container",
+                              "descendants": {
+                                "GnjY5": {
+                                  "content": "Activity"
+                                },
+                                "UVpSF": {
+                                  "content": "Every money event for Penny in the last 14 days."
+                                }
+                              }
+                            },
+                            {
+                              "type": "frame",
+                              "id": "L1i3v",
+                              "name": "Grid",
+                              "width": "fill_container",
+                              "height": "fill_container",
+                              "gap": 20,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "uB2CJ",
+                                  "name": "List",
+                                  "width": "fill_container",
+                                  "height": "fill_container",
+                                  "fill": "#00000000",
+                                  "cornerRadius": "$radius-lg",
+                                  "stroke": "$border",
+                                  "layout": "vertical",
+                                  "gap": 8,
+                                  "children": [
+                                    {
+                                      "id": "dIbJw",
+                                      "type": "ref",
+                                      "ref": "C8Y9q",
+                                      "name": "Tabs",
+                                      "width": "fill_container",
+                                      "descendants": {
+                                        "VIYBv": {
+                                          "width": "fill_container",
+                                          "fill": "$primary"
+                                        },
+                                        "pXxpk": {
+                                          "fill": "$on-primary",
+                                          "fontWeight": "600"
+                                        },
+                                        "q3nTWn": {
+                                          "width": "fill_container"
+                                        },
+                                        "a4Hep": {
+                                          "width": "fill_container",
+                                          "fill": "#00000000"
+                                        },
+                                        "clA7d": {
+                                          "fill": "$text-secondary",
+                                          "fontWeight": "500"
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "PkBUV",
+                                      "name": "Day Wrap",
+                                      "width": "fill_container",
+                                      "padding": [
+                                        10,
+                                        4,
+                                        0,
+                                        4
+                                      ],
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "MHO4G",
+                                          "name": "Day",
+                                          "fill": "$text-tertiary",
+                                          "content": "Today",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 12,
+                                          "fontWeight": "600"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "A6rUv2",
+                                      "name": "Day Card",
+                                      "width": "fill_container",
+                                      "fill": "$surface",
+                                      "cornerRadius": "$radius-lg",
+                                      "stroke": "$border",
+                                      "strokeWidth": 1,
+                                      "layout": "vertical",
+                                      "gap": 2,
+                                      "padding": 6,
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "OPuI0",
+                                          "name": "Item",
+                                          "width": "fill_container",
+                                          "fill": "#00000000",
+                                          "cornerRadius": "$radius-md",
+                                          "padding": [
+                                            4,
+                                            12
+                                          ],
+                                          "children": [
+                                            {
+                                              "id": "w9Uqh",
+                                              "type": "ref",
+                                              "ref": "e5PYE",
+                                              "name": "Row",
+                                              "width": "fill_container"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "wyFqN",
+                                          "name": "Item",
+                                          "width": "fill_container",
+                                          "fill": "#00000000",
+                                          "cornerRadius": "$radius-md",
+                                          "padding": [
+                                            4,
+                                            12
+                                          ],
+                                          "children": [
+                                            {
+                                              "id": "qmhaA",
+                                              "type": "ref",
+                                              "ref": "e5PYE",
+                                              "name": "Row",
+                                              "width": "fill_container",
+                                              "descendants": {
+                                                "aNNYU": {
+                                                  "fill": "$warning-soft"
+                                                },
+                                                "k0SHW": {
+                                                  "icon": "hourglass",
+                                                  "fill": "$warning"
+                                                },
+                                                "J2COwF": {
+                                                  "content": "12 NEAR to landlord-rent"
+                                                },
+                                                "RP1uo": {
+                                                  "content": "10:50 · Waiting for you"
+                                                },
+                                                "ozAoW": {
+                                                  "content": "12 NEAR",
+                                                  "fill": "$text-secondary"
+                                                },
+                                                "D54vh": {
+                                                  "id": "Zc3xC",
+                                                  "type": "ref",
+                                                  "ref": "YXH12",
+                                                  "name": "Status"
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "ZzLBz",
+                                      "name": "Day Wrap",
+                                      "width": "fill_container",
+                                      "padding": [
+                                        10,
+                                        4,
+                                        0,
+                                        4
+                                      ],
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "Up1T8",
+                                          "name": "Day",
+                                          "fill": "$text-tertiary",
+                                          "content": "Yesterday",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 12,
+                                          "fontWeight": "600"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "AgptG",
+                                      "name": "Day Card",
+                                      "width": "fill_container",
+                                      "fill": "$surface",
+                                      "cornerRadius": "$radius-lg",
+                                      "stroke": "$border",
+                                      "strokeWidth": 1,
+                                      "layout": "vertical",
+                                      "gap": 2,
+                                      "padding": 6,
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "iLr7Q",
+                                          "name": "Item",
+                                          "width": "fill_container",
+                                          "fill": "$surface-muted",
+                                          "cornerRadius": "$radius-md",
+                                          "stroke": "$primary",
+                                          "padding": [
+                                            4,
+                                            12
+                                          ],
+                                          "children": [
+                                            {
+                                              "id": "dr2oq",
+                                              "type": "ref",
+                                              "ref": "r0lDX",
+                                              "name": "Row",
+                                              "width": "fill_container",
+                                              "descendants": {
+                                                "M1DoT": {
+                                                  "icon": "circle-alert"
+                                                },
+                                                "Fk6xY": {
+                                                  "content": "Couldn't send 1.5 NEAR"
+                                                },
+                                                "yRIrk": {
+                                                  "content": "18:03 · Not enough NEAR"
+                                                },
+                                                "cuC7q": {
+                                                  "content": "1.5 NEAR"
+                                                },
+                                                "N8mlI": {
+                                                  "id": "fxYUi",
+                                                  "type": "ref",
+                                                  "ref": "YXH12",
+                                                  "name": "Badge",
+                                                  "descendants": {
+                                                    "nOMem": {
+                                                      "icon": "circle-alert"
+                                                    },
+                                                    "hXvsj": {
+                                                      "content": "Failed"
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "W7O0u",
+                                          "name": "Item",
+                                          "width": "fill_container",
+                                          "fill": "#00000000",
+                                          "cornerRadius": "$radius-md",
+                                          "padding": [
+                                            4,
+                                            12
+                                          ],
+                                          "children": [
+                                            {
+                                              "id": "DeCP3",
+                                              "type": "ref",
+                                              "ref": "e5PYE",
+                                              "name": "Row",
+                                              "width": "fill_container",
+                                              "descendants": {
+                                                "J2COwF": {
+                                                  "content": "Paid Netflix"
+                                                },
+                                                "RP1uo": {
+                                                  "content": "09:00 · Payments"
+                                                },
+                                                "ozAoW": {
+                                                  "content": "−1.2 NEAR"
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "jGdY0",
+                                      "name": "Day Wrap",
+                                      "width": "fill_container",
+                                      "padding": [
+                                        10,
+                                        4,
+                                        0,
+                                        4
+                                      ],
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "UGAPn",
+                                          "name": "Day",
+                                          "fill": "$text-tertiary",
+                                          "content": "Mon, 3 Nov",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 12,
+                                          "fontWeight": "600"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "F2k4j",
+                                      "name": "Day Card",
+                                      "width": "fill_container",
+                                      "fill": "$surface",
+                                      "cornerRadius": "$radius-lg",
+                                      "stroke": "$border",
+                                      "strokeWidth": 1,
+                                      "layout": "vertical",
+                                      "gap": 2,
+                                      "padding": 6,
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "nM6NC",
+                                          "name": "Item",
+                                          "width": "fill_container",
+                                          "fill": "#00000000",
+                                          "cornerRadius": "$radius-md",
+                                          "padding": [
+                                            4,
+                                            12
+                                          ],
+                                          "children": [
+                                            {
+                                              "id": "n9CMQ",
+                                              "type": "ref",
+                                              "ref": "e5PYE",
+                                              "name": "Row",
+                                              "width": "fill_container",
+                                              "descendants": {
+                                                "aNNYU": {
+                                                  "fill": "$info-soft"
+                                                },
+                                                "k0SHW": {
+                                                  "icon": "arrow-down-left",
+                                                  "fill": "$info"
+                                                },
+                                                "J2COwF": {
+                                                  "content": "Added by you"
+                                                },
+                                                "RP1uo": {
+                                                  "content": "From ancungaulia.testnet"
+                                                },
+                                                "ozAoW": {
+                                                  "content": "+20 NEAR"
+                                                },
+                                                "D54vh": {
+                                                  "id": "KU76X",
+                                                  "type": "ref",
+                                                  "ref": "p9iye",
+                                                  "name": "Status",
+                                                  "descendants": {
+                                                    "dgzKi": {
+                                                      "icon": "check"
+                                                    },
+                                                    "kQTxG": {
+                                                      "content": "Received"
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "v7O0Vc",
+                                  "name": "Detail",
+                                  "width": 380,
+                                  "fill": "$surface",
+                                  "cornerRadius": "$radius-lg",
+                                  "stroke": "$border",
+                                  "strokeWidth": 1,
+                                  "layout": "vertical",
+                                  "gap": 16,
+                                  "padding": 24,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "EPOKV",
+                                      "name": "Head",
+                                      "width": "fill_container",
+                                      "gap": 12,
+                                      "justifyContent": "space_between",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "QwMnv",
+                                          "name": "Text",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "EwXe7",
+                                              "name": "Title",
+                                              "fill": "$text-primary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Couldn't send 1.5 NEAR",
+                                              "fontFamily": "$font-body",
+                                              "fontSize": 16,
+                                              "fontWeight": "600"
+                                            },
+                                            {
+                                              "id": "kohta",
+                                              "type": "ref",
+                                              "ref": "E5tZ2",
+                                              "name": "Amount",
+                                              "descendants": {
+                                                "VDLXn": {
+                                                  "content": "1.5",
+                                                  "fontSize": 36,
+                                                  "fill": "$text-tertiary"
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "id": "tAA5z",
+                                          "type": "ref",
+                                          "ref": "YXH12",
+                                          "name": "Status",
+                                          "descendants": {
+                                            "nOMem": {
+                                              "icon": "circle-alert"
+                                            },
+                                            "hXvsj": {
+                                              "content": "Failed"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "FwJfa",
+                                      "name": "Facts",
+                                      "width": "fill_container",
+                                      "fill": "$surface-muted",
+                                      "cornerRadius": "$radius-md",
+                                      "layout": "vertical",
+                                      "gap": 12,
+                                      "padding": 16,
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "ICayb",
+                                          "name": "To",
+                                          "width": "fill_container",
+                                          "gap": 12,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "s3SU6",
+                                              "name": "Label",
+                                              "fill": "$text-tertiary",
+                                              "textGrowth": "fixed-width",
+                                              "width": 96,
+                                              "content": "To",
+                                              "fontFamily": "$font-body",
+                                              "fontSize": 13,
+                                              "fontWeight": "normal"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "lnDVu",
+                                              "name": "Value",
+                                              "fill": "$text-primary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "biznet-home.testnet",
+                                              "fontFamily": "$font-mono",
+                                              "fontSize": 13,
+                                              "fontWeight": "500"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "dfgKq",
+                                          "name": "When",
+                                          "width": "fill_container",
+                                          "gap": 12,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "l4gzC",
+                                              "name": "Label",
+                                              "fill": "$text-tertiary",
+                                              "textGrowth": "fixed-width",
+                                              "width": 96,
+                                              "content": "When",
+                                              "fontFamily": "$font-body",
+                                              "fontSize": 13,
+                                              "fontWeight": "normal"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "XAUTC",
+                                              "name": "Value",
+                                              "fill": "$text-primary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Yesterday, 18:03",
+                                              "fontFamily": "$font-body",
+                                              "fontSize": 13,
+                                              "fontWeight": "500"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "e38mgQ",
+                                          "name": "By",
+                                          "width": "fill_container",
+                                          "gap": 12,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "LvBZd",
+                                              "name": "Label",
+                                              "fill": "$text-tertiary",
+                                              "textGrowth": "fixed-width",
+                                              "width": 96,
+                                              "content": "By",
+                                              "fontFamily": "$font-body",
+                                              "fontSize": 13,
+                                              "fontWeight": "normal"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "QH22W",
+                                              "name": "Value",
+                                              "fill": "$text-primary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Penny, after you approved it",
+                                              "fontFamily": "$font-body",
+                                              "fontSize": 13,
+                                              "fontWeight": "500"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "EWIHD",
+                                          "name": "Stopped by",
+                                          "width": "fill_container",
+                                          "gap": 12,
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "tSxpf",
+                                              "name": "Label",
+                                              "fill": "$text-tertiary",
+                                              "textGrowth": "fixed-width",
+                                              "width": 96,
+                                              "content": "What went wrong",
+                                              "fontFamily": "$font-body",
+                                              "fontSize": 13,
+                                              "fontWeight": "normal"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "zU3NC",
+                                              "name": "Value",
+                                              "fill": "$text-primary",
+                                              "textGrowth": "fixed-width",
+                                              "width": "fill_container",
+                                              "content": "Penny's wallet didn't have enough NEAR to cover it and the network fee",
+                                              "fontFamily": "$font-body",
+                                              "fontSize": 13,
+                                              "fontWeight": "500"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "c94jcC",
+                                      "name": "No tx",
+                                      "fill": "$text-tertiary",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "Nothing was sent. Add funds, then ask Penny again.",
+                                      "fontFamily": "$font-body",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "D6NUx",
+                                      "name": "Actions",
+                                      "width": "fill_container",
+                                      "gap": 8,
+                                      "children": [
+                                        {
+                                          "id": "L6WYTL",
+                                          "type": "ref",
+                                          "ref": "YlILB",
+                                          "name": "Chat",
+                                          "descendants": {
+                                            "Bt2h4": {
+                                              "content": "Open the chat"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "id": "s2OhsO",
+                                          "type": "ref",
+                                          "ref": "YlILB",
+                                          "name": "Add",
+                                          "descendants": {
+                                            "Bt2h4": {
+                                              "content": "Add funds"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "EqHmR",
+                      "name": "W5.5 Activity · Tablet 834",
+                      "clip": true,
+                      "width": 834,
+                      "height": 1194,
+                      "fill": "$bg",
+                      "cornerRadius": 12,
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "children": [
+                        {
+                          "id": "AffiU",
+                          "type": "ref",
+                          "ref": "lspo5",
+                          "name": "Rail",
+                          "height": "fill_container",
+                          "descendants": {
+                            "C76axy": {
+                              "fill": "#00000000"
+                            },
+                            "Q5uPy": {
+                              "fill": "$text-secondary"
+                            },
+                            "cQBiJ": {
+                              "fill": "$primary"
+                            },
+                            "p8lPw": {
+                              "fill": "$on-primary"
+                            }
+                          }
+                        },
+                        {
+                          "type": "frame",
+                          "id": "zOrJi",
+                          "name": "Main",
+                          "clip": true,
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "layout": "vertical",
+                          "gap": 20,
+                          "padding": 24,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "dBV8e",
+                              "name": "Back",
+                              "gap": 6,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "H0J1EI",
+                                  "name": "Icon",
+                                  "width": 16,
+                                  "height": 16,
+                                  "icon": "arrow-left",
+                                  "library": "lucide",
+                                  "fill": "$text-secondary"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "QU42N",
+                                  "name": "Text",
+                                  "fill": "$text-secondary",
+                                  "content": "Activity",
+                                  "fontFamily": "$font-body",
+                                  "fontSize": 14,
+                                  "fontWeight": "500"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "hxbhL",
+                              "name": "Detail",
+                              "width": "fill_container",
+                              "fill": "$surface",
+                              "cornerRadius": "$radius-lg",
+                              "stroke": "$border",
+                              "strokeWidth": 1,
+                              "layout": "vertical",
+                              "gap": 16,
+                              "padding": 24,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "Ldwp9",
+                                  "name": "Head",
+                                  "width": "fill_container",
+                                  "gap": 12,
+                                  "justifyContent": "space_between",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "aUu78",
+                                      "name": "Text",
+                                      "width": "fill_container",
+                                      "layout": "vertical",
+                                      "gap": 4,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "qTXBt",
+                                          "name": "Title",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Couldn't send 1.5 NEAR",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 16,
+                                          "fontWeight": "600"
+                                        },
+                                        {
+                                          "id": "y8Jdae",
+                                          "type": "ref",
+                                          "ref": "E5tZ2",
+                                          "name": "Amount",
+                                          "descendants": {
+                                            "VDLXn": {
+                                              "content": "1.5",
+                                              "fontSize": 36,
+                                              "fill": "$text-tertiary"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "id": "Mx034",
+                                      "type": "ref",
+                                      "ref": "YXH12",
+                                      "name": "Status",
+                                      "descendants": {
+                                        "nOMem": {
+                                          "icon": "circle-alert"
+                                        },
+                                        "hXvsj": {
+                                          "content": "Failed"
+                                        }
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "VEwDw",
+                                  "name": "Facts",
+                                  "width": "fill_container",
+                                  "fill": "$surface-muted",
+                                  "cornerRadius": "$radius-md",
+                                  "layout": "vertical",
+                                  "gap": 12,
+                                  "padding": 16,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "k1Y23",
+                                      "name": "To",
+                                      "width": "fill_container",
+                                      "gap": 12,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "K2p2E",
+                                          "name": "Label",
+                                          "fill": "$text-tertiary",
+                                          "textGrowth": "fixed-width",
+                                          "width": 96,
+                                          "content": "To",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 13,
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "XnFBq",
+                                          "name": "Value",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "biznet-home.testnet",
+                                          "fontFamily": "$font-mono",
+                                          "fontSize": 13,
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "pRQma",
+                                      "name": "When",
+                                      "width": "fill_container",
+                                      "gap": 12,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "m7x5I",
+                                          "name": "Label",
+                                          "fill": "$text-tertiary",
+                                          "textGrowth": "fixed-width",
+                                          "width": 96,
+                                          "content": "When",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 13,
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "GZtqH",
+                                          "name": "Value",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Yesterday, 18:03",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 13,
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "YTjG6",
+                                      "name": "By",
+                                      "width": "fill_container",
+                                      "gap": 12,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "Gqdwb",
+                                          "name": "Label",
+                                          "fill": "$text-tertiary",
+                                          "textGrowth": "fixed-width",
+                                          "width": 96,
+                                          "content": "By",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 13,
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "npDtN",
+                                          "name": "Value",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Penny, after you approved it",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 13,
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "eF3vw",
+                                      "name": "Stopped by",
+                                      "width": "fill_container",
+                                      "gap": 12,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "B6UmfL",
+                                          "name": "Label",
+                                          "fill": "$text-tertiary",
+                                          "textGrowth": "fixed-width",
+                                          "width": 96,
+                                          "content": "What went wrong",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 13,
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "PyDJa",
+                                          "name": "Value",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Penny's wallet didn't have enough NEAR to cover it and the network fee",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 13,
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "HbMPH",
+                                  "name": "No tx",
+                                  "fill": "$text-tertiary",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "Nothing was sent. Add funds, then ask Penny again.",
+                                  "fontFamily": "$font-body",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "fMFJc",
+                                  "name": "Actions",
+                                  "width": "fill_container",
+                                  "gap": 8,
+                                  "children": [
+                                    {
+                                      "id": "JYZIu",
+                                      "type": "ref",
+                                      "ref": "YlILB",
+                                      "name": "Chat",
+                                      "descendants": {
+                                        "Bt2h4": {
+                                          "content": "Open the chat"
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "id": "x5voLV",
+                                      "type": "ref",
+                                      "ref": "YlILB",
+                                      "name": "Add",
+                                      "descendants": {
+                                        "Bt2h4": {
+                                          "content": "Add funds"
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "k5LFTR",
+                      "name": "W5.5 Activity · Mobile 390",
+                      "clip": true,
+                      "width": 390,
+                      "height": 844,
+                      "fill": "$bg",
+                      "cornerRadius": 32,
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "layout": "vertical",
+                      "children": [
+                        {
+                          "id": "nKwoC",
+                          "type": "ref",
+                          "ref": "h1yI9",
+                          "name": "Header",
+                          "width": "fill_container"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "EulBG",
+                          "name": "Main",
+                          "clip": true,
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "layout": "vertical",
+                          "gap": 14,
+                          "padding": 16,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "m34v4h",
+                              "name": "Back",
+                              "gap": 6,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "xBSv0",
+                                  "name": "Icon",
+                                  "width": 16,
+                                  "height": 16,
+                                  "icon": "arrow-left",
+                                  "library": "lucide",
+                                  "fill": "$text-secondary"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "g4Ff8O",
+                                  "name": "Text",
+                                  "fill": "$text-secondary",
+                                  "content": "Activity",
+                                  "fontFamily": "$font-body",
+                                  "fontSize": 14,
+                                  "fontWeight": "500"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "dpQHo",
+                              "name": "Detail",
+                              "width": "fill_container",
+                              "fill": "$surface",
+                              "cornerRadius": "$radius-lg",
+                              "stroke": "$border",
+                              "strokeWidth": 1,
+                              "layout": "vertical",
+                              "gap": 16,
+                              "padding": 16,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "vJIg8",
+                                  "name": "Head",
+                                  "width": "fill_container",
+                                  "gap": 12,
+                                  "justifyContent": "space_between",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "LuM4P",
+                                      "name": "Text",
+                                      "width": "fill_container",
+                                      "layout": "vertical",
+                                      "gap": 4,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "i1ACb1",
+                                          "name": "Title",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Couldn't send 1.5 NEAR",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 16,
+                                          "fontWeight": "600"
+                                        },
+                                        {
+                                          "id": "ayIj6",
+                                          "type": "ref",
+                                          "ref": "E5tZ2",
+                                          "name": "Amount",
+                                          "descendants": {
+                                            "VDLXn": {
+                                              "content": "1.5",
+                                              "fontSize": 36,
+                                              "fill": "$text-tertiary"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "id": "wnctF",
+                                      "type": "ref",
+                                      "ref": "YXH12",
+                                      "name": "Status",
+                                      "descendants": {
+                                        "nOMem": {
+                                          "icon": "circle-alert"
+                                        },
+                                        "hXvsj": {
+                                          "content": "Failed"
+                                        }
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "b6Ua3",
+                                  "name": "Facts",
+                                  "width": "fill_container",
+                                  "fill": "$surface-muted",
+                                  "cornerRadius": "$radius-md",
+                                  "layout": "vertical",
+                                  "gap": 12,
+                                  "padding": 16,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "okBoK",
+                                      "name": "To",
+                                      "width": "fill_container",
+                                      "gap": 12,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "Lj7ro",
+                                          "name": "Label",
+                                          "fill": "$text-tertiary",
+                                          "textGrowth": "fixed-width",
+                                          "width": 96,
+                                          "content": "To",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 13,
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "tqmIb",
+                                          "name": "Value",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "biznet-home.testnet",
+                                          "fontFamily": "$font-mono",
+                                          "fontSize": 13,
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "foXzD",
+                                      "name": "When",
+                                      "width": "fill_container",
+                                      "gap": 12,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "WgsmZ",
+                                          "name": "Label",
+                                          "fill": "$text-tertiary",
+                                          "textGrowth": "fixed-width",
+                                          "width": 96,
+                                          "content": "When",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 13,
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "OE7ym",
+                                          "name": "Value",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Yesterday, 18:03",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 13,
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "vtYdk",
+                                      "name": "By",
+                                      "width": "fill_container",
+                                      "gap": 12,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "I82H7K",
+                                          "name": "Label",
+                                          "fill": "$text-tertiary",
+                                          "textGrowth": "fixed-width",
+                                          "width": 96,
+                                          "content": "By",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 13,
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "TfJxe",
+                                          "name": "Value",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Penny, after you approved it",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 13,
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "l8YXj",
+                                      "name": "Stopped by",
+                                      "width": "fill_container",
+                                      "gap": 12,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "tUmUH",
+                                          "name": "Label",
+                                          "fill": "$text-tertiary",
+                                          "textGrowth": "fixed-width",
+                                          "width": 96,
+                                          "content": "What went wrong",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 13,
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "OeQ5z",
+                                          "name": "Value",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Penny's wallet didn't have enough NEAR to cover it and the network fee",
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 13,
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "wyyXV",
+                                  "name": "No tx",
+                                  "fill": "$text-tertiary",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "Nothing was sent. Add funds, then ask Penny again.",
+                                  "fontFamily": "$font-body",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "uUBLC",
+                                  "name": "Actions",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 8,
+                                  "children": [
+                                    {
+                                      "id": "vAIFw",
+                                      "type": "ref",
+                                      "ref": "YlILB",
+                                      "name": "Chat",
+                                      "width": "fill_container",
+                                      "descendants": {
+                                        "Bt2h4": {
+                                          "content": "Open the chat"
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "id": "HBhoF",
+                                      "type": "ref",
+                                      "ref": "YlILB",
+                                      "name": "Add",
+                                      "width": "fill_container",
+                                      "descendants": {
+                                        "Bt2h4": {
+                                          "content": "Add funds"
+                                        }
+                                      }
+                                    }
+                                  ]
                                 }
                               ]
                             }
@@ -143120,7 +146141,7 @@
       "type": "frame",
       "id": "aEvN6",
       "x": -1964,
-      "y": 40889,
+      "y": 42887,
       "name": "6 · Skills and apps",
       "theme": {
         "mode": "light"
@@ -150224,7 +153245,7 @@
                                           "content": "Your own services"
                                         },
                                         "YjyaR": {
-                                          "content": "Turned off for this demo while we check how keys are kept safe. Your saved keys are not affected."
+                                          "content": "Turned off for now while we check how keys are kept safe. Your saved keys are not affected."
                                         },
                                         "xiY6E": {
                                           "icon": "key-round"
@@ -150711,7 +153732,7 @@
                                           "content": "Your own services"
                                         },
                                         "YjyaR": {
-                                          "content": "Turned off for this demo while we check how keys are kept safe. Your saved keys are not affected."
+                                          "content": "Turned off for now while we check how keys are kept safe. Your saved keys are not affected."
                                         },
                                         "xiY6E": {
                                           "icon": "key-round"
@@ -151203,7 +154224,7 @@
                                           "content": "Your own services"
                                         },
                                         "YjyaR": {
-                                          "content": "Turned off for this demo while we check how keys are kept safe. Your saved keys are not affected."
+                                          "content": "Turned off for now while we check how keys are kept safe. Your saved keys are not affected."
                                         },
                                         "xiY6E": {
                                           "icon": "key-round"
@@ -163436,6 +166457,39 @@
                                           "fontWeight": "normal"
                                         }
                                       ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "Yor0h",
+                                      "name": "Row Autopilot",
+                                      "width": "fill_container",
+                                      "gap": 8,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "FP4bg",
+                                          "name": "Icon",
+                                          "width": 14,
+                                          "height": 14,
+                                          "icon": "repeat",
+                                          "library": "lucide",
+                                          "fill": "$text-secondary"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "DtNdU",
+                                          "name": "Text",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "No Autopilot job uses it, so none will pause",
+                                          "lineHeight": 1.4,
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 13,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
                                     }
                                   ]
                                 }
@@ -164205,6 +167259,39 @@
                                           "textGrowth": "fixed-width",
                                           "width": "fill_container",
                                           "content": "Past payments stay in Wallet",
+                                          "lineHeight": 1.4,
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 13,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "qSi8j",
+                                      "name": "Row Autopilot",
+                                      "width": "fill_container",
+                                      "gap": 8,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "eWgBR",
+                                          "name": "Icon",
+                                          "width": 14,
+                                          "height": 14,
+                                          "icon": "repeat",
+                                          "library": "lucide",
+                                          "fill": "$text-secondary"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "h0PVTl",
+                                          "name": "Text",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "No Autopilot job uses it, so none will pause",
                                           "lineHeight": 1.4,
                                           "fontFamily": "$font-body",
                                           "fontSize": 13,
@@ -164988,6 +168075,39 @@
                                           "textGrowth": "fixed-width",
                                           "width": "fill_container",
                                           "content": "Past payments stay in Wallet",
+                                          "lineHeight": 1.4,
+                                          "fontFamily": "$font-body",
+                                          "fontSize": 13,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "T4uuv6",
+                                      "name": "Row Autopilot",
+                                      "width": "fill_container",
+                                      "gap": 8,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "E1Pc5",
+                                          "name": "Icon",
+                                          "width": 14,
+                                          "height": 14,
+                                          "icon": "repeat",
+                                          "library": "lucide",
+                                          "fill": "$text-secondary"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "encRy",
+                                          "name": "Text",
+                                          "fill": "$text-primary",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "No Autopilot job uses it, so none will pause",
                                           "lineHeight": 1.4,
                                           "fontFamily": "$font-body",
                                           "fontSize": 13,
@@ -193781,7 +196901,7 @@
       "type": "frame",
       "id": "eXaWy",
       "x": -1964,
-      "y": 50056,
+      "y": 52054,
       "name": "7 · Automations",
       "theme": {
         "mode": "light"
@@ -194090,7 +197210,7 @@
                                   "fill": "$text-primary",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
-                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without the Verified private badge.",
+                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without a verification badge.",
                                   "lineHeight": 1.45,
                                   "fontFamily": "$font-body",
                                   "fontSize": 13,
@@ -195321,7 +198441,7 @@
                                   "fill": "$text-primary",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
-                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without the Verified private badge.",
+                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without a verification badge.",
                                   "lineHeight": 1.45,
                                   "fontFamily": "$font-body",
                                   "fontSize": 13,
@@ -196573,7 +199693,7 @@
                                   "fill": "$text-primary",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
-                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without the Verified private badge.",
+                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without a verification badge.",
                                   "lineHeight": 1.45,
                                   "fontFamily": "$font-body",
                                   "fontSize": 13,
@@ -197923,7 +201043,7 @@
                                   "fill": "$text-primary",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
-                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without the Verified private badge.",
+                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without a verification badge.",
                                   "lineHeight": 1.45,
                                   "fontFamily": "$font-body",
                                   "fontSize": 13,
@@ -199360,7 +202480,7 @@
                                   "fill": "$text-primary",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
-                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without the Verified private badge.",
+                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without a verification badge.",
                                   "lineHeight": 1.45,
                                   "fontFamily": "$font-body",
                                   "fontSize": 13,
@@ -200818,7 +203938,7 @@
                                   "fill": "$text-primary",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
-                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without the Verified private badge.",
+                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without a verification badge.",
                                   "lineHeight": 1.45,
                                   "fontFamily": "$font-body",
                                   "fontSize": 13,
@@ -202376,7 +205496,7 @@
                                   "fill": "$text-primary",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
-                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without the Verified private badge.",
+                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without a verification badge.",
                                   "lineHeight": 1.45,
                                   "fontFamily": "$font-body",
                                   "fontSize": 13,
@@ -203743,7 +206863,7 @@
                                   "fill": "$text-primary",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
-                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without the Verified private badge.",
+                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without a verification badge.",
                                   "lineHeight": 1.45,
                                   "fontFamily": "$font-body",
                                   "fontSize": 13,
@@ -205131,7 +208251,7 @@
                                   "fill": "$text-primary",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
-                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without the Verified private badge.",
+                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without a verification badge.",
                                   "lineHeight": 1.45,
                                   "fontFamily": "$font-body",
                                   "fontSize": 13,
@@ -206617,7 +209737,7 @@
                                   "fill": "$text-primary",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
-                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without the Verified private badge.",
+                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without a verification badge.",
                                   "lineHeight": 1.45,
                                   "fontFamily": "$font-body",
                                   "fontSize": 13,
@@ -207907,7 +211027,7 @@
                                   "fill": "$text-primary",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
-                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without the Verified private badge.",
+                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without a verification badge.",
                                   "lineHeight": 1.45,
                                   "fontFamily": "$font-body",
                                   "fontSize": 13,
@@ -209218,7 +212338,7 @@
                                   "fill": "$text-primary",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
-                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without the Verified private badge.",
+                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without a verification badge.",
                                   "lineHeight": 1.45,
                                   "fontFamily": "$font-body",
                                   "fontSize": 13,
@@ -210627,7 +213747,7 @@
                                   "fill": "$text-primary",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
-                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without the Verified private badge.",
+                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without a verification badge.",
                                   "lineHeight": 1.45,
                                   "fontFamily": "$font-body",
                                   "fontSize": 13,
@@ -211952,7 +215072,7 @@
                                   "fill": "$text-primary",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
-                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without the Verified private badge.",
+                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without a verification badge.",
                                   "lineHeight": 1.45,
                                   "fontFamily": "$font-body",
                                   "fontSize": 13,
@@ -213234,7 +216354,7 @@
                                   "fill": "$text-primary",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
-                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without the Verified private badge.",
+                                  "content": "Jobs run alone, so they can't send money or ask you to approve, and can't use keys yet. Results show here, without a verification badge.",
                                   "lineHeight": 1.45,
                                   "fontFamily": "$font-body",
                                   "fontSize": 13,
@@ -250862,7 +253982,7 @@
       "type": "frame",
       "id": "H0oDb0",
       "x": -1964,
-      "y": 61507,
+      "y": 63505,
       "name": "8 · Attack Playground",
       "theme": {
         "mode": "light"
@@ -302972,7 +306092,7 @@
                                   "id": "DEDbs",
                                   "name": "Label",
                                   "fill": "$accent-strong",
-                                  "content": "Verified private",
+                                  "content": "Verified via NEAR AI TEE gateway",
                                   "fontFamily": "$font-body",
                                   "fontSize": 12,
                                   "fontWeight": "500"
@@ -316186,7 +319306,7 @@
       "type": "frame",
       "id": "EQ2c8",
       "x": -1964,
-      "y": 13250,
+      "y": 13664,
       "name": "2 · Product map",
       "theme": {
         "mode": "light"
@@ -319145,7 +322265,7 @@
       "ref": "vzhgV",
       "name": "3 · Start · Dark",
       "x": 11564,
-      "y": 15271,
+      "y": 15685,
       "theme": {
         "mode": "dark"
       }
@@ -319156,7 +322276,7 @@
       "ref": "MpYJE",
       "name": "4 · Chat · Dark",
       "x": 13356,
-      "y": 22347,
+      "y": 22761,
       "theme": {
         "mode": "dark"
       }
@@ -319167,7 +322287,7 @@
       "ref": "C0SsTJ",
       "name": "5 · Money · Dark",
       "x": 18124,
-      "y": 31610,
+      "y": 32342,
       "theme": {
         "mode": "dark"
       }
@@ -319178,7 +322298,7 @@
       "ref": "aEvN6",
       "name": "6 · Skills and apps · Dark",
       "x": 14844,
-      "y": 40889,
+      "y": 42887,
       "theme": {
         "mode": "dark"
       }
@@ -319189,7 +322309,7 @@
       "ref": "eXaWy",
       "name": "7 · Automations · Dark",
       "x": 5004,
-      "y": 50056,
+      "y": 52054,
       "theme": {
         "mode": "dark"
       }
@@ -319200,7 +322320,7 @@
       "ref": "H0oDb0",
       "name": "8 · Attack Playground · Dark",
       "x": 1724,
-      "y": 61507,
+      "y": 63505,
       "theme": {
         "mode": "dark"
       }
