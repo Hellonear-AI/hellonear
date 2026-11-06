@@ -169,6 +169,10 @@ async fn equip_pays_the_skill_publisher() -> testresult::TestResult<()> {
     call("equip_skill", json!({ "mind_id": "penny", "skill_id": "pro" }), price.saturating_add(NearToken::from_millinear(10)), &alice).await?.assert_success();
     assert_eq!(balance(&bob).await?, bob0.saturating_add(price).saturating_add(price));
 
+    // Nobody but the contract can call the refund callback to pull NEAR out.
+    let private = call("on_skill_paid", json!({ "mind_id": "penny", "skill_id": "pro", "payer": "alice.sandbox", "price": price.as_yoctonear().to_string() }), NearToken::from_yoctonear(0), &alice).await?.assert_failure();
+    assert!(format!("{private:?}").contains("is private"), "{private:?}");
+
     // The publisher deleted their account: the transfer fails and the owner gets the price back.
     call("publish_skill", json!({ "skill_id": "gone", "metadata_uri": "ipfs://gone", "price": price.as_yoctonear().to_string() }), NearToken::from_near(1), &carol).await?.assert_success();
     carol.delete_account_with_beneficiary(bob.account_id().clone()).with_signer(signer.clone()).send_to(&net).await?.assert_success();
