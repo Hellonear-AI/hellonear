@@ -926,6 +926,28 @@ describe('chat threads (#54)', () => {
     assert.equal(p2.nextBefore, null)
   })
 
+  test('paging keeps runs that started in the same millisecond', async () => {
+    const a = await signIn()
+    const mindId = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Same time' }, origin)).json()).mind.id
+    const threadId = (await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { message: 'first' }, origin)))[0].threadId
+    for (const message of ['second', 'third']) await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { threadId, message }, origin))
+    // All three runs start at the same instant, down to the microsecond.
+    await query(`update runs set started_at = '2026-11-06T12:00:00.123456Z' where thread_id = $1`, [threadId])
+    const seen: string[] = []
+    let before: string | null = ''
+    for (let page = 0; before !== null && page < 5; page++) {
+      const q: string = before ? `&before=${encodeURIComponent(before)}` : ''
+      const body: any = await (await a.call('GET', `/v1/minds/${mindId}/threads/${threadId}/messages?limit=1${q}`)).json()
+      seen.push(...body.messages.filter((m: any) => m.role === 'user').map((m: any) => m.text))
+      before = body.nextBefore
+    }
+    assert.deepEqual(seen.sort(), ['first', 'second', 'third'])
+    // A plain ISO time still works: everything that started before it.
+    const old = await (await a.call('GET', `/v1/minds/${mindId}/threads/${threadId}/messages?before=2026-11-06T12:00:00.124Z`)).json()
+    assert.equal(old.messages.filter((m: any) => m.role === 'user').length, 3)
+    assert.equal((await a.call('GET', `/v1/minds/${mindId}/threads/${threadId}/messages?before=x~y~z`)).status, 400)
+  })
+
   test('a run paused for approval keeps its user message; resumed text joins its reply', async () => {
     const a = await signIn()
     const mindId = (await (await a.call('POST', '/v1/minds', { templateId: 'payments-mind', name: 'Pay threads' }, origin)).json()).mind.id

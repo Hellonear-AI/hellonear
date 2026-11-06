@@ -37,14 +37,26 @@ export async function threadExists(mindId: string, threadId: string): Promise<bo
   return (await query('select 1 from runs where mind_id = $1 and thread_id = $2 limit 1', [mindId, threadId])).length > 0
 }
 
+// A page position: the last run shown, as `<ISO time>~<runId>`, so two runs that started at the same time are
+// both kept. A plain ISO time is accepted too (everything that started before it).
+export type Cursor = { at: Date; runId: string | null }
+export function parseCursor(raw: string): Cursor | null {
+  const [time, runId, ...rest] = raw.split('~')
+  const at = new Date(time)
+  if (rest.length || Number.isNaN(at.getTime()) || (runId !== undefined && !/^[\w-]{1,100}$/.test(runId))) return null
+  return { at, runId: runId ?? null }
+}
+
 // Newest messages first are paged by run: a page holds whole runs (a user message and its reply) up to `limit`
 // messages, at least one run. `nextBefore` pages further back; messages in a page are oldest first.
-export async function threadMessages(mindId: string, threadId: string, limit: number, before?: Date): Promise<{ messages: Message[]; nextBefore: string | null }> {
+export async function threadMessages(mindId: string, threadId: string, limit: number, before?: Cursor): Promise<{ messages: Message[]; nextBefore: string | null }> {
   const runs = await query<{ id: string; user_message: string | null; started_at: Date }>(
-    `select id, user_message, started_at from runs
-      where mind_id = $1 and thread_id = $2 and ($3::timestamptz is null or started_at < $3)
-      order by started_at desc, id desc limit $4`,
-    [mindId, threadId, before ?? null, limit + 1],
+    // Compared at millisecond precision: the cursor comes from a JS Date, Postgres keeps microseconds.
+    `select id, user_message, started_at from (
+        select *, date_trunc('milliseconds', started_at) as at_ms from runs where mind_id = $1 and thread_id = $2) r
+      where $3::timestamptz is null or at_ms < $3 or (at_ms = $3 and $4::text is not null and id < $4)
+      order by at_ms desc, id desc limit $5`,
+    [mindId, threadId, before?.at ?? null, before?.runId ?? null, limit + 1],
   )
   const texts = new Map<string, { text: string; at: Date }>()
   if (runs.length) {
@@ -69,5 +81,6 @@ export async function threadMessages(mindId: string, threadId: string, limit: nu
     used++
   }
   const more = runs.length > used
-  return { messages: page.reverse().flat(), nextBefore: more ? runs[used - 1].started_at.toISOString() : null }
+  const last = runs[used - 1]
+  return { messages: page.reverse().flat(), nextBefore: more ? `${last.started_at.toISOString()}~${last.id}` : null }
 }
