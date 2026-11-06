@@ -28,7 +28,7 @@ export function MobileHeader({ mindId }: { mindId: string }) {
         <SheetTrigger render={<Button variant="ghost" size="icon" aria-label="Open the menu" />}>
           <MenuIcon />
         </SheetTrigger>
-        <SheetContent side="left" showCloseButton={false} className="gap-5 p-4 data-[side=left]:w-[86%] data-[side=left]:max-w-80 data-[side=left]:sm:max-w-80">
+        <SheetContent side="left" showCloseButton={false} className="gap-5 overflow-y-auto overscroll-contain p-4 [scrollbar-width:thin] data-[side=left]:w-[86%] data-[side=left]:max-w-80 data-[side=left]:sm:max-w-80">
           <div className="flex items-center gap-2 py-1 pl-2">
             <LogoMark />
             <SheetTitle className="text-[15px] font-semibold">HelloNear</SheetTitle>
