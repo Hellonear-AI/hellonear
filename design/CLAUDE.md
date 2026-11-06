@@ -8,16 +8,18 @@ Source of truth for HelloNear's visual design: design tokens, app screens, Mind 
 
 | Path | What |
 |---|---|
-| `hellonear.pen` | Main design file (pen.dev / Pencil). Frames: Design Reference, Font Reference, Design Tokens · Light, Design Tokens · Dark, and one frame per screen |
+| `hellonear.pen` | Main design file (pen.dev / Pencil). Frames: Design Reference, Font Reference, Design Tokens · Light, Design Tokens · Dark, `HelloNear · Atomic Components`, `HelloNear · States & Interactions`, and one frame per screen |
 | `hellonear-assets/` | Reference images (third-party, from Pinterest) used by the Design Reference and Font Reference frames. **Gitignored and kept on Nabil's machine only**, so those two frames look empty for everyone else. Never commit or ship them |
 
-`.pen` files are encrypted. Open them in pen.dev, or through the Pencil MCP tools; do not read or edit them as text.
+Open `.pen` files in pen.dev or through the Pencil MCP tools. `hellonear.pen` is plain JSON on disk, but edit it only through pen.dev / Pencil so ids and layout stay valid. pen.dev keeps edits in memory until you press Ctrl+S; check `git diff` before committing.
 
 ## Design tokens (v0.1 draft, "Stone & Lime")
 
 Tokens live as variables in `hellonear.pen`, with a `mode` theme (`light`, `dark`). Code in `apps/fe` and `apps/landing` should use the same token names.
 
 - Color: `bg`, `surface`, `surface-muted`, `border`, `border-strong`, `text-primary`, `text-secondary`, `text-tertiary`, `primary`, `on-primary`, `accent` (lime), `on-accent`, `accent-soft`, `accent-strong`, `success`, `warning`, `danger`, `on-danger`, `info` (each status has a `-soft` background), `shadow`.
+- Interaction colors (v0.2): `primary-hover`, `accent-hover`, `danger-hover`, `surface-hover`, `focus` (keyboard focus ring; dark lime in light mode because bright lime on cream is about 1.2:1), `toast-bg`, `toast-fg`.
+- Contrast (v0.2): light-mode `success` #1A7340, `warning` #945800, `danger` #BF3220, `info` #2A5BC7 and `text-tertiary` (#696660 light, #8E8B83 dark) were darkened so text on `bg`, `surface` and the `-soft` backgrounds passes WCAG AA (4.5:1). The v0.1 values measured 3.5 to 4.49.
 - Mind Graph node colors: `node-mind`, `node-skill`, `node-tool`, `node-app`, `node-wallet`, `node-memory`, `node-model`; denied/error edges use `danger`.
 - Type: `font-heading` (Geist, placeholder until a heading font is chosen), `font-body` (Geist), `font-mono` (Geist Mono). Sizes `size-display` 64, `size-h1` 48, `size-h2` 36, `size-h3` 24, `size-title` 18, `size-body` 16, `size-small` 14, `size-caption` 12.
 - Spacing: `space-1` 4 … `space-24` 96 (4-pt scale).
@@ -28,10 +30,19 @@ Tokens live as variables in `hellonear.pen`, with a `mode` theme (`light`, `dark
 - Visual direction: minimal and modern (Apple-like), clean with a warm touch. Warmth comes from warm neutrals and photography, not from many UI colors.
 - **No gradients on UI elements** (buttons, cards, badges, inputs, chips). Gradients are fine inside photos and background imagery.
 - One accent color (lime), used sparingly. Primary actions are solid black (light mode) / off-white (dark mode).
-- **Mono font only for wallet addresses.**
+- **Mono font only for wallet addresses.** Nowhere else, not for amounts, ids or hashes.
 - Every screen must work in light and dark mode.
 - Mind characters: do not copy HelloMinds/Animoca characters or their "collector toy box" look.
 - Copy follows `apps/landing/CLAUDE.md` (never "rejected on-chain"; "private" only for Confidential TEE models).
+
+## Components and states (v0.2)
+
+- `HelloNear · Atomic Components` holds every reusable component, named `Group/Variant` (`Button/Primary`, `Badge/Warning`, `Meter/Frozen`, `Nav/Active`, ...), in three sections: atoms, molecules, organisms. Screens should use instances of these, not hand-built copies.
+- `HelloNear · States & Interactions` shows each component in every state (default, hover, pressed, focus, disabled, loading, error and the money lifecycle: waiting, signing in Meteor, approved, declined, expired), the motion rules, and a dark-mode check.
+- Motion: press 98% for 100 ms; hover 150 ms ease out (mouse only); focus ring 2 px `focus`, 2 px outside, keyboard only; state change crossfade 200 ms; enter fade + 8 px rise 200 ms, leave 150 ms; ease out (0.2, 0, 0, 1), no bounce on money; reduced motion means fades only.
+- Navigation by size: sidebar (256) on desktop 1440, icon rail (72) on tablet 834, top bar + 5-tab bottom bar on phone 390. Screens are designed at those three widths and checked at 320.
+- Limit meter: "coin tiles", 10 tiles of 1 NEAR with a lock cap; the headline is what is left today. Amber from 80%, red at the limit, grey with a snowflake when frozen.
+- No shield, zap, sparkles or rocket icons; "Verified private" uses `badge-check`.
 
 ## Mind characters (#13, v0.3 draft)
 
