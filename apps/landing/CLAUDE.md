@@ -56,6 +56,6 @@ Meet the Minds (`components/MindCards.tsx`):
 - Never claim "rejected on-chain"; say "policy stored on-chain, enforced in a TEE before signing".
 - Only call inference "private" for NEAR AI Confidential TEE models.
 - Money claims follow the #55 decisions: every payment asks the owner first; the per-payment limit and the address list are hard stops; there is no daily limit and no per-skill wallet (one wallet per Mind).
-- Only name connected apps that work on `main`: Gmail today; Google Calendar is planned (#57).
+- Connected apps on the page: Gmail, Meteor Wallet and Google Calendar. Calendar is in the final product (#57: backend merged in #62, engine tools in #65); if #65 does not merge before submission, put "soon" back. Brand icons are in `public/brands/` (Gmail from the design file, Meteor and Calendar from their own sites).
 - Do not copy another product's characters, names, or visual style.
 - English only.

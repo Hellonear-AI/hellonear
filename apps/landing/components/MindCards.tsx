@@ -73,13 +73,7 @@ function Card({ m, k, dealt }: { m: (typeof MINDS)[number]; k: number; dealt: bo
           <div className="relative h-[400px] overflow-hidden rounded-[24px]" style={{ backgroundColor: m.tint }}>
             <div className="relative z-10 flex flex-col items-center gap-1 pt-6 text-center">
               <h3 className="text-[28px] font-medium tracking-[-0.8px]">{m.name}</h3>
-              <p className="flex items-center gap-2 text-[14px] text-[var(--color-text-2)]">
-                <span className="relative grid size-2 place-items-center">
-                  <span className="absolute size-2 animate-ping rounded-full bg-[var(--color-accent-strong)] opacity-40" />
-                  <span className="size-2 rounded-full bg-[var(--color-accent-strong)]" />
-                </span>
-                {m.role}
-              </p>
+              <p className="text-[14px] text-[var(--color-text-2)]">{m.role}</p>
             </div>
             {/* The two poses cross-fade on hover. */}
             <div className="absolute inset-x-0 bottom-[-6%] top-[22%]">
@@ -101,7 +95,6 @@ function Card({ m, k, dealt }: { m: (typeof MINDS)[number]; k: number; dealt: bo
               <span className="relative size-10 overflow-hidden rounded-full" style={{ backgroundColor: m.tint }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={`/minds/${m.id}.webp`} alt="" aria-hidden="true" className="absolute left-1/2 top-0 w-[260%] max-w-none -translate-x-1/2" />
-                <span className="absolute bottom-0 right-0 size-3 rounded-full border-2 border-white bg-[var(--color-accent-strong)]" />
               </span>
               <span className="flex flex-col">
                 <span className="text-[15px] font-medium">@{m.id.replace("-", "")}</span>

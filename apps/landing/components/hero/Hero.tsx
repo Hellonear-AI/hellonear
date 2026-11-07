@@ -123,15 +123,17 @@ function Sky() {
     >
       <defs>
         <linearGradient id="sky-g" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#0045AE" />
-          <stop offset="0.2" stopColor="#0154C0" />
-          <stop offset="0.4" stopColor="#076DD8" />
-          <stop offset="0.6" stopColor="#2389EB" />
-          <stop offset="0.8" stopColor="#54B1FB" />
-          <stop offset="1" stopColor="#88CEFD" />
+          {/* A soft, slightly hazy summer sky that sits with the Stone & Lime tokens: muted blue at
+              the top, fading into the warm stone of the page (#F3F2EE) at the horizon. */}
+          <stop offset="0" stopColor="#5F8FC4" />
+          <stop offset="0.25" stopColor="#7DA5D2" />
+          <stop offset="0.5" stopColor="#A3C1DF" />
+          <stop offset="0.72" stopColor="#C9DAE6" />
+          <stop offset="0.9" stopColor="#E3E6E2" />
+          <stop offset="1" stopColor="#EFEDE6" />
         </linearGradient>
         <radialGradient id="sky-sun" cx="0.06" cy="0.02" r="0.55">
-          <stop offset="0" stopColor="#FFE9CF" stopOpacity="0.95" />
+          <stop offset="0" stopColor="#FFF1DC" stopOpacity="0.9" />
           <stop offset="0.18" stopColor="#F8D7BC" stopOpacity="0.45" />
           <stop offset="0.5" stopColor="#BFE3FF" stopOpacity="0.12" />
           <stop offset="1" stopColor="#BFE3FF" stopOpacity="0" />
@@ -163,10 +165,10 @@ function Sky() {
 function HeroCopy() {
   return (
     <>
-            <h1 className="text-[46px] font-medium leading-[1.04] tracking-[-1.6px] text-white [text-shadow:0_2px_24px_rgb(10_40_100/0.25)]">
+            <h1 className="text-[46px] font-medium leading-[1.04] tracking-[-1.6px] text-[var(--color-text)]">
               A Mind that can&apos;t spend more than you allow.
             </h1>
-            <p className="max-w-[400px] text-[16px] leading-[1.5] text-white/85">
+            <p className="max-w-[400px] text-[16px] leading-[1.5] text-[#2E3A46]">
               An AI helper with its own wallet. You set the limits, it can&apos;t change them.
             </p>
             <div className="mt-1 flex items-center gap-2.5">
@@ -186,16 +188,20 @@ function HeroCopy() {
                 Watch the demo
               </a>
             </div>
-            <ul className="flex items-center gap-3 text-[13px] text-white/75">
-              <li>Works with</li>
-              <li className="font-medium text-white">Gmail</li>
-              <li aria-hidden="true">·</li>
-              <li className="font-medium text-white">Meteor Wallet</li>
-              <li aria-hidden="true">·</li>
-              <li>
-                <span className="font-medium text-white">Google Calendar</span> soon
+            <ul className="flex items-center gap-3 text-[13px] text-[#2E3A46]">
+            <li>Works with</li>
+            {[
+              ["gmail.svg", "Gmail"],
+              ["meteor-wallet.png", "Meteor Wallet"],
+              ["google-calendar.png", "Google Calendar"],
+            ].map(([f, name]) => (
+              <li key={name} className="flex items-center gap-1.5 rounded-full bg-white/60 px-2.5 py-1 font-medium text-[var(--color-text)]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`/brands/${f}`} alt="" aria-hidden="true" className="h-3.5 w-auto" />
+                {name}
               </li>
-            </ul>
+            ))}
+          </ul>
     </>
   );
 }
@@ -208,7 +214,7 @@ function HeroMobile() {
   // (65% to 99% of its width) is about 500 px wide and 16 px down, wide enough for the Mind.
   const mind: React.CSSProperties = { width: "min(94vw, 460px)", left: "50%", transform: "translateX(-50%)", top: `calc(${M_CREST}px - min(94vw, 460px) * ${(610 / 720) * 0.8711})` };
   return (
-    <section className="hero relative overflow-hidden bg-[#1E5FD0] md:hidden">
+    <section className="hero relative overflow-hidden bg-[#7DA5D2] md:hidden">
       <div className="absolute left-1/2 top-0 h-full w-[1440px] -translate-x-1/2">
         <Sky />
       </div>
@@ -271,15 +277,12 @@ export function Hero() {
     <HeroMobile />
     <section
       ref={ref}
-      className="hero relative hidden overflow-hidden bg-[#1E5FD0] md:block"
+      className="hero relative hidden overflow-hidden bg-[#7DA5D2] md:block"
       style={{ height: SECTION_H }}
     >
       {/* Ground below the front hill art (its bottom colour), for tall or wide screens. */}
       <div className="absolute inset-x-0 bottom-0 bg-[#406708]" style={{ top: CREST_Y + 220 }} />
 
-      {/* Sunlight from the top-left corner (where the sky's sun glow is), falling across the Mind too.
-          Outside the 1440 stage so it reaches the screen's left edge on wide screens. */}
-      <div className="hero-rays pointer-events-none absolute z-[5]" aria-hidden="true" />
 
       <div className="absolute left-1/2 top-0 h-full w-[1440px] -translate-x-1/2">
         {/* Our own sky (colours sampled from the reference sky art): deep blue at the top, light near
@@ -332,6 +335,10 @@ export function Hero() {
           </div>
         </div>
 
+
+        {/* Sunlight from the top-left corner (where the sky's sun glow is), falling across the Mind too,
+            under the copy so the text stays solid. It reaches past the stage on wide screens. */}
+        <div className="hero-rays pointer-events-none absolute z-[5]" aria-hidden="true" />
 
         <div
           className="absolute left-[120px] top-[210px] z-10 flex w-[460px] flex-col items-start gap-5"

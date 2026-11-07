@@ -297,7 +297,7 @@ body {
   color: var(--color-on-accent);
 }
 .hero-btn-ghost {
-  background: rgb(255 255 255 / 0.7);
+  background: rgb(255 255 255 / 0.75);
   color: var(--color-text);
 }
 @media (hover: hover) and (pointer: fine) {
@@ -324,17 +324,10 @@ body {
   }
 }
 
-/* On the blue hero sky the bar (before scrolling) is light: white links and logo head, dark eyes. */
-.nav:not([data-scrolled="true"]) .nav-shell {
-  --logo-head: #ffffff;
-  --logo-eye: var(--color-text);
-  color: #ffffff;
-}
-
 /* Sun rays from the top-left corner: a few wide, soft beams, slowly breathing. Screen blend so they
    light whatever is under them (sky, clouds, the Mind, the grass). */
 .hero-rays {
-  left: min(-200px, calc(720px - 50vw - 200px));
+  left: min(-200px, calc(720px - 50vw - 200px)); /* relative to the 1440 stage */
   top: -260px;
   width: max(2200px, 120vw);
   height: 1500px;
