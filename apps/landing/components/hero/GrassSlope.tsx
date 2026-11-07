@@ -71,12 +71,14 @@ export function GrassSlope({ src, className, style }: { src: string; className?:
     const uWind = gl.getUniformLocation(prog, "wind");
 
     let raf = 0;
+    let disposed = false;
     let visible = true;
     const io = new IntersectionObserver(([e]) => (visible = e.isIntersecting));
     io.observe(canvas);
     const img = new Image();
     img.src = src;
     img.onload = () => {
+      if (disposed) return; // React dev runs effects twice; only the live one draws
       // Grass art is about 2400 px wide; drawing at 1x CSS pixels keeps the canvas small.
       canvas.width = canvas.clientWidth;
       canvas.height = canvas.clientHeight;
@@ -91,6 +93,7 @@ export function GrassSlope({ src, className, style }: { src: string; className?:
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       const t0 = performance.now();
       const draw = (now: number) => {
+        gl.useProgram(prog);
         gl.uniform1f(uT, (now - t0) / 1000);
         gl.uniform1f(uWind, reduced ? 0 : 1);
         gl.clearColor(0, 0, 0, 0);
@@ -109,6 +112,7 @@ export function GrassSlope({ src, className, style }: { src: string; className?:
     };
 
     return () => {
+      disposed = true;
       cancelAnimationFrame(raf);
       io.disconnect();
     };

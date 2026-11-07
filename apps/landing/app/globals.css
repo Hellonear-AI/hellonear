@@ -294,63 +294,6 @@ body {
   }
 }
 
-/* Hands. Enter after a short delay so the old hand has left. Springy curves overshoot a little. */
-.hero-hand {
-  pointer-events: none;
-}
-.hero-hand-rise {
-  animation: hand-rise 480ms cubic-bezier(0.34, 1.56, 0.64, 1) 110ms both;
-}
-@keyframes hand-rise {
-  from {
-    opacity: 0;
-    transform: translateY(90px) rotate(-8deg) scale(0.9);
-  }
-  45% {
-    opacity: 1;
-  }
-}
-.hero-hand-wave {
-  animation:
-    hand-rise 480ms cubic-bezier(0.34, 1.56, 0.64, 1) 110ms both,
-    hand-wave 0.5s ease-in-out 590ms 2;
-}
-@keyframes hand-wave {
-  0%, 100% { transform: rotate(-10deg); }
-  50% { transform: rotate(14deg); }
-}
-.hero-hand-tap {
-  animation:
-    hand-rise 480ms cubic-bezier(0.34, 1.56, 0.64, 1) 110ms both,
-    hand-tap 1.4s var(--ease-out) 590ms infinite;
-}
-@keyframes hand-tap {
-  0%, 60%, 100% { transform: scale(1); }
-  20% { transform: scale(0.9) translateY(4px); }
-}
-/* Gripping hands drop onto the crest, squash on landing, then settle. */
-.hero-hand-grip {
-  animation: hand-drop 420ms cubic-bezier(0.22, 1, 0.36, 1) 110ms both;
-}
-@keyframes hand-drop {
-  0% { opacity: 0; transform: translateY(-40px) scale(0.96, 1.06); }
-  45% { opacity: 1; transform: translateY(3px) scale(1.1, 0.84); }
-  70% { transform: translateY(-2px) scale(0.97, 1.04); }
-  100% { opacity: 1; transform: none; }
-}
-.hero-hand-out-raised {
-  animation: hand-out-raised 200ms cubic-bezier(0.5, 0, 0.9, 0.4) both;
-}
-@keyframes hand-out-raised {
-  to { opacity: 0; transform: translateY(80px) rotate(6deg) scale(0.92); }
-}
-.hero-hand-out-grip {
-  animation: hand-out-grip 180ms cubic-bezier(0.5, 0, 0.9, 0.4) both;
-}
-@keyframes hand-out-grip {
-  to { opacity: 0; transform: translateY(26px) scale(0.9); }
-}
-
 /* Clouds drift slowly from side to side. */
 .hero-cloud {
   animation: cloud-drift 80s ease-in-out infinite alternate;
@@ -361,17 +304,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-hand,
-  .hero-hand-rise,
-  .hero-hand-wave,
-  .hero-hand-tap,
-  .hero-hand-grip,
   .hero-cloud {
     animation: none;
-  }
-  .hero-hand-out-raised,
-  .hero-hand-out-grip {
-    display: none;
   }
 }
 
@@ -418,6 +352,58 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .hero-rays {
+    animation: none;
+  }
+}
+
+/* ---------- Hero hands (2D) ----------
+   Each gripping hand sits in a box that ends a little under the crest, so while it rises from behind
+   the hill the part below the crest stays hidden. */
+.hero-hand-clip {
+  overflow: hidden;
+  pointer-events: none;
+}
+/* Enter: rise from behind the hill, reach over, grab and squash onto the crest. */
+.hero-hand-enter {
+  animation: hand-enter 640ms cubic-bezier(0.3, 1.3, 0.5, 1) both;
+}
+@keyframes hand-enter {
+  0% { transform: translateY(260px) rotate(-6deg); }
+  45% { transform: translateY(-36px) rotate(4deg) scale(0.96, 1.06); }
+  70% { transform: translateY(6px) scale(1.08, 0.88); }
+  85% { transform: translateY(-2px) scale(0.98, 1.03); }
+  100% { transform: none; }
+}
+/* Back to the crest after waving: drop and squash. */
+.hero-hand-grip {
+  animation: hand-drop 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes hand-drop {
+  0% { opacity: 0; transform: translateY(-40px) scale(0.96, 1.06); }
+  45% { opacity: 1; transform: translateY(3px) scale(1.1, 0.84); }
+  70% { transform: translateY(-2px) scale(0.97, 1.04); }
+  100% { opacity: 1; transform: none; }
+}
+/* Hi: pops up from behind the hill, waves twice, sinks back (1.5 s). */
+.hero-hand-wave {
+  pointer-events: none;
+  z-index: 1;
+  animation: hand-hi 1500ms cubic-bezier(0.34, 1.2, 0.64, 1) both;
+}
+@keyframes hand-hi {
+  0% { transform: translateY(220px) rotate(-8deg); }
+  16% { transform: translateY(-10px) rotate(-12deg); }
+  28% { transform: translateY(0) rotate(14deg); }
+  42% { transform: rotate(-12deg); }
+  56% { transform: rotate(14deg); }
+  70% { transform: rotate(-6deg); }
+  82% { transform: translateY(0) rotate(2deg); }
+  100% { transform: translateY(240px) rotate(8deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-hand-enter,
+  .hero-hand-grip,
+  .hero-hand-wave {
     animation: none;
   }
 }
