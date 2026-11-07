@@ -5,7 +5,7 @@ import { query } from './db.ts'
 import { sseEvents } from './sse.ts'
 
 type Event = Record<string, any> & { runId?: string; seq: number; type: string; ts: string }
-type RunContext = { mindId: string; threadId?: string; workflowId?: string; resumeOf?: string }
+type RunContext = { mindId: string; threadId?: string; workflowId?: string; resumeOf?: string; userMessage?: string }
 
 // Deltas arrive many per second; they are written in batches, everything else right away.
 const BATCHED = new Set(['text.delta', 'reasoning.delta'])
@@ -14,9 +14,9 @@ const HEARTBEAT_MS = 15_000
 
 async function upsertRun(e: Event, ctx: RunContext) {
   await query(
-    `insert into runs (id, mind_id, thread_id, workflow_id, status, model) values ($1, $2, $3, $4, 'running', $5)
+    `insert into runs (id, mind_id, thread_id, workflow_id, status, model, user_message) values ($1, $2, $3, $4, 'running', $5, $6)
      on conflict (id) do update set status = 'running', finished_at = null`,
-    [e.runId, ctx.mindId, ctx.threadId ?? null, ctx.workflowId ?? null, e.model ?? null],
+    [e.runId, ctx.mindId, ctx.threadId ?? null, ctx.workflowId ?? null, e.model ?? null, ctx.userMessage ?? null],
   )
 }
 
@@ -25,6 +25,8 @@ async function updateRun(e: Event) {
   if (e.type === 'run.finished') {
     await query(`update runs set status = case when status = 'awaiting_approval' then status else 'finished' end, usage = $2, cost_usd = $3, finished_at = now() where id = $1`,
       [e.runId, e.usage ?? null, e.costUsd ?? null])
+    // One line per run in the journal, to watch the shared NEAR AI credit (#43). No content, only counts.
+    console.log('run usage', JSON.stringify({ runId: e.runId, mindId: e.mindId ?? null, model: e.model ?? null, usage: e.usage ?? null, costUsd: e.costUsd ?? null }))
   }
   if (e.type === 'workflow.finished') await query('update runs set status = $2, finished_at = now() where id = $1', [e.runId, String(e.status ?? 'finished')])
   if (e.type === 'run.error') await query(`update runs set status = 'error', finished_at = now() where id = $1`, [e.runId])

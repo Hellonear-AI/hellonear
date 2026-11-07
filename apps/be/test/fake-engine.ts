@@ -16,18 +16,25 @@ export const fake = {
 
 export const templates = [
   {
-    templateId: 'general-assistant', name: 'General Assistant', tagline: 'Helps.',
+    templateId: 'general-assistant', name: 'General Assistant', tagline: 'Helps.', quote: 'I keep your day in order.',
     soul: { identity: 'You help.', invariants: ['Never invent facts.'], priors: [] }, model: 'z-ai/glm-5.3-flash',
     skills: [{ skillId: 'daily-planner', description: 'Plans days.', status: 'available', connections: [] }],
   },
   {
-    templateId: 'payments-mind', name: 'Payments Mind', tagline: 'Pays.',
+    templateId: 'payments-mind', name: 'Payments Mind', tagline: 'Pays.', quote: 'I keep your bills paid and your limits boring.',
     soul: { identity: 'You pay bills.', invariants: ['Every payment waits for approval.'], priors: [] }, model: 'z-ai/glm-5.3-flash',
     skills: [
       { skillId: 'payments', description: 'Pays.', status: 'simulated', connections: ['near-wallet'] },
       { skillId: 'daily-planner', description: 'Plans days.', status: 'available', connections: [] },
     ],
   },
+]
+
+// The whole catalog: `http-request` is in no template, as in the real engine.
+export const skills = [
+  { skillId: 'daily-planner', description: 'Plans days.', status: 'available', connections: [], tools: ['plan_day'] },
+  { skillId: 'http-request', description: 'Calls HTTPS APIs.', status: 'available', connections: [], tools: ['http_request'] },
+  { skillId: 'payments', description: 'Pays.', status: 'simulated', connections: ['near-wallet'], tools: ['send_payment'] },
 ]
 
 async function json(req: IncomingMessage) {
@@ -64,6 +71,7 @@ export const engine = createServer(async (req, res) => {
   if (url.pathname === '/v1/health') return send(res, 200, { ok: true })
   if (req.headers['x-engine-key'] !== ENGINE_KEY) return send(res, 401, { error: 'unauthorized' })
   if (url.pathname === '/v1/templates') return send(res, 200, { templates })
+  if (url.pathname === '/v1/skills') return send(res, 200, { skills })
 
   const chat = url.pathname.match(/^\/v1\/minds\/([^/]+)\/chat$/)
   if (chat && req.method === 'POST') {

@@ -67,7 +67,7 @@ test('ids with "--" are refused, so mastra ids cannot collide across minds', () 
 const linear = (nodes: unknown[], edges: unknown[]) => ({ name: 'x', nodes: [{ id: 't', type: 'trigger', data: {} }, ...nodes], edges })
 
 test('approval tools are refused: a workflow step would run them unapproved', () => {
-  assert.match(issues(() => compileCanvas('m', 'w', linear([{ id: 'p', type: 'tool', data: { tool: 'demo_transfer', args: { to: 'bob.testnet', amountUsdc: 1 } } }], [{ source: 't', target: 'p' }]))), /demo_transfer needs the owner's approval/)
+  assert.match(issues(() => compileCanvas('m', 'w', linear([{ id: 'p', type: 'tool', data: { tool: 'send_payment', args: { to: 'bob.testnet', amountNear: '0.01' } } }], [{ source: 't', target: 'p' }]))), /send_payment needs the owner's approval/)
 })
 
 test('user text can never become a Mastra ${...} template (it could read the secrets)', () => {

@@ -5,11 +5,19 @@ import { SESSION_COOKIE, createChallenge, login, loginSchema, logout, requireUse
 import { config } from './config.ts'
 import { newId } from './crypto.ts'
 import { migrate, query } from './db.ts'
-import { engineFetch, engineJson, templates } from './engine.ts'
-import { HttpError, assertSameOrigin, cors, readBody, sendJson, setCookie } from './http.ts'
+import { engineFetch, engineJson, skills, templates } from './engine.ts'
+import { HttpError, assertSameOrigin, cors, readBody, sendJson, setCookie, isLoopback } from './http.ts'
+import { TOOLKITS, connect, disconnect, listConnections, toolkitSchema } from './connections.ts'
 import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, requireMind, updateMind, updateMindSchema } from './minds.ts'
 import { getRun, listRuns, mindEvents, pendingApprovals, relayRun, runEvents } from './runs.ts'
 import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema, secretsForRun } from './secrets.ts'
+import { createWallet, freezeTransaction, getWallet, hasWallet, policySchema, policyTransaction } from './wallets.ts'
+import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
+import { issueWalletToken, verifyWalletToken } from './walletToken.ts'
+import { listThreads, parseCursor, threadExists, threadMessages } from './threads.ts'
+import { assertDemoRunAllowed, cleanupDemoUsers, createDemoUser, demoPaymentCap, denyDemo } from './demo.ts'
+import type { User } from './auth.ts'
+import { timingSafeEqual } from 'node:crypto'
 import { autopilotSchema, deleteAllWorkflows, deleteAutopilot, putAutopilot, runWorkflowSchema, syncAutopilots, workflowIdSchema, workflowPath } from './workflows.ts'
 
 const chatSchema = z.object({
@@ -24,6 +32,15 @@ const limitOf = (url: URL, fallback: number, max: number) => Math.min(Math.max(N
 // Engine JSON answers go to the browser unchanged (status and body).
 const passthrough = (res: Parameters<typeof sendJson>[0], out: { status: number; body: unknown }) =>
   out.status === 204 ? res.writeHead(204).end() : sendJson(res, out.status, out.body)
+
+// Extra fields for one engine call: the wallet token (#42) only for a Mind that has a wallet, and `demo: true` for a
+// judge try-out user (#43), so the engine can use the sample inbox. Autopilot gets neither.
+const runExtras = async (user: User, mindId: string) => ({
+  ...((await hasWallet(mindId)) ? { walletToken: issueWalletToken(user.id, mindId) } : {}),
+  ...(user.demo ? { demo: true } : {}),
+})
+
+const sameSecret = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b))
 
 export const server = createServer(async (req, res) => {
   try {
@@ -46,16 +63,39 @@ export const server = createServer(async (req, res) => {
       setCookie(res, SESSION_COOKIE, token, config.sessionTtlMs)
       return sendJson(res, 200, { user })
     }
+    if (route('POST', /^\/v1\/auth\/demo$/)) {
+      const { user, token } = await createDemoUser(req)
+      setCookie(res, SESSION_COOKIE, token, config.sessionTtlMs)
+      return sendJson(res, 201, { user })
+    }
     if (route('POST', /^\/v1\/auth\/logout$/)) {
       await logout(req)
       setCookie(res, SESSION_COOKIE, '', 0)
       return res.writeHead(204).end()
     }
 
+    // Internal routes for the engine's payment tools (#42, option B): loopback only (the engine runs next to the
+    // backend; anything through the tunnel gets 404), then engine key + wallet token, no session.
+    if (path.startsWith('/internal/') && !isLoopback(req.socket.remoteAddress)) throw new HttpError(404, 'not_found')
+    const internal = path.match(/^\/internal\/v1\/wallet\/(send_payment|balance|payments)$/)
+    if (internal) {
+      if (!sameSecret(String(req.headers['x-engine-key'] ?? ''), config.engineApiKey)) throw new HttpError(401, 'unauthorized')
+      const { userId, mindId } = verifyWalletToken(req.headers['x-wallet-token'] as string | undefined)
+      await requireMind(userId, mindId)
+      if (internal[1] === 'send_payment' && req.method === 'POST') {
+        const [owner] = await query<{ is_demo: boolean }>('select is_demo from users where id = $1', [userId])
+        return sendJson(res, 200, await sendPayment(mindId, await readBody(req, sendPaymentSchema), { cap: owner?.is_demo ? demoPaymentCap(userId) : undefined }))
+      }
+      if (internal[1] === 'balance' && req.method === 'GET') return sendJson(res, 200, await walletBalance(mindId))
+      if (internal[1] === 'payments' && req.method === 'GET') return sendJson(res, 200, { payments: await listPayments(mindId, limitOf(url, 20, 100)) })
+      throw new HttpError(405, 'method_not_allowed')
+    }
+
     // Everything below needs a session.
     const user = await requireUser(req)
     if (route('GET', /^\/v1\/me$/)) return sendJson(res, 200, { user })
     if (route('GET', /^\/v1\/templates$/)) return sendJson(res, 200, { templates: await templates() })
+    if (route('GET', /^\/v1\/skills$/)) return sendJson(res, 200, { skills: await skills() })
 
     // Secrets (#18): names and hosts only ever leave the backend, never values.
     if (route('GET', /^\/v1\/secrets$/)) return sendJson(res, 200, { secrets: await listSecrets(user.id) })
@@ -63,8 +103,20 @@ export const server = createServer(async (req, res) => {
     if (secret) {
       const name = secretNameSchema.safeParse(decodeURIComponent(secret[1]))
       if (!name.success) throw new HttpError(400, 'invalid_secret_name')
+      if (req.method === 'PUT') denyDemo(user, 'secrets')
       if (req.method === 'PUT') return sendJson(res, 200, { secret: await putSecret(user.id, name.data, await readBody(req, putSecretSchema)) })
       if (req.method === 'DELETE') return (await deleteSecret(user.id, name.data)) ? res.writeHead(204).end() : sendJson(res, 404, { error: 'not_found' })
+      throw new HttpError(405, 'method_not_allowed')
+    }
+
+    // App connections through Composio (#13): status and Connect Links only, never tokens.
+    if (route('GET', /^\/v1\/connections$/)) return sendJson(res, 200, { connections: await listConnections(user.id) })
+    const connection = path.match(/^\/v1\/connections\/([^/]+)$/)
+    if (connection) {
+      const toolkit = toolkitSchema.safeParse(decodeURIComponent(connection[1]))
+      if (!toolkit.success) throw new HttpError(404, 'unknown_toolkit', { toolkits: TOOLKITS })
+      if (req.method === 'POST') return sendJson(res, 200, await connect(user.id, toolkit.data))
+      if (req.method === 'DELETE') return (await disconnect(user.id, toolkit.data)) ? res.writeHead(204).end() : sendJson(res, 404, { error: 'not_found' })
       throw new HttpError(405, 'method_not_allowed')
     }
 
@@ -85,9 +137,10 @@ export const server = createServer(async (req, res) => {
           `select 1 from run_events where run_id = $1 and type = 'tool.approval_required' and payload->>'toolCallId' = $2`, [found.runId, body.toolCallId])
         if (found.status !== 'awaiting_approval' || !waiting) throw new HttpError(409, 'not_awaiting_approval')
         const mind = await requireMind(user.id, found.mindId)
+        await assertDemoRunAllowed(user, req)
         const engineRes = await engineFetch(`/v1/runs/${encodeURIComponent(found.runId)}${run[2]}?mindId=${encodeURIComponent(mind.id)}`, {
           method: 'POST',
-          body: { userId: user.id, threadId: found.threadId, mind: mindConfig(mind), secrets: await secretsForRun(user.id), toolCallId: body.toolCallId, reason: body.reason },
+          body: { userId: user.id, threadId: found.threadId, mind: mindConfig(mind), secrets: await secretsForRun(user.id), toolCallId: body.toolCallId, reason: body.reason, ...(await runExtras(user, mind.id)) },
         })
         return relayRun(req, res, engineRes, { mindId: mind.id, threadId: found.threadId ?? undefined, resumeOf: found.runId })
       }
@@ -98,6 +151,17 @@ export const server = createServer(async (req, res) => {
     if (m) {
       const mind = await requireMind(user.id, decodeURIComponent(m[1]))
       const sub = m[2] ?? ''
+
+      // The Mind's OutLayer wallet (#14, #15). Owner actions come back as transactions for the owner to sign.
+      if (sub === '/wallet' && req.method === 'POST') denyDemo(user, 'create_wallet')
+      if (sub === '/wallet' && req.method === 'POST') return sendJson(res, 201, { wallet: await createWallet(mind.id) })
+      if (sub === '/wallet' && req.method === 'GET') return sendJson(res, 200, { wallet: await getWallet(mind.id) })
+      if (sub === '/wallet/payments' && req.method === 'GET') return sendJson(res, 200, { payments: await listPayments(mind.id, limitOf(url, 20, 100)) })
+      if (sub === '/wallet/policy' && req.method === 'POST') denyDemo(user, 'set_policy')
+      if (sub === '/wallet/policy' && req.method === 'POST') return sendJson(res, 200, { transaction: await policyTransaction(mind.id, user.nearAccountId, await readBody(req, policySchema)) })
+      if ((sub === '/wallet/freeze' || sub === '/wallet/unfreeze') && req.method === 'POST') denyDemo(user, 'freeze')
+      if ((sub === '/wallet/freeze' || sub === '/wallet/unfreeze') && req.method === 'POST') return sendJson(res, 200, { transaction: await freezeTransaction(mind.id, sub === '/wallet/freeze') })
+      if (sub.startsWith('/wallet')) throw new HttpError(req.method === 'GET' || req.method === 'POST' ? 404 : 405, req.method === 'GET' || req.method === 'POST' ? 'not_found' : 'method_not_allowed')
 
       if (sub === '' && req.method === 'GET') return sendJson(res, 200, { mind })
       if (sub === '' && req.method === 'PATCH') {
@@ -117,11 +181,12 @@ export const server = createServer(async (req, res) => {
           throw new HttpError(404, 'thread_not_found')
         }
         const threadId = body.threadId ?? `thr_${newId('x').slice(2)}`
+        await assertDemoRunAllowed(user, req)
         const engineRes = await engineFetch(`/v1/minds/${encodeURIComponent(mind.id)}/chat`, {
           method: 'POST',
-          body: { userId: user.id, threadId, message: body.message, mind: mindConfig(mind), secrets: await secretsForRun(user.id) },
+          body: { userId: user.id, threadId, message: body.message, mind: mindConfig(mind), secrets: await secretsForRun(user.id), ...(await runExtras(user, mind.id)) },
         })
-        return relayRun(req, res, engineRes, { mindId: mind.id, threadId })
+        return relayRun(req, res, engineRes, { mindId: mind.id, threadId, userMessage: body.message })
       }
       if (sub === '/runs' && req.method === 'GET') {
         return sendJson(res, 200, { runs: await listRuns(mind.id, limitOf(url, 20, 100), url.searchParams.get('threadId') ?? undefined) })
@@ -131,6 +196,17 @@ export const server = createServer(async (req, res) => {
         if (Number.isNaN(since.getTime())) throw new HttpError(400, 'invalid_since')
         return sendJson(res, 200, { events: await mindEvents(mind.id, since, limitOf(url, 2000, 10_000)) })
       }
+      // Chat threads (#54)
+      if (sub === '/threads' && req.method === 'GET') return sendJson(res, 200, { threads: await listThreads(mind.id, limitOf(url, 20, 100)) })
+      const thread = sub.match(/^\/threads\/(thr_[a-f0-9]{24})\/messages$/)
+      if (thread && req.method === 'GET') {
+        if (!(await threadExists(mind.id, thread[1]))) throw new HttpError(404, 'thread_not_found')
+        const raw = url.searchParams.get('before')
+        const before = raw === null ? undefined : parseCursor(raw)
+        if (before === null) throw new HttpError(400, 'invalid_before')
+        return sendJson(res, 200, await threadMessages(mind.id, thread[1], limitOf(url, 50, 200), before))
+      }
+      if (sub.startsWith('/threads')) throw new HttpError(req.method === 'GET' ? 404 : 405, req.method === 'GET' ? 'thread_not_found' : 'method_not_allowed')
       if (sub === '/approvals' && req.method === 'GET') return sendJson(res, 200, { approvals: await pendingApprovals(mind.id) })
 
       // Visual Builder (#20) and Autopilot (#21)
@@ -149,11 +225,13 @@ export const server = createServer(async (req, res) => {
         }
         if (wf[2] === '/runs' && req.method === 'POST') {
           const body = await readBody(req, runWorkflowSchema)
-          const engineRes = await engineFetch(`${p}/runs`, { method: 'POST', body: { userId: user.id, mind: mindConfig(mind), secrets: await secretsForRun(user.id), input: body.input } })
+          await assertDemoRunAllowed(user, req)
+          const engineRes = await engineFetch(`${p}/runs`, { method: 'POST', body: { userId: user.id, mind: mindConfig(mind), secrets: await secretsForRun(user.id), input: body.input, ...(await runExtras(user, mind.id)) } })
           return relayRun(req, res, engineRes, { mindId: mind.id, workflowId: id.data })
         }
         if (wf[2] === '/runs' && req.method === 'GET') return passthrough(res, await engineJson(`${p}/runs?limit=${limitOf(url, 20, 100)}`))
         if (wf[2] === '/autopilot' && req.method === 'GET') return passthrough(res, await engineJson(`${p}/autopilot`))
+        if (wf[2] === '/autopilot' && req.method === 'PUT') denyDemo(user, 'autopilot')
         if (wf[2] === '/autopilot' && req.method === 'PUT') return passthrough(res, await putAutopilot(user.id, mind, id.data, await readBody(req, autopilotSchema)))
         if (wf[2] === '/autopilot' && req.method === 'DELETE') return passthrough(res, await deleteAutopilot(mind.id, id.data))
       }
@@ -173,4 +251,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const applied = await migrate()
   if (applied.length) console.log('migrations applied', applied.join(', '))
   server.listen(config.port, () => console.log(`backend listening on :${config.port}`))
+  // Judge try-out users are deleted after the retention: at start and once a day.
+  const sweep = () => cleanupDemoUsers(async (mindId) => { await deleteAllWorkflows(mindId) }).then((n) => { if (n) console.log('demo users removed', n) }, (e) => console.error('demo cleanup failed', e instanceof Error ? e.message : e))
+  void sweep()
+  setInterval(sweep, 24 * 3600_000).unref()
 }

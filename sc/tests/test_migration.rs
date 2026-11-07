@@ -1,6 +1,8 @@
-// Upgrade test on a local NEAR sandbox: v0.1.0 (the WASM live on hellonear-registry.testnet,
-// tests/fixtures/registry-v0.1.0.wasm, code hash 7Xp6eabRy8NTfAdg3WMfuWpMpoQgZSxLewTudwCouwV9)
-// → current code + `migrate` in the same transaction. Data written by v0.1.0 must survive.
+// Upgrade tests on a local NEAR sandbox. Data written by an older version must survive.
+// - v0.1.0 (tests/fixtures/registry-v0.1.0.wasm, code hash 7Xp6eabRy8NTfAdg3WMfuWpMpoQgZSxLewTudwCouwV9)
+//   → current code + `migrate` in the same transaction.
+// - v0.2.0 (tests/fixtures/registry-v0.2.0.wasm, code hash 4u2JFQFEMSKtTy9XZ4GQVQtxzyRRSYjQboiotf76R3or, the
+//   WASM live on hellonear-registry.testnet since 3 Nov) → current code only: the state layout did not change.
 use near_api::{AccountId, NearToken};
 use near_sdk::serde_json::{Value, json};
 
@@ -58,5 +60,46 @@ async fn upgrade_from_v0_1_keeps_all_data() -> testresult::TestResult<()> {
     call("migrate", json!({ "skill_ids": [] }), NearToken::from_yoctonear(0), &alice).send_to(&net).await?.assert_failure();
     let ids: Vec<String> = contract.call_function("minds_of", json!({ "owner": "alice.sandbox" })).read_only().fetch_from(&net).await?.data;
     assert_eq!(ids, vec!["penny".to_string(), "rex".to_string()]);
+    Ok(())
+}
+
+#[tokio::test]
+async fn upgrade_from_v0_2_is_code_only_and_keeps_all_data() -> testresult::TestResult<()> {
+    let v0_2 = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/registry-v0.2.0.wasm"))?;
+    let current = std::fs::read(cargo_near_build::build_with_cli(Default::default())?)?;
+
+    let sandbox = near_sandbox::Sandbox::start_sandbox().await?;
+    let net = near_api::NetworkConfig::from_rpc_url("sandbox", sandbox.rpc_addr.parse()?);
+    let signer = near_api::Signer::from_secret_key(near_sandbox::config::DEFAULT_GENESIS_ACCOUNT_PRIVATE_KEY.parse()?)?;
+    let alice = create_account(&sandbox, "alice.sandbox").await?;
+    let bob = create_account(&sandbox, "bob.sandbox").await?;
+    let contract = create_account(&sandbox, "registry.sandbox").await?.as_contract();
+    let call = |method: &str, args: Value, deposit: NearToken, who: &near_api::Account| {
+        contract.call_function(method, args).transaction().deposit(deposit).with_signer(who.account_id().clone(), signer.clone())
+    };
+    let view = |method: &str, args: Value| contract.call_function(method, args).read_only::<Value>();
+
+    // 1. v0.2.0 with data, like testnet today: a priced skill equipped for free (v0.2.0 never charged).
+    near_api::Contract::deploy(contract.account_id().clone()).use_code(v0_2).with_init_call("new", json!({}))?.with_signer(signer.clone()).send_to(&net).await?.assert_success();
+    call("publish_skill", json!({ "skill_id": "pay", "metadata_uri": "ipfs://pay", "price": "7" }), NearToken::from_near(1), &bob).send_to(&net).await?.assert_success();
+    call("register_mind", json!({ "mind_id": "penny", "metadata_uri": "ipfs://penny", "wallet": "penny-wallet.sandbox" }), NearToken::from_near(1), &alice).send_to(&net).await?.assert_success();
+    call("equip_skill", json!({ "mind_id": "penny", "skill_id": "pay" }), NearToken::from_near(1), &alice).send_to(&net).await?.assert_success();
+    let mind_before = view("get_mind", json!({ "mind_id": "penny" })).fetch_from(&net).await?.data;
+    let skill_before = view("get_skill", json!({ "skill_id": "pay" })).fetch_from(&net).await?.data;
+
+    // 2. Upgrade: new code, no init call.
+    near_api::Contract::deploy(contract.account_id().clone()).use_code(current).without_init_call().with_signer(signer.clone()).send_to(&net).await?.assert_success();
+
+    // 3. Everything v0.2.0 wrote is still readable, unchanged; already-equipped skills are not charged.
+    assert_eq!(view("get_mind", json!({ "mind_id": "penny" })).fetch_from(&net).await?.data, mind_before);
+    assert_eq!(view("get_skill", json!({ "skill_id": "pay" })).fetch_from(&net).await?.data, skill_before);
+    assert_eq!(view("minds_of", json!({ "owner": "alice.sandbox" })).fetch_from(&net).await?.data, json!(["penny"]));
+    assert_eq!(view("total_minds", json!({})).fetch_from(&net).await?.data, json!(1));
+
+    // 4. The upgraded contract charges the price on the next equip and pays the publisher.
+    let bob0 = bob.tokens().near_balance().fetch_from(&net).await?.total;
+    call("unequip_skill", json!({ "mind_id": "penny", "skill_id": "pay" }), NearToken::from_yoctonear(1), &alice).send_to(&net).await?.assert_success();
+    call("equip_skill", json!({ "mind_id": "penny", "skill_id": "pay" }), NearToken::from_near(1), &alice).send_to(&net).await?.assert_success();
+    assert_eq!(bob.tokens().near_balance().fetch_from(&net).await?.total, bob0.saturating_add(NearToken::from_yoctonear(7)));
     Ok(())
 }

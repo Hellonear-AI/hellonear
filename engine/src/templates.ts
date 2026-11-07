@@ -8,6 +8,8 @@ const templateSchema = z.object({
   templateId: z.string().regex(/^[a-z0-9-]+$/),
   name: z.string().min(1),
   tagline: z.string().min(1),
+  // One line in the Mind's own voice for the Choose a Mind card (#55).
+  quote: z.string().min(1).max(80),
   soul: z.object({ identity: z.string().min(1), invariants: z.array(z.string()), priors: z.array(z.string()) }),
   model: z.string().min(1),
   skills: z.array(z.string()).min(1),

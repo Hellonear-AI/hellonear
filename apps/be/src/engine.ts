@@ -10,7 +10,9 @@ export type MindConfig = {
   skills: { skillId: string }[]
 }
 export type EngineSecret = { name: string; value: string; allowedHosts: string[] }
-export type Template = MindConfig & { tagline: string; skills: { skillId: string; description: string; status: string; connections: string[]; note?: string }[] }
+export type SkillInfo = { skillId: string; description: string; status: string; connections: string[]; note?: string }
+export type Template = MindConfig & { tagline: string; quote: string; skills: SkillInfo[] }
+export type CatalogSkill = SkillInfo & { tools: string[] }
 
 export async function engineFetch(path: string, init: { method?: string; body?: unknown } = {}): Promise<Response> {
   try {
@@ -41,4 +43,14 @@ export async function templates(): Promise<Template[]> {
   templatesCache = { at: Date.now(), templates: body.templates }
   return body.templates
 }
-export const clearTemplatesCache = () => { templatesCache = undefined }
+// Every skill a Mind may equip (engine `GET /v1/skills`), not only those templates start with: the Visual
+// Builder needs skills such as `near-account` and `http-request` that no template offers.
+let skillsCache: { at: number; skills: CatalogSkill[] } | undefined
+export async function skills(): Promise<CatalogSkill[]> {
+  if (skillsCache && Date.now() - skillsCache.at < 60_000) return skillsCache.skills
+  const { status, body } = await engineJson('/v1/skills')
+  if (status !== 200) throw new HttpError(502, 'engine_error')
+  skillsCache = { at: Date.now(), skills: body.skills }
+  return body.skills
+}
+export const clearTemplatesCache = () => { templatesCache = undefined; skillsCache = undefined }

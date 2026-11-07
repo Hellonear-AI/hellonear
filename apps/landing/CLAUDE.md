@@ -37,5 +37,5 @@ Assets: the favicon set comes from `design/logo/favicon/` (`app/favicon.ico`, `a
 - Only call inference "private" for NEAR AI Confidential TEE models.
 - Money claims follow the #55 decisions: every payment asks the owner first; the per-payment limit and the address list are hard stops; there is no daily limit and no per-skill wallet (one wallet per Mind).
 - Only name connected apps that work on `main`: Gmail today; Google Calendar is planned (#57).
-- Do not copy HelloMinds/Animoca characters, names, or visual style.
+- Do not copy another product's characters, names, or visual style.
 - English only.

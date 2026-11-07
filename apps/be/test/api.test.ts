@@ -4,13 +4,24 @@
 import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { AddressInfo } from 'node:net'
-import { randomBytes } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { KeyPair, KeyPairSigner } from 'near-api-js'
 import { ENGINE_KEY, engine, fake } from './fake-engine.ts'
+import { fakeOutlayer, outlayerServer } from './fake-outlayer.ts'
+import { COMPOSIO_KEY, composioServer, fakeComposio } from './fake-composio.ts'
 
 await new Promise<void>((r) => engine.listen(0, r))
 process.env.ENGINE_URL = `http://127.0.0.1:${(engine.address() as AddressInfo).port}`
 process.env.ENGINE_API_KEY = ENGINE_KEY
+await new Promise<void>((r) => outlayerServer.listen(0, r))
+process.env.OUTLAYER_URL = `http://127.0.0.1:${(outlayerServer.address() as AddressInfo).port}`
+process.env.NEAR_RPC_URL = `${process.env.OUTLAYER_URL}/rpc`
+const demoWallet = fakeOutlayer.addWallet()
+process.env.DEMO_MODE = 'true'
+process.env.DEMO_OUTLAYER_API_KEY = demoWallet.key
+await new Promise<void>((r) => composioServer.listen(0, r))
+process.env.COMPOSIO_URL = `http://127.0.0.1:${(composioServer.address() as AddressInfo).port}`
+process.env.COMPOSIO_API_KEY = COMPOSIO_KEY
 process.env.DATABASE_URL ??= 'postgresql://hellonear:hellonear-dev-only@localhost:55432/hellonear'
 process.env.SECRETS_MASTER_KEY = randomBytes(32).toString('base64')
 process.env.FE_ORIGIN = 'http://localhost:3000'
@@ -39,6 +50,8 @@ before(async () => {
 after(async () => {
   await new Promise<void>((r) => server.close(() => r()))
   await new Promise<void>((r) => engine.close(() => r()))
+  await new Promise<void>((r) => outlayerServer.close(() => r()))
+  await new Promise<void>((r) => composioServer.close(() => r()))
   await pool.end()
 })
 
@@ -183,6 +196,12 @@ describe('minds (#8, #13)', () => {
     assert.equal((await alice.call('GET', `/v1/minds/${mind.id}`)).status, 404)
   })
 
+  test('templates pass through the engine card quote (#63)', async () => {
+    const a = await signIn()
+    const { templates } = await (await a.call('GET', '/v1/templates')).json()
+    assert.deepEqual(templates.map((t: any) => [t.templateId, t.quote]), [['general-assistant', 'I keep your day in order.'], ['payments-mind', 'I keep your bills paid and your limits boring.']])
+  })
+
   test('unknown templates and skills, duplicates, and bad bodies are refused', async () => {
     const alice = await signIn()
     assert.equal((await alice.call('POST', '/v1/minds', { templateId: 'nope', name: 'X' })).status, 400)
@@ -192,6 +211,19 @@ describe('minds (#8, #13)', () => {
     assert.equal((await alice.call('POST', '/v1/minds', { templateId: 'general-assistant', name: '' })).status, 400)
     const notJson = await fetch(base + '/v1/minds', { method: 'POST', headers: { cookie: alice.cookie }, body: '{nope' })
     assert.deepEqual([notJson.status, await notJson.json()], [400, { error: 'invalid_json' }])
+  })
+
+  test('skills come from the engine catalog, so a skill no template offers can be equipped', async () => {
+    const alice = await signIn()
+    const catalog = await alice.call('GET', '/v1/skills')
+    assert.equal(catalog.status, 200)
+    assert.deepEqual((await catalog.json()).skills.map((s: any) => s.skillId), ['daily-planner', 'http-request', 'payments'])
+    assert.equal((await fetch(base + '/v1/skills')).status, 401)
+    const created = await alice.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Builder', skills: ['daily-planner', 'http-request'] })
+    assert.equal(created.status, 201)
+    const mind = (await created.json()).mind
+    assert.deepEqual(mind.skills.map((s: any) => s.skillId ?? s), ['daily-planner', 'http-request'])
+    assert.equal((await alice.call('PATCH', `/v1/minds/${mind.id}`, { skills: ['http-request'] })).status, 200)
   })
 })
 
@@ -379,5 +411,573 @@ describe('workflows and Autopilot (#20, #21)', () => {
     assert.equal((await alice.call('DELETE', `/v1/minds/${mind.id}`)).status, 204)
     assert.equal(fake.workflows.has(key), false)
     assert.equal(fake.autopilots.has(key), false)
+  })
+})
+
+describe('Mind wallets (#14, #15)', () => {
+  const origin = { origin: 'http://localhost:3000' }
+  async function mindOf(c: Client) {
+    const res = await c.call('POST', '/v1/minds', { templateId: 'payments-mind', name: `Pay ${randomBytes(3).toString('hex')}` }, origin)
+    assert.equal(res.status, 201, await res.clone().text())
+    return (await res.json()).mind.id as string
+  }
+
+  test('create: the key is stored encrypted and never returned; one wallet per Mind; owner only', async () => {
+    const a = await signIn()
+    const mindId = await mindOf(a)
+    let res = await a.call('GET', `/v1/minds/${mindId}/wallet`)
+    assert.equal(res.status, 404)
+    assert.equal((await res.json()).error, 'no_wallet')
+
+    res = await a.call('POST', `/v1/minds/${mindId}/wallet`, {}, origin)
+    assert.equal(res.status, 201, await res.clone().text())
+    const text = await res.text()
+    const { wallet } = JSON.parse(text)
+    assert.match(wallet.address, /^[0-9a-f]{64}$/)
+    assert.deepEqual({ ...wallet, address: 'x' }, { address: 'x', shared: false, balanceNear: '0', frozen: false, policy: null })
+    const w = fakeOutlayer.byAccount(wallet.address)
+    assert.ok(!text.includes(w.key) && !text.includes('wk_') && !text.includes('handoff'))
+    const [row] = await query('select key_ciphertext from mind_wallets where mind_id = $1', [mindId])
+    assert.ok(!row.key_ciphertext.includes(w.key.slice(3)))
+
+    res = await a.call('POST', `/v1/minds/${mindId}/wallet`, {}, origin)
+    assert.equal(res.status, 409)
+    const b = await signIn()
+    for (const [method, path] of [['GET', '/wallet'], ['POST', '/wallet/freeze'], ['POST', '/wallet/policy']] as const) {
+      res = await b.call(method, `/v1/minds/${mindId}${path}`, method === 'POST' ? { perTransactionNear: '0.05', whitelist: ['x.testnet'] } : undefined, origin)
+      assert.equal(res.status, 404, `${method} ${path}`)
+    }
+
+    // Deleting the Mind removes its wallet row (funds must be moved out first; see docs).
+    res = await a.call('DELETE', `/v1/minds/${mindId}`, undefined, origin)
+    assert.equal(res.status, 204)
+    assert.equal((await query('select 1 from mind_wallets where mind_id = $1', [mindId])).length, 0)
+  })
+
+  test('policy: v2 bound to the wallet key, approver = the owner, returned as a store_wallet_policy tx', async () => {
+    const a = await signIn()
+    const mindId = await mindOf(a)
+    const { wallet } = await (await a.call('POST', `/v1/minds/${mindId}/wallet`, {}, origin)).json()
+    const w = fakeOutlayer.byAccount(wallet.address)
+
+    for (const bad of [{ perTransactionNear: '0', whitelist: ['a.testnet'] }, { perTransactionNear: '11', whitelist: ['a.testnet'] }, { perTransactionNear: '0.05', whitelist: [] }, { perTransactionNear: '0.05', whitelist: ['Not An Account!'] }, { perTransactionNear: 0.05, whitelist: ['a.testnet'] }]) {
+      const res = await a.call('POST', `/v1/minds/${mindId}/wallet/policy`, bad, origin)
+      assert.equal(res.status, 400, JSON.stringify(bad))
+    }
+
+    const res = await a.call('POST', `/v1/minds/${mindId}/wallet/policy`, { perTransactionNear: '0.05', whitelist: ['shop.testnet', 'Shop.testnet', a.accountId] }, origin)
+    assert.equal(res.status, 200, await res.clone().text())
+    const { transaction } = await res.json()
+    assert.equal(transaction.receiverId, 'outlayer.testnet')
+    const [action] = transaction.actions
+    assert.equal(action.type, 'FunctionCall')
+    assert.equal(action.params.methodName, 'store_wallet_policy')
+    assert.equal(action.params.gas, '100000000000000')
+    assert.equal(action.params.deposit, fakeOutlayer.policyCost)
+    assert.equal(action.params.args.wallet_pubkey, `ed25519:${wallet.address}`)
+    assert.match(action.params.args.wallet_signature, /^[0-9a-f]+$/)
+    const sign = fakeOutlayer.requests.findLast((r) => r.path === '/wallet/v1/sign-policy')!
+    assert.equal(sign.body.caller, a.accountId)
+
+    const policy = JSON.parse(Buffer.from(action.params.args.encrypted_data, 'base64').toString('utf8'))
+    assert.deepEqual(policy.rules, { limits: { per_transaction: { native: '50000000000000000000000' } }, addresses: { mode: 'whitelist', list: ['shop.testnet', a.accountId] }, transaction_types: ['transfer'] })
+    assert.deepEqual(policy.authorized_key_hashes, [createHash('sha256').update(w.key).digest('hex')])
+    assert.deepEqual(policy.approval.approvers, [{ id: a.accountId, role: 'admin' }])
+    assert.ok(policy.approval.excluded_types.includes('transfer'))
+
+    // After the owner signs it, the wallet reads it back.
+    fakeOutlayer.store(action.params.args.encrypted_data)
+    const got = (await (await a.call('GET', `/v1/minds/${mindId}/wallet`)).json()).wallet
+    assert.deepEqual(got.policy, { perTransactionNear: '0.05', whitelist: ['shop.testnet', a.accountId], transactionTypes: ['transfer'], boundToThisWallet: true })
+  })
+
+  test('freeze and unfreeze come back as owner transactions; OutLayer failures are 502', async () => {
+    const a = await signIn()
+    const mindId = await mindOf(a)
+    const { wallet } = await (await a.call('POST', `/v1/minds/${mindId}/wallet`, {}, origin)).json()
+    for (const [path, methodName] of [['freeze', 'freeze_wallet'], ['unfreeze', 'unfreeze_wallet']]) {
+      const res = await a.call('POST', `/v1/minds/${mindId}/wallet/${path}`, {}, origin)
+      assert.equal(res.status, 200)
+      assert.deepEqual((await res.json()).transaction, { receiverId: 'outlayer.testnet', actions: [{ type: 'FunctionCall', params: { methodName, args: { wallet_pubkey: `ed25519:${wallet.address}` }, gas: '30000000000000', deposit: '0' } }] })
+    }
+    fakeOutlayer.byAccount(wallet.address).frozen = true
+    assert.equal((await (await a.call('GET', `/v1/minds/${mindId}/wallet`)).json()).wallet.frozen, true)
+
+    let res = await a.call('POST', `/v1/minds/${mindId}/wallet/freeze`, {}, { origin: 'https://evil.example' })
+    assert.equal(res.status, 403)
+    res = await a.call('DELETE', `/v1/minds/${mindId}/wallet`, undefined, origin)
+    assert.equal(res.status, 405)
+    fakeOutlayer.failNext = 1
+    res = await a.call('GET', `/v1/minds/${mindId}/wallet`)
+    assert.equal(res.status, 502)
+    assert.equal((await res.json()).error, 'outlayer_error')
+  })
+})
+
+describe('payment tools through the backend (#42, option B)', () => {
+  const origin = { origin: 'http://localhost:3000' }
+  async function walletMind(c: Client, opts: { balanceNear?: string; policy?: boolean } = {}) {
+    const mindId = (await (await c.call('POST', '/v1/minds', { templateId: 'payments-mind', name: `Pay ${randomBytes(3).toString('hex')}` }, origin)).json()).mind.id as string
+    const { wallet } = await (await c.call('POST', `/v1/minds/${mindId}/wallet`, {}, origin)).json()
+    const w = fakeOutlayer.byAccount(wallet.address)
+    w.balance = (BigInt(Math.round(Number(opts.balanceNear ?? '1') * 1000)) * 10n ** 21n).toString()
+    if (opts.policy !== false) {
+      const { transaction } = await (await c.call('POST', `/v1/minds/${mindId}/wallet/policy`, { perTransactionNear: '0.05', whitelist: ['shop.testnet'] }, origin)).json()
+      fakeOutlayer.store(transaction.actions[0].params.args.encrypted_data)
+    }
+    return { mindId, w }
+  }
+  // What the engine does: take the walletToken from the run body and call the internal route with the engine key.
+  async function tokenFromChat(c: Client, mindId: string) {
+    const res = await c.call('POST', `/v1/minds/${mindId}/chat`, { message: 'hi' }, origin)
+    await res.text()
+    return fake.requests.findLast((r) => r.path.endsWith(`/v1/minds/${mindId}/chat`))!.body.walletToken as string | undefined
+  }
+  const engineCall = (method: string, path: string, token: string | undefined, body?: unknown, engineKey = ENGINE_KEY) => fetch(base + path, {
+    method,
+    headers: { 'x-engine-key': engineKey, ...(token ? { 'x-wallet-token': token } : {}), ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+
+  test('the engine gets a wallet token only for a Mind with a wallet, never the key', async () => {
+    const a = await signIn()
+    const plain = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Plain' }, origin)).json()).mind.id
+    assert.equal(await tokenFromChat(a, plain), undefined)
+    const { mindId, w } = await walletMind(a)
+    const token = await tokenFromChat(a, mindId)
+    assert.match(token!, /^wt_[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/)
+    const sent = JSON.stringify(fake.requests.findLast((r) => r.path.endsWith(`/v1/minds/${mindId}/chat`))!.body)
+    assert.ok(!sent.includes(w.key) && !sent.includes('wk_'))
+  })
+
+  test('send_payment: sent with a tx hash, refusals recorded without one, receipts listed', async () => {
+    const a = await signIn()
+    const { mindId, w } = await walletMind(a)
+    const token = await tokenFromChat(a, mindId)
+
+    let res = await engineCall('POST', '/internal/v1/wallet/send_payment', token, { to: 'shop.testnet', amountNear: '0.01' })
+    assert.equal(res.status, 200, await res.clone().text())
+    const ok = await res.json()
+    assert.equal(ok.status, 'sent')
+    assert.match(ok.txHash, /^[A-Za-z0-9_-]+$/)
+    assert.equal(ok.amountNear, '0.01')
+    const transfer = fakeOutlayer.requests.findLast((r) => r.path === '/wallet/v1/transfer')!
+    assert.deepEqual(transfer.body, { chain: 'near', to: 'shop.testnet', amount: '10000000000000000000000' })
+    assert.equal(transfer.key, w.key)
+
+    res = await engineCall('POST', '/internal/v1/wallet/send_payment', token, { to: 'shop.testnet', amountNear: '0.2' })
+    const over = await res.json()
+    assert.equal(over.status, 'policy_denied')
+    assert.match(over.message, /Per-transaction limit exceeded/)
+    assert.equal(over.txHash, undefined)
+    res = await engineCall('POST', '/internal/v1/wallet/send_payment', token, { to: 'thief.testnet', amountNear: '0.01' })
+    assert.equal((await res.json()).status, 'policy_denied')
+    w.frozen = true
+    res = await engineCall('POST', '/internal/v1/wallet/send_payment', token, { to: 'shop.testnet', amountNear: '0.01' })
+    assert.equal((await res.json()).status, 'wallet_frozen')
+    w.frozen = false
+
+    res = await engineCall('GET', '/internal/v1/wallet/balance', token)
+    assert.deepEqual(await res.json(), { address: w.account, balanceNear: '0.99' })
+    res = await engineCall('GET', '/internal/v1/wallet/payments', token)
+    const engineList = (await res.json()).payments
+    res = await a.call('GET', `/v1/minds/${mindId}/wallet/payments`)
+    const ownerList = (await res.json()).payments
+    assert.deepEqual(engineList, ownerList)
+    assert.deepEqual(ownerList.map((p: any) => p.status), ['wallet_frozen', 'policy_denied', 'policy_denied', 'sent'])
+    assert.ok(ownerList[3].txHash && !ownerList[0].txHash)
+
+    for (const bad of [{ to: 'shop.testnet', amountNear: '0' }, { to: 'shop.testnet', amountNear: 0.01 }, { to: 'NOT VALID', amountNear: '0.01' }]) {
+      res = await engineCall('POST', '/internal/v1/wallet/send_payment', token, bad)
+      assert.equal(res.status, 400, JSON.stringify(bad))
+    }
+  })
+
+  test('internal routes answer only on loopback', async () => {
+    const { isLoopback } = await import('../src/http.ts')
+    for (const a of ['127.0.0.1', '127.1.2.3', '::1', '::ffff:127.0.0.1']) assert.equal(isLoopback(a), true, a)
+    for (const a of [undefined, '', '192.168.18.10', '::ffff:192.168.18.10', '10.0.0.1', '2001:db8::1', '127.0.0.1.evil']) assert.equal(isLoopback(a), false, String(a))
+
+    const a = await signIn()
+    const { mindId } = await walletMind(a)
+    const token = await tokenFromChat(a, mindId)
+    assert.equal((await engineCall('GET', '/internal/v1/wallet/balance', token)).status, 200)
+    // The same valid call from a non-loopback address of this machine (the test server listens on all interfaces).
+    const { networkInterfaces } = await import('node:os')
+    const lan = Object.values(networkInterfaces()).flat().find((i) => i && i.family === 'IPv4' && !i.internal)?.address
+    if (!lan) return console.log('no non-loopback IPv4 address here; remote check skipped')
+    const remote = await fetch(base.replace('127.0.0.1', lan) + '/internal/v1/wallet/balance', { headers: { 'x-engine-key': ENGINE_KEY, 'x-wallet-token': token! } })
+    assert.equal(remote.status, 404)
+    assert.deepEqual(await remote.json(), { error: 'not_found' })
+  })
+
+  test('an unfunded wallet fails with a clear message', async () => {
+    const a = await signIn()
+    const { mindId } = await walletMind(a, { balanceNear: '0', policy: false })
+    const res = await engineCall('POST', '/internal/v1/wallet/send_payment', await tokenFromChat(a, mindId), { to: 'shop.testnet', amountNear: '0.01' })
+    const out = await res.json()
+    assert.equal(out.status, 'failed')
+    assert.match(out.message, /not funded/)
+  })
+
+  test('internal routes need the engine key and a valid, unexpired token for a Mind that still exists', async () => {
+    const a = await signIn()
+    const { mindId } = await walletMind(a)
+    const token = await tokenFromChat(a, mindId)
+    const { issueWalletToken } = await import('../src/walletToken.ts')
+    const { user } = await (await a.call('GET', '/v1/me')).json()
+
+    let res = await engineCall('GET', '/internal/v1/wallet/balance', token, undefined, 'wrong-key')
+    assert.equal(res.status, 401)
+    res = await engineCall('GET', '/internal/v1/wallet/balance', undefined)
+    assert.equal(res.status, 401)
+    res = await engineCall('GET', '/internal/v1/wallet/balance', token!.slice(0, -2) + (token!.endsWith('A') ? 'BB' : 'AA'))
+    assert.equal((await res.json()).error, 'invalid_wallet_token')
+    res = await engineCall('GET', '/internal/v1/wallet/balance', issueWalletToken(user.id, mindId, Date.now() - 16 * 60 * 1000))
+    assert.equal((await res.json()).error, 'wallet_token_expired')
+    // A token for another user's Mind (forged with the wrong user) or a deleted Mind gets 404.
+    const b = await signIn()
+    const { user: other } = await (await b.call('GET', '/v1/me')).json()
+    res = await engineCall('GET', '/internal/v1/wallet/balance', issueWalletToken(other.id, mindId))
+    assert.equal(res.status, 404)
+    res = await engineCall('PUT', '/internal/v1/wallet/balance', token)
+    assert.equal(res.status, 405)
+    await a.call('DELETE', `/v1/minds/${mindId}`, undefined, origin)
+    res = await engineCall('GET', '/internal/v1/wallet/balance', token)
+    assert.equal(res.status, 404)
+  })
+})
+
+describe('judge try-out mode (#43)', () => {
+  const origin = { origin: 'http://localhost:3000' }
+  // A new address per call, so two sign-ups never share an hourly window by chance.
+  let nextIp = 0
+  const ip = () => `198.51.100.${(nextIp++ % 250) + 1}`
+  async function demoSignIn(fromIp = ip()) {
+    const res = await client()('POST', '/v1/auth/demo', {}, { ...origin, 'cf-connecting-ip': fromIp })
+    assert.equal(res.status, 201, await res.clone().text())
+    const cookie = res.headers.get('set-cookie')!.split(';')[0]
+    const { user } = await res.json()
+    const call = client(cookie)
+    return { user, call: ((m, p, b, h = {}) => call(m, p, b, { 'cf-connecting-ip': fromIp, ...h })) as Client['call'] }
+  }
+  const lastChatBody = (mindId: string) => fake.requests.findLast((r) => r.path.endsWith(`/v1/minds/${mindId}/chat`))!.body
+
+  test('a demo session without a wallet; the engine is told; payments use the shared demo wallet', async () => {
+    const d = await demoSignIn()
+    assert.equal(d.user.demo, true)
+    assert.match(d.user.nearAccountId, /^demo:/)
+    assert.equal((await (await d.call('GET', '/v1/me')).json()).user.demo, true)
+    const mindId = (await (await d.call('POST', '/v1/minds', { templateId: 'payments-mind', name: 'Judge pay' }, origin)).json()).mind.id
+    await (await d.call('POST', `/v1/minds/${mindId}/chat`, { message: 'hi' }, origin)).text()
+    const body = lastChatBody(mindId)
+    assert.equal(body.demo, true)
+    assert.match(body.walletToken, /^wt_/)
+    assert.ok(!JSON.stringify(body).includes(demoWallet.key))
+    const { wallet } = await (await d.call('GET', `/v1/minds/${mindId}/wallet`)).json()
+    assert.equal(wallet.address, demoWallet.account)
+    assert.equal(wallet.shared, true)
+
+    // A wallet-login user's run carries no demo flag.
+    const a = await signIn()
+    const own = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Own' }, origin)).json()).mind.id
+    await (await a.call('POST', `/v1/minds/${own}/chat`, { message: 'hi' }, origin)).text()
+    assert.equal(lastChatBody(own).demo, undefined)
+  })
+
+  test('owner-only actions are refused for demo users', async () => {
+    const d = await demoSignIn()
+    const mindId = (await (await d.call('POST', '/v1/minds', { templateId: 'payments-mind', name: 'Judge' }, origin)).json()).mind.id
+    const cases: [string, string, unknown, string][] = [
+      ['PUT', '/v1/secrets/SHOP_KEY', { value: 'abcd1234', allowedHosts: ['api.shop.com'] }, 'secrets'],
+      ['POST', `/v1/minds/${mindId}/wallet`, {}, 'create_wallet'],
+      ['POST', `/v1/minds/${mindId}/wallet/policy`, { perTransactionNear: '0.05', whitelist: ['a.testnet'] }, 'set_policy'],
+      ['POST', `/v1/minds/${mindId}/wallet/freeze`, {}, 'freeze'],
+      ['PUT', `/v1/minds/${mindId}/workflows/daily-report/autopilot`, {}, 'autopilot'],
+    ]
+    for (const [method, path, body, action] of cases) {
+      const res = await d.call(method, path, body, origin)
+      assert.equal(res.status, 403, `${method} ${path}`)
+      assert.deepEqual(await res.json(), { error: 'demo_not_allowed', action })
+    }
+  })
+
+  test('at most 2 sent payments per demo user, then a recorded refusal without calling OutLayer', async () => {
+    const d = await demoSignIn()
+    const mindId = (await (await d.call('POST', '/v1/minds', { templateId: 'payments-mind', name: 'Judge cap' }, origin)).json()).mind.id
+    await (await d.call('POST', `/v1/minds/${mindId}/chat`, { message: 'pay' }, origin)).text()
+    const token = lastChatBody(mindId).walletToken
+    const pay = () => fetch(`${base}/internal/v1/wallet/send_payment`, { method: 'POST', headers: { 'x-engine-key': ENGINE_KEY, 'x-wallet-token': token, 'content-type': 'application/json' }, body: JSON.stringify({ to: 'shop.testnet', amountNear: '0.01' }) }).then((r) => r.json())
+    assert.equal((await pay()).status, 'sent')
+    assert.equal((await pay()).status, 'sent')
+    const before = fakeOutlayer.requests.filter((r) => r.path === '/wallet/v1/transfer').length
+    const third = await pay()
+    assert.equal(third.status, 'failed')
+    assert.match(third.message, /demo limit/)
+    assert.equal(fakeOutlayer.requests.filter((r) => r.path === '/wallet/v1/transfer').length, before)
+  })
+
+  test('the payment cap holds for parallel payments', async () => {
+    const d = await demoSignIn()
+    const mindId = (await (await d.call('POST', '/v1/minds', { templateId: 'payments-mind', name: 'Judge race' }, origin)).json()).mind.id
+    await (await d.call('POST', `/v1/minds/${mindId}/chat`, { message: 'pay' }, origin)).text()
+    const token = lastChatBody(mindId).walletToken
+    const pay = () => fetch(`${base}/internal/v1/wallet/send_payment`, { method: 'POST', headers: { 'x-engine-key': ENGINE_KEY, 'x-wallet-token': token, 'content-type': 'application/json' }, body: JSON.stringify({ to: 'shop.testnet', amountNear: '0.01' }) }).then((r) => r.json())
+    const out = await Promise.all([pay(), pay(), pay(), pay(), pay()])
+    assert.equal(out.filter((p) => p.status === 'sent').length, 2, JSON.stringify(out.map((p) => p.status)))
+    assert.equal(out.filter((p) => p.status === 'failed' && /demo limit/.test(p.message)).length, 3)
+  })
+
+  test('hourly windows forget visitors after an hour', async () => {
+    const { sweepDemoWindows, resetDemoWindows } = await import('../src/demo.ts')
+    resetDemoWindows()
+    await demoSignIn()
+    await demoSignIn()
+    assert.equal(sweepDemoWindows(), 2)
+    assert.equal(sweepDemoWindows(Date.now() + 3601_000), 0)
+  })
+
+  test('run limit per demo user, sign-up limit per IP, off when DEMO_MODE is not set', async () => {
+    const { config } = await import('../src/config.ts')
+    const { resetDemoWindows } = await import('../src/demo.ts')
+    const saved = { ...config.demo }
+    try {
+      config.demo.runsPerUser = 1
+      const d = await demoSignIn()
+      const mindId = (await (await d.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Judge runs' }, origin)).json()).mind.id
+      let res = await d.call('POST', `/v1/minds/${mindId}/chat`, { message: 'one' }, origin)
+      assert.equal(res.status, 200)
+      await res.text()
+      res = await d.call('POST', `/v1/minds/${mindId}/chat`, { message: 'two' }, origin)
+      assert.equal(res.status, 429)
+      assert.deepEqual(await res.json(), { error: 'demo_run_limit', limit: 1 })
+
+      config.demo.signupsPerIpPerHour = 2
+      const fixed = ip()
+      await demoSignIn(fixed)
+      await demoSignIn(fixed)
+      res = await client()('POST', '/v1/auth/demo', {}, { ...origin, 'cf-connecting-ip': fixed })
+      assert.equal(res.status, 429)
+      assert.equal((await res.json()).error, 'demo_rate_limited')
+
+      config.demoMode = false
+      res = await client()('POST', '/v1/auth/demo', {}, { ...origin, 'cf-connecting-ip': ip() })
+      assert.equal(res.status, 404)
+    } finally {
+      Object.assign(config.demo, saved)
+      config.demoMode = true
+      resetDemoWindows()
+    }
+  })
+
+  test('demo users older than the retention are deleted with their Minds; others stay', async () => {
+    const { cleanupDemoUsers } = await import('../src/demo.ts')
+    const d = await demoSignIn()
+    const mindId = (await (await d.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Old judge' }, origin)).json()).mind.id
+    const a = await signIn()
+    const { user: real } = await (await a.call('GET', '/v1/me')).json()
+    await query(`update users set created_at = now() - interval '8 days' where id = any($1)`, [[d.user.id, real.id]])
+    const fresh = await demoSignIn()
+    const dropped: string[] = []
+    await cleanupDemoUsers(async (id) => { dropped.push(id) })
+    assert.ok(dropped.includes(mindId))
+    const left = (await query('select id from users where id = any($1)', [[d.user.id, real.id, fresh.user.id]])).map((r) => r.id).sort()
+    assert.deepEqual(left, [real.id, fresh.user.id].sort())
+    assert.equal((await d.call('GET', '/v1/me')).status, 401)
+  })
+})
+
+describe('app connections through Composio (#13)', () => {
+  test('Google Calendar connects on its own, next to Gmail (#57)', async () => {
+    const a = await signIn()
+    const { user } = await (await a.call('GET', '/v1/me')).json()
+    const origin = { origin: 'http://localhost:3000' }
+    let res = await a.call('POST', '/v1/connections/gmail', {}, origin)
+    assert.equal(res.status, 200)
+    fakeComposio.activate(user.id, 'gmail')
+
+    res = await a.call('POST', '/v1/connections/googlecalendar', {}, origin)
+    assert.equal(res.status, 200, await res.clone().text())
+    assert.match((await res.json()).redirectUrl, /^https:\/\//)
+    const session = fakeComposio.requests.findLast((r) => r.path === '/tool_router/session')!
+    assert.equal(session.body.user_id, user.id)
+    assert.deepEqual(session.body.toolkits, { enable: ['googlecalendar'] })
+    const link = fakeComposio.requests.findLast((r) => r.path.endsWith('/link'))!
+    assert.equal(link.body.toolkit, 'googlecalendar')
+    assert.equal(link.body.callback_url, 'http://localhost:3000/connections?toolkit=googlecalendar')
+
+    let list = (await (await a.call('GET', '/v1/connections')).json()).connections
+    assert.deepEqual(list.map((c: any) => [c.toolkit, c.status]), [['gmail', 'connected'], ['googlecalendar', 'pending']])
+    fakeComposio.activate(user.id, 'googlecalendar')
+    assert.equal((await a.call('POST', '/v1/connections/googlecalendar', {}, origin)).status, 409)
+
+    // Disconnecting the calendar leaves Gmail connected.
+    assert.equal((await a.call('DELETE', '/v1/connections/googlecalendar', undefined, origin)).status, 204)
+    list = (await (await a.call('GET', '/v1/connections')).json()).connections
+    assert.deepEqual(list.map((c: any) => [c.toolkit, c.status]), [['gmail', 'connected'], ['googlecalendar', 'not_connected']])
+  })
+
+  test('connect Gmail: Connect Link for this user, pending, then connected; no Composio ids or tokens leave the backend', async () => {
+    const a = await signIn()
+    const { user } = await (await a.call('GET', '/v1/me')).json()
+
+    let res = await a.call('GET', '/v1/connections')
+    assert.equal(res.status, 200)
+    assert.deepEqual((await res.json()).connections, [{ toolkit: 'gmail', status: 'not_connected' }, { toolkit: 'googlecalendar', status: 'not_connected' }])
+
+    res = await a.call('POST', '/v1/connections/gmail', {}, { origin: 'http://localhost:3000' })
+    assert.equal(res.status, 200, await res.clone().text())
+    const { redirectUrl } = await res.json()
+    assert.match(redirectUrl, /^https:\/\//)
+    const session = fakeComposio.requests.findLast((r) => r.path === '/tool_router/session')!
+    assert.equal(session.body.user_id, user.id)
+    assert.deepEqual(session.body.toolkits, { enable: ['gmail'] })
+    const link = fakeComposio.requests.findLast((r) => r.path.endsWith('/link'))!
+    assert.equal(link.body.callback_url, 'http://localhost:3000/connections?toolkit=gmail')
+
+    res = await a.call('GET', '/v1/connections')
+    const pending = (await res.json()).connections[0]
+    assert.equal(pending.status, 'pending')
+    assert.deepEqual(Object.keys(pending).sort(), ['since', 'status', 'toolkit'])
+
+    // A second attempt replaces the unfinished one: one connection per user and toolkit.
+    res = await a.call('POST', '/v1/connections/gmail', {}, { origin: 'http://localhost:3000' })
+    assert.equal(res.status, 200)
+    assert.equal(fakeComposio.accounts.filter((x) => x.user_id === user.id).length, 1)
+
+    fakeComposio.activate(user.id)
+    res = await a.call('GET', '/v1/connections')
+    assert.equal((await res.json()).connections[0].status, 'connected')
+    res = await a.call('POST', '/v1/connections/gmail', {}, { origin: 'http://localhost:3000' })
+    assert.equal(res.status, 409)
+    assert.equal((await res.json()).error, 'already_connected')
+
+    // Another user neither sees nor deletes it.
+    const b = await signIn()
+    res = await b.call('GET', '/v1/connections')
+    assert.equal((await res.json()).connections[0].status, 'not_connected')
+    res = await b.call('DELETE', '/v1/connections/gmail', undefined, { origin: 'http://localhost:3000' })
+    assert.equal(res.status, 404)
+    assert.equal(fakeComposio.accounts.filter((x) => x.user_id === user.id).length, 1)
+
+    res = await a.call('DELETE', '/v1/connections/gmail', undefined, { origin: 'http://localhost:3000' })
+    assert.equal(res.status, 204)
+    assert.equal(fakeComposio.accounts.filter((x) => x.user_id === user.id).length, 0)
+    res = await a.call('GET', '/v1/connections')
+    assert.equal((await res.json()).connections[0].status, 'not_connected')
+  })
+
+  test('unknown toolkit, wrong method, CSRF, Composio failure and no key', async () => {
+    const a = await signIn()
+    let res = await a.call('POST', '/v1/connections/slack', {}, { origin: 'http://localhost:3000' })
+    assert.equal(res.status, 404)
+    assert.equal((await res.json()).error, 'unknown_toolkit')
+    res = await a.call('PUT', '/v1/connections/gmail', {}, { origin: 'http://localhost:3000' })
+    assert.equal(res.status, 405)
+    res = await a.call('POST', '/v1/connections/gmail', {}, { origin: 'https://evil.example' })
+    assert.equal(res.status, 403)
+    res = await client()('GET', '/v1/connections')
+    assert.equal(res.status, 401)
+
+    fakeComposio.failNext = 1
+    res = await a.call('GET', '/v1/connections')
+    assert.equal(res.status, 502)
+    assert.equal((await res.json()).error, 'composio_error')
+
+    const key = config.composioApiKey
+    config.composioApiKey = ''
+    try {
+      res = await a.call('GET', '/v1/connections')
+      assert.equal(res.status, 503)
+      assert.equal((await res.json()).error, 'composio_not_configured')
+    } finally {
+      config.composioApiKey = key
+    }
+  })
+})
+
+describe('chat threads (#54)', () => {
+  const origin = { origin: 'http://localhost:3000' }
+  test('threads newest first with a title from the first message; messages in order, paged by run', async () => {
+    const a = await signIn()
+    const mindId = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Threads' }, origin)).json()).mind.id
+    const long = 'Please plan my whole week around the dentist appointment on Thursday and the two client calls'
+    const first = (await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { message: long }, origin)))[0].threadId
+    await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { threadId: first, message: 'and Friday?' }, origin))
+    const second = (await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { message: 'hi' }, origin)))[0].threadId
+    // A builder run has no thread and must not show up.
+    await query(`insert into runs (id, mind_id, workflow_id, status) values ($1, $2, 'daily-report', 'finished')`, [`run_wf_${randomBytes(4).toString('hex')}`, mindId])
+
+    const { threads } = await (await a.call('GET', `/v1/minds/${mindId}/threads`)).json()
+    assert.deepEqual(threads.map((t: any) => t.threadId), [second, first])
+    assert.equal(threads[0].title, 'hi')
+    assert.ok(threads[1].title.endsWith('…') && threads[1].title.length <= 61 && long.startsWith(threads[1].title.slice(0, -1)), threads[1].title)
+    assert.deepEqual(threads.map((t: any) => t.messageCount), [2, 4])
+
+    let res = await a.call('GET', `/v1/minds/${mindId}/threads/${first}/messages`)
+    const all = (await res.json())
+    assert.equal(all.nextBefore, null)
+    assert.deepEqual(all.messages.map((m: any) => [m.role, m.text.slice(0, 6)]), [['user', long.slice(0, 6)], ['assistant', 'w0 w1 '], ['user', 'and Fr'], ['assistant', 'w0 w1 ']])
+    assert.equal(all.messages[1].text.split(' ').filter(Boolean).length, 40)
+    assert.equal(all.messages[0].runId, all.messages[1].runId)
+
+    // Two messages per page: the newest run first, then `nextBefore` for the older one.
+    res = await a.call('GET', `/v1/minds/${mindId}/threads/${first}/messages?limit=2`)
+    const p1 = await res.json()
+    assert.deepEqual(p1.messages.map((m: any) => m.text.slice(0, 6)), ['and Fr', 'w0 w1 '])
+    res = await a.call('GET', `/v1/minds/${mindId}/threads/${first}/messages?limit=2&before=${encodeURIComponent(p1.nextBefore)}`)
+    const p2 = await res.json()
+    assert.deepEqual(p2.messages.map((m: any) => m.role), ['user', 'assistant'])
+    assert.equal(p2.messages[0].text, long)
+    assert.equal(p2.nextBefore, null)
+  })
+
+  test('paging keeps runs that started in the same millisecond', async () => {
+    const a = await signIn()
+    const mindId = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Same time' }, origin)).json()).mind.id
+    const threadId = (await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { message: 'first' }, origin)))[0].threadId
+    for (const message of ['second', 'third']) await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { threadId, message }, origin))
+    // All three runs start at the same instant, down to the microsecond.
+    await query(`update runs set started_at = '2026-11-06T12:00:00.123456Z' where thread_id = $1`, [threadId])
+    const seen: string[] = []
+    let before: string | null = ''
+    for (let page = 0; before !== null && page < 5; page++) {
+      const q: string = before ? `&before=${encodeURIComponent(before)}` : ''
+      const body: any = await (await a.call('GET', `/v1/minds/${mindId}/threads/${threadId}/messages?limit=1${q}`)).json()
+      seen.push(...body.messages.filter((m: any) => m.role === 'user').map((m: any) => m.text))
+      before = body.nextBefore
+    }
+    assert.deepEqual(seen.sort(), ['first', 'second', 'third'])
+    // A plain ISO time still works: everything that started before it.
+    const old = await (await a.call('GET', `/v1/minds/${mindId}/threads/${threadId}/messages?before=2026-11-06T12:00:00.124Z`)).json()
+    assert.equal(old.messages.filter((m: any) => m.role === 'user').length, 3)
+    assert.equal((await a.call('GET', `/v1/minds/${mindId}/threads/${threadId}/messages?before=x~y~z`)).status, 400)
+  })
+
+  test('a run paused for approval keeps its user message; resumed text joins its reply', async () => {
+    const a = await signIn()
+    const mindId = (await (await a.call('POST', '/v1/minds', { templateId: 'payments-mind', name: 'Pay threads' }, origin)).json()).mind.id
+    const evs = await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { message: 'pay the bill' }, origin))
+    await events(await a.call('POST', `/v1/runs/${evs[0].runId}/approve?mindId=${mindId}`, { toolCallId: 'call_1' }, origin))
+    const { messages } = await (await a.call('GET', `/v1/minds/${mindId}/threads/${evs[0].threadId}/messages`)).json()
+    assert.deepEqual(messages.map((m: any) => [m.role, m.text]), [['user', 'pay the bill'], ['assistant', 'Paid.']])
+  })
+
+  test('another user, another Mind or an unknown thread answers 404', async () => {
+    const a = await signIn()
+    const b = await signIn()
+    const mindA = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'A' }, origin)).json()).mind.id
+    const mindA2 = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'A2' }, origin)).json()).mind.id
+    const threadId = (await events(await a.call('POST', `/v1/minds/${mindA}/chat`, { message: 'secret plans' }, origin)))[0].threadId
+    assert.equal((await b.call('GET', `/v1/minds/${mindA}/threads`)).status, 404)
+    assert.equal((await b.call('GET', `/v1/minds/${mindA}/threads/${threadId}/messages`)).status, 404)
+    let res = await a.call('GET', `/v1/minds/${mindA2}/threads/${threadId}/messages`)
+    assert.equal(res.status, 404)
+    assert.deepEqual(await res.json(), { error: 'thread_not_found' })
+    assert.equal((await a.call('GET', `/v1/minds/${mindA}/threads/thr_${'0'.repeat(24)}/messages`)).status, 404)
+    assert.equal((await a.call('GET', `/v1/minds/${mindA}/threads/not-a-thread/messages`)).status, 404)
+    assert.equal((await a.call('GET', `/v1/minds/${mindA}/threads/${threadId}/messages?before=yesterday`)).status, 400)
+    assert.equal((await a.call('DELETE', `/v1/minds/${mindA}/threads/${threadId}`, undefined, origin)).status, 405)
+    assert.deepEqual((await (await a.call('GET', `/v1/minds/${mindA2}/threads`)).json()).threads, [])
   })
 })
