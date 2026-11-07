@@ -1,0 +1,252 @@
+@import "tailwindcss";
+
+/* Tokens from design/landing.pen (Stone & Lime, light mode). */
+@theme {
+  --color-bg: #f3f2ee;
+  --color-surface: #ffffff;
+  --color-text: #161614;
+  --color-text-2: #5c5a54;
+  --color-primary: #161614;
+  --color-on-primary: #ffffff;
+  --color-primary-hover: #33332f;
+  --color-accent: #d8f04a;
+  --color-on-accent: #161614;
+  --color-border: #e0ded6;
+  --color-focus: #5e6b00;
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Motion tokens (design/CLAUDE.md, Motion v0.3). */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- Nav ----------
+   Top of the page: a plain full-width bar on the hero.
+   After scrolling: a white pill across the row (the opposite colour of the
+   dark Open app button). Logo and button keep their colours. */
+
+.nav {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 50;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.nav-shell {
+  --logo-head: var(--color-text);
+  --logo-eye: #ffffff;
+  pointer-events: auto;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  width: 100%;
+  max-width: 1440px;
+  height: 80px;
+  margin-top: 0;
+  padding: 0 120px;
+  border-radius: 0;
+  background-color: transparent;
+  color: var(--color-text);
+  box-shadow: 0 0 0 0 transparent;
+  transition:
+    max-width 420ms var(--ease-drawer),
+    height 420ms var(--ease-drawer),
+    margin-top 420ms var(--ease-drawer),
+    padding 420ms var(--ease-drawer),
+    border-radius 420ms var(--ease-drawer),
+    background-color 300ms ease,
+    color 300ms ease,
+    box-shadow 300ms ease;
+}
+
+.nav[data-scrolled="true"] .nav-shell {
+  max-width: min(1200px, calc(100% - 32px));
+  height: 60px;
+  margin-top: 14px;
+  padding: 0 10px 0 26px;
+  border-radius: 999px;
+  background-color: var(--color-surface);
+  box-shadow:
+    0 0 0 1px var(--color-border),
+    0 10px 30px -14px rgb(22 22 20 / 0.25);
+}
+
+.logo-head {
+  fill: var(--logo-head);
+  transition: fill 300ms ease;
+}
+.logo-eye {
+  fill: var(--logo-eye);
+  transition: fill 300ms ease;
+}
+
+.nav-logo {
+  justify-self: start;
+  display: flex;
+  border-radius: 8px;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  color: color-mix(in srgb, currentColor 72%, transparent);
+  transition: color 200ms ease;
+}
+
+.nav-letters {
+  display: flex;
+  align-items: baseline;
+  white-space: nowrap;
+}
+
+/* Every letter grows on its own. The delay grows with the distance from the
+   middle of the word, so the growth spreads from the centre to both ends. */
+.nav-ch {
+  display: inline-block;
+  font-size: 15px;
+  line-height: 1;
+  font-weight: 400;
+  transition:
+    font-size 300ms var(--ease-out),
+    font-weight 300ms var(--ease-out);
+  transition-delay: calc(var(--d) * 40ms);
+}
+
+/* Hover only for real pointers (Motion v0.3). */
+@media (hover: hover) and (pointer: fine) {
+  .nav-link:hover {
+    color: inherit;
+  }
+  .nav-link:hover .nav-ch {
+    font-size: 22.5px;
+    font-weight: 600;
+  }
+}
+
+.nav-cta {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 20px;
+  border-radius: 999px;
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: 15px;
+  font-weight: 500;
+  /* A real border (outside the swipe layer) keeps the button's edge when it
+     turns white on the white pill. */
+  border: 1px solid var(--color-primary);
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  transition:
+    color 320ms var(--ease-out),
+    transform 160ms var(--ease-out);
+}
+.nav-cta:active {
+  transform: scale(0.97);
+}
+
+/* Hover swipe: a white layer sweeps in from the left and the colours flip.
+   On leave it keeps going and sweeps out to the right. */
+.nav-cta::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-color: var(--color-surface);
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 420ms var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .nav-cta:hover {
+    color: var(--color-text);
+  }
+  .nav-cta:hover::before {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+}
+
+.nav-cta-arrow {
+  transition: transform 200ms var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .nav-cta:hover .nav-cta-arrow {
+    transform: translate(1px, -1px);
+  }
+}
+
+/* Keyboard focus only: 2 px ring, 2 px outside. */
+.nav a:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+  .nav-shell {
+    padding: 0 20px;
+  }
+  .nav-links {
+    display: none;
+  }
+}
+
+/* Reduced motion: keep colour fades, drop size changes and movement. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .nav-shell {
+    transition:
+      background-color 300ms ease,
+      color 300ms ease,
+      box-shadow 300ms ease;
+  }
+  .nav-ch,
+  .nav-cta-arrow {
+    transition: none;
+  }
+  .nav-cta::before {
+    transform: scaleX(1);
+    opacity: 0;
+    transition: opacity 200ms ease;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .nav-cta:hover::before {
+      opacity: 1;
+    }
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .nav-link:hover .nav-ch {
+      font-size: 15px;
+    }
+  }
+}
