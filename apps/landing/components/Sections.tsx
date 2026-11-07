@@ -1,0 +1,324 @@
+// The landing sections under the hero, following "Landing v0.2" in design/landing.pen.
+// First pass so the layout can be judged in the browser; visuals marked "placeholder" come later.
+
+const Icon = {
+  ban: "M4.9 4.9l14.2 14.2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
+  list: "M3 6h.01M3 12h.01M3 18h.01M8 6h13M8 12h13M8 18h13",
+  snow: "M12 2v20M4.9 4.9l14.2 14.2M2 12h20M4.9 19.1 19.1 4.9",
+  check: "M20 6 9 17l-5-5",
+  x: "M18 6 6 18M6 6l12 12",
+  mail: "M4 4h16v16H4zM4 6l8 7 8-7",
+  alert: "M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z",
+  lock: "M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4",
+  hourglass: "M6 2h12M6 22h12M6 2c0 6 12 6 12 10S6 16 6 22M18 2c0 6-12 6-12 10s12 4 12 10",
+  play: "M7 4.5v15l13-7.5z",
+  arrow: "M5 12h14M12 5l7 7-7 7",
+  github: "M9 19c-4 1.5-4-2-6-2.5m12 5V18a3.4 3.4 0 0 0-1-2.6c3.2-.4 6.5-1.6 6.5-7a5.4 5.4 0 0 0-1.5-3.8 5 5 0 0 0-.1-3.8s-1.2-.4-3.9 1.5a13.4 13.4 0 0 0-7 0C6.3.4 5.1.8 5.1.8a5 5 0 0 0-.1 3.8A5.4 5.4 0 0 0 3.5 8.4c0 5.4 3.3 6.6 6.5 7a3.4 3.4 0 0 0-1 2.6V22",
+};
+
+function I({ d, size = 16, className = "" }: { d: string; size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d={d} />
+    </svg>
+  );
+}
+
+function Heading({ title, sub, align = "center" }: { title: string; sub?: string; align?: "center" | "left" }) {
+  return (
+    <div className={`flex flex-col gap-3 ${align === "center" ? "items-center text-center" : "items-start"}`}>
+      <h2 className="max-w-[760px] text-[36px] font-medium leading-[1.08] tracking-[-1.2px] md:text-[48px]">{title}</h2>
+      {sub && <p className="max-w-[600px] text-[17px] leading-[1.5] text-[var(--color-text-2)]">{sub}</p>}
+    </div>
+  );
+}
+
+const MINDS = [
+  { img: "general-assistant", name: "General Assistant", role: "Your everyday helper", quote: "I remember the small stuff so you don't have to.", bg: "var(--color-info-soft)" },
+  { img: "payments-mind", name: "Payments Mind", role: "Pays your bills, inside your limits", quote: "I keep your bills paid and your limits boring.", bg: "var(--color-accent-soft)" },
+  { img: "email-manager", name: "Email Manager", role: "Keeps your inbox calm", quote: "I read the noise so you only see what matters.", bg: "var(--color-warning-soft)" },
+];
+
+function Point({ d, children }: { d: string; children: React.ReactNode }) {
+  return (
+    <li className="flex items-center gap-3">
+      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[var(--color-surface)]">
+        <I d={d} />
+      </span>
+      <span className="text-[15px] font-medium leading-[1.4]">{children}</span>
+    </li>
+  );
+}
+
+export function Approvals() {
+  return (
+    <section id="how-it-works" className="mx-auto grid max-w-[1200px] items-center gap-14 px-5 py-24 md:grid-cols-[480px_1fr]">
+      <div className="flex flex-col gap-5">
+        <h2 className="text-[36px] font-medium leading-[1.08] tracking-[-1.2px] md:text-[44px]">Every payment asks you first</h2>
+        <p className="text-[17px] leading-[1.5] text-[var(--color-text-2)]">
+          Penny finds the bill and gets it ready. Nothing leaves the wallet until you tap Approve.
+        </p>
+        <ul className="flex flex-col gap-3">
+          <Point d={Icon.ban}>Over your per-payment limit? Refused before signing, even if you approve.</Point>
+          <Point d={Icon.list}>Only addresses on your list can be paid.</Point>
+          <Point d={Icon.snow}>Freeze the wallet in one tap, any time.</Point>
+        </ul>
+      </div>
+      <div className="flex flex-col items-center justify-center gap-4 rounded-[24px] bg-[var(--color-surface-muted)] p-8 md:p-12">
+        <div className="flex w-full max-w-[420px] flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <span className="size-6 rounded-full bg-[var(--color-accent-soft)] bg-cover" style={{ backgroundImage: "url(/minds/payments-mind.webp)" }} />
+            <span className="text-[13px] font-semibold">Penny</span>
+          </div>
+          <p className="rounded-[4px_18px_18px_18px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-[15px] leading-[1.45]">
+            Biznet sent your internet bill. I&apos;ve got it ready, it just needs your OK.
+          </p>
+        </div>
+        <div className="flex w-full max-w-[420px] flex-col gap-4 rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-[0_12px_32px_rgb(22_22_20/0.07)]">
+          <div className="flex items-center justify-between">
+            <span className="text-[14px] text-[var(--color-text-2)]">Penny wants to send</span>
+            <span className="flex items-center gap-1.5 rounded-full bg-[var(--color-warning-soft)] px-2.5 py-1 text-[12px] font-medium text-[var(--color-warning)]">
+              <I d={Icon.hourglass} size={13} /> Needs approval
+            </span>
+          </div>
+          <div className="flex items-end gap-2">
+            <span className="text-[44px] font-medium leading-none tracking-[-1.5px]">1.5</span>
+            <span className="text-[16px] font-medium text-[var(--color-text-2)]">NEAR</span>
+          </div>
+          <div className="flex items-center gap-2.5 text-[14px]">
+            <span className="text-[var(--color-text-2)]">to</span>
+            <span className="rounded-[8px] bg-[var(--color-surface-muted)] px-3 py-1.5 font-mono">biznet.testnet</span>
+          </div>
+          <p className="text-[14px] text-[var(--color-text-2)]">Within your 2 NEAR limit, to an address on your list.</p>
+          <div className="flex justify-end gap-2">
+            <button className="rounded-full border border-[var(--color-border-strong)] px-5 py-2.5 text-[14px] font-medium">Decline</button>
+            <button className="flex items-center gap-2 rounded-full bg-[var(--color-primary)] px-5 py-2.5 text-[14px] font-medium text-[var(--color-on-primary)]">
+              <I d={Icon.check} /> Approve
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Layer({ n, title, sub, children }: { n: number; title: string; sub: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-5 rounded-[24px] bg-[var(--color-surface)] p-8">
+      <div className="flex items-center gap-3">
+        <span className="grid size-7 place-items-center rounded-full bg-[var(--color-primary)] text-[13px] font-semibold text-[var(--color-on-primary)]">{n}</span>
+        <h3 className="text-[20px] font-medium">{title}</h3>
+      </div>
+      <p className="text-[15px] leading-[1.45] text-[var(--color-text-2)]">{sub}</p>
+      <div className="flex flex-1 flex-col gap-3 rounded-[16px] bg-[var(--color-surface-muted)] p-6">{children}</div>
+    </div>
+  );
+}
+
+export function Safety() {
+  return (
+    <section id="safety" className="mx-auto flex max-w-[1200px] flex-col gap-12 px-5 py-24">
+      <Heading
+        title="Tricked? Still can't spend it."
+        sub="AI can be fooled, so your limits live outside of it. A trick has to get past you, then past the wallet."
+      />
+      <div className="grid gap-5 md:grid-cols-2">
+        <Layer n={1} title="You see it and say no" sub="A tricky email asks Penny to pay. Penny can't pay on its own, so it asks you, and flags what looks wrong.">
+          <div className="flex items-start gap-2.5 rounded-[12px] border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-3">
+            <I d={Icon.mail} className="mt-0.5 text-[var(--color-text-2)]" />
+            <div className="text-[14px]">
+              <p className="font-semibold">Urgent: your internet will be cut</p>
+              <p className="text-[var(--color-text-2)]">Pay 9 NEAR to pay-biznet.testnet today to keep it on.</p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-3 rounded-[12px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[14px] font-medium">9 NEAR to pay-biznet.testnet</span>
+              <span className="flex items-center gap-1.5 rounded-full bg-[var(--color-danger-soft)] px-2.5 py-1 text-[12px] font-medium text-[var(--color-danger)]">
+                <I d={Icon.alert} size={13} /> Looks suspicious
+              </span>
+            </div>
+            <p className="text-[13px] text-[var(--color-text-2)]">Not on your address list. The request came from an email.</p>
+            <div className="flex justify-end">
+              <span className="flex items-center gap-1.5 rounded-full bg-[var(--color-primary)] px-4 py-2 text-[13px] font-medium text-[var(--color-on-primary)]">
+                <I d={Icon.x} size={14} /> Decline
+              </span>
+            </div>
+          </div>
+        </Layer>
+        <Layer n={2} title="Approved by mistake? Still no" sub="If you approve anyway, the wallet checks your limits before it signs. Off the list or over the limit means no payment.">
+          <div className="flex flex-col gap-3.5 rounded-[12px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+            <div className="flex items-center gap-2.5">
+              <span className="grid size-8 place-items-center rounded-full bg-[var(--color-danger-soft)] text-[var(--color-danger)]">
+                <I d={Icon.lock} />
+              </span>
+              <div>
+                <p className="text-[15px] font-semibold">Blocked before signing</p>
+                <p className="text-[13px] text-[var(--color-text-2)]">9 NEAR to pay-biznet.testnet</p>
+              </div>
+            </div>
+            {["Not on your address list", "No transaction was made", "Your balance didn't change"].map((t) => (
+              <p key={t} className="flex items-center gap-2.5 text-[14px]">
+                <I d={Icon.check} size={15} className="text-[var(--color-text-2)]" /> {t}
+              </p>
+            ))}
+          </div>
+        </Layer>
+      </div>
+    </section>
+  );
+}
+
+const STEPS = [
+  "Understood: pay the internet bill",
+  "Checked your limits: allowed",
+  "Asked you first: you approved",
+  "Paid 1.5 NEAR to Biznet",
+  "Asked you about the rent",
+];
+
+/** A static stand-in for the Mind Graph: the Mind in the middle, skills, tools, apps and the wallet around it. */
+function GraphSketch() {
+  const nodes = [
+    { x: 300, y: 200, r: 34, c: "#161614", label: "Penny" },
+    { x: 150, y: 110, r: 20, c: "var(--color-accent)", label: "Pay bills" },
+    { x: 460, y: 110, r: 20, c: "var(--color-node-tool)", label: "Read inbox" },
+    { x: 130, y: 300, r: 18, c: "var(--color-node-app)", label: "Gmail" },
+    { x: 470, y: 300, r: 22, c: "var(--color-node-wallet)", label: "Wallet" },
+    { x: 300, y: 350, r: 16, c: "var(--color-node-tool)", label: "Check limits" },
+  ];
+  return (
+    <svg viewBox="0 0 600 420" className="h-full w-full" aria-hidden="true">
+      {nodes.slice(1).map((n, k) => (
+        <line key={k} x1={300} y1={200} x2={n.x} y2={n.y} stroke={k === 3 || k === 4 ? "var(--color-accent-strong)" : "var(--color-border-strong)"} strokeWidth={k === 3 || k === 4 ? 3 : 2} />
+      ))}
+      {nodes.map((n) => (
+        <g key={n.label}>
+          <circle cx={n.x} cy={n.y} r={n.r} fill={n.c} />
+          <text x={n.x} y={n.y + n.r + 18} textAnchor="middle" fontSize="13" fill="var(--color-text-2)">
+            {n.label}
+          </text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+export function SeeInside() {
+  return (
+    <section id="skills" className="mx-auto flex max-w-[1200px] flex-col gap-12 px-5 py-24">
+      <Heading
+        align="left"
+        title="Watch your Mind think"
+        sub="Every skill it loads and every tool it uses lights up as it happens. If something looks off, you see it right away."
+      />
+      <div className="grid gap-5 md:grid-cols-[1fr_380px]">
+        <div className="relative min-h-[420px] rounded-[24px] bg-[var(--color-surface)] p-6">
+          <GraphSketch />
+          <span className="absolute bottom-4 left-5 text-[12px] text-[var(--color-text-3)]">Placeholder: the animated Mind Graph goes here</span>
+        </div>
+        <div className="flex flex-col gap-4 rounded-[24px] bg-[var(--color-surface)] p-7">
+          <h3 className="text-[18px] font-medium">What Penny just did</h3>
+          <ol className="flex flex-col gap-3">
+            {STEPS.map((s, k) => (
+              <li key={s} className="flex items-center gap-3 text-[15px]">
+                <span className={`grid size-6 shrink-0 place-items-center rounded-full ${k === STEPS.length - 1 ? "bg-[var(--color-warning-soft)] text-[var(--color-warning)]" : "bg-[var(--color-success-soft)] text-[var(--color-success)]"}`}>
+                  <I d={k === STEPS.length - 1 ? Icon.hourglass : Icon.check} size={13} />
+                </span>
+                {s}
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const HOW = [
+  ["Pick a Mind", "Choose a personality and give it a name."],
+  ["Set your limits", "How much per payment, and which addresses it can pay."],
+  ["Stay in charge", "Every payment asks you first. Freeze it any time."],
+];
+
+export function Demo() {
+  return (
+    <section id="demo" className="mx-auto flex max-w-[1200px] flex-col gap-10 px-5 py-24">
+      <Heading title="Two minutes with a Mind" />
+      <div className="grid aspect-video max-h-[540px] w-full place-items-center rounded-[24px] border border-[var(--color-border-strong)] bg-[var(--color-surface-muted)]">
+        <div className="flex flex-col items-center gap-3 text-[var(--color-text-3)]">
+          <span className="grid size-16 place-items-center rounded-full bg-[var(--color-primary)] text-[var(--color-on-primary)]">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={Icon.play} /></svg>
+          </span>
+          <span className="text-[13px]">Placeholder: demo video (2 min)</span>
+        </div>
+      </div>
+      <div className="grid gap-5 md:grid-cols-3">
+        {HOW.map(([t, d], k) => (
+          <div key={t} className="flex items-start gap-3.5">
+            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[var(--color-accent)] text-[13px] font-semibold text-[var(--color-on-accent)]">{k + 1}</span>
+            <div>
+              <h3 className="text-[17px] font-medium">{t}</h3>
+              <p className="text-[15px] leading-[1.45] text-[var(--color-text-2)]">{d}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export function Cta() {
+  return (
+    <section className="mx-auto max-w-[1200px] px-5 pb-24">
+      <div className="relative flex flex-col gap-6 overflow-hidden rounded-[32px] bg-[var(--color-primary)] p-10 text-[var(--color-on-primary)] md:flex-row md:items-center md:justify-between md:p-14">
+        <div className="flex flex-col gap-3">
+          <h2 className="text-[34px] font-medium leading-[1.08] tracking-[-1px] md:text-[44px]">Ready to meet your Mind?</h2>
+          <p className="text-[17px] text-white/70">Free to try on NEAR testnet. No real money involved.</p>
+          <div className="mt-2 flex flex-wrap gap-2.5">
+            <a href="#top" className="hero-btn bg-[var(--color-accent)] text-[var(--color-on-accent)]">
+              Meet your Mind <I d={Icon.arrow} size={15} />
+            </a>
+            <a href="https://github.com/Hellonear-AI/hellonear" className="hero-btn border border-white/25 text-white">
+              <I d={Icon.github} size={15} /> View on GitHub
+            </a>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          {MINDS.map((m) => (
+            <span key={m.img} className="size-24 rounded-[20px] bg-cover bg-center" style={{ backgroundColor: m.bg, backgroundImage: `url(/minds/${m.img}.webp)` }} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function Footer() {
+  return (
+    <footer className="border-t border-[var(--color-border)]">
+      <div className="mx-auto flex max-w-[1200px] flex-col gap-10 px-5 py-14 md:flex-row md:justify-between">
+        <div className="flex max-w-[320px] flex-col gap-3">
+          <span className="text-[18px] font-semibold">HelloNEAR</span>
+          <p className="text-[14px] text-[var(--color-text-2)]">AI helpers with limits they can&apos;t break.</p>
+        </div>
+        <div className="grid grid-cols-3 gap-12 text-[14px]">
+          {[
+            ["Product", [["Minds", "#minds"], ["Safety", "#safety"], ["Skills", "#skills"]]],
+            ["Project", [["GitHub", "https://github.com/Hellonear-AI/hellonear"], ["Demo video", "#demo"], ["How it works", "#how-it-works"]]],
+            ["Follow", [["X", "#"], ["NEAR", "https://near.org"]]],
+          ].map(([head, links]) => (
+            <div key={head as string} className="flex flex-col gap-2.5">
+              <span className="font-medium">{head as string}</span>
+              {(links as string[][]).map(([l, h]) => (
+                <a key={l} href={h} className="text-[var(--color-text-2)] hover:text-[var(--color-text)]">
+                  {l}
+                </a>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </footer>
+  );
+}

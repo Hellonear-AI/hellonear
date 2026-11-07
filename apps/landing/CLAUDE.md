@@ -40,6 +40,16 @@ Assets: the favicon set comes from `design/logo/favicon/` (`app/favicon.ico`, `a
 - Light on the Mind comes from the left (the sun), with a low fill so the right side reads as shadow.
 - Reduced motion: no parallax, no wind, no rays animation, no cursor follow.
 
+## Sections under the hero (first pass, 8 Nov)
+
+Order follows "Landing v0.2" in `design/landing.pen`: Meet the Minds, Every payment asks you first, Tricked? Still can't spend it., Watch your Mind think, Two minutes with a Mind (demo), CTA, footer. Mind Graph and the demo video are placeholders.
+
+Meet the Minds (`components/MindCards.tsx`):
+- Heading slides up word by word behind a mask; the subtitle fades in after it.
+- Cards are dealt from below one by one, face down (brushed platinum back with the embossed logo), and flip over. The face switch is an opacity step at the flip's 90 deg point, because animating opacity on the 3D card flattens it in Chrome.
+- Hover: the card pops up with a small random tilt and the character fades into its second pose (`public/minds/<id>-hover.webp`). Only the Choose button is a link: `${NEXT_PUBLIC_APP_URL}/minds/new?template=<id>` (ids from `GET /v1/templates`; apps/fe still has to read the param). Its hover is the same swipe as Open app.
+- Character art: `design/hellonear-assets/minds/` (gitignored originals), `public/minds/` (web copies, same canvas for both poses).
+
 ## Copy guidelines
 
 - Problem: AI agents that hold money have no limits you can trust. Solution: a Mind whose wallet limits are stored on-chain and enforced in a TEE, with private, verifiable AI.
