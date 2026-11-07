@@ -71,9 +71,9 @@ function Card({ m, k, dealt }: { m: (typeof MINDS)[number]; k: number; dealt: bo
         {/* Front */}
         <div className="mind-face-front flex flex-col gap-4 rounded-[32px] bg-[var(--color-surface)] p-3.5 shadow-[0_24px_60px_-28px_rgb(22_22_20/0.35)] " style={{ animationDelay: `${0.15 + k * 0.22}s` }}>
           <div className="relative h-[400px] overflow-hidden rounded-[24px]" style={{ backgroundColor: m.tint }}>
-            <div className="relative z-10 flex flex-col items-center gap-1 pt-6 text-center">
-              <h3 className="text-[28px] font-medium tracking-[-0.8px]">{m.name}</h3>
-              <p className="text-[14px] text-[var(--color-text-2)]">{m.role}</p>
+            <div className="relative z-10 flex flex-col items-center pt-6 text-center">
+              <h3 className="text-[28px] font-medium leading-[1.1] tracking-[-0.8px]">{m.name}</h3>
+              <p className="mt-1 text-[14px] leading-[1.3] text-[var(--color-text-2)]">{m.role}</p>
             </div>
             {/* The two poses cross-fade on hover. */}
             <div className="absolute inset-x-0 bottom-[-6%] top-[22%]">
@@ -94,7 +94,7 @@ function Card({ m, k, dealt }: { m: (typeof MINDS)[number]; k: number; dealt: bo
             <div className="flex items-center gap-3">
               <span className="relative size-10 overflow-hidden rounded-full" style={{ backgroundColor: m.tint }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`/minds/${m.id}.webp`} alt="" aria-hidden="true" className="absolute left-1/2 top-0 w-[260%] max-w-none -translate-x-1/2" />
+                <img src={`/minds/${m.id}.webp`} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-contain p-0.5" />
               </span>
               <span className="flex flex-col">
                 <span className="text-[15px] font-medium">@{m.id.replace("-", "")}</span>

@@ -282,6 +282,14 @@ body {
 .hero-btn:active {
   transform: scale(0.97);
 }
+.hero-btn-lg {
+  height: 54px;
+  font-size: 16px;
+  padding: 0 22px;
+}
+.hero-btn-primary.hero-btn-lg {
+  padding-right: 13px;
+}
 .hero-btn-primary {
   padding-right: 12px;
   background: var(--color-primary);

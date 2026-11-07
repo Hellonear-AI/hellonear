@@ -171,8 +171,10 @@ function HeroCopy() {
             <p className="max-w-[400px] text-[16px] leading-[1.5] text-[#2E3A46]">
               An AI helper with its own wallet. You set the limits, it can&apos;t change them.
             </p>
-            <div className="mt-1 flex items-center gap-2.5">
-              <a href="#minds" className="hero-btn hero-btn-primary">
+            {/* Buttons and the app row share one width, so both edges line up. */}
+          <div className="mt-1 flex w-fit flex-col gap-4">
+            <div className="grid grid-cols-2 gap-2.5">
+              <a href="#minds" className="hero-btn hero-btn-primary hero-btn-lg justify-between">
                 Meet your Mind
                 <span className="hero-btn-dot" aria-hidden="true">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -181,27 +183,29 @@ function HeroCopy() {
                   </svg>
                 </span>
               </a>
-              <a href="#demo" className="hero-btn hero-btn-ghost">
+              <a href="#demo" className="hero-btn hero-btn-ghost hero-btn-lg justify-center">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <path d="M7 4.5v15l13-7.5z" />
                 </svg>
                 Watch the demo
               </a>
             </div>
-            <ul className="flex items-center gap-3 text-[13px] text-[#2E3A46]">
-            <li>Works with</li>
-            {[
-              ["gmail.svg", "Gmail"],
-              ["meteor-wallet.png", "Meteor Wallet"],
-              ["google-calendar.png", "Google Calendar"],
-            ].map(([f, name]) => (
-              <li key={name} className="flex items-center gap-1.5 rounded-full bg-white/60 px-2.5 py-1 font-medium text-[var(--color-text)]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`/brands/${f}`} alt="" aria-hidden="true" className="h-3.5 w-auto" />
-                {name}
-              </li>
-            ))}
-          </ul>
+            {/* Quiet on purpose: small grey text and icons, no pill backgrounds, so the buttons lead. */}
+            <ul className="flex items-center gap-4 whitespace-nowrap text-[13px] text-[#3E4A55]/80">
+              <li>Works with</li>
+              {[
+                ["gmail.svg", "Gmail"],
+                ["meteor-wallet.png", "Meteor Wallet"],
+                ["google-calendar.png", "Google Calendar"],
+              ].map(([f, name]) => (
+                <li key={name} className="flex items-center gap-1.5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/brands/${f}`} alt="" aria-hidden="true" className="h-3.5 w-auto opacity-80 grayscale-[0.35]" />
+                  {name}
+                </li>
+              ))}
+            </ul>
+          </div>
     </>
   );
 }
