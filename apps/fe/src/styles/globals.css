@@ -1,0 +1,323 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Motion tokens (design/CLAUDE.md "Motion (v0.3)"). Tailwind turns --ease-* into ease-* utilities,
+   so ease-out everywhere, shadcn included, uses the stronger curve. Never use ease-in. */
+@theme {
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@theme inline {
+    --color-surface: var(--surface);
+    --color-surface-muted: var(--surface-muted);
+    --color-surface-hover: var(--surface-hover);
+    --color-border-strong: var(--border-strong);
+    --color-tertiary-foreground: var(--tertiary-foreground);
+    --color-primary-hover: var(--primary-hover);
+    --color-brand: var(--brand);
+    --color-on-brand: var(--on-brand);
+    --color-brand-soft: var(--brand-soft);
+    --color-brand-strong: var(--brand-strong);
+    --color-brand-hover: var(--brand-hover);
+    --color-success: var(--success);
+    --color-success-soft: var(--success-soft);
+    --color-warning: var(--warning);
+    --color-warning-soft: var(--warning-soft);
+    --color-danger: var(--danger);
+    --color-danger-soft: var(--danger-soft);
+    --color-danger-fill: var(--danger-fill);
+    --color-danger-hover: var(--danger-hover);
+    --color-on-danger: var(--on-danger);
+    --color-info: var(--info);
+    --color-info-soft: var(--info-soft);
+    --color-focus: var(--focus);
+    --color-toast-bg: var(--toast-bg);
+    --color-toast-fg: var(--toast-fg);
+    --color-scrim: var(--scrim);
+    --color-scrim-soft: var(--scrim-soft);
+    --color-shadow: var(--shadow);
+    --color-node-mind: var(--node-mind);
+    --color-node-skill: var(--node-skill);
+    --color-node-tool: var(--node-tool);
+    --color-node-app: var(--node-app);
+    --color-node-wallet: var(--node-wallet);
+    --color-node-memory: var(--node-memory);
+    --color-node-model: var(--node-model);
+    --font-mono: var(--font-geist-mono);
+    --font-heading: var(--font-sans);
+    --font-sans: var(--font-geist-sans);
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+    --radius-2xl: 28px;
+    --radius-3xl: 32px;
+    --radius-4xl: 36px;
+}
+
+:root {
+    /* shadcn names, filled from the design tokens (design/hellonear.pen, Stone & Lime v0.2) */
+    --background: #F3F2EE;
+    --foreground: #161614;
+    --card: #FFFFFF;
+    --card-foreground: #161614;
+    --popover: #FFFFFF;
+    --popover-foreground: #161614;
+    --primary: #161614;
+    --primary-foreground: #FFFFFF;
+    --secondary: #EAE8E2;
+    --secondary-foreground: #161614;
+    --muted: #EAE8E2;
+    --muted-foreground: #5C5A54;
+    --accent: #EAE8E2;
+    --accent-foreground: #161614;
+    --destructive: #BF3220;
+    --border: #E0DED6;
+    --input: #CFCCC3;
+    --ring: #5E6B00;
+    --sidebar: #FFFFFF;
+    --sidebar-foreground: #161614;
+    --sidebar-primary: #161614;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: #EAE8E2;
+    --sidebar-accent-foreground: #161614;
+    --sidebar-border: #E0DED6;
+    --sidebar-ring: #5E6B00;
+    --chart-1: #D8F04A;
+    --chart-2: #4C7DF0;
+    --chart-3: #9B6CF0;
+    --chart-4: #F0A93C;
+    --chart-5: #2FB5A3;
+    /* design tokens shadcn has no name for; design `accent` (lime) is `brand` here */
+    --surface: #FFFFFF;
+    --surface-muted: #EAE8E2;
+    --surface-hover: #F7F6F2;
+    --border-strong: #CFCCC3;
+    --tertiary-foreground: #696660;
+    --primary-hover: #33332F;
+    --brand: #D8F04A;
+    --on-brand: #161614;
+    --brand-soft: #F1F8C9;
+    --brand-strong: #5E6B00;
+    --brand-hover: #C8E033;
+    --success: #1A7340;
+    --success-soft: #E3F2E8;
+    --warning: #945800;
+    --warning-soft: #FBEFD9;
+    --danger: #BF3220;
+    --danger-soft: #FBE6E2;
+    --danger-fill: #BF3220;
+    --danger-hover: #A32A1A;
+    --on-danger: #FFFFFF;
+    --info: #2A5BC7;
+    --info-soft: #E3ECFB;
+    --focus: #5E6B00;
+    --toast-bg: #161614;
+    --toast-fg: #FFFFFF;
+    --scrim: #16161466;
+    --scrim-soft: #16161440;
+    --shadow: #16161410;
+    --node-mind: #161614;
+    --node-skill: #D8F04A;
+    --node-tool: #4C7DF0;
+    --node-app: #9B6CF0;
+    --node-wallet: #F0A93C;
+    --node-memory: #2FB5A3;
+    --node-model: #9A978F;
+    --radius: 1rem;
+}
+
+.dark {
+    /* shadcn names, filled from the design tokens (design/hellonear.pen, Stone & Lime v0.2) */
+    --background: #11110F;
+    --foreground: #F2F1EC;
+    --card: #1A1A18;
+    --card-foreground: #F2F1EC;
+    --popover: #1A1A18;
+    --popover-foreground: #F2F1EC;
+    --primary: #F2F1EC;
+    --primary-foreground: #161614;
+    --secondary: #242421;
+    --secondary-foreground: #F2F1EC;
+    --muted: #242421;
+    --muted-foreground: #A6A39B;
+    --accent: #242421;
+    --accent-foreground: #F2F1EC;
+    --destructive: #FF6A55;
+    --border: #2C2C29;
+    --input: #3A3A36;
+    --ring: #D8F04A;
+    --sidebar: #1A1A18;
+    --sidebar-foreground: #F2F1EC;
+    --sidebar-primary: #F2F1EC;
+    --sidebar-primary-foreground: #161614;
+    --sidebar-accent: #242421;
+    --sidebar-accent-foreground: #F2F1EC;
+    --sidebar-border: #2C2C29;
+    --sidebar-ring: #D8F04A;
+    --chart-1: #D8F04A;
+    --chart-2: #4C7DF0;
+    --chart-3: #9B6CF0;
+    --chart-4: #F0A93C;
+    --chart-5: #2FB5A3;
+    /* design tokens shadcn has no name for; design `accent` (lime) is `brand` here */
+    --surface: #1A1A18;
+    --surface-muted: #242421;
+    --surface-hover: #20201E;
+    --border-strong: #3A3A36;
+    --tertiary-foreground: #8E8B83;
+    --primary-hover: #DAD8D1;
+    --brand: #D8F04A;
+    --on-brand: #161614;
+    --brand-soft: #2A3009;
+    --brand-strong: #D8F04A;
+    --brand-hover: #E3F57A;
+    --success: #46C27A;
+    --success-soft: #12261A;
+    --warning: #F0B43C;
+    --warning-soft: #2B2210;
+    --danger: #FF6A55;
+    --danger-soft: #2E1512;
+    --danger-fill: #C93A26;
+    --danger-hover: #B53322;
+    --on-danger: #FFFFFF;
+    --info: #6E9BFF;
+    --info-soft: #121D33;
+    --focus: #D8F04A;
+    --toast-bg: #2C2C29;
+    --toast-fg: #F2F1EC;
+    --scrim: #000000B3;
+    --scrim-soft: #00000080;
+    --shadow: #00000066;
+    --node-mind: #F2F1EC;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    }
+  body {
+    @apply bg-background text-foreground;
+    }
+  html {
+    @apply font-sans;
+    }
+  /* Everything clickable shows a pointer (team rule, 6 Nov). Tailwind 4 dropped the default
+     for buttons. In the base layer, so a utility such as cursor-grab still wins. */
+  button,
+  a[href],
+  summary,
+  select,
+  label[for],
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="file"],
+  input[type="submit"],
+  input[type="button"],
+  input[type="range"],
+  [role="button"],
+  [role="link"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="menuitemcheckbox"],
+  [role="menuitemradio"],
+  [role="option"],
+  [role="switch"],
+  [role="checkbox"],
+  [role="radio"],
+  [role="combobox"] {
+    cursor: pointer;
+    }
+  :disabled,
+  [aria-disabled="true"],
+  [data-disabled] {
+    cursor: not-allowed;
+    }
+}
+
+/* Quiet scrollbars: a thin rounded thumb, no arrows, no track (like Gemini's sidebar).
+   Chrome and Safari use ::-webkit-scrollbar. Don't set scrollbar-width or scrollbar-color for them:
+   Chrome then falls back to the system bar, which has arrows on Windows. Firefox only gets those. */
+:root {
+  --scrollbar-thumb: color-mix(in oklab, var(--foreground) 22%, transparent);
+  --scrollbar-thumb-hover: color-mix(in oklab, var(--foreground) 38%, transparent);
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-button {
+  display: none;
+}
+::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: var(--scrollbar-thumb);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+/* .scrollbar-on-hover: the thumb only shows while the pointer is over the area or focus is inside it
+   (sidebar and phone drawer). */
+.scrollbar-on-hover::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+.scrollbar-on-hover:hover::-webkit-scrollbar-thumb,
+.scrollbar-on-hover:focus-within::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+}
+.scrollbar-on-hover:hover::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+@supports (-moz-appearance: none) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+  .scrollbar-on-hover {
+    scrollbar-color: transparent transparent;
+  }
+  .scrollbar-on-hover:hover,
+  .scrollbar-on-hover:focus-within {
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+}
