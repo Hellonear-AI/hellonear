@@ -250,3 +250,174 @@ body {
     }
   }
 }
+
+/* ---------- Hero ---------- */
+
+.hero-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 22px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 500;
+  transition: transform 160ms var(--ease-out), background-color 200ms ease;
+}
+.hero-btn:active {
+  transform: scale(0.97);
+}
+.hero-btn-primary {
+  padding-right: 12px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.hero-btn-dot {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.hero-btn-ghost {
+  background: rgb(255 255 255 / 0.7);
+  color: var(--color-text);
+}
+@media (hover: hover) and (pointer: fine) {
+  .hero-btn-primary:hover {
+    background: var(--color-primary-hover);
+  }
+  .hero-btn-ghost:hover {
+    background: #fff;
+  }
+}
+
+/* Hands. Enter after a short delay so the old hand has left. Springy curves overshoot a little. */
+.hero-hand {
+  pointer-events: none;
+}
+.hero-hand-rise {
+  animation: hand-rise 480ms cubic-bezier(0.34, 1.56, 0.64, 1) 110ms both;
+}
+@keyframes hand-rise {
+  from {
+    opacity: 0;
+    transform: translateY(90px) rotate(-8deg) scale(0.9);
+  }
+  45% {
+    opacity: 1;
+  }
+}
+.hero-hand-wave {
+  animation:
+    hand-rise 480ms cubic-bezier(0.34, 1.56, 0.64, 1) 110ms both,
+    hand-wave 0.5s ease-in-out 590ms 2;
+}
+@keyframes hand-wave {
+  0%, 100% { transform: rotate(-10deg); }
+  50% { transform: rotate(14deg); }
+}
+.hero-hand-tap {
+  animation:
+    hand-rise 480ms cubic-bezier(0.34, 1.56, 0.64, 1) 110ms both,
+    hand-tap 1.4s var(--ease-out) 590ms infinite;
+}
+@keyframes hand-tap {
+  0%, 60%, 100% { transform: scale(1); }
+  20% { transform: scale(0.9) translateY(4px); }
+}
+/* Gripping hands drop onto the crest, squash on landing, then settle. */
+.hero-hand-grip {
+  animation: hand-drop 420ms cubic-bezier(0.22, 1, 0.36, 1) 110ms both;
+}
+@keyframes hand-drop {
+  0% { opacity: 0; transform: translateY(-40px) scale(0.96, 1.06); }
+  45% { opacity: 1; transform: translateY(3px) scale(1.1, 0.84); }
+  70% { transform: translateY(-2px) scale(0.97, 1.04); }
+  100% { opacity: 1; transform: none; }
+}
+.hero-hand-out-raised {
+  animation: hand-out-raised 200ms cubic-bezier(0.5, 0, 0.9, 0.4) both;
+}
+@keyframes hand-out-raised {
+  to { opacity: 0; transform: translateY(80px) rotate(6deg) scale(0.92); }
+}
+.hero-hand-out-grip {
+  animation: hand-out-grip 180ms cubic-bezier(0.5, 0, 0.9, 0.4) both;
+}
+@keyframes hand-out-grip {
+  to { opacity: 0; transform: translateY(26px) scale(0.9); }
+}
+
+/* Clouds drift slowly from side to side. */
+.hero-cloud {
+  animation: cloud-drift 80s ease-in-out infinite alternate;
+}
+@keyframes cloud-drift {
+  from { transform: translateX(-24px); }
+  to { transform: translateX(24px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-hand,
+  .hero-hand-rise,
+  .hero-hand-wave,
+  .hero-hand-tap,
+  .hero-hand-grip,
+  .hero-cloud {
+    animation: none;
+  }
+  .hero-hand-out-raised,
+  .hero-hand-out-grip {
+    display: none;
+  }
+}
+
+/* On the blue hero sky the bar (before scrolling) is light: white links and logo head, dark eyes. */
+.nav:not([data-scrolled="true"]) .nav-shell {
+  --logo-head: #ffffff;
+  --logo-eye: var(--color-text);
+  color: #ffffff;
+}
+
+/* Sun rays from the top-left corner: a few wide, soft beams, slowly breathing. Screen blend so they
+   light whatever is under them (sky, clouds, the Mind, the grass). */
+.hero-rays {
+  left: min(-200px, calc(720px - 50vw - 200px));
+  top: -260px;
+  width: max(2200px, 120vw);
+  height: 1500px;
+  background:
+    radial-gradient(circle at 12% 14%, rgb(255 246 214 / 0.5), rgb(255 240 200 / 0.1) 20%, transparent 45%),
+    conic-gradient(
+      from 96deg at 12% 14%,
+      transparent 0deg,
+      rgb(255 244 210 / 0.32) 5deg,
+      transparent 11deg,
+      transparent 17deg,
+      rgb(255 244 210 / 0.24) 24deg,
+      transparent 32deg,
+      transparent 40deg,
+      rgb(255 244 210 / 0.28) 47deg,
+      transparent 56deg,
+      transparent 360deg
+    );
+  -webkit-mask-image: radial-gradient(circle at 12% 14%, #000 15%, rgb(0 0 0 / 0.5) 45%, transparent 78%);
+  mask-image: radial-gradient(circle at 12% 14%, #000 15%, rgb(0 0 0 / 0.5) 45%, transparent 78%);
+  mix-blend-mode: screen;
+  filter: blur(6px);
+  transform-origin: 12% 14%;
+  animation: rays-breathe 14s ease-in-out infinite alternate;
+}
+@keyframes rays-breathe {
+  from { transform: rotate(-1.5deg); opacity: 0.75; }
+  to { transform: rotate(1.5deg); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-rays {
+    animation: none;
+  }
+}
