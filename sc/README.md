@@ -41,7 +41,7 @@ Follows [Updating Contracts](https://docs.near.org/smart-contracts/release/upgra
 - Storage prefixes in `StorageKey` are append-only.
 - Upgrades are possible because the account keeps a full-access key (Axel's keychain). Removing every full-access key would lock the code ([docs](https://docs.near.org/smart-contracts/release/upgrade)); not planned during the hackathon.
 
-v0.2.0 → v0.3.0 upgrade (#56): the state layout did not change, so it is a code-only deploy (no init call; `test_migration` covers it from the exact v0.2.0 WASM). Not deployed yet: it needs Axel's key and approval.
+v0.2.0 → v0.3.0 upgrade (#56): the state layout did not change, so it is a code-only deploy (no init call; `test_migration` covers it from the exact v0.2.0 WASM). Deployed 7 Nov 2026 (see below).
 
 ```sh
 cargo near deploy build-non-reproducible-wasm hellonear-registry.testnet without-init-call network-config testnet sign-with-keychain send
@@ -63,7 +63,15 @@ Not verified yet: the testnet deploy used a non-reproducible build, so `contract
 cargo near deploy build-non-reproducible-wasm <account>.testnet with-init-call new json-args '{}' prepaid-gas '30 Tgas' attached-deposit '0 NEAR' network-config testnet sign-with-keychain send
 ```
 
-**Deployed (testnet): `hellonear-registry.testnet`, now v0.2.0**
+**Deployed (testnet): `hellonear-registry.testnet`, now v0.3.0**
+
+Upgrade v0.2.0 → v0.3.0 (7 Nov 2026, from `main` at `7b713d1`):
+- Code-only deploy, no init call: [`ESMY36Uo…`](https://explorer.testnet.near.org/transactions/ESMY36UoFcdWuw5fbShbNx13Fvf2NB1z1qWWypJNyCwp). Before it, `cargo test` passed locally (17 unit, 2 registry sandbox, 2 migration incl. v0.2.0 → current).
+- On-chain `code_hash` `D4N7PhEuY7JZQp3yjiAnCoJcFc8sLY6ahZN794qy4JKr` = SHA-256 (base58) of the local WASM; `contract_source_metadata.version` 0.3.0.
+- After the upgrade, `total_minds` is still 1 and `get_mind("penny-demo")`, `get_skill("pay")` read back unchanged.
+- Write round-trip: `unequip_skill` then `equip_skill` of the free skill `pay` on `penny-demo` ([`HK7wDgyV…`](https://explorer.testnet.near.org/transactions/HK7wDgyVvpxf15gWEZTypDdM6xVdr32MQ1m2U7J3ACf7)); both emit `hellonear_registry` 1.1.0, `skill_equipped` carries `price` "0" and `publisher`; state back to the same.
+- Not proven on testnet yet: a **paid** equip (no paid skill is published there). The sandbox test covers it.
+
 
 Upgrade v0.1.0 → v0.2.0 (3 Nov 2026, from `main` at `8a81f6a`):
 - Deploy + `migrate {"skill_ids":["pay"]}` in one transaction: [`3nuc3u4a…`](https://explorer.testnet.near.org/transactions/3nuc3u4aKMH8XLq1NDF4DuMivQ2R6UbowUgJ3zjzAhss), event `state_migrated` (minds 1, skills 1).

@@ -68,7 +68,7 @@ The team uses macOS with **OrbStack** as the Docker runtime. Keep local services
 
 | What | Account | Env |
 |---|---|---|
-| Mind registry contract (`sc/`), v0.2.0 | `hellonear-registry.testnet` | `REGISTRY_CONTRACT_ID`, `NEAR_NETWORK=testnet` |
+| Mind registry contract (`sc/`), v0.3.0 | `hellonear-registry.testnet` | `REGISTRY_CONTRACT_ID`, `NEAR_NETWORK=testnet` |
 | Demo Mind wallet (OutLayer, policy v2), owner `lin1er.testnet` | `0fdc9294b3f4f9be1ef5a9e2440e9f37dc03a641f236c8e1877c55f953d04e7a`; sub-wallet `skill-payments` `e81791309e25c72f894f2d376e7a6ea35fbfe4e05b908da9fe18d8690e8f8b8a` | `OUTLAYER_API_KEY`, `OUTLAYER_SUB_SKILL_PAYMENTS` (James's `apps/be/.env`, never committed) |
 
 Keep this table and each folder's `.env.example` in sync when something is (re)deployed.
