@@ -32,7 +32,7 @@ Tokens live as variables in `hellonear.pen`, with a `mode` theme (`light`, `dark
 - One accent color (lime), used sparingly. Primary actions are solid black (light mode) / off-white (dark mode).
 - **Mono font only for wallet addresses.** Nowhere else, not for amounts, ids or hashes.
 - Every screen must work in light and dark mode.
-- Mind characters: do not copy HelloMinds/Animoca characters or their "collector toy box" look.
+- Mind characters: do not copy existing characters or another product's "collector toy box" look.
 - Copy follows `apps/landing/CLAUDE.md` (never "rejected on-chain"; "private" only for Confidential TEE models).
 
 ## Components and states (v0.2)
@@ -100,7 +100,7 @@ Frame `Mind Characters v0.3` in `hellonear.pen` (earlier tries were removed). On
 
 - Same for all: big puffy cloud-shaped head on a small body with short limbs, matte vinyl finish, **charcoal** base color (cream was the alternative), flat half-moon eyes with a heavy lid and pupils glancing sideways (deadpan but cute), a small rounded **lime beak**, pink blush, and a lime sprout on top (the HelloNear mark).
 - Per Mind: General Assistant = lime hoodie, waving; Payments Mind = mustard quilted vest, brown pouch, lime padlock pin, arms crossed; Email Manager = orange mail cap and messenger bag, holding an envelope.
-- Inspired by big-head designer toys, but drawn our own way. Never copy a specific existing character (e.g. ZXSW's duck, HUH, HelloMinds): references are for mood only.
+- Inspired by big-head designer toys, but drawn our own way. Never copy a specific existing character: references are for mood only.
 - Avoid: collector-toy packaging, fur or busy textures, logos, text or currency symbols on props, gradients behind characters in the app UI.
 - 3D (Three.js) is only considered for the landing page hero; in the app, characters are images and their use is up to `apps/fe`.
 - Current art: `generated-10.png` (base) to `generated-14.png` (cream base), AI renders from pen.dev. More poses and expressions are planned in Blender, exported as transparent PNGs.
