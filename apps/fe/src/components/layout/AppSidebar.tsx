@@ -1,23 +1,12 @@
 "use client"
 
-import { PanelLeftCloseIcon, PanelLeftOpenIcon, SproutIcon } from "lucide-react"
+import { PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-react"
 import Link from "next/link"
+import { Logo, LogoIcon } from "@/components/elements/Logo"
 import { AccountMenu } from "@/components/layout/AccountMenu"
 import { MindSwitcher } from "@/components/layout/MindSwitcher"
 import { NavList, RailNav, RecentChats, useActiveSegment } from "@/components/layout/SidebarParts"
 import { Button } from "@/components/ui/button"
-
-// Placeholder mark until Nabil's logo lands (design/CLAUDE.md).
-export function LogoMark({ size = 24 }: { size?: 24 | 32 }) {
-  return (
-    <span
-      className="flex shrink-0 items-center justify-center bg-primary"
-      style={{ width: size, height: size, borderRadius: size === 24 ? 7 : 9 }}
-    >
-      <SproutIcon className="text-brand" style={{ width: size / 2, height: size / 2 }} />
-    </span>
-  )
-}
 
 /** Full sidebar (256 px): design AuOSf. `onFold` shows the fold button (desktop), `onNavigate` closes an overlay. */
 export function AppSidebar({
@@ -31,12 +20,11 @@ export function AppSidebar({
 }) {
   const segment = useActiveSegment(mindId) || "chat"
   return (
-    // The whole sidebar scrolls as one (not only Recent chats); the account row stays pinned at the bottom.
-    <div className="flex h-full w-64 flex-col gap-5 overflow-y-auto overscroll-contain scrollbar-on-hover border-r border-border bg-surface p-4 pb-0">
-      <div className="flex items-center gap-2 py-1 pl-2">
-        <Link href={`/minds/${mindId}/chat`} onClick={onNavigate} className="flex items-center gap-2">
-          <LogoMark />
-          <span className="text-[15px] font-semibold">HelloNear</span>
+    // Only Recent chats scrolls (team call, 7 Nov); logo, Mind, places and account stay put.
+    <div className="flex h-full w-64 flex-col gap-5 overflow-hidden border-r border-border bg-surface p-4">
+      <div className="flex items-center gap-2 py-1">
+        <Link href={`/minds/${mindId}/chat`} onClick={onNavigate} aria-label="HelloNear, go to chat" className="rounded-sm">
+          <Logo height={36} />
         </Link>
         <span className="flex-1" />
         {onFold && (
@@ -48,9 +36,7 @@ export function AppSidebar({
       <MindSwitcher mindId={mindId} variant="card" segment={segment} />
       <NavList mindId={mindId} onNavigate={onNavigate} />
       <RecentChats mindId={mindId} onNavigate={onNavigate} />
-      <div className="sticky bottom-0 -mx-4 mt-auto bg-surface px-4 pb-4">
-        <AccountMenu variant="row" />
-      </div>
+      <AccountMenu variant="row" />
     </div>
   )
 }
@@ -63,7 +49,7 @@ export function AppRail({ mindId, onExpand }: { mindId: string; onExpand: () => 
       <Button variant="ghost" size="icon" aria-label="Open the sidebar" onClick={onExpand}>
         <PanelLeftOpenIcon />
       </Button>
-      <LogoMark size={32} />
+      <LogoIcon size={40} />
       <MindSwitcher mindId={mindId} variant="avatar" segment={segment} />
       <div className="flex-1">
         <RailNav mindId={mindId} />

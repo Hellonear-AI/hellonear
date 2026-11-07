@@ -4,7 +4,7 @@ import { InboxIcon, MenuIcon } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import { AccountMenu } from "@/components/layout/AccountMenu"
-import { LogoMark } from "@/components/layout/AppSidebar"
+import { Logo } from "@/components/elements/Logo"
 import { MindSwitcher } from "@/components/layout/MindSwitcher"
 import { mindHref } from "@/components/layout/nav"
 import { NavList, RecentChats, useActiveSegment } from "@/components/layout/SidebarParts"
@@ -28,10 +28,10 @@ export function MobileHeader({ mindId }: { mindId: string }) {
         <SheetTrigger render={<Button variant="ghost" size="icon" aria-label="Open the menu" />}>
           <MenuIcon />
         </SheetTrigger>
-        <SheetContent side="left" showCloseButton={false} className="gap-5 overflow-y-auto overscroll-contain scrollbar-on-hover p-4 data-[side=left]:w-[86%] data-[side=left]:max-w-80 data-[side=left]:sm:max-w-80">
-          <div className="flex items-center gap-2 py-1 pl-2">
-            <LogoMark />
-            <SheetTitle className="text-[15px] font-semibold">HelloNear</SheetTitle>
+        <SheetContent side="left" showCloseButton={false} className="gap-5 overflow-hidden p-4 data-[side=left]:w-[86%] data-[side=left]:max-w-80 data-[side=left]:sm:max-w-80">
+          <div className="flex items-center gap-2 py-1 pl-1">
+            <SheetTitle className="sr-only">HelloNear menu</SheetTitle>
+            <Logo height={32} />
             <span className="flex-1" />
             <AccountMenu variant="icon" />
           </div>
