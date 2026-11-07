@@ -8,6 +8,13 @@ test('the three starter templates load and reference known skills', () => {
   for (const t of templates) assert.ok(t.soul.invariants.length > 0, `${t.templateId} has guardrails`)
 })
 
+test('every template has a card quote, and the Payments Mind keeps money facts plain', () => {
+  for (const t of templates) assert.ok(t.quote.length > 0 && t.quote.length <= 80, `${t.templateId} quote`)
+  const pay = templates.find((t) => t.templateId === 'payments-mind')!
+  assert.match(pay.soul.identity, /Keep money facts plain/)
+  assert.ok(pay.soul.invariants.includes("Every payment waits for the owner's approval."))
+})
+
 test('summaries expose skill status and connections for the UI', () => {
   const email = templateSummaries().find((t) => t.templateId === 'email-manager')!
   const triage = email.skills.find((s) => s.skillId === 'email-triage')!

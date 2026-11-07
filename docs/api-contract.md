@@ -87,7 +87,7 @@ Resumes a run paused on `tool.approval_required`. Streams the remaining events a
 
 ### `GET /v1/templates`
 
-`{ "templates": [ { templateId, name, tagline, soul, model, skills: [ { skillId, description, status: "available" | "simulated" | "blocked", connections: [...], note? } ] } ] }` for the Choose a Mind screen. Status tells the UI what is simulated or blocked (e.g. email before Composio) **[tested, #13]**.
+`{ "templates": [ { templateId, name, tagline, quote, soul, model, skills: [ { skillId, description, status: "available" | "simulated" | "blocked", connections: [...], note? } ] } ] }` for the Choose a Mind screen. Status tells the UI what is simulated or blocked (e.g. email before Composio) **[tested, #13]**. `quote` is one line (≤ 80 characters) in the Mind's own voice for the template card (#55) **[tested]**.
 
 ### `GET /v1/skills`
 
@@ -251,7 +251,7 @@ Postgres + pgvector. Mastra keeps its own tables (memory, threads, workflow snap
 | `minds` | `id`, `user_id`, `template_id`, `name`, `soul` (jsonb), `model`, `outlayer_wallet_id`, `created_at`, `updated_at` | `soul` = identity, invariants, priors |
 | `skills` | `id`, `name`, `skill_md`, `tool_bindings` (jsonb), `required_connections` (jsonb), `permissions` (jsonb), `version` | `permissions` = apps, actions, per-transaction limit, secrets + allowed hosts |
 | `mind_skills` | `mind_id`, `skill_id`, `position`, `granted_at`, `sub_wallet_id`, `revoked_at` | equipped skills in order; one OutLayer sub-wallet per wallet-using skill (#15) |
-| `runs` | `id` (= Mastra `runId`), `mind_id`, `thread_id`, `workflow_id`, `status`, `model`, `usage` (jsonb), `cost_usd`, `started_at`, `finished_at` | `status`: `running`, `awaiting_approval`, `finished`, `error`, or a builder run's `workflow.finished` status (`success`, `failed`, …) |
+| `runs` | `id` (= Mastra `runId`), `mind_id`, `thread_id`, `workflow_id`, `status`, `model`, `usage` (jsonb), `cost_usd`, `started_at`, `finished_at`, `user_message` (the chat message that started the run, #54) | `status`: `running`, `awaiting_approval`, `finished`, `error`, or a builder run's `workflow.finished` status (`success`, `failed`, …) |
 | `run_events` | `run_id`, `seq`, `type`, `node_id`, `payload` (jsonb), `ts` | PK `(run_id, seq)`; source for the Mind Graph and Receipts |
 | `secrets` | `id`, `user_id`, `name`, `ciphertext`, `allowed_hosts` (text[]), `created_at`, `updated_at` | AES-256-GCM, AAD `user_id:name`; value never leaves the backend in clear except into the engine for a run (#18) |
 | `mind_wallets` | `mind_id` (pk, → `minds`), `wallet_id`, `near_account_id`, `key_ciphertext`, `created_at` | One OutLayer wallet per Mind (#14, #15). The agent key is AES-256-GCM, AAD `wallet:{mind_id}`; the `handoff_url` is never stored. `minds.outlayer_wallet_id` is unused |
@@ -326,6 +326,8 @@ One OutLayer wallet per Mind, on testnet. The backend keeps the agent key and ne
 | `GET /v1/minds/{mindId}/events?since=ISO&limit=2000` | | `{ events }` across runs since `since` (default 7 days), deltas left out: Mind Graph history mode (#17) |
 | `GET /v1/minds/{mindId}/approvals` | | `{ approvals: [{ runId, threadId, toolCallId, tool, args, requestedAt }] }`: runs paused on `tool.approval_required` (#14) |
 | `POST /v1/runs/{runId}/approve` · `/decline` | `{ toolCallId, reason? }` | SSE continuing the run's `seq`. `409 not_awaiting_approval` unless the run waits for that `toolCallId` |
+| `GET /v1/minds/{mindId}/threads?limit=20` | | Chat threads (#54), newest first: `{ threads: [{ threadId, title, lastMessageAt, messageCount }] }`. `title` is the first user message cut to ~60 characters (ending with `…`), or `null` for a thread from before the backend kept user messages; Mastra keeps no titles. Builder runs have no thread **[tested]** |
+| `GET /v1/minds/{mindId}/threads/{threadId}/messages?limit=50&before=ISO` | | `{ messages: [{ id, role: "user" \| "assistant", text, createdAt, runId }], nextBefore }`, oldest first. One user message per chat run and one assistant message per run that wrote text (a run resumed after approval adds to its reply). Pages hold whole runs, newest first: pass `nextBefore` (an opaque cursor, `<ISO time>~<runId>`) as `before` for older ones (`null` = no more); a plain ISO time also works as `before`. `404 thread_not_found` for another Mind's or an unknown thread, `400 invalid_before` **[tested]**. No delete route yet: the engine's thread memory would stay behind |
 
 The backend stores every event before forwarding it and reads the engine stream to the end even if the browser disconnects: reload and fetch `GET /v1/runs/{runId}` to recover.
 
@@ -341,12 +343,12 @@ All of the user's secrets are sent to the engine for every chat, approval and bu
 
 ### App connections through Composio (#13)
 
-The owner connects an app (only `gmail` for now) once per account; Composio stores and refreshes the OAuth tokens. The Composio user id is the backend user id, the same `userId` the engine already gets on every run, so the engine opens a Composio session for that user and its Gmail tools act on that user's account only. Tokens never reach the backend, the browser or the model.
+The owner connects an app (`gmail` or `googlecalendar`, #57) once per account; Composio stores and refreshes the OAuth tokens. The Composio user id is the backend user id, the same `userId` the engine already gets on every run, so the engine opens a Composio session for that user and its Gmail tools act on that user's account only. Tokens never reach the backend, the browser or the model.
 
 | Route | Body | Answer |
 |---|---|---|
-| `GET /v1/connections` | | `{ connections: [{ toolkit: "gmail", status: "connected" \| "pending" \| "expired" \| "not_connected", since? }] }` (no Composio ids) **[tested]** |
-| `POST /v1/connections/{toolkit}` | `{}` | `{ redirectUrl }`: a Composio Connect Link (`https://connect.composio.dev/…`). Open it in the browser; after sign-in Composio sends the owner to `{FE_ORIGIN}/connections?toolkit=gmail&status=success\|failed`, then the FE reads `GET /v1/connections` (the query string proves nothing). An unfinished attempt is replaced. `409 already_connected` **[tested; live against Composio, 5 Nov]** |
+| `GET /v1/connections` | | `{ connections: [{ toolkit: "gmail" \| "googlecalendar", status: "connected" \| "pending" \| "expired" \| "not_connected", since? }] }` (no Composio ids) **[tested]** |
+| `POST /v1/connections/{toolkit}` | `{}` | `{ redirectUrl }`: a Composio Connect Link (`https://connect.composio.dev/…`). Open it in the browser; after sign-in Composio sends the owner to `{FE_ORIGIN}/connections?toolkit={toolkit}&status=success\|failed`, then the FE reads `GET /v1/connections` (the query string proves nothing). An unfinished attempt is replaced. `409 already_connected` **[tested; live against Composio, 5 Nov]** |
 | `DELETE /v1/connections/{toolkit}` | | `204` (Composio deletes the connection and its tokens) or `404` **[tested]** |
 
 Unknown toolkit → `404 unknown_toolkit`; Composio down or refusing → `502 composio_error`; no `COMPOSIO_API_KEY` → `503 composio_not_configured`.

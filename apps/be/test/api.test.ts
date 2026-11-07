@@ -196,6 +196,12 @@ describe('minds (#8, #13)', () => {
     assert.equal((await alice.call('GET', `/v1/minds/${mind.id}`)).status, 404)
   })
 
+  test('templates pass through the engine card quote (#63)', async () => {
+    const a = await signIn()
+    const { templates } = await (await a.call('GET', '/v1/templates')).json()
+    assert.deepEqual(templates.map((t: any) => [t.templateId, t.quote]), [['general-assistant', 'I keep your day in order.'], ['payments-mind', 'I keep your bills paid and your limits boring.']])
+  })
+
   test('unknown templates and skills, duplicates, and bad bodies are refused', async () => {
     const alice = await signIn()
     assert.equal((await alice.call('POST', '/v1/minds', { templateId: 'nope', name: 'X' })).status, 400)
@@ -644,7 +650,9 @@ describe('payment tools through the backend (#42, option B)', () => {
 
 describe('judge try-out mode (#43)', () => {
   const origin = { origin: 'http://localhost:3000' }
-  const ip = () => `198.51.100.${Math.floor(Math.random() * 250) + 1}`
+  // A new address per call, so two sign-ups never share an hourly window by chance.
+  let nextIp = 0
+  const ip = () => `198.51.100.${(nextIp++ % 250) + 1}`
   async function demoSignIn(fromIp = ip()) {
     const res = await client()('POST', '/v1/auth/demo', {}, { ...origin, 'cf-connecting-ip': fromIp })
     assert.equal(res.status, 201, await res.clone().text())
@@ -780,13 +788,42 @@ describe('judge try-out mode (#43)', () => {
 })
 
 describe('app connections through Composio (#13)', () => {
+  test('Google Calendar connects on its own, next to Gmail (#57)', async () => {
+    const a = await signIn()
+    const { user } = await (await a.call('GET', '/v1/me')).json()
+    const origin = { origin: 'http://localhost:3000' }
+    let res = await a.call('POST', '/v1/connections/gmail', {}, origin)
+    assert.equal(res.status, 200)
+    fakeComposio.activate(user.id, 'gmail')
+
+    res = await a.call('POST', '/v1/connections/googlecalendar', {}, origin)
+    assert.equal(res.status, 200, await res.clone().text())
+    assert.match((await res.json()).redirectUrl, /^https:\/\//)
+    const session = fakeComposio.requests.findLast((r) => r.path === '/tool_router/session')!
+    assert.equal(session.body.user_id, user.id)
+    assert.deepEqual(session.body.toolkits, { enable: ['googlecalendar'] })
+    const link = fakeComposio.requests.findLast((r) => r.path.endsWith('/link'))!
+    assert.equal(link.body.toolkit, 'googlecalendar')
+    assert.equal(link.body.callback_url, 'http://localhost:3000/connections?toolkit=googlecalendar')
+
+    let list = (await (await a.call('GET', '/v1/connections')).json()).connections
+    assert.deepEqual(list.map((c: any) => [c.toolkit, c.status]), [['gmail', 'connected'], ['googlecalendar', 'pending']])
+    fakeComposio.activate(user.id, 'googlecalendar')
+    assert.equal((await a.call('POST', '/v1/connections/googlecalendar', {}, origin)).status, 409)
+
+    // Disconnecting the calendar leaves Gmail connected.
+    assert.equal((await a.call('DELETE', '/v1/connections/googlecalendar', undefined, origin)).status, 204)
+    list = (await (await a.call('GET', '/v1/connections')).json()).connections
+    assert.deepEqual(list.map((c: any) => [c.toolkit, c.status]), [['gmail', 'connected'], ['googlecalendar', 'not_connected']])
+  })
+
   test('connect Gmail: Connect Link for this user, pending, then connected; no Composio ids or tokens leave the backend', async () => {
     const a = await signIn()
     const { user } = await (await a.call('GET', '/v1/me')).json()
 
     let res = await a.call('GET', '/v1/connections')
     assert.equal(res.status, 200)
-    assert.deepEqual((await res.json()).connections, [{ toolkit: 'gmail', status: 'not_connected' }])
+    assert.deepEqual((await res.json()).connections, [{ toolkit: 'gmail', status: 'not_connected' }, { toolkit: 'googlecalendar', status: 'not_connected' }])
 
     res = await a.call('POST', '/v1/connections/gmail', {}, { origin: 'http://localhost:3000' })
     assert.equal(res.status, 200, await res.clone().text())
@@ -856,5 +893,91 @@ describe('app connections through Composio (#13)', () => {
     } finally {
       config.composioApiKey = key
     }
+  })
+})
+
+describe('chat threads (#54)', () => {
+  const origin = { origin: 'http://localhost:3000' }
+  test('threads newest first with a title from the first message; messages in order, paged by run', async () => {
+    const a = await signIn()
+    const mindId = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Threads' }, origin)).json()).mind.id
+    const long = 'Please plan my whole week around the dentist appointment on Thursday and the two client calls'
+    const first = (await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { message: long }, origin)))[0].threadId
+    await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { threadId: first, message: 'and Friday?' }, origin))
+    const second = (await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { message: 'hi' }, origin)))[0].threadId
+    // A builder run has no thread and must not show up.
+    await query(`insert into runs (id, mind_id, workflow_id, status) values ($1, $2, 'daily-report', 'finished')`, [`run_wf_${randomBytes(4).toString('hex')}`, mindId])
+
+    const { threads } = await (await a.call('GET', `/v1/minds/${mindId}/threads`)).json()
+    assert.deepEqual(threads.map((t: any) => t.threadId), [second, first])
+    assert.equal(threads[0].title, 'hi')
+    assert.ok(threads[1].title.endsWith('…') && threads[1].title.length <= 61 && long.startsWith(threads[1].title.slice(0, -1)), threads[1].title)
+    assert.deepEqual(threads.map((t: any) => t.messageCount), [2, 4])
+
+    let res = await a.call('GET', `/v1/minds/${mindId}/threads/${first}/messages`)
+    const all = (await res.json())
+    assert.equal(all.nextBefore, null)
+    assert.deepEqual(all.messages.map((m: any) => [m.role, m.text.slice(0, 6)]), [['user', long.slice(0, 6)], ['assistant', 'w0 w1 '], ['user', 'and Fr'], ['assistant', 'w0 w1 ']])
+    assert.equal(all.messages[1].text.split(' ').filter(Boolean).length, 40)
+    assert.equal(all.messages[0].runId, all.messages[1].runId)
+
+    // Two messages per page: the newest run first, then `nextBefore` for the older one.
+    res = await a.call('GET', `/v1/minds/${mindId}/threads/${first}/messages?limit=2`)
+    const p1 = await res.json()
+    assert.deepEqual(p1.messages.map((m: any) => m.text.slice(0, 6)), ['and Fr', 'w0 w1 '])
+    res = await a.call('GET', `/v1/minds/${mindId}/threads/${first}/messages?limit=2&before=${encodeURIComponent(p1.nextBefore)}`)
+    const p2 = await res.json()
+    assert.deepEqual(p2.messages.map((m: any) => m.role), ['user', 'assistant'])
+    assert.equal(p2.messages[0].text, long)
+    assert.equal(p2.nextBefore, null)
+  })
+
+  test('paging keeps runs that started in the same millisecond', async () => {
+    const a = await signIn()
+    const mindId = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Same time' }, origin)).json()).mind.id
+    const threadId = (await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { message: 'first' }, origin)))[0].threadId
+    for (const message of ['second', 'third']) await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { threadId, message }, origin))
+    // All three runs start at the same instant, down to the microsecond.
+    await query(`update runs set started_at = '2026-11-06T12:00:00.123456Z' where thread_id = $1`, [threadId])
+    const seen: string[] = []
+    let before: string | null = ''
+    for (let page = 0; before !== null && page < 5; page++) {
+      const q: string = before ? `&before=${encodeURIComponent(before)}` : ''
+      const body: any = await (await a.call('GET', `/v1/minds/${mindId}/threads/${threadId}/messages?limit=1${q}`)).json()
+      seen.push(...body.messages.filter((m: any) => m.role === 'user').map((m: any) => m.text))
+      before = body.nextBefore
+    }
+    assert.deepEqual(seen.sort(), ['first', 'second', 'third'])
+    // A plain ISO time still works: everything that started before it.
+    const old = await (await a.call('GET', `/v1/minds/${mindId}/threads/${threadId}/messages?before=2026-11-06T12:00:00.124Z`)).json()
+    assert.equal(old.messages.filter((m: any) => m.role === 'user').length, 3)
+    assert.equal((await a.call('GET', `/v1/minds/${mindId}/threads/${threadId}/messages?before=x~y~z`)).status, 400)
+  })
+
+  test('a run paused for approval keeps its user message; resumed text joins its reply', async () => {
+    const a = await signIn()
+    const mindId = (await (await a.call('POST', '/v1/minds', { templateId: 'payments-mind', name: 'Pay threads' }, origin)).json()).mind.id
+    const evs = await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { message: 'pay the bill' }, origin))
+    await events(await a.call('POST', `/v1/runs/${evs[0].runId}/approve?mindId=${mindId}`, { toolCallId: 'call_1' }, origin))
+    const { messages } = await (await a.call('GET', `/v1/minds/${mindId}/threads/${evs[0].threadId}/messages`)).json()
+    assert.deepEqual(messages.map((m: any) => [m.role, m.text]), [['user', 'pay the bill'], ['assistant', 'Paid.']])
+  })
+
+  test('another user, another Mind or an unknown thread answers 404', async () => {
+    const a = await signIn()
+    const b = await signIn()
+    const mindA = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'A' }, origin)).json()).mind.id
+    const mindA2 = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'A2' }, origin)).json()).mind.id
+    const threadId = (await events(await a.call('POST', `/v1/minds/${mindA}/chat`, { message: 'secret plans' }, origin)))[0].threadId
+    assert.equal((await b.call('GET', `/v1/minds/${mindA}/threads`)).status, 404)
+    assert.equal((await b.call('GET', `/v1/minds/${mindA}/threads/${threadId}/messages`)).status, 404)
+    let res = await a.call('GET', `/v1/minds/${mindA2}/threads/${threadId}/messages`)
+    assert.equal(res.status, 404)
+    assert.deepEqual(await res.json(), { error: 'thread_not_found' })
+    assert.equal((await a.call('GET', `/v1/minds/${mindA}/threads/thr_${'0'.repeat(24)}/messages`)).status, 404)
+    assert.equal((await a.call('GET', `/v1/minds/${mindA}/threads/not-a-thread/messages`)).status, 404)
+    assert.equal((await a.call('GET', `/v1/minds/${mindA}/threads/${threadId}/messages?before=yesterday`)).status, 400)
+    assert.equal((await a.call('DELETE', `/v1/minds/${mindA}/threads/${threadId}`, undefined, origin)).status, 405)
+    assert.deepEqual((await (await a.call('GET', `/v1/minds/${mindA2}/threads`)).json()).threads, [])
   })
 })
