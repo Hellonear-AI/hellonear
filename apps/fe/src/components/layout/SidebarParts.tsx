@@ -95,7 +95,7 @@ export function RecentChats({ mindId, onNavigate }: { mindId: string; onNavigate
   const pathname = usePathname()
 
   return (
-    <section aria-labelledby="recent-chats" className="flex flex-1 flex-col gap-0.5 pt-2">
+    <section aria-labelledby="recent-chats" className="flex min-h-0 flex-1 flex-col gap-0.5 pt-2">
       <div className="flex items-center justify-between py-1 pr-1 pl-3">
         <h2 id="recent-chats" className="text-xs font-semibold text-tertiary-foreground">
           Recent chats
@@ -109,7 +109,7 @@ export function RecentChats({ mindId, onNavigate }: { mindId: string; onNavigate
           <SquarePenIcon />
         </Button>
       </div>
-      <div className="flex flex-col gap-0.5">
+      <div className="scrollbar-on-hover -mr-2 flex min-h-0 flex-col gap-0.5 overflow-y-auto overscroll-contain pr-2">
         {chats.length === 0 && (
           <p className="px-3 py-2 text-xs text-tertiary-foreground">No chats yet.</p>
         )}
