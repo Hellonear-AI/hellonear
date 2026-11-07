@@ -2,7 +2,7 @@
 
 HelloNear web app (Next.js App Router, Tailwind + shadcn/ui, NEAR Connect on testnet).
 
-**Owner:** Ancung · Issue: #9 · Design from Nabil (#10) · Context: `research.md` 5.7, 8.1, 9.2 (Mind Graph).
+**Owner:** Ancung · Issue: #9 · Design from Nabil (#10). Plan and decisions: #3, #4; Mind Graph events in `docs/api-contract.md` §4.
 
 ## Run
 

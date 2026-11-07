@@ -2,7 +2,7 @@
 
 Records Mind ↔ owner ↔ wallet ↔ skills on NEAR (#12). No custody logic: a Mind's wallet lives in OutLayer; this contract only stores its address.
 
-**Owner:** Axel · Context: `research.md` 8.3 · Scaffolded with `cargo near new` (official template).
+**Owner:** Axel · Scaffolded with `cargo near new` (official template).
 
 ## Interface
 
