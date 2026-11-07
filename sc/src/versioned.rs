@@ -22,7 +22,7 @@ pub struct MindV1 {
 pub struct SkillV1 {
     pub publisher: AccountId,
     pub metadata_uri: String,
-    /// Price in yoctoNEAR. Recorded only; payments are not handled yet.
+    /// Price in yoctoNEAR, paid to `publisher` by the owner on every `equip_skill` (#56).
     pub price: U128,
 }
 

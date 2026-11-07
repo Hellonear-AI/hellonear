@@ -359,3 +359,10 @@ Same paths and bodies as the engine (§2), under `/v1/minds/{mindId}/workflows�
 
 - `POST …/workflows/{workflowId}/runs`: `{ input? }` → SSE (stored like chat runs, `run.workflowId` set).
 - `PUT …/workflows/{workflowId}/autopilot`: `{ input?, enabled? }` → engine answer as is (`200` or `409 cannot_autopilot`).
+
+## 8. Mind registry contract (browser → NEAR, signed with Meteor)
+
+`hellonear-registry.testnet` (`sc/`, interface in `sc/README.md`). The owner's wallet signs these calls; the Mind's OutLayer wallet and its spending limits are not involved.
+
+- **`equip_skill(mind_id, skill_id)` pays the skill's publisher (#56, v0.3.0, not deployed yet; testnet runs v0.2.0, which only records the price).** Attach `price` (yoctoNEAR, from `get_skill(skill_id).price`) + 0.01 NEAR for storage; the excess comes back. Attach 30 Tgas. Both amounts are what the sandbox test attaches (`sc/tests/test_registry.rs`); it burnt 5.6 Tgas. Too little deposit fails with nothing stored and the deposit returned. Equipping again after an unequip pays again.
+- Event `skill_equipped` (NEP-297 `hellonear_registry` **1.1.0**): `{ mind_id, skill_id, price, publisher }`, so the UI can show "paid X NEAR to Y". If the publisher's account no longer exists, the owner gets the price back and `skill_payment_refunded` `{ mind_id, skill_id, payer, price }` follows; the skill stays equipped.
