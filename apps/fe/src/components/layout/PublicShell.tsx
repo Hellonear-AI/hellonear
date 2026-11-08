@@ -1,6 +1,6 @@
 import Link from "next/link"
 import type { ReactNode } from "react"
-import { WalletButton } from "@/modules/wallet/components/WalletButton"
+import { SignInButton } from "@/modules/auth/components/SignInButton"
 
 // Frame for pages outside a Mind (sign in for now). Replaced by the L1 sign-in screen.
 export function PublicShell({ children }: { children: ReactNode }) {
@@ -11,7 +11,7 @@ export function PublicShell({ children }: { children: ReactNode }) {
           <Link href="/" className="shrink-0 text-base font-semibold">
             HelloNear
           </Link>
-          <WalletButton />
+          <SignInButton />
         </div>
       </header>
       <main id="main-content" className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
