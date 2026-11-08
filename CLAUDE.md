@@ -47,7 +47,7 @@ HelloNear is an AI agent persona platform on NEAR, built for NEAR HACKATHON (1â€
 | `sc` | Mind registry contract (Rust `near-sdk`) | Axel |
 | `docs` | Shared technical docs, incl. `api-contract.md` | James + Axel |
 | `design` | Design tokens, screens, Mind characters (`hellonear.pen`, pen.dev) | Nabil |
-| `deploy` | Hosted demo: systemd units + `deploy.sh` for one Proxmox LXC (#22) | James |
+| `deploy` | Hosted demo: systemd units + `deploy.sh` for one Proxmox LXC, and the automatic deploy after a merge (`deploy/autodeploy/`) (#22) | James |
 
 ## Decided stack (see #4)
 
@@ -71,7 +71,7 @@ Each folder has its own workflow in `.github/workflows/`. It runs on pull reques
 | `fe` | `apps/fe` | lint, typecheck, `next build` |
 | `sc` | `sc` | unit tests, sandbox tests (incl. upgrades from the fixtures), clippy |
 
-CI does not replace the local integration and load tests required by the rules below. Nothing deploys from CI itself. A merged `main` is deployed to the hosted demo after its CI passes (rule 3, `deploy/README.md`).
+CI does not replace the local integration and load tests required by the rules below. Nothing deploys from CI itself. A merged `main` is deployed to the hosted demo after its CI passes, by a poller on James's always-on LAN machine that comments the result on the merged PR (rule 3, `deploy/README.md`).
 
 ## Local machines
 
