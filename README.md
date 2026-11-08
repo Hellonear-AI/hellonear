@@ -51,7 +51,7 @@ What you should see in step 4 (checked locally on 7 Nov, ~46 s):
 
 **Payments** (Payments Mind, shared testnet demo wallet with a 0.05 NEAR per-payment limit):
 - Create a Mind with `"templateId":"payments-mind"`, then chat `"Send 0.01 NEAR to lin1er.testnet"`. See: `tool.approval_required` for `send_payment`, and nothing is sent yet.
-- `GET $B/v1/minds/$M/approvals`, then `POST $B/v1/runs/{runId}/approve` with `{"toolCallId":"…"}`. See: `send_payment` returns `sent` with a testnet `txHash`.
+- `curl -s -b jar $B/v1/minds/$M/approvals` gives the `runId` and `toolCallId`. Then approve; the reply streams like chat, so keep `-N`: `curl -sN -b jar -X POST $B/v1/runs/$RUN/approve -H 'content-type: application/json' -d '{"toolCallId":"…"}'`. See: `send_payment` returns `sent` with a testnet `txHash`.
 - Ask for 1 NEAR instead and approve it. See: `policy_denied`, no transaction, no tx link: the wallet refused before signing.
 
 Every route and event is listed in [`docs/api-contract.md`](docs/api-contract.md).
