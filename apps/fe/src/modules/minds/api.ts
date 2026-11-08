@@ -36,6 +36,12 @@ export type ApiWallet = {
   }
 }
 
+/** An owner action on `outlayer.testnet`, built by the backend for the owner's wallet to sign. */
+export type OwnerTransaction = {
+  receiverId: string
+  actions: { type: "FunctionCall"; params: { methodName: string; args: object; gas: string; deposit: string } }[]
+}
+
 export type ApiApproval = {
   runId: string
   threadId: string
@@ -68,6 +74,18 @@ export const mindsApi = {
       throw err
     }
   },
+  /** Creates the Mind's OutLayer wallet. A wallet that already exists (409 `wallet_exists`) is fine. */
+  createWallet: async (mindId: string) => {
+    try {
+      await api(`/minds/${encodeURIComponent(mindId)}/wallet`, { method: "POST", body: {} })
+    } catch (err) {
+      if (!(err instanceof ApiError && err.code === "wallet_exists")) throw err
+    }
+  },
+  /** The `store_wallet_policy` transaction for policy v2; the owner signs it. */
+  policyTransaction: async (mindId: string, body: { perTransactionNear: string; whitelist: string[] }) =>
+    (await api<{ transaction: OwnerTransaction }>(`/minds/${encodeURIComponent(mindId)}/wallet/policy`, { method: "POST", body }))
+      .transaction,
   approvals: async (mindId: string) =>
     (await api<{ approvals: ApiApproval[] }>(`/minds/${encodeURIComponent(mindId)}/approvals`)).approvals,
   threads: async (mindId: string, limit = 20) =>
