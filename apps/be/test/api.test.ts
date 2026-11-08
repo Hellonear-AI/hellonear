@@ -24,7 +24,7 @@ process.env.COMPOSIO_URL = `http://127.0.0.1:${(composioServer.address() as Addr
 process.env.COMPOSIO_API_KEY = COMPOSIO_KEY
 process.env.DATABASE_URL ??= 'postgresql://hellonear:hellonear-dev-only@localhost:55432/hellonear'
 process.env.SECRETS_MASTER_KEY = randomBytes(32).toString('base64')
-process.env.FE_ORIGIN = 'http://localhost:3000'
+process.env.FE_ORIGIN = 'http://localhost:3000, https://fe-second.example'
 
 const { server } = await import('../src/server.ts')
 const { setProvider } = await import('../src/auth.ts')
@@ -168,6 +168,20 @@ describe('auth (#8)', () => {
     assert.equal(res.headers.get('access-control-allow-origin'), 'http://localhost:3000')
     assert.equal(res.headers.get('access-control-allow-credentials'), 'true')
     assert.equal((await alice.call('GET', '/v1/me', undefined, { origin: 'https://evil.example' })).headers.get('access-control-allow-origin'), null)
+  })
+
+  test('FE_ORIGIN can list several origins; each gets CORS, and the first is the Composio callback', async () => {
+    assert.deepEqual(config.feOrigins, ['http://localhost:3000', 'https://fe-second.example'])
+    assert.equal(config.feOrigin, 'http://localhost:3000')
+    const alice = await signIn()
+    const second = { origin: 'https://fe-second.example' }
+    const res = await alice.call('GET', '/v1/me', undefined, second)
+    assert.equal(res.headers.get('access-control-allow-origin'), 'https://fe-second.example')
+    assert.equal((await alice.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'X' }, second)).status, 201)
+    // Only an exact origin matches: no prefix, suffix or scheme tricks.
+    for (const origin of ['https://fe-second.example.evil.example', 'http://fe-second.example', 'https://fe-second.example:8443']) {
+      assert.equal((await alice.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'X' }, { origin })).status, 403, origin)
+    }
   })
 })
 

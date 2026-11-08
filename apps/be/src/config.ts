@@ -5,6 +5,15 @@ function required(name: string): string {
   return value
 }
 
+// FE_ORIGIN may list several origins, comma-separated. The first is the web app's public origin.
+function origins(): string[] {
+  const list = (process.env.FE_ORIGIN || 'http://localhost:3000').split(',').map((o) => o.trim()).filter(Boolean)
+  if (list.length === 0) throw new Error('FE_ORIGIN has no origin in it')
+  return list
+}
+
+const feOrigins = origins()
+
 function masterKey(): Buffer {
   const key = Buffer.from(required('SECRETS_MASTER_KEY'), 'base64')
   if (key.length !== 32) throw new Error('SECRETS_MASTER_KEY must be 32 bytes, base64 (openssl rand -base64 32)')
@@ -17,8 +26,10 @@ export const config = {
   engineApiKey: required('ENGINE_API_KEY'),
   secretsMasterKey: masterKey(),
   port: Number(process.env.PORT ?? 4000),
-  // The web app's origin: allowed for CORS with credentials, required on state-changing requests.
-  feOrigin: process.env.FE_ORIGIN ?? 'http://localhost:3000',
+  // Origins allowed for CORS with credentials and on state-changing requests (e.g. the public web app plus a
+  // local dev FE). `feOrigin`, the first one, is where Composio sends the owner back after connecting an app.
+  feOrigins,
+  feOrigin: feOrigins[0],
   // NEP-413 `recipient` the wallet signs for; the FE must use the same value.
   authRecipient: process.env.AUTH_RECIPIENT ?? 'hellonear.app',
   authMessage: 'Sign in to HelloNear',

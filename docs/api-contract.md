@@ -272,7 +272,7 @@ Index `run_events (run_id, seq)` and `runs (mind_id, started_at desc)`. Migratio
 
 ## 7. Backend HTTP API (called by the browser)
 
-Implemented in `apps/be` (#8). Base URL `http://localhost:4000` locally. JSON bodies (at most 256 KB). Errors are `{ error, ...details }` with the status below. Every route except health and auth needs the session cookie `hn_session` (send requests with `credentials: 'include'`). CORS allows only `FE_ORIGIN` with credentials; a state-changing request whose `Origin` is not `FE_ORIGIN` gets `403 bad_origin`. Another user's Mind or run answers `404`.
+Implemented in `apps/be` (#8). Base URL `http://localhost:4000` locally. JSON bodies (at most 256 KB). Errors are `{ error, ...details }` with the status below. Every route except health and auth needs the session cookie `hn_session` (send requests with `credentials: 'include'`). CORS allows only the origins in `FE_ORIGIN` (comma-separated, exact match) with credentials; a state-changing request whose `Origin` is not one of them gets `403 bad_origin`. Another user's Mind or run answers `404`.
 
 ### Auth (NEP-413)
 
@@ -364,5 +364,5 @@ Same paths and bodies as the engine (Â§2), under `/v1/minds/{mindId}/workflowsâ€
 
 `hellonear-registry.testnet` (`sc/`, interface in `sc/README.md`). The owner's wallet signs these calls; the Mind's OutLayer wallet and its spending limits are not involved.
 
-- **`equip_skill(mind_id, skill_id)` pays the skill's publisher (#56, v0.3.0, not deployed yet; testnet runs v0.2.0, which only records the price).** Attach `price` (yoctoNEAR, from `get_skill(skill_id).price`) + 0.01 NEAR for storage; the excess comes back. Attach 30 Tgas. Both amounts are what the sandbox test attaches (`sc/tests/test_registry.rs`); it burnt 5.6 Tgas. Too little deposit fails with nothing stored and the deposit returned. Equipping again after an unequip pays again.
+- **`equip_skill(mind_id, skill_id)` pays the skill's publisher (#56, v0.3.0, on testnet since 7 Nov 2026).** Attach `price` (yoctoNEAR, from `get_skill(skill_id).price`) + 0.01 NEAR for storage; the excess comes back. Attach 30 Tgas. Both amounts are what the sandbox test attaches (`sc/tests/test_registry.rs`); it burnt 5.6 Tgas. Too little deposit fails with nothing stored and the deposit returned. Equipping again after an unequip pays again.
 - Event `skill_equipped` (NEP-297 `hellonear_registry` **1.1.0**): `{ mind_id, skill_id, price, publisher }`, so the UI can show "paid X NEAR to Y". If the publisher's account no longer exists, the owner gets the price back and `skill_payment_refunded` `{ mind_id, skill_id, payer, price }` follows; the skill stays equipped.

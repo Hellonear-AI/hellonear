@@ -60,6 +60,19 @@ HelloNear is an AI agent persona platform on NEAR, built for NEAR HACKATHON (1�
 
 **Bun** for every JS/TS folder (`bun install`, `bun run <script>`, `bun.lock` committed, no `package-lock.json`). Runtimes are chosen per folder: the engine runs on Node (see `engine/CLAUDE.md`). Global setup commands such as `npx skills add …` stay as written.
 
+## CI (GitHub Actions)
+
+Each folder has its own workflow in `.github/workflows/`. It runs on pull requests that touch that folder and on pushes to `main`. None of them need secrets.
+
+| Workflow | Folder | Runs |
+|---|---|---|
+| `be` | `apps/be` | typecheck, unit + integration tests against Postgres + pgvector (fake engine) |
+| `engine` | `engine` | typecheck, `test:unit` (the NEAR AI integration tests stay local) |
+| `fe` | `apps/fe` | lint, typecheck, `next build` |
+| `sc` | `sc` | unit tests, sandbox tests (incl. upgrades from the fixtures), clippy |
+
+CI does not replace the local integration and load tests required by the rules below. Nothing deploys from CI: deploys stay manual and need Axel's approval.
+
 ## Local machines
 
 The team uses macOS with **OrbStack** as the Docker runtime. Keep local services light: `docker-compose.yml` caps Postgres at 1 CPU / 512 MB, run tests sequentially, keep load tests short, and `docker compose stop` when you are done.
@@ -68,8 +81,8 @@ The team uses macOS with **OrbStack** as the Docker runtime. Keep local services
 
 | What | Account | Env |
 |---|---|---|
-| Mind registry contract (`sc/`), v0.2.0 | `hellonear-registry.testnet` | `REGISTRY_CONTRACT_ID`, `NEAR_NETWORK=testnet` |
-| Demo Mind wallet (OutLayer, policy v2), owner `lin1er.testnet` | `0fdc9294b3f4f9be1ef5a9e2440e9f37dc03a641f236c8e1877c55f953d04e7a`; sub-wallet `skill-payments` `e81791309e25c72f894f2d376e7a6ea35fbfe4e05b908da9fe18d8690e8f8b8a` | `OUTLAYER_API_KEY`, `OUTLAYER_SUB_SKILL_PAYMENTS` (James's `apps/be/.env`, never committed) |
+| Mind registry contract (`sc/`), v0.3.0 | `hellonear-registry.testnet` | `REGISTRY_CONTRACT_ID`, `NEAR_NETWORK=testnet` |
+| Demo Mind wallet (OutLayer, policy v2), owner `lin1er.testnet` | `83e05486fc84f7150a70fe44bdfc0692c19182cdd72af7721c9a8a2a511e98bd`; sub-wallet `skill-payments` `bcd8cdbd8b4038c12ab9076188d01f9e5238ff397c3c6097cec1488c6b16588b`. Replaced `0fdc9294…` on 8 Nov (its key was exposed; #70) | `OUTLAYER_API_KEY`, `OUTLAYER_SUB_SKILL_PAYMENTS` (James's `apps/be/.env`, never committed); hosted demo: `DEMO_OUTLAYER_API_KEY` |
 
 Keep this table and each folder's `.env.example` in sync when something is (re)deployed.
 
