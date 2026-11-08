@@ -49,10 +49,11 @@ export function setCookie(res: ServerResponse, name: string, value: string, maxA
   res.setHeader('set-cookie', attrs.join('; '))
 }
 
-// CORS for the web app only, with credentials (the session cookie).
+// CORS for the web app origins only (FE_ORIGIN), with credentials (the session cookie).
 export function cors(req: IncomingMessage, res: ServerResponse) {
-  if (req.headers.origin !== config.feOrigin) return
-  res.setHeader('access-control-allow-origin', config.feOrigin)
+  const origin = req.headers.origin
+  if (origin === undefined || !config.feOrigins.includes(origin)) return
+  res.setHeader('access-control-allow-origin', origin)
   res.setHeader('access-control-allow-credentials', 'true')
   res.setHeader('access-control-allow-methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
   res.setHeader('access-control-allow-headers', 'content-type')
@@ -64,7 +65,7 @@ export function cors(req: IncomingMessage, res: ServerResponse) {
 export function assertSameOrigin(req: IncomingMessage) {
   if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return
   const origin = req.headers.origin
-  if (origin !== undefined && origin !== config.feOrigin) throw new HttpError(403, 'bad_origin')
+  if (origin !== undefined && !config.feOrigins.includes(origin)) throw new HttpError(403, 'bad_origin')
 }
 
 // Loopback only: 127.0.0.0/8, ::1 and their IPv4-mapped forms. Used for the engine-only internal routes.
