@@ -272,7 +272,7 @@ Index `run_events (run_id, seq)` and `runs (mind_id, started_at desc)`. Migratio
 
 ## 7. Backend HTTP API (called by the browser)
 
-Implemented in `apps/be` (#8). Base URL `http://localhost:4000` locally. JSON bodies (at most 256 KB). Errors are `{ error, ...details }` with the status below. Every route except health and auth needs the session cookie `hn_session` (send requests with `credentials: 'include'`). CORS allows only the origins in `FE_ORIGIN` (comma-separated, exact match) with credentials; a state-changing request whose `Origin` is not one of them gets `403 bad_origin`. Another user's Mind or run answers `404`.
+Implemented in `apps/be` (#8). Base URL `http://localhost:4000` locally. JSON bodies (at most 256 KB). Errors are `{ error, ...details }` with the status below. When a service the backend depends on fails (OutLayer, Composio, the engine, the NEAR RPC), the answer is **`503`**, never `502`: behind Cloudflare a `502`/`504` body is replaced by Cloudflare's own HTML page, so the FE would lose the error. `…_error` means the service answered with a failure (details carry its status, e.g. `outlayerStatus`); `…_unreachable` / `engine_unavailable` mean no answer, with `reason` (`timeout` or a network code such as `ECONNREFUSED`). Every 5xx is logged to the backend journal as one `http error` line (route, code, details; never keys). Every route except health and auth needs the session cookie `hn_session` (send requests with `credentials: 'include'`). CORS allows only the origins in `FE_ORIGIN` (comma-separated, exact match) with credentials; a state-changing request whose `Origin` is not one of them gets `403 bad_origin`. Another user's Mind or run answers `404`.
 
 ### Auth (NEP-413)
 
@@ -314,7 +314,7 @@ One OutLayer wallet per Mind, on testnet. The backend keeps the agent key and ne
 | `POST /v1/minds/{mindId}/wallet/freeze`, `…/unfreeze` | `{}` | `{ transaction }` for `freeze_wallet` / `unfreeze_wallet` (30 Tgas, no deposit). A frozen wallet's transfers get `403 wallet_frozen` before signing **[tested]** |
 | `GET /v1/minds/{mindId}/wallet/payments?limit=20` | | `{ payments }`, the same receipts the engine's `list_payments` reads (Receipts screen) **[tested]** |
 
-`transaction` = `{ receiverId: "outlayer.testnet", actions: [{ type: "FunctionCall", params: { methodName, args, gas, deposit } }] }`. OutLayer down or refusing → `502 outlayer_error`. Deleting a Mind deletes its wallet row: move the balance out first (a later route will do it).
+`transaction` = `{ receiverId: "outlayer.testnet", actions: [{ type: "FunctionCall", params: { methodName, args, gas, deposit } }] }`. OutLayer down → `503 outlayer_unreachable` (`reason`); refusing → `503 outlayer_error` (`outlayerStatus`). Deleting a Mind deletes its wallet row: move the balance out first (a later route will do it).
 
 ### Chat, runs and the approval inbox
 
@@ -351,7 +351,7 @@ The owner connects an app (`gmail` or `googlecalendar`, #57) once per account; C
 | `POST /v1/connections/{toolkit}` | `{}` | `{ redirectUrl }`: a Composio Connect Link (`https://connect.composio.dev/…`). Open it in the browser; after sign-in Composio sends the owner to `{FE_ORIGIN}/connections?toolkit={toolkit}&status=success\|failed`, then the FE reads `GET /v1/connections` (the query string proves nothing). An unfinished attempt is replaced. `409 already_connected` **[tested; live against Composio, 5 Nov]** |
 | `DELETE /v1/connections/{toolkit}` | | `204` (Composio deletes the connection and its tokens) or `404` **[tested]** |
 
-Unknown toolkit → `404 unknown_toolkit`; Composio down or refusing → `502 composio_error`; no `COMPOSIO_API_KEY` → `503 composio_not_configured`.
+Unknown toolkit → `404 unknown_toolkit`; Composio down → `503 composio_unreachable` (`reason`); refusing → `503 composio_error` (`composioStatus`); no `COMPOSIO_API_KEY` → `503 composio_not_configured`.
 
 ### Visual Builder and Autopilot (#20, #21)
 
