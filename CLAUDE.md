@@ -60,6 +60,19 @@ HelloNear is an AI agent persona platform on NEAR, built for NEAR HACKATHON (1â€
 
 **Bun** for every JS/TS folder (`bun install`, `bun run <script>`, `bun.lock` committed, no `package-lock.json`). Runtimes are chosen per folder: the engine runs on Node (see `engine/CLAUDE.md`). Global setup commands such as `npx skills add â€¦` stay as written.
 
+## CI (GitHub Actions)
+
+Each folder has its own workflow in `.github/workflows/`. It runs on pull requests that touch that folder and on pushes to `main`. None of them need secrets.
+
+| Workflow | Folder | Runs |
+|---|---|---|
+| `be` | `apps/be` | typecheck, unit + integration tests against Postgres + pgvector (fake engine) |
+| `engine` | `engine` | typecheck, `test:unit` (the NEAR AI integration tests stay local) |
+| `fe` | `apps/fe` | lint, typecheck, `next build` |
+| `sc` | `sc` | unit tests, sandbox tests (incl. upgrades from the fixtures), clippy |
+
+CI does not replace the local integration and load tests required by the rules below. Nothing deploys from CI: deploys stay manual and need Axel's approval.
+
 ## Local machines
 
 The team uses macOS with **OrbStack** as the Docker runtime. Keep local services light: `docker-compose.yml` caps Postgres at 1 CPU / 512 MB, run tests sequentially, keep load tests short, and `docker compose stop` when you are done.

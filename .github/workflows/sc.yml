@@ -1,0 +1,45 @@
+# Contract CI: unit tests, the sandbox tests (build the WASM, deploy it to a local NEAR sandbox, upgrade from the
+# v0.1.0/v0.2.0 fixtures) and clippy. No secrets: nothing touches testnet. The toolchain comes from rust-toolchain.toml.
+name: sc
+
+on:
+  pull_request:
+    paths: ['sc/**', '.github/workflows/sc.yml']
+  push:
+    branches: [main]
+    paths: ['sc/**', '.github/workflows/sc.yml']
+
+concurrency:
+  group: sc-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: sc
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: sc
+      # The sandbox tests build the WASM through `cargo near` (cargo-near 0.22.0, see sc/CLAUDE.md). Pinned by checksum.
+      - name: Install cargo-near 0.22.0
+        working-directory: ${{ runner.temp }}
+        run: |
+          curl -sSfL --retry 3 -o cargo-near.tar.gz \
+            https://github.com/near/cargo-near/releases/download/cargo-near-v0.22.0/cargo-near-x86_64-unknown-linux-gnu.tar.gz
+          echo "9429064e30a427e96523f539cb255f3688d2345e5000d7d4e4873a8247247d1a  cargo-near.tar.gz" | sha256sum -c -
+          tar xzf cargo-near.tar.gz
+          install -m755 cargo-near-x86_64-unknown-linux-gnu/cargo-near "$HOME/.cargo/bin/cargo-near"
+          cargo near --version
+      - run: cargo test --locked --lib
+      - run: cargo test --locked --test test_registry
+      - run: cargo test --locked --test test_migration
+      - run: cargo clippy --locked --all-targets
