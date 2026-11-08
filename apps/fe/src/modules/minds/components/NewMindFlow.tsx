@@ -140,7 +140,7 @@ function setUpNotice(err: unknown, name: string): Notice {
     return { text: "Meteor signed, but the limits don't show up yet. Check again in a moment.", retry: "Check again" }
   }
   const cause = err instanceof SetUpError ? err.cause : err
-  if (cause instanceof ApiError && cause.code === "outlayer_error") {
+  if (cause instanceof ApiError && (cause.code === "outlayer_error" || cause.code === "outlayer_unreachable")) {
     return { text: "The wallet service didn't answer. Nothing was signed. Try again in a moment.", retry: "Try again" }
   }
   return { text: `Couldn't set up ${name}. Nothing was signed. Try again.`, retry: "Try again" }
