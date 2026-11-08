@@ -158,10 +158,13 @@ export async function policyTransaction(mindId: string, ownerAccountId: string, 
   const enc = await outlayer('POST', '/wallet/v1/encrypt-policy', key, policy)
   const sig = await outlayer('POST', '/wallet/v1/sign-policy', key, { encrypted_data: enc.encrypted_base64, caller: ownerAccountId })
   if (typeof enc?.encrypted_base64 !== 'string' || typeof sig?.signature_hex !== 'string' || typeof sig?.public_key_hex !== 'string') throw new HttpError(502, 'outlayer_error')
+  // The keystore signs `store_wallet_policy:v2:…` over the version this write stores (current + 1), the new policy's
+  // lock and a deadline (unix seconds); the contract rebuilds that message from the same three args, so pass them as is.
+  if (!Number.isSafeInteger(sig.version) || typeof sig.locked !== 'boolean' || !Number.isSafeInteger(sig.valid_until)) throw new HttpError(502, 'outlayer_error')
   const walletPubkey = `ed25519:${sig.public_key_hex}`
   const deposit = await view('estimate_wallet_policy_cost', { wallet_pubkey: walletPubkey, encrypted_data: enc.encrypted_base64 })
   if (!/^\d+$/.test(String(deposit))) throw new HttpError(502, 'rpc_error')
-  return call('store_wallet_policy', { wallet_pubkey: walletPubkey, encrypted_data: enc.encrypted_base64, wallet_signature: sig.signature_hex }, '100000000000000', String(deposit))
+  return call('store_wallet_policy', { wallet_pubkey: walletPubkey, encrypted_data: enc.encrypted_base64, wallet_signature: sig.signature_hex, version: sig.version, locked: sig.locked, valid_until: sig.valid_until }, '100000000000000', String(deposit))
 }
 
 export async function freezeTransaction(mindId: string, frozen: boolean): Promise<OwnerTransaction> {
