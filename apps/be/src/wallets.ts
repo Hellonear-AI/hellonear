@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { config } from './config.ts'
 import { decrypt, encrypt, sha256 } from './crypto.ts'
 import { query } from './db.ts'
-import { HttpError } from './http.ts'
+import { HttpError, UPSTREAM_ERROR } from './http.ts'
 
 const YOCTO = 10n ** 24n
 const accountIdSchema = z.string().toLowerCase().regex(/^(?=.{2,64}$)(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/, 'a NEAR account id')
@@ -39,7 +39,7 @@ export async function outlayerRaw(method: string, path: string, key: string, bod
       signal: AbortSignal.timeout(30_000),
     })
   } catch {
-    throw new HttpError(502, 'outlayer_unreachable')
+    throw new HttpError(UPSTREAM_ERROR, 'outlayer_unreachable')
   }
   return { status: res.status, body: await res.json().catch(() => null) }
 }
@@ -54,9 +54,9 @@ async function outlayer(method: string, path: string, key?: string, body?: unkno
       signal: AbortSignal.timeout(20_000),
     })
   } catch {
-    throw new HttpError(502, 'outlayer_unreachable')
+    throw new HttpError(UPSTREAM_ERROR, 'outlayer_unreachable')
   }
-  if (!res.ok) throw new HttpError(502, 'outlayer_error', { outlayerStatus: res.status })
+  if (!res.ok) throw new HttpError(UPSTREAM_ERROR, 'outlayer_error', { outlayerStatus: res.status })
   return res.json()
 }
 
@@ -66,9 +66,9 @@ async function view(method: string, args: unknown): Promise<any> {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'query', params: { request_type: 'call_function', finality: 'final', account_id: config.outlayerContractId, method_name: method, args_base64: Buffer.from(JSON.stringify(args)).toString('base64') } }),
     signal: AbortSignal.timeout(15_000),
-  }).catch(() => { throw new HttpError(502, 'rpc_unreachable') })
+  }).catch(() => { throw new HttpError(UPSTREAM_ERROR, 'rpc_unreachable') })
   const body: any = await res.json().catch(() => null)
-  if (!body?.result?.result) throw new HttpError(502, 'rpc_error')
+  if (!body?.result?.result) throw new HttpError(UPSTREAM_ERROR, 'rpc_error')
   return JSON.parse(Buffer.from(body.result.result).toString('utf8'))
 }
 
@@ -110,7 +110,7 @@ const call = (methodName: string, args: Record<string, unknown>, gas: string, de
 export async function createWallet(mindId: string) {
   if (await row(mindId)) throw new HttpError(409, 'wallet_exists')
   const reg = await outlayer('POST', '/register')
-  if (typeof reg?.api_key !== 'string' || !/^[0-9a-f]{64}$/.test(reg.near_account_id ?? '')) throw new HttpError(502, 'outlayer_error')
+  if (typeof reg?.api_key !== 'string' || !/^[0-9a-f]{64}$/.test(reg.near_account_id ?? '')) throw new HttpError(UPSTREAM_ERROR, 'outlayer_error')
   const inserted = await query(
     `insert into mind_wallets (mind_id, wallet_id, near_account_id, key_ciphertext) values ($1, $2, $3, $4)
      on conflict (mind_id) do nothing returning mind_id`,
@@ -157,13 +157,13 @@ export async function policyTransaction(mindId: string, ownerAccountId: string, 
   }
   const enc = await outlayer('POST', '/wallet/v1/encrypt-policy', key, policy)
   const sig = await outlayer('POST', '/wallet/v1/sign-policy', key, { encrypted_data: enc.encrypted_base64, caller: ownerAccountId })
-  if (typeof enc?.encrypted_base64 !== 'string' || typeof sig?.signature_hex !== 'string' || typeof sig?.public_key_hex !== 'string') throw new HttpError(502, 'outlayer_error')
+  if (typeof enc?.encrypted_base64 !== 'string' || typeof sig?.signature_hex !== 'string' || typeof sig?.public_key_hex !== 'string') throw new HttpError(UPSTREAM_ERROR, 'outlayer_error')
   // The keystore signs `store_wallet_policy:v2:…` over the version this write stores (current + 1), the new policy's
   // lock and a deadline (unix seconds); the contract rebuilds that message from the same three args, so pass them as is.
-  if (!Number.isSafeInteger(sig.version) || typeof sig.locked !== 'boolean' || !Number.isSafeInteger(sig.valid_until)) throw new HttpError(502, 'outlayer_error')
+  if (!Number.isSafeInteger(sig.version) || typeof sig.locked !== 'boolean' || !Number.isSafeInteger(sig.valid_until)) throw new HttpError(UPSTREAM_ERROR, 'outlayer_error')
   const walletPubkey = `ed25519:${sig.public_key_hex}`
   const deposit = await view('estimate_wallet_policy_cost', { wallet_pubkey: walletPubkey, encrypted_data: enc.encrypted_base64 })
-  if (!/^\d+$/.test(String(deposit))) throw new HttpError(502, 'rpc_error')
+  if (!/^\d+$/.test(String(deposit))) throw new HttpError(UPSTREAM_ERROR, 'rpc_error')
   return call('store_wallet_policy', { wallet_pubkey: walletPubkey, encrypted_data: enc.encrypted_base64, wallet_signature: sig.signature_hex, version: sig.version, locked: sig.locked, valid_until: sig.valid_until }, '100000000000000', String(deposit))
 }
 

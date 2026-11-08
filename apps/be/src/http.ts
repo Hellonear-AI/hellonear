@@ -3,6 +3,11 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { z } from 'zod'
 import { config } from './config.ts'
 
+// Status for a failing service we depend on (OutLayer, Composio, the engine, the NEAR RPC). Not 502: Cloudflare
+// replaces a 502 or 504 body from the origin with its own HTML page (passing it through is Enterprise-only), so the FE
+// would lose `{ error, ...details }`.
+export const UPSTREAM_ERROR = 503
+
 export class HttpError extends Error {
   constructor(readonly status: number, message: string, readonly extra: Record<string, unknown> = {}) { super(message) }
 }

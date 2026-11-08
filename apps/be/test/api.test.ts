@@ -513,7 +513,7 @@ describe('Mind wallets (#14, #15)', () => {
     assert.equal(next.transaction.actions[0].params.args.version, 2)
   })
 
-  test('freeze and unfreeze come back as owner transactions; OutLayer failures are 502', async () => {
+  test('freeze and unfreeze come back as owner transactions; OutLayer failures are 503', async () => {
     const a = await signIn()
     const mindId = await mindOf(a)
     const { wallet } = await (await a.call('POST', `/v1/minds/${mindId}/wallet`, {}, origin)).json()
@@ -531,7 +531,7 @@ describe('Mind wallets (#14, #15)', () => {
     assert.equal(res.status, 405)
     fakeOutlayer.failNext = 1
     res = await a.call('GET', `/v1/minds/${mindId}/wallet`)
-    assert.equal(res.status, 502)
+    assert.equal(res.status, 503)
     assert.equal((await res.json()).error, 'outlayer_error')
   })
 })
@@ -903,7 +903,7 @@ describe('app connections through Composio (#13)', () => {
 
     fakeComposio.failNext = 1
     res = await a.call('GET', '/v1/connections')
-    assert.equal(res.status, 502)
+    assert.equal(res.status, 503)
     assert.equal((await res.json()).error, 'composio_error')
 
     const key = config.composioApiKey

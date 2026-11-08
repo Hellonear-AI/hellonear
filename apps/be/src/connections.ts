@@ -4,7 +4,7 @@
 // REST v3.1 (docs.composio.dev, read 5 Nov 2026), checked live: session 201, link 201, list 200, delete 200.
 import { z } from 'zod'
 import { config } from './config.ts'
-import { HttpError } from './http.ts'
+import { HttpError, UPSTREAM_ERROR } from './http.ts'
 
 // Composio toolkit slugs, checked live (6 Nov): both use Composio-managed Google OAuth. Calendar's default scopes are
 // calendar + calendar.events; the engine only exposes list and create (with approval), see #57.
@@ -26,10 +26,10 @@ async function composio(method: string, path: string, body?: unknown): Promise<a
       signal: AbortSignal.timeout(15_000),
     })
   } catch {
-    throw new HttpError(502, 'composio_unreachable')
+    throw new HttpError(UPSTREAM_ERROR, 'composio_unreachable')
   }
   if (res.status === 404 && method === 'DELETE') return null
-  if (!res.ok) throw new HttpError(502, 'composio_error', { composioStatus: res.status })
+  if (!res.ok) throw new HttpError(UPSTREAM_ERROR, 'composio_error', { composioStatus: res.status })
   return res.json()
 }
 
@@ -68,12 +68,12 @@ export async function connect(userId: string, toolkit: Toolkit): Promise<{ redir
     toolkits: { enable: [toolkit] },
     manage_connections: { enable: false },
   })
-  if (typeof session?.session_id !== 'string') throw new HttpError(502, 'composio_error')
+  if (typeof session?.session_id !== 'string') throw new HttpError(UPSTREAM_ERROR, 'composio_error')
   const link = await composio('POST', `/tool_router/session/${encodeURIComponent(session.session_id)}/link`, {
     toolkit,
     callback_url: `${config.feOrigin}/connections?toolkit=${toolkit}`,
   })
-  if (typeof link?.redirect_url !== 'string' || !link.redirect_url.startsWith('https://')) throw new HttpError(502, 'composio_error')
+  if (typeof link?.redirect_url !== 'string' || !link.redirect_url.startsWith('https://')) throw new HttpError(UPSTREAM_ERROR, 'composio_error')
   return { redirectUrl: link.redirect_url }
 }
 

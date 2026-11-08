@@ -1,6 +1,6 @@
 // Client for the engine HTTP API (docs/api-contract.md §2). Only the backend talks to the engine.
 import { config } from './config.ts'
-import { HttpError } from './http.ts'
+import { HttpError, UPSTREAM_ERROR } from './http.ts'
 
 export type MindConfig = {
   templateId: string
@@ -22,7 +22,7 @@ export async function engineFetch(path: string, init: { method?: string; body?: 
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
     })
   } catch {
-    throw new HttpError(502, 'engine_unavailable')
+    throw new HttpError(UPSTREAM_ERROR, 'engine_unavailable')
   }
 }
 
@@ -30,7 +30,7 @@ export async function engineFetch(path: string, init: { method?: string; body?: 
 // anything else is a backend problem.
 export async function engineJson(path: string, init: { method?: string; body?: unknown } = {}): Promise<{ status: number; body: any }> {
   const res = await engineFetch(path, init)
-  if (res.status >= 500) throw new HttpError(502, 'engine_error')
+  if (res.status >= 500) throw new HttpError(UPSTREAM_ERROR, 'engine_error')
   return { status: res.status, body: res.status === 204 ? null : await res.json().catch(() => null) }
 }
 
@@ -39,7 +39,7 @@ let templatesCache: { at: number; templates: Template[] } | undefined
 export async function templates(): Promise<Template[]> {
   if (templatesCache && Date.now() - templatesCache.at < 60_000) return templatesCache.templates
   const { status, body } = await engineJson('/v1/templates')
-  if (status !== 200) throw new HttpError(502, 'engine_error')
+  if (status !== 200) throw new HttpError(UPSTREAM_ERROR, 'engine_error')
   templatesCache = { at: Date.now(), templates: body.templates }
   return body.templates
 }
@@ -49,7 +49,7 @@ let skillsCache: { at: number; skills: CatalogSkill[] } | undefined
 export async function skills(): Promise<CatalogSkill[]> {
   if (skillsCache && Date.now() - skillsCache.at < 60_000) return skillsCache.skills
   const { status, body } = await engineJson('/v1/skills')
-  if (status !== 200) throw new HttpError(502, 'engine_error')
+  if (status !== 200) throw new HttpError(UPSTREAM_ERROR, 'engine_error')
   skillsCache = { at: Date.now(), skills: body.skills }
   return body.skills
 }
