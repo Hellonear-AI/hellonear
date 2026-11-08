@@ -31,7 +31,18 @@ Rollback: `mv /opt/hellonear/app /opt/hellonear/release-bad && mv /opt/hellonear
 
 Logs: `journalctl -u hellonear-engine -u hellonear-be -f`.
 
-Deploying needs Axel's approval each time (root `CLAUDE.md`).
+## When to deploy (decided 9 Nov, #22)
+
+Axel approves every merge to `main`, and that approval covers deploying that `main` here (root `CLAUDE.md`, rule 3). So after a merge, `main` is deployed without asking again, once the GitHub CI for that commit has passed. Still a separate approval each time: a branch (`DEPLOY_ALLOW_BRANCH=1`), a change to `be.env` or other secrets, a manual rollback.
+
+The deploy must stop by itself, and ask, instead of overwriting or breaking things:
+- **Hand edits on the box:** if `/opt/hellonear/app` differs from git at the revision it was deployed from, do not deploy; report it.
+- **Destructive migrations:** if a new file in `apps/be/migrations/` contains `drop`, `delete`, `truncate` or `alter … type`, do not deploy; ask Axel.
+- **Failed health check:** if either `/v1/health` fails after the swap, roll back to `release-old` automatically and report it.
+
+After each deploy, post one comment on the merged PR: the revision, `/v1/health`, and any rollback. That comment also tells the team the merge is live.
+
+Until the automatic poller exists (James, #22), James runs `deploy/deploy.sh` by hand after a merge, with the same checks.
 
 ## Watching the NEAR AI credit and the demo wallet (#43)
 

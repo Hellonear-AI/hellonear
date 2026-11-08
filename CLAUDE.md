@@ -71,7 +71,7 @@ Each folder has its own workflow in `.github/workflows/`. It runs on pull reques
 | `fe` | `apps/fe` | lint, typecheck, `next build` |
 | `sc` | `sc` | unit tests, sandbox tests (incl. upgrades from the fixtures), clippy |
 
-CI does not replace the local integration and load tests required by the rules below. Nothing deploys from CI: deploys stay manual and need Axel's approval.
+CI does not replace the local integration and load tests required by the rules below. Nothing deploys from CI itself. A merged `main` is deployed to the hosted demo after its CI passes (rule 3, `deploy/README.md`).
 
 ## Local machines
 
@@ -90,7 +90,7 @@ Keep this table and each folder's `.env.example` in sync when something is (re)d
 
 1. **Use data, not assumptions.** Claims like "safe", "done", or "X causes Y" must be backed by something seen in this session (test output, logs, responses, diffs). Otherwise write "not proven yet". Do not act on an unproven cause.
 2. **Integration + load tests locally before every push/merge**, reported in the PR. Tests that cannot run are reported as not run, with the reason.
-3. **No push to `main`, merge, deploy, PR, or submission without Axel's approval — every time.** Approval for one action does not cover the next.
+3. **No push to `main`, merge, PR, or submission without Axel's approval — every time.** Approval for one action does not cover the next. **Approving a merge to `main` also approves deploying that `main` to the hosted testnet demo** (decided 9 Nov, #22): it deploys after the merge without asking again (see `deploy/README.md`). Still a separate approval each time: deploying anything other than `main`, changing `be.env` or other secrets on the box, a manual rollback, redeploying a contract, and anything on mainnet.
 4. **Secrets only in `.env`** (gitignored). Each folder has a `.env.example` with names only. Never paste secrets into code, issues, PRs, logs, or prompts.
 5. **Verify NEAR facts before relying on them.** Use the official NEAR agent skills (`npx skills add near/agent-skills`) and live docs (docs.near.org, docs.near.ai, docs.near-intents.org). If a skill and the live docs disagree, follow the docs. Pin package versions; do not upgrade during the hackathon.
 6. **Read websites properly.** Do not conclude a site is empty from a plain fetch (many are JS-rendered); use `curl -s "https://r.jina.ai/<url>"`, the site's `llms.txt`/`.md` pages, or a browser.
