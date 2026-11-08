@@ -272,7 +272,7 @@ Index `run_events (run_id, seq)` and `runs (mind_id, started_at desc)`. Migratio
 
 ## 7. Backend HTTP API (called by the browser)
 
-Implemented in `apps/be` (#8). Base URL `http://localhost:4000` locally. JSON bodies (at most 256 KB). Errors are `{ error, ...details }` with the status below. Every route except health and auth needs the session cookie `hn_session` (send requests with `credentials: 'include'`). CORS allows only `FE_ORIGIN` with credentials; a state-changing request whose `Origin` is not `FE_ORIGIN` gets `403 bad_origin`. Another user's Mind or run answers `404`.
+Implemented in `apps/be` (#8). Base URL `http://localhost:4000` locally. JSON bodies (at most 256 KB). Errors are `{ error, ...details }` with the status below. Every route except health and auth needs the session cookie `hn_session` (send requests with `credentials: 'include'`). CORS allows only the origins in `FE_ORIGIN` (comma-separated, exact match) with credentials; a state-changing request whose `Origin` is not one of them gets `403 bad_origin`. Another user's Mind or run answers `404`.
 
 ### Auth (NEP-413)
 
