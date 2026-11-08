@@ -49,3 +49,19 @@ describe("api", () => {
     await expect(authApi.me()).rejects.toMatchObject({ status: 500, code: "request_failed" })
   })
 })
+
+describe("API base", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.resetModules()
+  })
+
+  it("calls the hosted API directly when NEXT_PUBLIC_API_URL is set", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api-hellonear.jameshub.fun/")
+    vi.resetModules()
+    const { authApi: hosted } = await import("@/modules/auth/api")
+    const fetchMock = stubFetch(401, { error: "unauthorized" })
+    await hosted.me().catch(() => undefined)
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://api-hellonear.jameshub.fun/v1/me")
+  })
+})

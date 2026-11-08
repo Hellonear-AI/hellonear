@@ -1,7 +1,14 @@
-// Client for the backend HTTP API (docs/api-contract.md §7). Requests go to our own origin
-// (`/api/v1/…`, forwarded by next.config.js), so the session cookie is sent automatically.
+// Client for the backend HTTP API (docs/api-contract.md §7).
+// - Hosted (NEXT_PUBLIC_API_URL set): call the API directly. The FE and the API share a site
+//   (hellonear.jameshub.fun and api-hellonear.jameshub.fun), so the SameSite=Lax cookie is sent,
+//   and the backend sees each visitor's own IP (try-out limits are per IP; a proxy would make
+//   every visitor share the host's IP).
+// - Local dev (unset): `/api/v1/…` on our own origin, forwarded by next.config.js, so the cookie
+//   is first-party on http://localhost too.
 
-const API_BASE = "/api/v1"
+const API_BASE = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, "")}/v1`
+  : "/api/v1"
 
 /** A backend error: `{ error, ...details }` with an HTTP status. */
 export class ApiError extends Error {
