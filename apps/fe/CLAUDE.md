@@ -57,11 +57,13 @@ src/
 tests/                   unit tests
 ```
 
-Routes: `/` sign in (for now the old header in `PublicShell` with `SignInButton`, and a temporary "Open Penny" link), `/minds/new` Choose a Mind, and `/minds/[mindId]/{chat,chat/[threadId],wallet,approvals,skills,autopilot,connections,attack,settings}` inside `AppShell`; `/minds/[mindId]` redirects to chat and an unknown Mind is not found. Builder will open from Autopilot (no nav item).
+Routes: `/` sign in (for now the old header in `PublicShell` with `SignInButton`, and a link to the newest Mind), `/minds/new` Choose a Mind, and `/minds/[mindId]/{chat,chat/[threadId],wallet,approvals,skills,autopilot,connections,attack,settings}` inside `AppShell`; `/minds/[mindId]` redirects to chat and an unknown Mind is not found. Builder will open from Autopilot (no nav item).
 
 App shell (`src/components/layout`, design N1): phone below 768 px (`md`) gets `MobileHeader` (menu, Mind switcher sheet, Approvals count) and a left drawer; tablet 768 to 1279 gets the 72 px rail whose top button opens the full sidebar over the page; desktop from 1280 (`xl`) gets the 256 px sidebar that folds into the rail (saved in `localStorage` as `hellonear.sidebar.folded`). `MindSwitcher` and `AccountMenu` (Appearance System/Light/Dark, Sign out) each have trigger variants for these places. Nav items live in `nav.ts`.
 
-Sample data: `src/modules/minds/data/minds.ts` (Penny with a wallet, Ava without, recent chats, approvals count) behind the hooks in `src/modules/minds/hooks/useMinds.ts`. Replace the `queryFn`s with API calls when the routes are wired; keep the hooks so screens don't change. Mind images are in `public/minds/` (from the design).
+Minds data (`src/modules/minds`): `api.ts` calls `GET /minds`, each Mind's `GET …/wallet` (`null` on 404 `no_wallet`), `GET …/approvals` and `GET …/threads`; `hooks/useMinds.ts` turns them into what the shell shows (`Mind`, `RecentChat` in `data/minds.ts`) and only runs with a session. A wallet that can't be read (e.g. 502 `outlayer_error`) leaves the Mind listed without a balance. Approvals refresh every 30 s. Balances show two decimals rounded down (`formatNear` in `src/lib/format.ts`); Recent chats show `shortWhen` (Today, Yesterday, weekday, date). Template labels and images come from `templateLabel` / `templateImage` (unknown template ids fall back to the General Assistant image). Mind images are in `public/minds/` (from the design).
+
+`MindGate` wraps every `/minds/[mindId]` screen: no session goes back to `/`, and a Mind that isn't one of the user's (unknown, deleted, someone else's) is the not-found page (E1.3). It runs in the browser because on the hosted site the session cookie belongs to the API's host. The home screen opens the newest Mind, or offers "Create your first Mind" (`/minds/new`, not built yet).
 
 Imports: `@/*` → `src/*`, `@app/*` → `app/*`. Keep route files in `app/` thin; put screens in `src/modules/<feature>/components`.
 
@@ -71,7 +73,7 @@ Imports: `@/*` → `src/*`, `@app/*` → `app/*`. Keep route files in `app/` thi
 - **Hosted** (`NEXT_PUBLIC_API_URL=https://api-hellonear.jameshub.fun`): the browser calls the API directly. It is the same site as `hellonear.jameshub.fun`, so the `SameSite=Lax` cookie is sent, and the backend sees each visitor's IP. Try-out limits are per IP (`cf-connecting-ip`), and through a proxy every visitor would share the host's IP (James, #73).
 - Call the backend with `api()` from `src/lib/api.ts` (`credentials: "include"`, JSON). Failures throw `ApiError` with `status`, `code` (the backend's `error`) and `details`.
 - Sign-in (`src/modules/auth`, NEP-413, `docs/api-contract.md` §7): connect a wallet if none is connected, `POST /auth/challenge`, the wallet signs exactly `{ message, recipient, nonce }` (nonce decoded from base64 to 32 bytes; recipient comes from the challenge, `hellonear.app` on the hosted demo), then `POST /auth/login`. `useSignIn` signs through `connector.wallet()` / `connector.connect()` because the hook's own `signNEP413Message` reads wallet state from the previous render. `useSession` is the `["session"]` query (`GET /me`, `null` on 401); `useSignOut` logs out, disconnects the wallet and clears the query cache. The account shown in the app is the session's `nearAccountId`, not the wallet's.
-- Proven 8 Nov: a Meteor (testnet) login from `http://localhost:3000` in Chrome against the hosted API (`HELLONEAR_API_URL=https://api-hellonear.jameshub.fun` in `.env.local`, after #71 was deployed); the session survives a reload. Not checked yet: Safari and other wallets. The Mind screens still use sample data and are not behind the session yet.
+- Proven 8 Nov: a Meteor (testnet) login from `http://localhost:3000` in Chrome against the hosted API (`HELLONEAR_API_URL=https://api-hellonear.jameshub.fun` in `.env.local`, after #71 was deployed); the session survives a reload. Not checked yet: Safari and other wallets. 
 
 ## Conventions
 
