@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { config } from './config.ts'
 import { decrypt, encrypt, sha256 } from './crypto.ts'
 import { query } from './db.ts'
-import { HttpError, UPSTREAM_ERROR } from './http.ts'
+import { HttpError, UPSTREAM_ERROR, fetchFailure } from './http.ts'
 
 const YOCTO = 10n ** 24n
 const accountIdSchema = z.string().toLowerCase().regex(/^(?=.{2,64}$)(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/, 'a NEAR account id')
@@ -38,8 +38,8 @@ export async function outlayerRaw(method: string, path: string, key: string, bod
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(30_000),
     })
-  } catch {
-    throw new HttpError(UPSTREAM_ERROR, 'outlayer_unreachable')
+  } catch (e) {
+    throw new HttpError(UPSTREAM_ERROR, 'outlayer_unreachable', { reason: fetchFailure(e) })
   }
   return { status: res.status, body: await res.json().catch(() => null) }
 }
@@ -53,8 +53,8 @@ async function outlayer(method: string, path: string, key?: string, body?: unkno
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(20_000),
     })
-  } catch {
-    throw new HttpError(UPSTREAM_ERROR, 'outlayer_unreachable')
+  } catch (e) {
+    throw new HttpError(UPSTREAM_ERROR, 'outlayer_unreachable', { reason: fetchFailure(e) })
   }
   if (!res.ok) throw new HttpError(UPSTREAM_ERROR, 'outlayer_error', { outlayerStatus: res.status })
   return res.json()
@@ -66,7 +66,7 @@ async function view(method: string, args: unknown): Promise<any> {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'query', params: { request_type: 'call_function', finality: 'final', account_id: config.outlayerContractId, method_name: method, args_base64: Buffer.from(JSON.stringify(args)).toString('base64') } }),
     signal: AbortSignal.timeout(15_000),
-  }).catch(() => { throw new HttpError(UPSTREAM_ERROR, 'rpc_unreachable') })
+  }).catch((e) => { throw new HttpError(UPSTREAM_ERROR, 'rpc_unreachable', { reason: fetchFailure(e) }) })
   const body: any = await res.json().catch(() => null)
   if (!body?.result?.result) throw new HttpError(UPSTREAM_ERROR, 'rpc_error')
   return JSON.parse(Buffer.from(body.result.result).toString('utf8'))

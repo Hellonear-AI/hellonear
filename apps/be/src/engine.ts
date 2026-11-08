@@ -1,6 +1,6 @@
 // Client for the engine HTTP API (docs/api-contract.md §2). Only the backend talks to the engine.
 import { config } from './config.ts'
-import { HttpError, UPSTREAM_ERROR } from './http.ts'
+import { HttpError, UPSTREAM_ERROR, fetchFailure } from './http.ts'
 
 export type MindConfig = {
   templateId: string
@@ -21,8 +21,8 @@ export async function engineFetch(path: string, init: { method?: string; body?: 
       headers: { 'x-engine-key': config.engineApiKey, ...(init.body === undefined ? {} : { 'content-type': 'application/json' }) },
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
     })
-  } catch {
-    throw new HttpError(UPSTREAM_ERROR, 'engine_unavailable')
+  } catch (e) {
+    throw new HttpError(UPSTREAM_ERROR, 'engine_unavailable', { reason: fetchFailure(e) })
   }
 }
 

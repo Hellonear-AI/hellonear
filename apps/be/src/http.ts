@@ -36,6 +36,19 @@ export async function readBody<S extends z.ZodType>(req: IncomingMessage, schema
   return parsed.data
 }
 
+// Why a fetch to a service failed, without the URL or headers: `timeout`, or a network code such as `ECONNREFUSED`.
+export function fetchFailure(e: unknown): string {
+  const err = e as { name?: string; cause?: { code?: string } }
+  return err?.name === 'TimeoutError' ? 'timeout' : err?.cause?.code ?? err?.name ?? 'unknown'
+}
+
+// One journal line per 5xx answer, so a failure behind the tunnel can be traced later: route without the query string,
+// error code and details (statuses from OutLayer/Composio, never keys or bodies).
+export function logServerError(req: IncomingMessage, status: number, error: string, details: Record<string, unknown> = {}) {
+  const path = (req.url ?? '/').split('?')[0]
+  console.error('http error', JSON.stringify({ status, method: req.method, path, error, ...details }))
+}
+
 export function sendJson(res: ServerResponse, status: number, body: unknown) {
   res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body))
 }

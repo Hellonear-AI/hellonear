@@ -4,7 +4,7 @@
 // REST v3.1 (docs.composio.dev, read 5 Nov 2026), checked live: session 201, link 201, list 200, delete 200.
 import { z } from 'zod'
 import { config } from './config.ts'
-import { HttpError, UPSTREAM_ERROR } from './http.ts'
+import { HttpError, UPSTREAM_ERROR, fetchFailure } from './http.ts'
 
 // Composio toolkit slugs, checked live (6 Nov): both use Composio-managed Google OAuth. Calendar's default scopes are
 // calendar + calendar.events; the engine only exposes list and create (with approval), see #57.
@@ -25,8 +25,8 @@ async function composio(method: string, path: string, body?: unknown): Promise<a
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(15_000),
     })
-  } catch {
-    throw new HttpError(UPSTREAM_ERROR, 'composio_unreachable')
+  } catch (e) {
+    throw new HttpError(UPSTREAM_ERROR, 'composio_unreachable', { reason: fetchFailure(e) })
   }
   if (res.status === 404 && method === 'DELETE') return null
   if (!res.ok) throw new HttpError(UPSTREAM_ERROR, 'composio_error', { composioStatus: res.status })
