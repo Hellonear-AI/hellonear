@@ -1,6 +1,6 @@
 import Image from "next/image"
 import { cn } from "cn"
-import { TEMPLATE_IMAGE, type MindTemplate } from "@/modules/minds/data/minds"
+import { templateImage } from "@/modules/minds/data/minds"
 
 // Avatar/Mind (40) and Avatar/Mind large (64) from the design: the template's character in a circle.
 export function MindAvatar({
@@ -8,7 +8,7 @@ export function MindAvatar({
   size = 40,
   className,
 }: {
-  templateId: MindTemplate
+  templateId: string
   size?: 24 | 32 | 40 | 64
   className?: string
 }) {
@@ -17,7 +17,7 @@ export function MindAvatar({
       className={cn("relative block shrink-0 overflow-hidden rounded-full bg-muted", className)}
       style={{ width: size, height: size }}
     >
-      <Image src={TEMPLATE_IMAGE[templateId]} alt="" fill sizes={`${size}px`} className="object-cover" />
+      <Image src={templateImage(templateId)} alt="" fill sizes={`${size}px`} className="object-cover" />
     </span>
   )
 }

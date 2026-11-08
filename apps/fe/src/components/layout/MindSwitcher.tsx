@@ -16,12 +16,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { TEMPLATE_LABEL, type Mind } from "@/modules/minds/data/minds"
+import { formatNear } from "@/lib/format"
+import { templateLabel, type Mind } from "@/modules/minds/data/minds"
 import { useMind, useMinds } from "@/modules/minds/hooks/useMinds"
 
 function mindLine(mind: Mind) {
-  const template = TEMPLATE_LABEL[mind.templateId]
-  return mind.balanceNear === null ? `${template} · no wallet yet` : `${template} · ${mind.balanceNear} NEAR`
+  const template = templateLabel(mind.templateId)
+  if (mind.balanceNear === undefined) return template // wallet couldn't be read
+  return mind.balanceNear === null ? `${template} · no wallet yet` : `${template} · ${formatNear(mind.balanceNear)} NEAR`
 }
 
 /**
@@ -113,7 +115,7 @@ export function MindSwitcher({
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-semibold">{current.name}</span>
               <span className="block truncate text-xs text-tertiary-foreground">
-                {TEMPLATE_LABEL[current.templateId]}
+                {templateLabel(current.templateId)}
               </span>
             </span>
             <ChevronsUpDownIcon className="size-4 shrink-0 text-tertiary-foreground" />
