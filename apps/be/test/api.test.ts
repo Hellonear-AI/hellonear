@@ -492,6 +492,10 @@ describe('Mind wallets (#14, #15)', () => {
     assert.match(action.params.args.wallet_signature, /^[0-9a-f]+$/)
     const sign = fakeOutlayer.requests.findLast((r) => r.path === '/wallet/v1/sign-policy')!
     assert.equal(sign.body.caller, a.accountId)
+    // A first policy is version 1; the lock and the deadline come from sign-policy unchanged (the contract checks them).
+    assert.equal(action.params.args.version, 1)
+    assert.equal(action.params.args.locked, false)
+    assert.ok(Number.isInteger(action.params.args.valid_until) && action.params.args.valid_until > Date.now() / 1000)
 
     const policy = JSON.parse(Buffer.from(action.params.args.encrypted_data, 'base64').toString('utf8'))
     assert.deepEqual(policy.rules, { limits: { per_transaction: { native: '50000000000000000000000' } }, addresses: { mode: 'whitelist', list: ['shop.testnet', a.accountId] }, transaction_types: ['transfer'] })
@@ -503,6 +507,10 @@ describe('Mind wallets (#14, #15)', () => {
     fakeOutlayer.store(action.params.args.encrypted_data)
     const got = (await (await a.call('GET', `/v1/minds/${mindId}/wallet`)).json()).wallet
     assert.deepEqual(got.policy, { perTransactionNear: '0.05', whitelist: ['shop.testnet', a.accountId], transactionTypes: ['transfer'], boundToThisWallet: true })
+
+    // The next change stores version 2.
+    const next = await (await a.call('POST', `/v1/minds/${mindId}/wallet/policy`, { perTransactionNear: '0.02', whitelist: [a.accountId] }, origin)).json()
+    assert.equal(next.transaction.actions[0].params.args.version, 2)
   })
 
   test('freeze and unfreeze come back as owner transactions; OutLayer failures are 502', async () => {

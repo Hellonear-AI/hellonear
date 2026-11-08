@@ -3,7 +3,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 
-type Wallet = { walletId: string; key: string; account: string; frozen: boolean; policy: any | null; balance: string }
+type Wallet = { walletId: string; key: string; account: string; frozen: boolean; policy: any | null; balance: string; policyVersion: number }
 export const fakeOutlayer = {
   requests: [] as { method: string; path: string; body: any; key?: string }[],
   wallets: [] as Wallet[],
@@ -11,7 +11,7 @@ export const fakeOutlayer = {
   failNext: 0,
   // A wallet created outside the backend (the shared demo wallet), funded with 1 NEAR, no policy.
   addWallet(): Wallet {
-    const w: Wallet = { walletId: randomUUID(), key: `wk_${randomBytes(32).toString('hex')}`, account: randomBytes(32).toString('hex'), frozen: false, policy: null, balance: (10n ** 24n).toString() }
+    const w: Wallet = { walletId: randomUUID(), key: `wk_${randomBytes(32).toString('hex')}`, account: randomBytes(32).toString('hex'), frozen: false, policy: null, balance: (10n ** 24n).toString(), policyVersion: 0 }
     this.wallets.push(w)
     return w
   },
@@ -19,7 +19,9 @@ export const fakeOutlayer = {
   // What the owner's signed store_wallet_policy does: the policy the backend had encrypted becomes the wallet's policy.
   store(encrypted: string) {
     const p = JSON.parse(Buffer.from(encrypted, 'base64').toString('utf8'))
-    this.wallets.find((w) => w.walletId === p.wallet_id)!.policy = p
+    const w = this.wallets.find((w) => w.walletId === p.wallet_id)!
+    w.policy = p
+    w.policyVersion++
   },
 }
 
@@ -43,7 +45,7 @@ export const outlayerServer = createServer(async (req, res) => {
     return send(res, 200, { jsonrpc: '2.0', id: 1, result: { result: [...Buffer.from(JSON.stringify(fakeOutlayer.policyCost))] } })
   }
   if (req.method === 'POST' && url.pathname === '/register') {
-    const w: Wallet = { walletId: randomUUID(), key: `wk_${randomBytes(32).toString('hex')}`, account: randomBytes(32).toString('hex'), frozen: false, policy: null, balance: '0' }
+    const w: Wallet = { walletId: randomUUID(), key: `wk_${randomBytes(32).toString('hex')}`, account: randomBytes(32).toString('hex'), frozen: false, policy: null, balance: '0', policyVersion: 0 }
     fakeOutlayer.wallets.push(w)
     return send(res, 200, { wallet_id: w.walletId, api_key: w.key, near_account_id: w.account, handoff_url: `https://app.outlayer.ai/wallet?key=${w.key}`, trial: { available: true } })
   }
@@ -63,7 +65,8 @@ export const outlayerServer = createServer(async (req, res) => {
   }
   if (req.method === 'POST' && url.pathname === '/wallet/v1/sign-policy') {
     const hash = createHash('sha256').update(`${body.encrypted_data}:${body.caller}`).digest('hex')
-    return send(res, 200, { signature_hex: hash + hash, public_key_hex: w.account })
+    // Like the keystore since the v2 store message: the version this write stores, the lock and a 7-day deadline.
+    return send(res, 200, { signature_hex: hash + hash, public_key_hex: w.account, version: w.policyVersion + 1, locked: false, valid_until: Math.floor(Date.now() / 1000) + 7 * 24 * 3600 })
   }
   if (req.method === 'POST' && url.pathname === '/wallet/v1/transfer') {
     // Same order and messages as testnet (spike 01): frozen, policy, then the chain.
