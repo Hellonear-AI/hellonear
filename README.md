@@ -97,7 +97,7 @@ Main libraries: `@mastra/core` 1.81, `@mastra/memory`, `@mastra/pg`, `@ai-sdk/op
 
 ## Team rules
 
-- No push to `main`, merge, deploy, PR, or submission without Axel's approval.
+- No push to `main`, merge, PR, or submission without Axel's approval. An approved merge to `main` is then deployed to the hosted testnet demo automatically (`deploy/README.md`).
 - Local integration and load tests before every push/merge; results reported in the PR.
 - Secrets only in `.env` (gitignored). Variable names are in each folder's `.env.example`.
 - When you change how a folder works, update its `CLAUDE.md` in the same PR. Setup for agents: #23.
