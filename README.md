@@ -17,7 +17,7 @@ An AI assistant that can pay is one prompt injection away from paying the wrong 
 | What | Where | Proof in this repo |
 |---|---|---|
 | **NEAR AI Cloud**: every model call runs in a TEE; each reply is checked against the attestation and marked verified (`gateway_tee` while streaming) | `engine/src/models.ts`, `engine/src/verify.ts` | `run.verified` event, `engine/test/verify.test.ts` |
-| **OutLayer wallet** on testnet: one wallet per Mind, policy v2 (per-payment limit, recipient list) enforced in a TEE before signing; freeze is a call on `outlayer.testnet` the owner signs | `apps/be/src/wallets.ts` | testnet tx `C4XrW4cV…` (an approved 0.01 NEAR payment through the hosted stack, 5 Nov) |
+| **OutLayer wallet** on testnet: one wallet per Mind, policy v2 (per-payment limit, recipient list) enforced in a TEE before signing; freeze is a call on `outlayer.testnet` the owner signs | `apps/be/src/wallets.ts` | testnet tx [`AKYYpkLq…`](https://testnet.nearblocks.io/txns/AKYYpkLq8XxjL4GKJqdGF5CVTLmjNh3AGEpz2rbcfyYT) (an approved 0.01 NEAR payment from the demo wallet `83e05486…` through the hosted stack, 8 Nov) |
 | **NEP-413 sign-in**: the owner signs a message with their NEAR wallet (Meteor first) | `apps/be/src/auth.ts` | `apps/be/test/api.test.ts` |
 | **Mind registry contract** (Rust, `near-sdk` 5.29) on `hellonear-registry.testnet`, v0.3.0: Minds, published skills, and `equip_skill` pays the skill's publisher | `sc/` | `sc/README.md` (deploy txs, code hash); sandbox tests in `sc/tests/` |
 
