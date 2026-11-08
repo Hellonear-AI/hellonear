@@ -23,9 +23,9 @@ export function HomeScreen() {
       {user && !isPending && (
         <div className="flex flex-wrap gap-2">
           {latest ? (
-            <Button render={<Link href={mindHref(latest.mindId)} />}>Open {latest.name}</Button>
+            <Button nativeButton={false} render={<Link href={mindHref(latest.mindId)} />}>Open {latest.name}</Button>
           ) : (
-            <Button render={<Link href="/minds/new" />}>Create your first Mind</Button>
+            <Button nativeButton={false} render={<Link href="/minds/new" />}>Create your first Mind</Button>
           )}
         </div>
       )}

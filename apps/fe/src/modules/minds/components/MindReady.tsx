@@ -34,7 +34,7 @@ export function MindReady({
         <CheckIcon className="size-3.5" />
         Limits saved where {name} can&apos;t change them
       </p>
-      <Button render={<Link href={mindHref(mindId)} />} className="mt-1">
+      <Button nativeButton={false} render={<Link href={mindHref(mindId)} />} className="mt-1">
         <MessageCircleIcon />
         Say hi to {name}
       </Button>
