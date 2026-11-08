@@ -100,7 +100,7 @@ async function events(res: Response) {
 describe('auth (#8)', () => {
   test('health is public; everything else needs a session', async () => {
     const res = await client()('GET', '/v1/health')
-    assert.deepEqual(await res.json(), { ok: true, engine: true })
+    assert.deepEqual(await res.json(), { ok: true, engine: true, revision: null })
     for (const [method, path] of [['GET', '/v1/me'], ['GET', '/v1/minds'], ['POST', '/v1/minds'], ['GET', '/v1/secrets']]) {
       assert.equal((await client()(method, path, method === 'POST' ? {} : undefined)).status, 401, `${method} ${path}`)
     }
