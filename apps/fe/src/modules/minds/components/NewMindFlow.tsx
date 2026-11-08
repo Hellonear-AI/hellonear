@@ -131,6 +131,13 @@ function setUpNotice(err: unknown, name: string): Notice {
       const actual = err.cause.actual.join(", ") || "another account"
       return { text: `Your wallet is signed in as ${actual}. Switch it to ${err.cause.expected}, then try again.`, retry: "Try again" }
     }
+    // The wallet sent the transaction but the contract refused it (it carries the execution error).
+    if (/ExecutionError|FunctionCallError|publishing_transaction_failed/.test(errorText(err.cause))) {
+      return {
+        text: `Meteor signed, but outlayer.testnet refused the transaction, so the limits weren't saved. ${name} is waiting; try again later.`,
+        retry: "Try again",
+      }
+    }
     return {
       text: `Meteor didn't sign, so the limits weren't saved. ${name} is waiting, and your limits are still here.`,
       retry: "Try again",
@@ -144,6 +151,15 @@ function setUpNotice(err: unknown, name: string): Notice {
     return { text: "The wallet service didn't answer. Nothing was signed. Try again in a moment.", retry: "Try again" }
   }
   return { text: `Couldn't set up ${name}. Nothing was signed. Try again.`, retry: "Try again" }
+}
+
+function errorText(err: unknown): string {
+  if (err instanceof Error) return err.message
+  try {
+    return JSON.stringify(err)
+  } catch {
+    return String(err)
+  }
 }
 
 function createErrorMessage(err: unknown): string {
