@@ -274,6 +274,8 @@ Index `run_events (run_id, seq)` and `runs (mind_id, started_at desc)`. Migratio
 
 Implemented in `apps/be` (#8). Base URL `http://localhost:4000` locally. JSON bodies (at most 256 KB). Errors are `{ error, ...details }` with the status below. When a service the backend depends on fails (OutLayer, Composio, the engine, the NEAR RPC), the answer is **`503`**, never `502`: behind Cloudflare a `502`/`504` body is replaced by Cloudflare's own HTML page, so the FE would lose the error. `…_error` means the service answered with a failure (details carry its status, e.g. `outlayerStatus`); `…_unreachable` / `engine_unavailable` mean no answer, with `reason` (`timeout` or a network code such as `ECONNREFUSED`). Every 5xx is logged to the backend journal as one `http error` line (route, code, details; never keys). Every route except health and auth needs the session cookie `hn_session` (send requests with `credentials: 'include'`). CORS allows only the origins in `FE_ORIGIN` (comma-separated, exact match) with credentials; a state-changing request whose `Origin` is not one of them gets `403 bad_origin`. Another user's Mind or run answers `404`.
 
+`GET /v1/health` (public): `{ ok: true, engine: boolean, revision: string | null }`. `engine` is whether the engine's own health answered; `revision` is the git commit the hosted release was deployed from (the `REVISION` file `deploy/deploy.sh` writes), `null` when the backend runs from a checkout. So anyone can see what is live without SSH.
+
 ### Auth (NEP-413)
 
 | Method and path | Body | Response |

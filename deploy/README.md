@@ -25,9 +25,19 @@ Hosted demo (#22): the engine and the backend run natively (no Docker) in one De
 DEPLOY_HOST=root@<proxmox-node> DEPLOY_CT=<vmid> deploy/deploy.sh
 ```
 
-Run it from an up-to-date `main`: it refuses any other `HEAD` unless `DEPLOY_ALLOW_BRANCH=1`. It ships `git archive HEAD` of `engine/`, `apps/be/` and `deploy/` (never the working tree, so no local `.env`), runs `bun install --frozen-lockfile`, swaps `/opt/hellonear/app` (the previous release stays in `/opt/hellonear/release-old`), restarts both units and waits for both `/v1/health`. Refuses to run with uncommitted changes in those folders.
+Run it from an up-to-date `main`: it refuses any other `HEAD` unless `DEPLOY_ALLOW_BRANCH=1`. It ships `git archive HEAD` of `engine/`, `apps/be/` and `deploy/` (never the working tree, so no local `.env`), runs `bun install --frozen-lockfile`, swaps `/opt/hellonear/app` (the previous release stays in `/opt/hellonear/release-old`), restarts both units and waits for both `/v1/health` (the backend's must report the new `revision`). Refuses to run with uncommitted changes in those folders.
 
-Rollback: `mv /opt/hellonear/app /opt/hellonear/release-bad && mv /opt/hellonear/release-old /opt/hellonear/app && systemctl restart hellonear-engine hellonear-be`.
+Before it changes anything it checks the box, and it stops with exit `3` (nothing changed) when:
+- `/opt/hellonear/app` differs from git at the `REVISION` it runs (sha256 of every file in `engine/`, `apps/be/`, `deploy/`, except `node_modules`): hand edits, or extra files;
+- a new migration in `apps/be/migrations/` contains `drop`, `delete`, `truncate` or `alter … type` (comments ignored), or a migration that already ran was changed or removed (it would never run again).
+
+If the services are not healthy within 2 minutes after the swap, it puts `release-old` back with its own units and exits `4` (the bad release stays in `release-bad`); exit `5` means the rollback is not healthy either.
+
+`DEPLOY_CHECK_ONLY=1` runs only these checks. One-off overrides, each needing Axel's approval for that deploy: `DEPLOY_ALLOW_HAND_EDITS=1`, `DEPLOY_ALLOW_DESTRUCTIVE=1`.
+
+`GET /v1/health` on the backend answers `revision`, so `curl https://api-hellonear.jameshub.fun/v1/health` shows what is live.
+
+Manual rollback (needs Axel's approval): `mv /opt/hellonear/app /opt/hellonear/release-bad && mv /opt/hellonear/release-old /opt/hellonear/app && systemctl restart hellonear-engine hellonear-be`.
 
 Logs: `journalctl -u hellonear-engine -u hellonear-be -f`.
 
@@ -42,7 +52,28 @@ The deploy must stop by itself, and ask, instead of overwriting or breaking thin
 
 After each deploy, post one comment on the merged PR: the revision, `/v1/health`, and any rollback. That comment also tells the team the merge is live.
 
-Until the automatic poller exists (James, #22), James runs `deploy/deploy.sh` by hand after a merge, with the same checks.
+`deploy.sh` makes the three stops above; `deploy/autodeploy/` does the rest.
+
+## Automatic deploy (`deploy/autodeploy/`)
+
+`autodeploy.sh` runs every 2 minutes from a systemd **user** timer on an always-on machine on the LAN (the box has no public SSH). Today that is James's `ct-dev-env`. Each run:
+1. fetches `origin/main` into its own clone (`~/.local/share/hellonear-autodeploy/repo`) and reads the box's `REVISION`; if they match, it stops;
+2. waits while a GitHub check on that commit is still running; if one failed, it does not deploy and says so on the PR. A merge that changes no CI folder has no checks: it waits 5 minutes after the merge, then goes ahead;
+3. runs that commit's `deploy/deploy.sh` and posts one comment on the merged PR (a commit comment for a direct push): the revision, `/v1/health`, and any stop or rollback, mentioning `AUTODEPLOY_NOTIFY` when a person is needed. Only `deploy.sh`'s result lines are posted, never service logs.
+
+One attempt per commit: a stop, a rollback or failed CI is not retried; the next merge is tried as usual. An error before the swap (network, SSH) is retried 3 times. To retry a commit by hand after fixing the cause, delete `~/.local/share/hellonear-autodeploy/state/<sha>`. Run log: `journalctl --user -u hellonear-autodeploy`.
+
+Setup (once, on the LAN machine, as a user with `gh auth login` done and an SSH key for the Proxmox node):
+
+```sh
+install -Dm755 deploy/autodeploy/autodeploy.sh ~/.local/bin/hellonear-autodeploy
+install -Dm600 deploy/autodeploy/autodeploy.env.example ~/.config/hellonear-autodeploy.env   # then edit
+install -Dm644 -t ~/.config/systemd/user deploy/autodeploy/hellonear-autodeploy.{service,timer}
+loginctl enable-linger "$USER"
+systemctl --user daemon-reload && systemctl --user enable --now hellonear-autodeploy.timer
+```
+
+Reinstall `~/.local/bin/hellonear-autodeploy` when `autodeploy.sh` changes (it is a copy, so a checkout never changes a running script). `deploy.sh` itself always comes from the commit being deployed. Stop it: `systemctl --user disable --now hellonear-autodeploy.timer`; then deploy by hand as above.
 
 ## Watching the NEAR AI credit and the demo wallet (#43)
 

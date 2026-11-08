@@ -18,7 +18,17 @@ import { listThreads, parseCursor, threadExists, threadMessages } from './thread
 import { assertDemoRunAllowed, cleanupDemoUsers, createDemoUser, demoPaymentCap, denyDemo } from './demo.ts'
 import type { User } from './auth.ts'
 import { timingSafeEqual } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { autopilotSchema, deleteAllWorkflows, deleteAutopilot, putAutopilot, runWorkflowSchema, syncAutopilots, workflowIdSchema, workflowPath } from './workflows.ts'
+
+// The commit this release was deployed from: deploy/deploy.sh writes REVISION at the release root. null when run from a checkout.
+const REVISION = (() => {
+  try {
+    return readFileSync(new URL('../../../REVISION', import.meta.url), 'utf8').trim() || null
+  } catch {
+    return null
+  }
+})()
 
 const chatSchema = z.object({
   // Omit to start a new thread. A given thread must already belong to this Mind (see below).
@@ -53,7 +63,7 @@ export const server = createServer(async (req, res) => {
 
     if (route('GET', /^\/v1\/health$/)) {
       const engine = await engineFetch('/v1/health').then((r) => r.ok, () => false)
-      return sendJson(res, 200, { ok: true, engine })
+      return sendJson(res, 200, { ok: true, engine, revision: REVISION })
     }
 
     // Auth (#8)

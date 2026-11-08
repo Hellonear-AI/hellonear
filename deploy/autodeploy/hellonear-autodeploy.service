@@ -1,0 +1,10 @@
+# systemd user unit on the always-on LAN machine (not on the box). Install: deploy/README.md, "Automatic deploy".
+[Unit]
+Description=HelloNear: deploy a merged main to the hosted demo once its CI passed
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/hellonear-autodeploy.env
+ExecStart=%h/.local/bin/hellonear-autodeploy
+TimeoutStartSec=15min
