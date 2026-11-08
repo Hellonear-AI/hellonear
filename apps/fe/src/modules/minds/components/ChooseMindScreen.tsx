@@ -15,7 +15,7 @@ import { mindHref } from "@/components/layout/nav"
 import { ApiError } from "@/lib/api"
 import type { ApiTemplate } from "@/modules/minds/api"
 import { templateImage } from "@/modules/minds/data/minds"
-import { NAME_RULE, isValidMindName, skillLabels, sortTemplates, suggestedName } from "@/modules/minds/data/templates"
+import { NAME_RULE, isValidMindName, skillLabels, sortTemplates } from "@/modules/minds/data/templates"
 import { useSession } from "@/modules/auth/hooks/useSession"
 import { useCreateMind, useTemplates } from "@/modules/minds/hooks/useMinds"
 
@@ -44,11 +44,6 @@ export function ChooseMindScreen() {
   const canContinue = picked !== null && isValidMindName(name) && !createMind.isPending
   const shownName = isValidMindName(name) ? name.trim() : "it"
 
-  function pick(templateId: string) {
-    // Keep a name the user typed; replace an empty field or the previous suggestion.
-    if (name.trim() === "" || (picked && name === suggestedName(picked))) setName(suggestedName(templateId))
-    setPicked(templateId)
-  }
 
   function submit() {
     if (!canContinue || !picked) return
@@ -110,7 +105,7 @@ export function ChooseMindScreen() {
         ) : (
           <div role="radiogroup" aria-label="Starting Mind" className="grid gap-3 xl:grid-cols-3 xl:items-start xl:gap-6">
             {list.map((t) => (
-              <TemplateCard key={t.templateId} template={t} selected={picked === t.templateId} onPick={() => pick(t.templateId)} />
+              <TemplateCard key={t.templateId} template={t} selected={picked === t.templateId} onPick={() => setPicked(t.templateId)} />
             ))}
           </div>
         )}
@@ -133,7 +128,7 @@ export function ChooseMindScreen() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={picked === null}
-              placeholder={picked === null ? "Pick a Mind first" : undefined}
+              placeholder={picked === null ? "Pick a Mind first" : "Give it a name"}
               aria-invalid={nameInvalid || undefined}
               aria-describedby={nameInvalid ? errorId : undefined}
               maxLength={24}

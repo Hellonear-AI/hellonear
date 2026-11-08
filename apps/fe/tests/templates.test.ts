@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { mindsApi, type ApiTemplate } from "@/modules/minds/api"
-import { isValidMindName, skillLabels, sortTemplates, suggestedName } from "@/modules/minds/data/templates"
+import { isValidMindName, skillLabels, sortTemplates } from "@/modules/minds/data/templates"
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -18,10 +18,6 @@ describe("Mind name rule (L2.3)", () => {
   })
   it.each(["", "P", "A".repeat(25), "Mr Penny", "pen-ny", "Penny!"])("rejects %j", (name) => {
     expect(isValidMindName(name)).toBe(false)
-  })
-  it("suggests a valid name for each starter template", () => {
-    for (const id of ["general-assistant", "payments-mind", "email-manager"]) expect(isValidMindName(suggestedName(id))).toBe(true)
-    expect(suggestedName("unknown")).toBe("")
   })
 })
 
