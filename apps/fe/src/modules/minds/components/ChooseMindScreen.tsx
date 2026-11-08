@@ -22,6 +22,8 @@ import { useCreateMind, useTemplates } from "@/modules/minds/hooks/useMinds"
 // L2 Choose a Mind (design/hellonear.pen, "3 · Start"): pick a template, name it, Continue.
 // States: nothing picked (L2.1), picked and named (L2.2), name not allowed (L2.3),
 // loading (L2.4), couldn't load (L2.5). Cards on desktop (xl), a list on tablet and phone.
+// Desktop screens shorter than the design's 960 px (e.g. a 1920 x 1200 laptop at 150% scaling
+// is 1280 x ~680) get a smaller heading and card art, so the cards stay above the bottom bar.
 export function ChooseMindScreen() {
   const router = useRouter()
   const session = useSession()
@@ -77,7 +79,7 @@ export function ChooseMindScreen() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
-      <div className="mx-auto flex w-full max-w-[1312px] flex-1 flex-col gap-6 px-4 pt-4 pb-40 md:px-10 md:pt-6 md:pb-32 xl:gap-8 xl:px-16">
+      <div className="mx-auto flex w-full max-w-[1312px] flex-1 flex-col gap-6 px-4 pt-4 pb-40 md:px-10 md:pt-6 md:pb-32 xl:gap-8 xl:px-16 xl:[@media(max-height:820px)]:gap-6">
         <header className="flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-focus">
             <LogoIcon size={28} className="sm:hidden" />
@@ -93,7 +95,7 @@ export function ChooseMindScreen() {
         </header>
 
         <div className="flex flex-col gap-2 xl:items-center xl:text-center">
-          <h1 className="text-[30px] leading-tight font-medium tracking-tight text-foreground md:text-4xl xl:text-5xl">
+          <h1 className="text-[30px] leading-tight font-medium tracking-tight text-foreground md:text-4xl xl:text-5xl xl:[@media(max-height:820px)]:text-4xl">
             Choose your first Mind
           </h1>
           <p className="text-[15px] text-muted-foreground md:text-base">
@@ -171,7 +173,7 @@ function TemplateCard({ template, selected, onPick }: { template: ApiTemplate; s
         selected ? "border-primary shadow-[0_0_0_1px_var(--primary)] hover:border-primary" : "border-border"
       )}
     >
-      <span className="relative size-20 shrink-0 overflow-hidden rounded-md bg-muted xl:h-[260px] xl:w-full xl:rounded-none">
+      <span className="relative size-20 shrink-0 overflow-hidden rounded-md bg-muted xl:h-[clamp(150px,calc(100dvh-480px),260px)] xl:w-full xl:rounded-none">
         <Image src={templateImage(template.templateId)} alt="" fill sizes="(min-width: 1280px) 421px, 80px" className="object-cover" />
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-1.5 pt-1 xl:gap-3 xl:p-5">
@@ -208,7 +210,7 @@ function TemplatesSkeleton() {
     <div aria-busy="true" aria-label="Loading Minds" className="grid gap-3 xl:grid-cols-3 xl:gap-6">
       {[0, 1, 2].map((i) => (
         <div key={i} className="flex gap-3.5 rounded-lg border border-border bg-surface p-3 xl:flex-col xl:gap-0 xl:rounded-xl xl:p-0">
-          <Skeleton className="size-20 shrink-0 xl:h-[260px] xl:w-full xl:rounded-none" />
+          <Skeleton className="size-20 shrink-0 xl:h-[clamp(150px,calc(100dvh-480px),260px)] xl:w-full xl:rounded-none" />
           <div className="flex flex-1 flex-col gap-2.5 pt-1 xl:p-5">
             <Skeleton className="h-4 w-2/5" />
             <Skeleton className="h-3 w-full" />
@@ -222,7 +224,7 @@ function TemplatesSkeleton() {
 
 function LoadError({ onRetry, retrying }: { onRetry: () => void; retrying: boolean }) {
   return (
-    <div className="flex min-h-80 flex-1 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-surface p-6 text-center xl:min-h-[624px]">
+    <div className="flex min-h-80 flex-1 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-surface p-6 text-center xl:min-h-[clamp(320px,calc(100dvh-340px),624px)]">
       <span className="flex size-11 items-center justify-center rounded-full bg-surface-muted text-muted-foreground">
         <CloudOffIcon className="size-[22px]" />
       </span>
