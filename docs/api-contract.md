@@ -286,7 +286,7 @@ Implemented in `apps/be` (#8). Base URL `http://localhost:4000` locally. JSON bo
 
 **Try-out users (#43)** have no wallet login. Their limits: 20 runs each (chat, approve/decline, builder runs; then `429 demo_run_limit { limit }`), 60 runs per IP per hour (`429 demo_rate_limited`), at most 2 sent payments each. Owner actions answer `403 { error: "demo_not_allowed", action }` with `action` = `secrets` \| `create_wallet` \| `set_policy` \| `freeze` \| `autopilot`: show "connect a wallet to do this". Their Minds pay from one shared demo wallet (`GET …/wallet` shows `shared: true`; it already has policy v2). Demo users and everything they made are deleted after 7 days.
 
-The FE asks the wallet (NEAR Connect `signMessage`, Meteor first) to sign exactly `{ message, recipient, nonce }` from the challenge, then posts the wallet's `accountId`, `publicKey` and `signature` with the same `nonce`. The key must be a full-access key of the account (checked on the RPC). Login is tested with real NEP-413 signatures and a faked RPC lookup; a Meteor login from the FE is **not proven yet**.
+The FE asks the wallet (NEAR Connect `signMessage`, Meteor first) to sign exactly `{ message, recipient, nonce }` from the challenge, then posts the wallet's `accountId`, `publicKey` and `signature` with the same `nonce`. The key must be a full-access key of the account (checked on the RPC). Login is tested with real NEP-413 signatures and a faked RPC lookup; a Meteor (testnet) login from the FE against the hosted API is proven (8 Nov, Chrome on `http://localhost:3000`, #73), and the session survives a reload. Not checked yet: Safari, other wallets, and the hosted FE calling the API directly (`NEXT_PUBLIC_API_URL`).
 
 ### Minds and templates
 
