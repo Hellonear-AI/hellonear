@@ -13,7 +13,7 @@ Web app (Next.js App Router + NEAR Connect). Owner: Ancung. Design comes from Na
 - Streams: chat, approve/decline and builder runs are POST + SSE, so `EventSource` can't be used; read the `fetch` body with `eventsource-parser` 4.1.3.
 - Forms: `react-hook-form` 7.91.0 + `zod` 4.6.7 + `@hookform/resolvers` 7.0.3 (validate as you type, as in the design).
 - Toasts: `sonner` 2.0.8 (shadcn's). Theme: `next-themes` 0.4.6 (System, Light, Dark from the account menu). Mind replies: `react-markdown` 10.1.0. Springs (Penny is ready, freeze, Builder drag): `motion` 14.10.0; everything else is CSS.
-- Tests: `vitest` 5.1.0 (unit), `@playwright/test` 1.65.0 (flows).
+- Tests: `vitest` 5.1.0 (unit, `tests/*.test.ts`, config `vitest.config.mts`), `@playwright/test` 1.65.0 (flows).
 - Motion: easing tokens are in `src/styles/globals.css` (`ease-out`, `ease-in-out`, `ease-drawer` utilities; Tailwind only emits them once used). Rules, durations and chat streaming: `design/CLAUDE.md` "Motion (v0.3)". shadcn components keep their own animation classes; set menus and popovers to grow from `--transform-origin` (Base UI provides it) and make exits faster than entries.
 - Scaffolded with `create-near-app` 10.0.0 (`--frontend next-app`). All versions in `package.json` are pinned exactly; do not upgrade during the hackathon.
 - `near-connect-hooks` 1.1.6 itself depends on `@hot-labs/near-connect` ^0.11.1, so `package.json` has `"overrides": { "@hot-labs/near-connect": "0.12.0" }` to keep one copy at 0.12.0 (0.12.0 only adds gas-key APIs; checked against the 0.11.4 type definitions). After changing it, delete `node_modules` and run `bun install` so no nested 0.11.x copy is left.
@@ -31,7 +31,12 @@ bun run dev        # http://localhost:3000
 bun run typecheck
 bun run lint
 bun run build
+bun run test       # unit tests (vitest)
 ```
+
+Env (`.env.example`, names only, no secrets; both are read when `next dev` / `next build` starts, so restart after changing them):
+- `HELLONEAR_API_URL`: the backend that `/api/v1/*` is forwarded to in local dev (default `http://localhost:4000`; hosted demo `https://api-hellonear.jameshub.fun`).
+- `NEXT_PUBLIC_API_URL`: set only for the hosted FE. The browser then calls the API directly instead of the proxy.
 
 ## Structure
 
@@ -52,13 +57,21 @@ src/
 tests/                   unit tests
 ```
 
-Routes: `/` sign in (for now the old header in `PublicShell` and a temporary "Open Penny" link), `/minds/new` Choose a Mind, and `/minds/[mindId]/{chat,chat/[threadId],wallet,approvals,skills,autopilot,connections,attack,settings}` inside `AppShell`; `/minds/[mindId]` redirects to chat and an unknown Mind is not found. Builder will open from Autopilot (no nav item).
+Routes: `/` sign in (for now the old header in `PublicShell` with `SignInButton`, and a temporary "Open Penny" link), `/minds/new` Choose a Mind, and `/minds/[mindId]/{chat,chat/[threadId],wallet,approvals,skills,autopilot,connections,attack,settings}` inside `AppShell`; `/minds/[mindId]` redirects to chat and an unknown Mind is not found. Builder will open from Autopilot (no nav item).
 
 App shell (`src/components/layout`, design N1): phone below 768 px (`md`) gets `MobileHeader` (menu, Mind switcher sheet, Approvals count) and a left drawer; tablet 768 to 1279 gets the 72 px rail whose top button opens the full sidebar over the page; desktop from 1280 (`xl`) gets the 256 px sidebar that folds into the rail (saved in `localStorage` as `hellonear.sidebar.folded`). `MindSwitcher` and `AccountMenu` (Appearance System/Light/Dark, Sign out) each have trigger variants for these places. Nav items live in `nav.ts`.
 
 Sample data: `src/modules/minds/data/minds.ts` (Penny with a wallet, Ava without, recent chats, approvals count) behind the hooks in `src/modules/minds/hooks/useMinds.ts`. Replace the `queryFn`s with API calls when the routes are wired; keep the hooks so screens don't change. Mind images are in `public/minds/` (from the design).
 
 Imports: `@/*` → `src/*`, `@app/*` → `app/*`. Keep route files in `app/` thin; put screens in `src/modules/<feature>/components`.
+
+## Backend and sign-in
+
+- **Local dev** (`NEXT_PUBLIC_API_URL` unset): the browser calls `/api/v1/*` on our own origin and `next.config.js` forwards it to `HELLONEAR_API_URL`, so the `hn_session` cookie belongs to our origin. That is what lets `http://localhost:3000` sign in against the hosted API (its cookie is `SameSite=Lax` and `Secure`; Chrome and Firefox accept `Secure` on localhost, Safari is not checked yet). The backend still checks the forwarded `Origin` against its `FE_ORIGIN` list (#71), so a new FE origin must be added there.
+- **Hosted** (`NEXT_PUBLIC_API_URL=https://api-hellonear.jameshub.fun`): the browser calls the API directly. It is the same site as `hellonear.jameshub.fun`, so the `SameSite=Lax` cookie is sent, and the backend sees each visitor's IP. Try-out limits are per IP (`cf-connecting-ip`), and through a proxy every visitor would share the host's IP (James, #73).
+- Call the backend with `api()` from `src/lib/api.ts` (`credentials: "include"`, JSON). Failures throw `ApiError` with `status`, `code` (the backend's `error`) and `details`.
+- Sign-in (`src/modules/auth`, NEP-413, `docs/api-contract.md` §7): connect a wallet if none is connected, `POST /auth/challenge`, the wallet signs exactly `{ message, recipient, nonce }` (nonce decoded from base64 to 32 bytes; recipient comes from the challenge, `hellonear.app` on the hosted demo), then `POST /auth/login`. `useSignIn` signs through `connector.wallet()` / `connector.connect()` because the hook's own `signNEP413Message` reads wallet state from the previous render. `useSession` is the `["session"]` query (`GET /me`, `null` on 401); `useSignOut` logs out, disconnects the wallet and clears the query cache. The account shown in the app is the session's `nearAccountId`, not the wallet's.
+- Proven 8 Nov: a Meteor (testnet) login from `http://localhost:3000` in Chrome against the hosted API (`HELLONEAR_API_URL=https://api-hellonear.jameshub.fun` in `.env.local`, after #71 was deployed). Not checked yet: the session after a reload, Safari, and other wallets. The Mind screens still use sample data and are not behind the session yet.
 
 ## Conventions
 
