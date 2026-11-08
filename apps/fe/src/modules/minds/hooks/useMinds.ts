@@ -1,6 +1,6 @@
 "use client"
 
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { shortWhen } from "@/lib/format"
 import { useSession } from "@/modules/auth/hooks/useSession"
 import { mindsApi } from "@/modules/minds/api"
@@ -12,6 +12,7 @@ import type { Mind, RecentChat } from "@/modules/minds/data/minds"
 
 export const mindKeys = {
   all: ["minds"] as const,
+  templates: ["templates"] as const,
   approvals: (mindId: string) => ["minds", mindId, "approvals"] as const,
   recentChats: (mindId: string) => ["minds", mindId, "threads", "recent"] as const,
 }
@@ -70,5 +71,31 @@ export function useRecentChats(mindId: string) {
         title: t.title ?? "Earlier chat",
         when: shortWhen(t.lastMessageAt),
       })),
+  })
+}
+
+/** The starter templates for Choose a Mind (`GET /templates`, cached 60 s by the backend). */
+export function useTemplates() {
+  return useQuery({
+    queryKey: mindKeys.templates,
+    enabled: useSignedIn(),
+    queryFn: mindsApi.templates,
+    staleTime: 60_000,
+  })
+}
+
+/**
+ * Creates a Mind from a template. The new Mind goes into the cached list right away, so
+ * `MindGate` knows it before the refetch lands (otherwise it would show not found).
+ */
+export function useCreateMind() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: mindsApi.create,
+    onSuccess: (mind) => {
+      const created: Mind = { mindId: mind.id, name: mind.name, templateId: mind.templateId, balanceNear: null }
+      queryClient.setQueryData<Mind[]>(mindKeys.all, (old) => [created, ...(old ?? []).filter((m) => m.mindId !== mind.id)])
+      void queryClient.invalidateQueries({ queryKey: mindKeys.all })
+    },
   })
 }

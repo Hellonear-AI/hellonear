@@ -1,6 +1,6 @@
 import { api, ApiError } from "@/lib/api"
 
-// Minds, wallet, approvals and threads routes: docs/api-contract.md §7.
+// Templates, Minds, wallet, approvals and threads routes: docs/api-contract.md §7.
 
 export type ApiMind = {
   id: string
@@ -12,6 +12,15 @@ export type ApiMind = {
   outlayerWalletId: string | null
   createdAt: string
   updatedAt: string
+}
+
+export type ApiTemplate = {
+  templateId: string
+  name: string
+  tagline: string
+  /** One line in the Mind's own voice, at most 80 characters (#55). */
+  quote: string
+  skills: { skillId: string; description: string; status: "available" | "simulated" | "blocked" }[]
 }
 
 export type ApiWallet = {
@@ -45,6 +54,10 @@ export type ApiThread = {
 }
 
 export const mindsApi = {
+  templates: async () => (await api<{ templates: ApiTemplate[] }>("/templates")).templates,
+  /** Soul, model and skills come from the template. */
+  create: async (body: { templateId: string; name: string }) =>
+    (await api<{ mind: ApiMind }>("/minds", { method: "POST", body })).mind,
   list: async () => (await api<{ minds: ApiMind[] }>("/minds")).minds,
   /** The Mind's wallet, or `null` when it has none yet (404 `no_wallet`). */
   wallet: async (mindId: string) => {
