@@ -4,7 +4,7 @@
 import { z } from 'zod'
 import { newId } from './crypto.ts'
 import { pool, query } from './db.ts'
-import { HttpError } from './http.ts'
+import { HttpError, UPSTREAM_ERROR } from './http.ts'
 import { keyOf, outlayerRaw, toNear, toYocto } from './wallets.ts'
 
 export const sendPaymentSchema = z.object({
@@ -96,7 +96,7 @@ export async function sendPayment(mindId: string, body: z.infer<typeof sendPayme
 export async function walletBalance(mindId: string): Promise<{ address: string; balanceNear: string }> {
   const { address, key } = await keyOf(mindId)
   const out = await outlayerRaw('GET', '/wallet/v1/balance?chain=near', key)
-  if (out.status !== 200) throw new HttpError(502, 'outlayer_error', { outlayerStatus: out.status })
+  if (out.status !== 200) throw new HttpError(UPSTREAM_ERROR, 'outlayer_error', { outlayerStatus: out.status })
   return { address, balanceNear: toNear(out.body?.balance ?? '0') }
 }
 

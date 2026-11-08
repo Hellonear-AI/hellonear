@@ -6,7 +6,7 @@ import { config } from './config.ts'
 import { newId } from './crypto.ts'
 import { migrate, query } from './db.ts'
 import { engineFetch, engineJson, skills, templates } from './engine.ts'
-import { HttpError, assertSameOrigin, cors, readBody, sendJson, setCookie, isLoopback } from './http.ts'
+import { HttpError, assertSameOrigin, cors, logServerError, readBody, sendJson, setCookie, isLoopback } from './http.ts'
 import { TOOLKITS, connect, disconnect, listConnections, toolkitSchema } from './connections.ts'
 import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, requireMind, updateMind, updateMindSchema } from './minds.ts'
 import { getRun, listRuns, mindEvents, pendingApprovals, relayRun, runEvents } from './runs.ts'
@@ -241,8 +241,11 @@ export const server = createServer(async (req, res) => {
     return sendJson(res, 404, { error: 'not_found' })
   } catch (e) {
     if (res.headersSent) return void res.end()
-    if (e instanceof HttpError) return sendJson(res, e.status, { error: e.message, ...e.extra })
-    console.error('unhandled', e instanceof Error ? e.message : e)
+    if (e instanceof HttpError) {
+      if (e.status >= 500) logServerError(req, e.status, e.message, e.extra)
+      return sendJson(res, e.status, { error: e.message, ...e.extra })
+    }
+    logServerError(req, 500, 'internal_error', { message: e instanceof Error ? e.message : String(e) })
     sendJson(res, 500, { error: 'internal_error' })
   }
 })

@@ -513,7 +513,24 @@ describe('Mind wallets (#14, #15)', () => {
     assert.equal(next.transaction.actions[0].params.args.version, 2)
   })
 
-  test('freeze and unfreeze come back as owner transactions; OutLayer failures are 502', async () => {
+  test('a failed OutLayer /register answers 503 with its status, logs it, stores nothing, and a retry works', async (t) => {
+    const a = await signIn()
+    const mindId = await mindOf(a)
+    const logged = t.mock.method(console, 'error', () => {})
+    fakeOutlayer.failNext = 1
+    let res = await a.call('POST', `/v1/minds/${mindId}/wallet`, {}, origin)
+    assert.equal(res.status, 503)
+    assert.deepEqual(await res.json(), { error: 'outlayer_error', outlayerStatus: 500 })
+    const lines = logged.mock.calls.map((c) => c.arguments.join(' '))
+    assert.ok(lines.includes(`http error ${JSON.stringify({ status: 503, method: 'POST', path: `/v1/minds/${mindId}/wallet`, error: 'outlayer_error', outlayerStatus: 500 })}`), lines.join('\n'))
+    logged.mock.restore()
+    res = await a.call('GET', `/v1/minds/${mindId}/wallet`)
+    assert.equal(res.status, 404)
+    res = await a.call('POST', `/v1/minds/${mindId}/wallet`, {}, origin)
+    assert.equal(res.status, 201)
+  })
+
+  test('freeze and unfreeze come back as owner transactions; OutLayer failures are 503', async () => {
     const a = await signIn()
     const mindId = await mindOf(a)
     const { wallet } = await (await a.call('POST', `/v1/minds/${mindId}/wallet`, {}, origin)).json()
@@ -531,8 +548,8 @@ describe('Mind wallets (#14, #15)', () => {
     assert.equal(res.status, 405)
     fakeOutlayer.failNext = 1
     res = await a.call('GET', `/v1/minds/${mindId}/wallet`)
-    assert.equal(res.status, 502)
-    assert.equal((await res.json()).error, 'outlayer_error')
+    assert.equal(res.status, 503)
+    assert.deepEqual(await res.json(), { error: 'outlayer_error', outlayerStatus: 500 })
   })
 })
 
@@ -903,7 +920,7 @@ describe('app connections through Composio (#13)', () => {
 
     fakeComposio.failNext = 1
     res = await a.call('GET', '/v1/connections')
-    assert.equal(res.status, 502)
+    assert.equal(res.status, 503)
     assert.equal((await res.json()).error, 'composio_error')
 
     const key = config.composioApiKey

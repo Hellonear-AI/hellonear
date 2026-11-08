@@ -2,6 +2,7 @@
 // event in run_events, the source for the Mind Graph history, Receipts and the approval inbox.
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { query } from './db.ts'
+import { UPSTREAM_ERROR, logServerError } from './http.ts'
 import { sseEvents } from './sse.ts'
 
 type Event = Record<string, any> & { runId?: string; seq: number; type: string; ts: string }
@@ -49,7 +50,8 @@ async function insertEvents(events: Event[]) {
 export async function relayRun(req: IncomingMessage, res: ServerResponse, engineRes: Response, ctx: RunContext) {
   if (engineRes.status !== 200 || !engineRes.body) {
     const body = await engineRes.json().catch(() => ({ error: 'engine_error' }))
-    res.writeHead(engineRes.status >= 500 ? 502 : engineRes.status, { 'content-type': 'application/json' }).end(JSON.stringify(body))
+    if (engineRes.status >= 500) logServerError(req, UPSTREAM_ERROR, 'engine_error', { engineStatus: engineRes.status })
+    res.writeHead(engineRes.status >= 500 ? UPSTREAM_ERROR : engineRes.status, { 'content-type': 'application/json' }).end(JSON.stringify(body))
     return
   }
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive', 'x-accel-buffering': 'no' })
