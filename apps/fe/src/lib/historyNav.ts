@@ -21,3 +21,12 @@ export function cameByHistory(path: string): boolean {
   if (performance.now() - lastPopAt < 2000) return true
   return firstLoadFromHistory && path === firstPath
 }
+
+/**
+ * True when `path` is the page this tab loaded first (a link, a new tab, a reload), so there may
+ * be no page of the app behind it in history. The Builder's leave guard then goes to Autopilot
+ * instead of stepping back out of HelloNear.
+ */
+export function loadedFirst(path: string): boolean {
+  return path === firstPath
+}

@@ -227,7 +227,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const [saveError, setSaveError] = useState<string | null>(null)
   const dirty = JSON.stringify(draft) !== JSON.stringify(initial)
   // Unsaved changes ask before you leave: the back arrow, the browser's Back, closing the tab.
-  const guard = useLeaveGuard(dirty)
+  const guard = useLeaveGuard(dirty, mindHref(mindId, "autopilot"))
   const [savedTry, setSavedTry] = useState<string | null>(null)
   const dirtySinceSave = savedTry !== null && savedTry !== JSON.stringify(draft)
   const [test, setTest] = useState<{ running: boolean; nodes: Record<string, NodeRun>; status: string | null; failed: boolean } | null>(null)
