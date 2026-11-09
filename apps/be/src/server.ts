@@ -31,12 +31,20 @@ const REVISION = (() => {
   }
 })()
 
+// The owner's IANA time zone from the browser (`Intl.DateTimeFormat().resolvedOptions().timeZone`, e.g.
+// `Asia/Jakarta`), passed on to the engine so a Mind knows the owner's local date and weekday (#112). Optional on
+// every run request; a name the runtime does not know is a 400, never forwarded.
+const isTimeZone = (tz: string) => { try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return true } catch { return false } }
+const timeZoneSchema = z.string().min(1).max(64).regex(/^[A-Za-z0-9_+\-/]+$/).refine(isTimeZone, 'unknown time zone')
 const chatSchema = z.object({
   // Omit to start a new thread. A given thread must already belong to this Mind (see below).
   threadId: z.string().regex(/^thr_[a-f0-9]{24}$/).optional(),
   message: z.string().min(1).max(16_000),
+  timeZone: timeZoneSchema.optional(),
 })
-const resumeSchema = z.object({ toolCallId: z.string().min(1).max(200), reason: z.string().max(500).optional() })
+const resumeSchema = z.object({ toolCallId: z.string().min(1).max(200), reason: z.string().max(500).optional(), timeZone: timeZoneSchema.optional() })
+const runSchema = runWorkflowSchema.extend({ timeZone: timeZoneSchema.optional() })
+const timeZoneOf = (body: { timeZone?: string }) => (body.timeZone ? { timeZone: body.timeZone } : {})
 
 const limitOf = (url: URL, fallback: number, max: number) => Math.min(Math.max(Number(url.searchParams.get('limit') ?? fallback) || fallback, 1), max)
 
@@ -185,7 +193,7 @@ export const server = createServer(async (req, res) => {
         await assertDemoRunAllowed(user, req)
         const engineRes = await engineFetch(`/v1/runs/${encodeURIComponent(found.runId)}${run[2]}?mindId=${encodeURIComponent(mind.id)}`, {
           method: 'POST',
-          body: { userId: user.id, threadId: found.threadId, mind: mindConfig(mind), secrets: await secretsForRun(user.id), toolCallId: body.toolCallId, reason: body.reason, ...(await runExtras(user, mind.id)) },
+          body: { userId: user.id, threadId: found.threadId, mind: mindConfig(mind), secrets: await secretsForRun(user.id), toolCallId: body.toolCallId, reason: body.reason, ...timeZoneOf(body), ...(await runExtras(user, mind.id)) },
         })
         return relayRun(req, res, engineRes, { mindId: mind.id, threadId: found.threadId ?? undefined, resumeOf: found.runId })
       }
@@ -243,7 +251,7 @@ export const server = createServer(async (req, res) => {
         await assertDemoRunAllowed(user, req)
         const engineRes = await engineFetch(`/v1/minds/${encodeURIComponent(mind.id)}/chat`, {
           method: 'POST',
-          body: { userId: user.id, threadId, message: body.message, mind: mindConfig(mind), secrets: await secretsForRun(user.id), ...(await runExtras(user, mind.id)) },
+          body: { userId: user.id, threadId, message: body.message, mind: mindConfig(mind), secrets: await secretsForRun(user.id), ...timeZoneOf(body), ...(await runExtras(user, mind.id)) },
         })
         return relayRun(req, res, engineRes, { mindId: mind.id, threadId, userMessage: body.message })
       }
@@ -283,9 +291,9 @@ export const server = createServer(async (req, res) => {
           return passthrough(res, out)
         }
         if (wf[2] === '/runs' && req.method === 'POST') {
-          const body = await readBody(req, runWorkflowSchema)
+          const body = await readBody(req, runSchema)
           await assertDemoRunAllowed(user, req)
-          const engineRes = await engineFetch(`${p}/runs`, { method: 'POST', body: { userId: user.id, mind: mindConfig(mind), secrets: await secretsForRun(user.id), input: body.input, ...(await runExtras(user, mind.id)) } })
+          const engineRes = await engineFetch(`${p}/runs`, { method: 'POST', body: { userId: user.id, mind: mindConfig(mind), secrets: await secretsForRun(user.id), input: body.input, ...timeZoneOf(body), ...(await runExtras(user, mind.id)) } })
           return relayRun(req, res, engineRes, { mindId: mind.id, workflowId: id.data })
         }
         if (wf[2] === '/runs' && req.method === 'GET') return passthrough(res, await engineJson(`${p}/runs?limit=${limitOf(url, 20, 100)}`))
