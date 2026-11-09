@@ -151,3 +151,16 @@ describe("thinking", () => {
     expect(foldRun([ev("reasoning.delta", { text: "hmm" }), ev("tool.called", { toolCallId: "c", tool: "get_balance" })]).thinking).toBe(false)
   })
 })
+
+describe("text around an approval", () => {
+  it("starts the reply after the pause on a new paragraph", () => {
+    seq = 0
+    const v = foldRun([
+      ev("text.delta", { text: "Waiting for your OK." }),
+      ev("tool.approval_required", { toolCallId: "c1", tool: "send_payment" }),
+      ev("run.finished"),
+      ev("text.delta", { text: "Done!" }),
+    ])
+    expect(v.text).toBe("Waiting for your OK.\n\nDone!")
+  })
+})

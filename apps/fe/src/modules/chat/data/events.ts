@@ -63,6 +63,7 @@ export function foldRun(events: RunEvent[]): RunView {
   const sorted = [...events].sort((a, b) => a.seq - b.seq)
   let paused = false
   let resumed = false
+  let joined = false
 
   for (const e of sorted) {
     view.runId ??= e.runId ?? null
@@ -75,6 +76,11 @@ export function foldRun(events: RunEvent[]): RunView {
         view.threadId = e.threadId ?? view.threadId
         break
       case "text.delta":
+        // The reply after an approval is a new paragraph, not glued to the text before the pause.
+        if (resumed && !joined) {
+          joined = true
+          if (view.text && !/\s$/.test(view.text)) view.text += "\n\n"
+        }
         view.text += e.text ?? ""
         break
       case "tool.called":
