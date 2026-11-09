@@ -1,0 +1,153 @@
+import { afterEach, describe, expect, it, vi } from "vitest"
+import { chatApi } from "@/modules/chat/api"
+import { foldRun, paymentOf, toolLabel, type RunEvent } from "@/modules/chat/data/events"
+import { toTurns } from "@/modules/chat/hooks/useThread"
+
+afterEach(() => vi.unstubAllGlobals())
+
+let seq = 0
+const ev = (type: string, extra: Partial<RunEvent> = {}): RunEvent => ({
+  v: 1,
+  type,
+  runId: "run_1",
+  mindId: "m1",
+  seq: seq++,
+  ts: `2026-11-09T10:42:0${seq % 10}Z`,
+  ...extra,
+})
+
+describe("foldRun", () => {
+  it("joins text and reads the gateway badge (docs/api-contract.md §3)", () => {
+    seq = 0
+    const v = foldRun([
+      ev("run.started", { threadId: "thr_1" }),
+      ev("text.delta", { text: "Hi " }),
+      ev("text.delta", { text: "there" }),
+      ev("run.finished"),
+      ev("run.verified", { verification: { status: "verified", level: "gateway_tee" } }),
+    ])
+    expect(v).toMatchObject({ runId: "run_1", threadId: "thr_1", text: "Hi there", status: "finished", verified: "gateway_tee" })
+  })
+
+  it("gives no badge for anything but a verified run", () => {
+    seq = 0
+    const v = foldRun([ev("run.verified", { verification: { status: "not_applicable" } })])
+    expect(v.verified).toBeNull()
+  })
+
+  it("orders events by seq", () => {
+    seq = 0
+    const a = ev("text.delta", { text: "a" })
+    const b = ev("text.delta", { text: "b" })
+    expect(foldRun([b, a]).text).toBe("ab")
+  })
+
+  it("waits on an approval, then shows the sent payment after approve", () => {
+    seq = 0
+    const args = { to: "shop.testnet", amountNear: "1.5" }
+    const paused = [ev("tool.called", { toolCallId: "c1", tool: "send_payment", args }), ev("tool.approval_required", { toolCallId: "c1", tool: "send_payment", args })]
+    expect(foldRun(paused)).toMatchObject({ status: "awaiting_approval", tools: [{ status: "awaiting_approval" }] })
+
+    const done = foldRun([
+      ...paused,
+      ev("tool.result", { toolCallId: "c1", tool: "send_payment", status: "ok", result: { ...args, status: "sent", txHash: "tx1" } }),
+      ev("run.finished"),
+    ])
+    expect(done.status).toBe("finished")
+    expect(done.tools[0].status).toBe("ok")
+    expect(paymentOf(done.tools[0])).toMatchObject({ to: "shop.testnet", amountNear: "1.5", txHash: "tx1" })
+  })
+
+  it("reads a refused payment from the result's own status (#42)", () => {
+    seq = 0
+    const v = foldRun([
+      ev("tool.called", { toolCallId: "c1", tool: "send_payment" }),
+      ev("tool.result", { toolCallId: "c1", tool: "send_payment", status: "ok", result: { to: "x.testnet", amountNear: "25", status: "policy_denied" } }),
+    ])
+    expect(v.tools[0].status).toBe("policy_denied")
+  })
+
+  it("still waits when the paused stream ends with run.finished and run.verified", () => {
+    seq = 0
+    const v = foldRun([
+      ev("step.started"),
+      ev("tool.approval_required", { toolCallId: "c1", tool: "send_payment" }),
+      ev("step.finished"),
+      ev("run.finished"),
+      ev("run.verified", { verification: { status: "verified", level: "gateway_tee" } }),
+    ])
+    expect(v.status).toBe("awaiting_approval")
+    expect(v.tools[0].status).toBe("awaiting_approval")
+  })
+
+  it("marks an approval the run went past as declined", () => {
+    seq = 0
+    const v = foldRun([ev("tool.approval_required", { toolCallId: "c1", tool: "send_payment" }), ev("text.delta", { text: "Okay, I won't." }), ev("run.finished")])
+    expect(v.tools[0].status).toBe("declined")
+  })
+
+  it("keeps run.error", () => {
+    seq = 0
+    expect(foldRun([ev("run.error", { error: "engine_stream_interrupted" })])).toMatchObject({ status: "error", error: "engine_stream_interrupted" })
+  })
+})
+
+describe("toTurns", () => {
+  it("pairs each run's user message and reply, oldest first", () => {
+    const turns = toTurns(
+      [
+        { id: "1", role: "user", text: "Hi", createdAt: "2026-11-09T10:00:00Z", runId: "r1" },
+        { id: "2", role: "assistant", text: "Hello", createdAt: "2026-11-09T10:00:02Z", runId: "r1" },
+        { id: "3", role: "user", text: "Pay rent", createdAt: "2026-11-09T10:01:00Z", runId: "r2" },
+      ],
+      new Map()
+    )
+    expect(turns.map((t) => [t.runId, t.message, t.view.text])).toEqual([
+      ["r1", "Hi", "Hello"],
+      ["r2", "Pay rent", ""],
+    ])
+  })
+})
+
+describe("toolLabel", () => {
+  it("has plain words, and a neutral line for unknown tools", () => {
+    expect(toolLabel("get_balance")).toBe("Checking the balance")
+    expect(toolLabel("something_new")).toBe("Using a tool")
+  })
+})
+
+describe("chatApi.send", () => {
+  it("reads SSE events across chunk boundaries and skips pings", async () => {
+    const body = ': ping\n\ndata: {"type":"run.started","seq":0,"threadId":"thr_1"}\n\ndata: {"type":"text.de' + 'lta","seq":1,"text":"Hi"}\n\n'
+    const chunks = [body.slice(0, 30), body.slice(30, 70), body.slice(70)]
+    const stream = new ReadableStream({
+      start(c) {
+        for (const ch of chunks) c.enqueue(new TextEncoder().encode(ch))
+        c.close()
+      },
+    })
+    const fetchMock = vi.fn(async () => new Response(stream, { status: 200, headers: { "content-type": "text/event-stream" } }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const got: RunEvent[] = []
+    await chatApi.send("m1", { message: "hey" }, (e) => got.push(e))
+    expect(got.map((e) => e.type)).toEqual(["run.started", "text.delta"])
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe("/api/v1/minds/m1/chat")
+    expect(JSON.parse(init.body as string)).toEqual({ message: "hey" })
+  })
+
+  it("throws the backend's error before a stream starts", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ error: "thread_not_found" }, { status: 404 })))
+    await expect(chatApi.send("m1", { message: "hey", threadId: "thr_x" }, () => {})).rejects.toMatchObject({ code: "thread_not_found" })
+  })
+})
+
+describe("thinking", () => {
+  it("is on while the model reasons and off once it writes or calls a tool", () => {
+    seq = 0
+    expect(foldRun([ev("run.started"), ev("reasoning.delta", { text: "hmm" })]).thinking).toBe(true)
+    expect(foldRun([ev("reasoning.delta", { text: "hmm" }), ev("text.delta", { text: "Hi" })]).thinking).toBe(false)
+    expect(foldRun([ev("reasoning.delta", { text: "hmm" }), ev("tool.called", { toolCallId: "c", tool: "get_balance" })]).thinking).toBe(false)
+  })
+})

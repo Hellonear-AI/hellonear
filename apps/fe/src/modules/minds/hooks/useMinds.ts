@@ -14,6 +14,7 @@ export const mindKeys = {
   all: ["minds"] as const,
   templates: ["templates"] as const,
   approvals: (mindId: string) => ["minds", mindId, "approvals"] as const,
+  wallet: (mindId: string) => ["minds", mindId, "wallet"] as const,
   recentChats: (mindId: string) => ["minds", mindId, "threads", "recent"] as const,
 }
 
@@ -57,6 +58,16 @@ export function useApprovalsCount(mindId: string) {
     queryFn: () => mindsApi.approvals(mindId),
     select: (approvals) => approvals.length,
     refetchInterval: 30_000,
+  })
+}
+
+/** The Mind's own wallet with its limits (`null`: no wallet yet). Chat uses it for the limit line and Freeze. */
+export function useMindWallet(mindId: string) {
+  return useQuery({
+    queryKey: mindKeys.wallet(mindId),
+    enabled: useSignedIn(),
+    queryFn: () => mindsApi.wallet(mindId),
+    staleTime: 30_000,
   })
 }
 

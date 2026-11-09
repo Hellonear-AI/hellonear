@@ -7,7 +7,7 @@ import { AccountMenu } from "@/components/layout/AccountMenu"
 import { Logo } from "@/components/elements/Logo"
 import { MindSwitcher } from "@/components/layout/MindSwitcher"
 import { mindHref } from "@/components/layout/nav"
-import { NavList, RecentChats, useActiveSegment } from "@/components/layout/SidebarParts"
+import { NavList, RecentChats, SidebarScroll, useActiveSegment } from "@/components/layout/SidebarParts"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { useApprovalsCount } from "@/modules/minds/hooks/useMinds"
@@ -35,8 +35,10 @@ export function MobileHeader({ mindId }: { mindId: string }) {
             <span className="flex-1" />
             <AccountMenu variant="icon" />
           </div>
-          <NavList mindId={mindId} onNavigate={close} />
-          <RecentChats mindId={mindId} onNavigate={close} />
+          <SidebarScroll>
+            <NavList mindId={mindId} onNavigate={close} />
+            <RecentChats mindId={mindId} onNavigate={close} />
+          </SidebarScroll>
             </SheetContent>
       </Sheet>
 
