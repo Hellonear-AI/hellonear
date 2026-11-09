@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { foldRun, type RunEvent, type ToolStep } from "@/modules/chat/data/events"
-import { stepText } from "@/modules/chat/data/steps"
+import { stepText, summaryLabel } from "@/modules/chat/data/steps"
 import { lines } from "@/modules/chat/components/ReplySteps"
 import { closeOpenMarks } from "@/modules/chat/components/ReplyText"
 
@@ -58,5 +58,14 @@ describe("closeOpenMarks (Markdown while streaming)", () => {
 describe("skill steps", () => {
   it("name the skill as people know it", () => {
     expect(stepText({ toolCallId: "c", tool: "skill", status: "ok", args: { name: "daily-planner" }, result: {} }).detail).toBe("Daily planner")
+  })
+})
+
+describe("summaryLabel (folded steps)", () => {
+  const t = (from: string, to: string) => ({ from: `2026-11-09T10:00:${from}Z`, to: `2026-11-09T10:00:${to}Z` })
+  it("reads like Claude's, with no dot separators", () => {
+    expect(summaryLabel(3, [t("00", "04"), t("10", "11"), t("20", "23")])).toBe("Used 3 steps, thought for 8s")
+    expect(summaryLabel(1, [])).toBe("Used 1 step")
+    expect(summaryLabel(0, [t("00", "00")])).toBe("Thought for 1s")
   })
 })

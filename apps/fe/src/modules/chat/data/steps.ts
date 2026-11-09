@@ -79,3 +79,16 @@ function summary(step: ToolStep): string | null {
       return null
   }
 }
+
+/**
+ * The one line a finished reply's steps fold into (Ancung, 9 Nov, like Claude): "Used 3 steps,
+ * thought for 8s", or either half alone. Thinking time is the sum of each stretch, at least 1 s.
+ */
+export function summaryLabel(steps: number, thoughts: { from: string; to: string }[]): string {
+  const seconds = thoughts.reduce((sum, t) => sum + Math.max(1, Math.round((new Date(t.to).getTime() - new Date(t.from).getTime()) / 1000)), 0)
+  const used = steps > 0 ? `Used ${steps} ${steps === 1 ? "step" : "steps"}` : null
+  const thought = thoughts.length > 0 ? `thought for ${seconds}s` : null
+  if (used && thought) return `${used}, ${thought}`
+  if (used) return used
+  return thought ? `Thought for ${seconds}s` : ""
+}

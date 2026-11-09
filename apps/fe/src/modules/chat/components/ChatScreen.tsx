@@ -17,7 +17,8 @@ import { useThread } from "@/modules/chat/hooks/useThread"
 import { Composer } from "@/modules/chat/components/Composer"
 import { ReplyText } from "@/modules/chat/components/ReplyText"
 import { ApprovalCard, PaymentFailed, PaymentReceipt, PaymentRefused } from "@/modules/chat/components/RunCards"
-import { StepRow, ThoughtRow } from "@/modules/chat/components/ReplySteps"
+import { StepRow, StepsSummary, ThoughtRow } from "@/modules/chat/components/ReplySteps"
+import { summaryLabel } from "@/modules/chat/data/steps"
 import type { ApiWallet } from "@/modules/minds/api"
 import { templateLabel } from "@/modules/minds/data/minds"
 import { useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
@@ -221,6 +222,28 @@ function TurnView({
   const working = live && (!lastPart || (lastPart.kind === "tool" && lastStep?.status !== "running" && lastStep?.status !== "awaiting_approval"))
   const byCall = new Map(view.tools.map((t) => [t.toolCallId, t]))
 
+  // Steps and thoughts are rows; approvals, receipts and refusals are cards that stay in place.
+  const isRow = (step: ToolStep) =>
+    step.status !== "awaiting_approval" && (!paymentOf(step) || step.status === "running" || step.status === "declined")
+  const rowPart = (part: ReplyPart) => part.kind === "thought" || (part.kind === "tool" && Boolean(byCall.get(part.toolCallId) && isRow(byCall.get(part.toolCallId)!)))
+  // Once the reply is done, its rows fold into one line above it (Ancung, 9 Nov, like Claude).
+  const folded = !live && parts.some(rowPart)
+  const foldLabel = folded
+    ? summaryLabel(
+        parts.filter((p) => p.kind === "tool" && rowPart(p)).length,
+        parts.flatMap((p) => (p.kind === "thought" ? [p] : []))
+      )
+    : ""
+
+  function rowNode(part: ReplyPart, i: number) {
+    if (part.kind === "thought") return <ThoughtRow key={`r${i}`} text={part.text} from={part.from} to={part.to} live={live && i === parts.length - 1} />
+    if (part.kind === "tool") {
+      const step = byCall.get(part.toolCallId)
+      return step ? <StepRow key={part.toolCallId} step={step} /> : null
+    }
+    return null
+  }
+
   function toolPart(step: ToolStep) {
     const payment = paymentOf(step)
     // Waiting, or being answered right now (then it says "Sending" until the result replaces it).
@@ -266,10 +289,10 @@ function TurnView({
             <MindAvatar templateId={templateId} size={24} />
             <span className="text-[13px] font-semibold text-foreground">{name}</span>
           </div>
+          {folded && <StepsSummary label={foldLabel}>{parts.map((p, i) => (rowPart(p) ? rowNode(p, i) : null))}</StepsSummary>}
           {parts.map((part, i) => {
-            if (part.kind === "thought") {
-              return <ThoughtRow key={`r${i}`} text={part.text} from={part.from} to={part.to} live={live && i === parts.length - 1} />
-            }
+            if (folded && rowPart(part)) return null
+            if (part.kind === "thought") return rowNode(part, i)
             if (part.kind === "text") {
               // Plain text, no bubble (decided 9 Nov with Ancung, like Claude and Gemini).
               // A stable key: text already shown stays as it is when the run goes on (an approval),

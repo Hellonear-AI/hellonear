@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckIcon, ChevronDownIcon, Loader2Icon, XIcon } from "lucide-react"
+import { CheckIcon, ListChecksIcon, ChevronDownIcon, Loader2Icon, XIcon } from "lucide-react"
 import { useId, useState, type ReactNode } from "react"
 import { cn } from "cn"
 import type { ToolStep } from "@/modules/chat/data/events"
@@ -37,6 +37,14 @@ export function ThoughtRow({ text, from, to, live }: { text: string; from: strin
       details={text.trim() ? <p className="text-[13px] leading-5 whitespace-pre-wrap text-muted-foreground">{text.trim()}</p> : null}
     />
   )
+}
+
+/**
+ * A finished reply's steps and thoughts folded into one line that opens to show them all, in
+ * order, each still openable (Ancung, 9 Nov). While the Mind works they show one by one instead.
+ */
+export function StepsSummary({ label, children }: { label: string; children: ReactNode }) {
+  return <Row icon={<ListChecksIcon className="text-muted-foreground" />} label={label} detail={null} shimmer={false} details={<div className="flex flex-col">{children}</div>} />
 }
 
 function Row({
