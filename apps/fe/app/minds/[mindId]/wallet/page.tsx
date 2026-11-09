@@ -1,7 +1,8 @@
-import { ScreenPlaceholder } from "@/modules/minds/components/ScreenPlaceholder"
+import { WalletScreen } from "@/modules/wallet/components/WalletScreen"
 
 export const metadata = { title: "Wallet" }
 
-export default function Page() {
-  return <ScreenPlaceholder title="Wallet" description="The Mind's own wallet. It can only spend inside the limits you set." />
+export default async function Page({ params }: { params: Promise<{ mindId: string }> }) {
+  const { mindId } = await params
+  return <WalletScreen mindId={mindId} />
 }
