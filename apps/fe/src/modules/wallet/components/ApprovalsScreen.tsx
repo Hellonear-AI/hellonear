@@ -55,6 +55,7 @@ export function ApprovalsScreen({ mindId }: { mindId: string }) {
   // The answered card leaves the list, unless the answer never got through (then it can be tried again).
   const lost = Boolean(run?.failed) && !(run?.failed instanceof ApiError && run.failed.code === "not_awaiting_approval")
   const waiting = (approvals.data ?? []).filter((a) => !(answer && !lost && a.toolCallId === answer.toolCallId))
+  const empty = !approvals.isPending && !approvals.isError && waiting.length === 0
 
   function respond(approval: ApiApproval, action: "approve" | "decline") {
     setAnswer({ runId: approval.runId, toolCallId: approval.toolCallId, action, approval })
@@ -65,7 +66,8 @@ export function ApprovalsScreen({ mindId }: { mindId: string }) {
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 md:p-6 xl:p-8">
       <PageTitle title="Approvals" description={`Every payment ${name} wants to make. Nothing is sent until you say yes.`} />
 
-      <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
+      {/* Empty: the card stretches to the side column so both end on one line; with cards, each keeps its height. */}
+      <div className={`flex flex-col gap-6 xl:flex-row ${empty ? "xl:items-stretch" : "xl:items-start"}`}>
         <section aria-labelledby="waiting" className="flex min-w-0 flex-1 flex-col gap-4">
           {/* The heading only helps when there is something under it; empty says so itself (A1.4). */}
           <div className={waiting.length > 0 ? "flex items-center gap-2" : "sr-only"}>
@@ -297,7 +299,7 @@ function Line({ tone, icon, children }: { tone: "success" | "danger" | "neutral"
 /** A1.4: empty is good news. Says when things show up and keeps the limits close. */
 function NothingWaiting({ mindId, name }: { mindId: string; name: string }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-surface px-6 py-12 text-center">
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-border bg-surface px-6 py-12 text-center">
       <span className="flex size-12 items-center justify-center rounded-full bg-muted">
         <InboxIcon className="size-5 text-muted-foreground" />
       </span>
