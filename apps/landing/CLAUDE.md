@@ -21,7 +21,7 @@ bun run typecheck
 bun run build
 ```
 
-Env (`.env.example`): `NEXT_PUBLIC_APP_URL`, the web app's URL for "Open app". Not decided yet; empty means the button links to `#`.
+Env (`.env.example`): `NEXT_PUBLIC_APP_URL`, the web app's URL for "Open app" and the Mind cards. Default `https://app.hellonear.xyz` (#125); the landing itself will be `https://hellonear.xyz`.
 
 Assets: the favicon set comes from `design/logo/favicon/` (`app/favicon.ico`, `app/icon.svg`, `app/apple-icon.png`). Tokens in `app/globals.css` are copied from `design/landing.pen`. `public/draco/` is three.js's Draco decoder (for the GLB).
 
@@ -39,6 +39,10 @@ Assets: the favicon set comes from `design/logo/favicon/` (`app/favicon.ico`, `a
 - Phones (under 768 px): no WebGL and no parallax; the Mind is `mobile-back.webp` (rendered from the same rig) with the same 2D hands.
 - Light on the Mind comes from the left (the sun), with a low fill so the right side reads as shadow.
 - Reduced motion: no parallax, no wind, no rays animation, no cursor follow.
+
+## Powered by (#99)
+
+`components/PoweredBy.tsx`, right under the hero: a "Powered by" label and one row of logos sliding left in a loop (45 s), drawn twice for a seamless loop, edges faded, paused on hover, static for reduced motion. Logos are in `public/brands/powered/` (copied from `design/brands/`, sources in its README); each has its own height so they look the same size. Only services that really run (checked in the code); Google is left out by its brand rules.
 
 ## Sections under the hero (first pass, 8 Nov)
 

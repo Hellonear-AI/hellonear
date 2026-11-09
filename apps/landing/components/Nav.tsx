@@ -10,8 +10,8 @@ const LINKS = [
   { label: "Skills", href: "#skills" },
 ];
 
-// The web app's URL is not decided yet; set it in .env (see .env.example).
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "#";
+// The web app (decided 9 Nov, #125). NEXT_PUBLIC_APP_URL overrides it, e.g. for a local app.
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.hellonear.xyz";
 
 // Past this many pixels of scroll the bar turns into the pill.
 const SCROLL_THRESHOLD = 24;

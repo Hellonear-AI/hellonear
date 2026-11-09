@@ -8,7 +8,7 @@ import { Logo } from "./Logo";
 // its character into a second, livelier pose. The Choose button opens the app's "Choose a Mind" screen with
 // that template picked (`/minds/new?template=<id>`; apps/fe needs to read the param).
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.hellonear.xyz";
 
 const MINDS = [
   { id: "general-assistant", name: "General Assistant", role: "Plans your day", meta: "1 starter skill", tint: "#E3ECFB" },
