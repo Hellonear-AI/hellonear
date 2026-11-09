@@ -1,7 +1,8 @@
 // Chat threads (#54), built from the backend's own runs and run events: one user message per chat run
 // (`runs.user_message`) and one assistant message per run with text (its `text.delta` events, in order).
 // Builder runs have no thread and do not appear. Mastra keeps no thread titles (#54), so the title is the
-// first user message, cut to about 60 characters.
+// first user message, cut to about 60 characters, until the engine sends a short summary as a
+// `thread.titled` event (#86); then the newest such title wins. Both go through `titleOf`.
 import { query } from './db.ts'
 
 export type Thread = { threadId: string; title: string | null; lastMessageAt: string; messageCount: number }
@@ -10,6 +11,7 @@ export type Message = { id: string; role: 'user' | 'assistant'; text: string; cr
 export function titleOf(text: string | null, max = 60): string | null {
   if (!text) return null
   const flat = text.replace(/\s+/g, ' ').trim()
+  if (!flat) return null
   if (flat.length <= max) return flat
   const cut = flat.slice(0, max)
   const space = cut.lastIndexOf(' ')
@@ -17,9 +19,12 @@ export function titleOf(text: string | null, max = 60): string | null {
 }
 
 export async function listThreads(mindId: string, limit: number): Promise<Thread[]> {
-  const rows = await query<{ thread_id: string; first_message: string | null; last_at: Date; user_turns: number; replies: number }>(
+  const rows = await query<{ thread_id: string; first_message: string | null; summary: string | null; last_at: Date; user_turns: number; replies: number }>(
     `select thread_id,
             (array_agg(user_message order by started_at) filter (where user_message is not null))[1] as first_message,
+            (select e.payload->>'title' from run_events e join runs r2 on r2.id = e.run_id
+              where r2.mind_id = $1 and r2.thread_id = t.thread_id and e.type = 'thread.titled'
+              order by e.ts desc, e.seq desc limit 1) as summary,
             max(coalesce(finished_at, started_at)) as last_at,
             (count(*) filter (where user_message is not null))::int as user_turns,
             (count(*) filter (where has_text))::int as replies
@@ -30,7 +35,7 @@ export async function listThreads(mindId: string, limit: number): Promise<Thread
       limit $2`,
     [mindId, limit],
   )
-  return rows.map((r) => ({ threadId: r.thread_id, title: titleOf(r.first_message), lastMessageAt: r.last_at.toISOString(), messageCount: r.user_turns + r.replies }))
+  return rows.map((r) => ({ threadId: r.thread_id, title: titleOf(r.summary) ?? titleOf(r.first_message), lastMessageAt: r.last_at.toISOString(), messageCount: r.user_turns + r.replies }))
 }
 
 export async function threadExists(mindId: string, threadId: string): Promise<boolean> {
