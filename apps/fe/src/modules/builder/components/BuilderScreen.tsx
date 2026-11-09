@@ -30,6 +30,7 @@ import { mindHref } from "@/components/layout/nav"
 import { ChoiceSelect } from "@/components/elements/ChoiceSelect"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
@@ -145,7 +146,8 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
     return k && JSON.stringify(k.draft) !== JSON.stringify(initial) ? k : null
   })
   // The block whose settings show on the right; null closes that panel (n8n opens it on demand).
-  const [selected, setSelected] = useState<string | null>("start")
+  // Desktop opens on Start's settings; phones open on the canvas, since settings are a sheet there.
+  const [selected, setSelected] = useState<string | null>(() => (window.matchMedia("(min-width: 1024px)").matches ? "start" : null))
   const {
     frame: canvasFrame,
     content: canvasContent,
@@ -160,6 +162,8 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
     endPan,
   } = useCanvasView()
   const [helpOpen, setHelpOpen] = useState(false)
+  // Phones (B1.8): a + between blocks opens "Add a block" for that place.
+  const [addAt, setAddAt] = useState<number | null>(null)
   // The fold only applies from lg (1024 px); below that the list sits on top, always open.
   const desktop = useSyncExternalStore(
     (on) => {
@@ -320,7 +324,9 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
     return true
   }
   const spot = (at: number) =>
-    accepts(at) ? (
+    !desktop && !drag ? (
+      <TapSpot key={`tap-${at}`} onClick={() => setAddAt(at)} />
+    ) : accepts(at) ? (
       <DropSpot key={`spot-${at}`} id={`spot-${at}`} over={over} setOver={setOver} onDrop={() => dropAt(at)} label="Drop here" />
     ) : null
 
@@ -524,6 +530,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
         {workflowId && (
           <Button
             variant="outline"
+            className="hidden lg:inline-flex"
             onClick={() => void runTest()}
             disabled={Boolean(test?.running) || dirty || saving}
             title={dirty ? "Save your changes to test them" : "Runs the saved job once"}
@@ -532,7 +539,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             {test?.running ? "Testing" : "Test run"}
           </Button>
         )}
-        <Button onClick={() => void save()} disabled={saving || problems.length > 0 || (Boolean(workflowId) && !dirty)}>
+        <Button className="hidden lg:inline-flex" onClick={() => void save()} disabled={saving || problems.length > 0 || (Boolean(workflowId) && !dirty)}>
           {saving && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
           Save
         </Button>
@@ -602,13 +609,13 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       {dirty && workflowId && <p className="mx-4 mt-3 text-xs text-muted-foreground md:mx-6">Save your changes to test them.</p>}
 
       <TestRun.Provider value={withIf(test?.nodes ?? {}, draft.branch, Boolean(test && !test.running && !test.failed && test.status !== "failed"))}>
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row">
         {/* The Blocks panel folds like the app's sidebar (AppShell): the width slides 240 <-> 72
             (ease-in-out, 200 ms) and the full list crossfades with the icon rail. Phones and
             tablets always get the full list on top. */}
         <aside
           className={cn(
-            "relative shrink-0 border-border lg:overflow-hidden lg:border-r lg:transition-[width] lg:duration-200 lg:ease-in-out motion-reduce:transition-none",
+            "relative hidden shrink-0 border-border lg:block lg:overflow-hidden lg:border-r lg:transition-[width] lg:duration-200 lg:ease-in-out motion-reduce:transition-none",
             paletteOpen ? "lg:w-60" : "lg:w-[72px]"
           )}
         >
@@ -664,7 +671,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
           // Dots that fade a little when zoomed out (--dot-opacity, set with the grid in useCanvasView).
           style={{ backgroundImage: "radial-gradient(color-mix(in oklab, var(--color-border) calc(var(--dot-opacity, 1) * 100%), transparent) 1px, transparent 1px)" }}
           className={cn(
-            "relative min-h-[60dvh] min-w-0 flex-1 touch-none overflow-hidden select-none lg:min-h-0",
+            "relative min-h-0 min-w-0 flex-1 touch-none overflow-hidden select-none",
             panning ? "cursor-grabbing" : spaceDown ? "cursor-grab" : "cursor-default"
           )}
         >
@@ -698,7 +705,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                 a second "Drop here" box under it was confusing). */}
             <button
               type="button"
-              onClick={() => addStep("agent")}
+              onClick={() => (desktop ? addStep("agent") : setAddAt(draft.steps.length))}
               onDragOver={(e) => {
                 if (!accepts(draft.steps.length)) return
                 e.preventDefault()
@@ -726,7 +733,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                 {drag && accepts(draft.steps.length) ? (drag && "add" in drag && drag.add === "if" ? "Drop to add the If here" : "Drop to add it here") : "Add the next step"}
               </span>
               <span className="text-xs text-muted-foreground">
-                {b ? "It goes before the If" : `Ask ${name} to do something`}
+                {b ? "It goes before the If" : desktop ? `Ask ${name} to do something` : "Tap to pick a block"}
               </span>
             </button>
           </Linked>
@@ -776,7 +783,10 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
           </div>
 
           {/* Zoom controls (n8n's, bottom left): out, the level (click for 100%), in, fit, shortcuts. */}
-          <div className="absolute bottom-4 left-4 flex items-center gap-1 rounded-full border border-border bg-surface p-1 shadow-xs">
+          <div className="absolute top-3 right-3 flex flex-col-reverse items-center gap-1 rounded-full border border-border bg-surface p-1 shadow-xs lg:top-auto lg:right-auto lg:bottom-4 lg:left-4 lg:flex-row">
+            <Button variant="ghost" size="icon-sm" className="lg:order-last" aria-label="Fit the job on screen (1)" title="Fit (1)" onClick={fitView}>
+              <ScanIcon />
+            </Button>
             <Button variant="ghost" size="icon-sm" aria-label="Zoom out (-)" title="Zoom out (-)" onClick={() => zoomBy(1 / 1.2)}>
               <MinusIcon />
             </Button>
@@ -784,35 +794,22 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
               type="button"
               onClick={() => resetView()}
               title="Back to 100% (0)"
-              className="min-w-12 rounded-full px-1.5 py-1 text-center text-xs font-medium text-foreground tabular-nums outline-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus"
+              className="hidden min-w-12 lg:block rounded-full px-1.5 py-1 text-center text-xs font-medium text-foreground tabular-nums outline-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus"
             >
               <span ref={zoomLabel}>100%</span>
             </button>
             <Button variant="ghost" size="icon-sm" aria-label="Zoom in (+)" title="Zoom in (+)" onClick={() => zoomBy(1.2)}>
               <PlusIcon />
             </Button>
-            <Button variant="ghost" size="icon-sm" aria-label="Fit the job on screen (1)" title="Fit (1)" onClick={fitView}>
-              <ScanIcon />
-            </Button>
-            <span aria-hidden className="mx-0.5 h-4 w-px bg-border" />
-            <Button variant="ghost" size="icon-sm" aria-label="Keyboard shortcuts (?)" title="Keyboard shortcuts (?)" onClick={() => setHelpOpen(true)}>
+            <span aria-hidden className="mx-0.5 hidden h-4 w-px bg-border lg:order-last lg:block" />
+            <Button variant="ghost" size="icon-sm" className="hidden lg:order-last lg:inline-flex" aria-label="Keyboard shortcuts (?)" title="Keyboard shortcuts (?)" onClick={() => setHelpOpen(true)}>
               <KeyboardIcon />
             </Button>
           </div>
         </main>
 
         {selected && (
-        <aside className="relative flex shrink-0 flex-col gap-4 border-border p-4 lg:w-[340px] lg:overflow-y-auto lg:border-l">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="absolute top-3 right-3"
-            aria-label="Close the settings (Esc)"
-            title="Close (Esc)"
-            onClick={() => setSelected(null)}
-          >
-            <XIcon />
-          </Button>
+        <SettingsFrame desktop={desktop} onClose={() => setSelected(null)}>
           {step?.kind === "agent" ? (
             <AskPanel name={name} title={`Ask ${name}`} step={step} results={resultsBefore(draft.steps, draft.steps.indexOf(step))} onChange={(p) => setStep(step.id, { prompt: p })} onDelete={() => removeStep(step.id)} />
           ) : step?.kind === "http" ? (
@@ -871,9 +868,39 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
               ))}
             </ul>
           )}
-        </aside>
+        </SettingsFrame>
         )}
       </div>
+
+      {/* Phones (design B1 mobile): the hint, then Test run and Save across the bottom. */}
+      <div className="flex flex-col gap-2 border-t border-border bg-background px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
+        <p className="text-xs text-muted-foreground">Tap + to add a block. Tap a block to change it.</p>
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="outline" onClick={() => void runTest()} disabled={!workflowId || Boolean(test?.running) || dirty || saving}>
+            {test?.running ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <FlaskConicalIcon />}
+            {test?.running ? "Testing" : "Test run"}
+          </Button>
+          <Button onClick={() => void save()} disabled={saving || problems.length > 0 || (Boolean(workflowId) && !dirty)}>
+            {saving ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <CheckIcon />}
+            Save
+          </Button>
+        </div>
+      </div>
+
+      <AddBlockSheet
+        at={addAt}
+        name={name}
+        steps={draft.steps}
+        hasIf={Boolean(b)}
+        canIf={canIf}
+        onClose={() => setAddAt(null)}
+        onPick={(kind) => {
+          const at = addAt ?? draft.steps.length
+          setAddAt(null)
+          if (kind === "if") addIf()
+          else addStep(kind, at)
+        }}
+      />
       </TestRun.Provider>
       <ShortcutsDialog open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
@@ -1480,5 +1507,113 @@ function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
         </dl>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/** Settings for the picked block: a side panel on desktop, a bottom sheet on phones (B1.5). */
+function SettingsFrame({ desktop, onClose, children }: { desktop: boolean; onClose: () => void; children: ReactNode }) {
+  if (desktop) {
+    return (
+      <aside className="relative flex shrink-0 flex-col gap-4 border-border p-4 lg:w-[340px] lg:overflow-y-auto lg:border-l">
+        <Button variant="ghost" size="icon-sm" className="absolute top-3 right-3" aria-label="Close the settings (Esc)" title="Close (Esc)" onClick={onClose}>
+          <XIcon />
+        </Button>
+        {children}
+      </aside>
+    )
+  }
+  return (
+    <Sheet open onOpenChange={(open) => !open && onClose()}>
+      <SheetContent side="bottom" showCloseButton={false} className="max-h-[85dvh] gap-0 rounded-t-xl p-0">
+        <SheetTitle className="sr-only">Block settings</SheetTitle>
+        <div className="relative flex flex-col gap-4 overflow-y-auto p-4">
+          <Button variant="ghost" size="icon-sm" className="absolute top-3 right-3" aria-label="Close" onClick={onClose}>
+            <XIcon />
+          </Button>
+          {children}
+        </div>
+        <div className="border-t border-border p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <Button className="w-full" onClick={onClose}>
+            Done
+          </Button>
+        </div>
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+/** The + between two blocks on phones (B1.8): tap it to add a block there. */
+function TapSpot({ onClick }: { onClick: () => void }) {
+  return (
+    <div className="flex w-[280px] max-w-full flex-col items-center">
+      <span aria-hidden className="h-2 w-px bg-border-strong" />
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label="Add a block here"
+        className="flex size-7 items-center justify-center rounded-full bg-surface text-foreground ring-1 ring-border-strong outline-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus"
+      >
+        <PlusIcon className="size-3.5" />
+      </button>
+    </div>
+  )
+}
+
+/** "Add a block" on phones (B1.8): only the blocks that fit at that place. */
+function AddBlockSheet({
+  at,
+  name,
+  steps,
+  hasIf,
+  canIf,
+  onClose,
+  onPick,
+}: {
+  at: number | null
+  name: string
+  steps: Step[]
+  hasIf: boolean
+  canIf: boolean
+  onClose: () => void
+  onPick: (kind: "agent" | "tool" | "http" | "if") => void
+}) {
+  const place = at ?? steps.length
+  const label = (x: Step) => (x.kind === "agent" ? `Ask ${name}` : x.kind === "tool" ? (toolInfo(x.tool)?.title ?? "a tool") : "Call a website")
+  const where = `${place === 0 ? "After Start" : `After ${label(steps[place - 1])}`}${place < steps.length ? `, before ${label(steps[place])}` : hasIf ? ", before the If" : ""}`
+  const ifReason = hasIf ? "A job can have only one, and this one already does" : place < steps.length ? "Only at the end of the job" : !canIf ? "Add a check or a website first" : null
+  const options: { kind: "agent" | "tool" | "http" | "if"; tone: Tone; icon: ReactNode; title: string; line: string; off?: string | null }[] = [
+    { kind: "agent", tone: "agent", icon: <BotIcon />, title: `Ask ${name}`, line: `${name} writes or decides something` },
+    { kind: "tool", tone: "tool", icon: <SearchIcon />, title: "Use a tool", line: "An account, the time, the calendar, the inbox" },
+    { kind: "http", tone: "http", icon: <GlobeIcon />, title: "Call a website", line: "Send something to your own service" },
+    { kind: "if", tone: "if", icon: <GitBranchIcon />, title: "If or else", line: "Choose one of two ways", off: ifReason },
+  ]
+  return (
+    <Sheet open={at !== null} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent side="bottom" className="max-h-[85dvh] gap-3 rounded-t-xl px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <SheetHeader className="p-0">
+          <SheetTitle>Add a block</SheetTitle>
+          <SheetDescription>{where}</SheetDescription>
+        </SheetHeader>
+        <ul className="flex flex-col gap-2 overflow-y-auto">
+          {options.map((o) => (
+            <li key={o.kind}>
+              <button
+                type="button"
+                disabled={Boolean(o.off)}
+                onClick={() => onPick(o.kind)}
+                className="flex w-full items-center gap-3 rounded-md bg-muted px-3 py-2.5 text-left outline-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-60"
+              >
+                <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-sm [&>svg]:size-4", TONE[o.tone])}>{o.icon}</span>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="text-sm font-medium text-foreground">{o.title}</span>
+                  <span className="text-xs text-muted-foreground">{o.off ?? o.line}</span>
+                </span>
+                {!o.off && <PlusIcon className="size-4 shrink-0 text-muted-foreground" />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </SheetContent>
+    </Sheet>
   )
 }
