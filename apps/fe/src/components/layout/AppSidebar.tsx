@@ -5,7 +5,7 @@ import Link from "next/link"
 import { Logo, LogoIcon } from "@/components/elements/Logo"
 import { AccountMenu } from "@/components/layout/AccountMenu"
 import { MindSwitcher } from "@/components/layout/MindSwitcher"
-import { NavList, RailNav, RecentChats, useActiveSegment } from "@/components/layout/SidebarParts"
+import { NavList, RailNav, RecentChats, SidebarScroll, useActiveSegment } from "@/components/layout/SidebarParts"
 import { Button } from "@/components/ui/button"
 
 /** Full sidebar (256 px): design AuOSf. `onFold` shows the fold button (desktop), `onNavigate` closes an overlay. */
@@ -20,7 +20,7 @@ export function AppSidebar({
 }) {
   const segment = useActiveSegment(mindId) || "chat"
   return (
-    // Only Recent chats scrolls (team call, 7 Nov); logo, Mind, places and account stay put.
+    // The menu and Recent chats scroll together (SidebarScroll); logo, Mind and account stay put.
     <div className="flex h-full w-64 flex-col gap-5 overflow-hidden border-r border-border bg-surface p-4">
       <div className="flex items-center gap-2 py-1">
         <Link href={`/minds/${mindId}/chat`} onClick={onNavigate} aria-label="HelloNear, go to chat" className="rounded-sm">
@@ -34,8 +34,10 @@ export function AppSidebar({
         )}
       </div>
       <MindSwitcher mindId={mindId} variant="card" segment={segment} />
-      <NavList mindId={mindId} onNavigate={onNavigate} />
-      <RecentChats mindId={mindId} onNavigate={onNavigate} />
+      <SidebarScroll>
+        <NavList mindId={mindId} onNavigate={onNavigate} />
+        <RecentChats mindId={mindId} onNavigate={onNavigate} />
+      </SidebarScroll>
       <AccountMenu variant="row" />
     </div>
   )

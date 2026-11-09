@@ -3,6 +3,7 @@
 import { SquarePenIcon } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import type { ReactNode } from "react"
 import { cn } from "cn"
 import { CountBadge } from "@/components/elements/CountBadge"
 import { mindHref, NAV_ITEMS } from "@/components/layout/nav"
@@ -89,13 +90,13 @@ export function RailNav({ mindId }: { mindId: string }) {
   )
 }
 
-/** Recent chats (#54): under the menu on desktop and tablet, and in the phone drawer. */
+/** Recent chats (#54): under the menu on desktop and tablet, and in the phone drawer. It scrolls with the menu (`SidebarScroll`). */
 export function RecentChats({ mindId, onNavigate }: { mindId: string; onNavigate?: () => void }) {
   const { data: chats = [] } = useRecentChats(mindId)
   const pathname = usePathname()
 
   return (
-    <section aria-labelledby="recent-chats" className="flex min-h-0 flex-1 flex-col gap-0.5 pt-2">
+    <section aria-labelledby="recent-chats" className="flex flex-col gap-0.5 pt-2">
       <div className="flex items-center justify-between py-1 pr-1 pl-3">
         <h2 id="recent-chats" className="text-xs font-semibold text-tertiary-foreground">
           Recent chats
@@ -110,7 +111,7 @@ export function RecentChats({ mindId, onNavigate }: { mindId: string; onNavigate
           <SquarePenIcon />
         </Button>
       </div>
-      <div className="scrollbar-on-hover -mr-2 flex min-h-0 flex-col gap-0.5 overflow-y-auto overscroll-contain pr-2">
+      <div className="flex flex-col gap-0.5">
         {chats.length === 0 && (
           <p className="px-3 py-2 text-xs text-tertiary-foreground">No chats yet.</p>
         )}
@@ -135,5 +136,18 @@ export function RecentChats({ mindId, onNavigate }: { mindId: string; onNavigate
         })}
       </div>
     </section>
+  )
+}
+
+/**
+ * The menu and Recent chats scroll together, with the scrollbar on the sidebar's own edge
+ * (Ancung, 9 Nov, like Claude; replaces "only Recent chats scrolls" from 7 Nov). The logo, the
+ * Mind and the account stay put.
+ */
+export function SidebarScroll({ children }: { children: ReactNode }) {
+  return (
+    <div className="scrollbar-on-hover -mx-4 flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain px-4">
+      {children}
+    </div>
   )
 }
