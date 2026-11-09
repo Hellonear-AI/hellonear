@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { shortWhen } from "@/lib/format"
 import { useSession } from "@/modules/auth/hooks/useSession"
 import { mindsApi } from "@/modules/minds/api"
-import type { Mind, RecentChat } from "@/modules/minds/data/minds"
+import { cleanThreadTitle, type Mind, type RecentChat } from "@/modules/minds/data/minds"
 
 // Every screen reads Minds through these hooks, so the shared React Query cache is the
 // only "global state" (apps/fe/CLAUDE.md). They only run with a backend session; signing
@@ -101,7 +101,7 @@ export function useRecentChats(mindId: string) {
     queryFn: async (): Promise<RecentChat[]> =>
       (await mindsApi.threads(mindId)).map((t) => ({
         threadId: t.threadId,
-        title: t.title ?? "Earlier chat",
+        title: cleanThreadTitle(t.title),
         when: shortWhen(t.lastMessageAt),
       })),
   })

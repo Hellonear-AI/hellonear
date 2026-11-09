@@ -46,3 +46,17 @@ export function templateLabel(templateId: string): string {
 export function templateImage(templateId: string): string {
   return TEMPLATE_IMAGE[isKnown(templateId) ? templateId : "general-assistant"]
 }
+
+/**
+ * A thread title as the sidebar shows it. The engine's titles can carry a stray reasoning tag when
+ * the model closes "</think>" without opening it ("Casual Greeting</think>…", Ancung, 9 Nov):
+ * keep what follows the last closing tag when there is any, and drop every leftover tag.
+ */
+export function cleanThreadTitle(title: string | null): string {
+  if (!title) return "Earlier chat"
+  const parts = title.split(/<\/think>/i)
+  const after = parts.at(-1)?.trim()
+  const picked = parts.length > 1 && after ? after : parts[0]
+  const cleaned = picked.replace(/<\/?think>/gi, "").replace(/\s+/g, " ").trim()
+  return cleaned || "Earlier chat"
+}
