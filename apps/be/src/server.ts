@@ -8,12 +8,13 @@ import { migrate, query } from './db.ts'
 import { engineFetch, engineJson, skills, templates } from './engine.ts'
 import { HttpError, assertSameOrigin, cors, logServerError, readBody, sendJson, setCookie, isLoopback } from './http.ts'
 import { TOOLKITS, connect, disconnect, listConnections, toolkitSchema } from './connections.ts'
-import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, requireMind, updateMind, updateMindSchema } from './minds.ts'
+import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, requireMind, updateMind, updateMindSchema, type Mind } from './minds.ts'
 import { getRun, listRuns, mindEvents, pendingApprovals, relayRun, runEvents } from './runs.ts'
 import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema, secretsForRun } from './secrets.ts'
 import { createWallet, freezeTransaction, getWallet, hasWallet, policySchema, policyTransaction } from './wallets.ts'
 import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
-import { issueWalletToken, verifyWalletToken } from './walletToken.ts'
+import { issueMailToken, issueWalletToken, verifyMailToken, verifyWalletToken } from './walletToken.ts'
+import { EMAIL_SKILL, ensureInbox, inboxOf, listMail, listSends, mailEnabled, messageIdSchema, readMail, sendMail, sendMailSchema } from './mail.ts'
 import { listThreads, parseCursor, threadExists, threadMessages } from './threads.ts'
 import { assertDemoRunAllowed, cleanupDemoUsers, createDemoUser, demoPaymentCap, denyDemo } from './demo.ts'
 import type { User } from './auth.ts'
@@ -43,12 +44,28 @@ const limitOf = (url: URL, fallback: number, max: number) => Math.min(Math.max(N
 const passthrough = (res: Parameters<typeof sendJson>[0], out: { status: number; body: unknown }) =>
   out.status === 204 ? res.writeHead(204).end() : sendJson(res, out.status, out.body)
 
-// Extra fields for one engine call: the wallet token (#42) only for a Mind that has a wallet, and `demo: true` for a
-// judge try-out user (#43), so the engine can use the sample inbox. Autopilot gets neither.
+// Extra fields for one engine call: the wallet token (#42) only for a Mind that has a wallet, the mail token (#96) only
+// for a Mind with the email-address skill and an inbox, and `demo: true` for a judge try-out user (#43), so the engine
+// can use the sample inbox. Autopilot gets none of them.
 const runExtras = async (user: User, mindId: string) => ({
   ...((await hasWallet(mindId)) ? { walletToken: issueWalletToken(user.id, mindId) } : {}),
+  ...((await mailEnabled(mindId)) ? { mailToken: issueMailToken(user.id, mindId) } : {}),
   ...(user.demo ? { demo: true } : {}),
 })
+
+// An owner's Mind gets its inbox when it equips the email-address skill (#96). The skills are saved either way; a
+// failure (AgentMail down, organization full) comes back as `inboxError` and POST …/inbox retries it.
+async function withInbox(user: User, mind: Mind): Promise<{ mind: Mind; inboxError?: Record<string, unknown> }> {
+  if (user.demo || mind.email || !mind.skills.includes(EMAIL_SKILL)) return { mind }
+  try {
+    const { inbox } = await ensureInbox(mind.id)
+    return { mind: { ...mind, email: inbox.email } }
+  } catch (e) {
+    if (!(e instanceof HttpError)) throw e
+    if (e.status >= 500) logServerError({ url: `/v1/minds/${mind.id}/inbox`, method: 'POST' } as never, e.status, e.message, e.extra)
+    return { mind, inboxError: { error: e.message, ...e.extra } }
+  }
+}
 
 const sameSecret = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b))
 
@@ -100,6 +117,24 @@ export const server = createServer(async (req, res) => {
       if (internal[1] === 'payments' && req.method === 'GET') return sendJson(res, 200, { payments: await listPayments(mindId, limitOf(url, 20, 100)) })
       throw new HttpError(405, 'method_not_allowed')
     }
+    // The mail tools (#96): same three checks, with a mail token that names the run's Mind.
+    const mail = path.match(/^\/internal\/v1\/mail\/(send|messages)(?:\/([^/]+))?$/)
+    if (mail) {
+      if (!sameSecret(String(req.headers['x-engine-key'] ?? ''), config.engineApiKey)) throw new HttpError(401, 'unauthorized')
+      const { userId, mindId } = verifyMailToken(req.headers['x-mail-token'] as string | undefined)
+      await requireMind(userId, mindId)
+      if (mail[1] === 'send' && !mail[2] && req.method === 'POST') {
+        const [owner] = await query<{ is_demo: boolean }>('select is_demo from users where id = $1', [userId])
+        return sendJson(res, 200, await sendMail(mindId, await readBody(req, sendMailSchema), { cap: owner?.is_demo ? { userId, max: config.demo.mailPerUser } : undefined }))
+      }
+      if (mail[1] === 'messages' && !mail[2] && req.method === 'GET') return sendJson(res, 200, await listMail(mindId, limitOf(url, 10, 25)))
+      if (mail[1] === 'messages' && mail[2] && req.method === 'GET') {
+        const id = messageIdSchema.safeParse(decodeURIComponent(mail[2]))
+        if (!id.success) throw new HttpError(400, 'invalid_message_id')
+        return sendJson(res, 200, await readMail(mindId, id.data))
+      }
+      throw new HttpError(405, 'method_not_allowed')
+    }
 
     // Everything below needs a session.
     const user = await requireUser(req)
@@ -132,7 +167,7 @@ export const server = createServer(async (req, res) => {
 
     // Minds (#8, #13)
     if (route('GET', /^\/v1\/minds$/)) return sendJson(res, 200, { minds: await listMinds(user.id) })
-    if (route('POST', /^\/v1\/minds$/)) return sendJson(res, 201, { mind: await createMind(user.id, await readBody(req, createMindSchema)) })
+    if (route('POST', /^\/v1\/minds$/)) return sendJson(res, 201, await withInbox(user, await createMind(user.id, await readBody(req, createMindSchema))))
 
     // Runs (#14, #17)
     const run = path.match(/^\/v1\/runs\/([^/]+)(\/approve|\/decline)?$/)
@@ -173,10 +208,23 @@ export const server = createServer(async (req, res) => {
       if ((sub === '/wallet/freeze' || sub === '/wallet/unfreeze') && req.method === 'POST') return sendJson(res, 200, { transaction: await freezeTransaction(mind.id, sub === '/wallet/freeze') })
       if (sub.startsWith('/wallet')) throw new HttpError(req.method === 'GET' || req.method === 'POST' ? 404 : 405, req.method === 'GET' || req.method === 'POST' ? 'not_found' : 'method_not_allowed')
 
+      // The Mind's email address (#96). POST creates the inbox (idempotent) for a Mind that equips email-address.
+      if (sub === '/inbox' && req.method === 'GET') {
+        const inbox = await inboxOf(mind.id)
+        return sendJson(res, 200, { inbox: inbox ? { email: inbox.email, shared: inbox.shared } : null })
+      }
+      if (sub === '/inbox' && req.method === 'POST') {
+        denyDemo(user, 'create_inbox')
+        if (!mind.skills.includes(EMAIL_SKILL)) throw new HttpError(409, 'email_skill_off', { skill: EMAIL_SKILL })
+        const { inbox, created } = await ensureInbox(mind.id)
+        return sendJson(res, created ? 201 : 200, { inbox: { email: inbox.email, shared: false } })
+      }
+      if (sub === '/mail/sent' && req.method === 'GET') return sendJson(res, 200, { sends: await listSends(mind.id, limitOf(url, 20, 100)) })
+
       if (sub === '' && req.method === 'GET') return sendJson(res, 200, { mind })
       if (sub === '' && req.method === 'PATCH') {
-        const updated = await updateMind(user.id, mind.id, await readBody(req, updateMindSchema))
-        return sendJson(res, 200, { mind: updated, autopilot: await syncAutopilots(user.id, updated) })
+        const { mind: updated, inboxError } = await withInbox(user, await updateMind(user.id, mind.id, await readBody(req, updateMindSchema)))
+        return sendJson(res, 200, { mind: updated, autopilot: await syncAutopilots(user.id, updated), ...(inboxError ? { inboxError } : {}) })
       }
       if (sub === '' && req.method === 'DELETE') {
         await deleteAllWorkflows(mind.id)

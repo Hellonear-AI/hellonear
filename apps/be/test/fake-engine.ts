@@ -35,6 +35,7 @@ export const skills = [
   { skillId: 'daily-planner', description: 'Plans days.', status: 'available', connections: [], tools: ['plan_day'] },
   { skillId: 'http-request', description: 'Calls HTTPS APIs.', status: 'available', connections: [], tools: ['http_request'] },
   { skillId: 'payments', description: 'Pays.', status: 'simulated', connections: ['near-wallet'], tools: ['send_payment'] },
+  { skillId: 'email-address', description: 'Own email address.', status: 'available', connections: ['agentmail'], tools: ['mail_send', 'mail_list', 'mail_read'] },
 ]
 
 async function json(req: IncomingMessage) {
