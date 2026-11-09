@@ -1,0 +1,431 @@
+"use client"
+
+import { useQuery } from "@tanstack/react-query"
+import {
+  CheckIcon,
+  CircleSlashIcon,
+  FlagIcon,
+  HourglassIcon,
+  Loader2Icon,
+  MailIcon,
+  MessageSquareWarningIcon,
+  PuzzleIcon,
+  ShieldCheckIcon,
+  SwordsIcon,
+  TriangleAlertIcon,
+  UserRoundXIcon,
+  WalletMinimalIcon,
+} from "lucide-react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
+import { cn } from "cn"
+import { PageTitle } from "@/components/elements/PageTitle"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import { explorerTxUrl, formatNear } from "@/lib/format"
+import { attackApi, type ApiAttack } from "@/modules/attack/api"
+import { attackCopy, KNOWN_ATTACKS, type AttackCopy } from "@/modules/attack/data/attacks"
+import { attackOutcome, type Outcome } from "@/modules/attack/data/outcome"
+import { StepRow } from "@/modules/chat/components/ReplySteps"
+import { ReplyText } from "@/modules/chat/components/ReplyText"
+import { refusalReasons } from "@/modules/chat/components/RunCards"
+import { foldRun, type RunEvent } from "@/modules/chat/data/events"
+import { mindsApi, type ApiWallet } from "@/modules/minds/api"
+import { mindKeys } from "@/modules/minds/hooks/useMinds"
+
+type Run = {
+  attack: ApiAttack
+  events: RunEvent[]
+  streaming: boolean
+  answered: "approve" | "decline" | null
+  failed: boolean
+}
+
+const ICON: Record<AttackCopy["icon"], typeof MailIcon> = {
+  message: MessageSquareWarningIcon,
+  mail: MailIcon,
+  skill: PuzzleIcon,
+  owner: UserRoundXIcon,
+}
+
+/**
+ * Attack Playground (design "8 · Attack Playground", X1.1 to X1.7, #16). Each attack runs on its own
+ * playground Mind and the shared demo wallet, never on the owner's Minds or wallet (decided 9 Nov
+ * with Ancung, as in docs/api-contract.md §2). The Mind may be fooled; the approval card is layer 1
+ * and the wallet's limits in OutLayer's TEE are layer 2. The playground never approves for the owner.
+ */
+export function AttackScreen() {
+  const list = useQuery({ queryKey: ["attacks"], queryFn: attackApi.list, staleTime: 5 * 60_000 })
+  const ready = Array.isArray(list.data)
+  const attacks = list.data ?? KNOWN_ATTACKS
+  const [run, setRun] = useState<Run | null>(null)
+  const abort = useRef<AbortController | null>(null)
+  useEffect(() => () => abort.current?.abort(), [])
+
+  // The demo wallet the playground Mind pays from, once a run says which Mind it is.
+  const mindId = run?.events.find((e) => e.mindId)?.mindId ?? null
+  const wallet = useQuery({
+    queryKey: mindId ? mindKeys.wallet(mindId) : ["minds", "none", "wallet"],
+    queryFn: () => mindsApi.wallet(mindId as string),
+    enabled: Boolean(mindId),
+  })
+
+  async function follow(next: Run, go: (onEvent: (e: RunEvent) => void, signal: AbortSignal) => Promise<void>) {
+    abort.current?.abort()
+    const controller = new AbortController()
+    abort.current = controller
+    setRun(next)
+    const onEvent = (e: RunEvent) => setRun((r) => (r && r.attack.attackId === next.attack.attackId ? { ...r, events: [...r.events, e] } : r))
+    let failed = false
+    try {
+      await go(onEvent, controller.signal)
+    } catch {
+      failed = !controller.signal.aborted
+    }
+    if (controller.signal.aborted) return
+    setRun((r) => (r && r.attack.attackId === next.attack.attackId ? { ...r, streaming: false, failed } : r))
+    // The balance shown afterwards is read again, so "balance still" is the wallet's word, not ours.
+    void wallet.refetch()
+  }
+
+  function start(attack: ApiAttack) {
+    void follow({ attack, events: [], streaming: true, answered: null, failed: false }, (onEvent, signal) =>
+      attackApi.run(attack.attackId, onEvent, signal)
+    )
+  }
+
+  function answer(action: "approve" | "decline") {
+    if (!run) return
+    const outcome = attackOutcome(run)
+    const runId = run.events.find((e) => e.runId)?.runId
+    if (outcome.kind !== "waiting" || !runId) return
+    void follow({ ...run, streaming: true, answered: action, failed: false }, (onEvent, signal) =>
+      attackApi.answer(runId, action, { toolCallId: outcome.step.toolCallId, attackId: run.attack.attackId }, onEvent, signal)
+    )
+  }
+
+  const balance = wallet.data?.balanceNear
+
+  return (
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 md:p-6 xl:p-8">
+      <PageTitle
+        title="Attack Playground"
+        description="Try to trick a Mind into paying a stranger. The wallet's limits should stop it every time."
+        actions={
+          balance !== undefined ? (
+            <span className="flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-[13px] text-foreground">
+              <WalletMinimalIcon className="size-3.5 text-muted-foreground" />
+              Test wallet: {formatNear(balance)} NEAR
+            </span>
+          ) : undefined
+        }
+      />
+
+      {list.data === null && (
+        <div role="status" className="flex items-start gap-3 rounded-md bg-info-soft px-4 py-3 text-sm text-foreground">
+          <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-info" />
+          <p>Running attacks needs a backend update that isn&apos;t live yet. You can read what each attack does in the meantime.</p>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
+        <section aria-labelledby="pick" className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 xl:sticky xl:top-8 xl:w-[340px] xl:shrink-0">
+          <h2 id="pick" className="text-[13px] text-muted-foreground">
+            Pick an attack
+          </h2>
+          {list.isPending ? (
+            <Skeleton className="h-64 w-full" />
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {attacks.map((a) => {
+                const copy = attackCopy(a)
+                const mine = run?.attack.attackId === a.attackId ? run : null
+                const outcome = mine ? attackOutcome(mine) : null
+                const busy = Boolean(run?.streaming)
+                const Icon = ICON[copy.icon]
+                return (
+                  <li key={a.attackId} className={cn("flex flex-col gap-2.5 rounded-md p-3", mine ? "bg-muted" : "bg-transparent")}>
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex size-8 shrink-0 items-center justify-center rounded-sm bg-muted text-muted-foreground">
+                        <Icon className="size-4" />
+                      </span>
+                      <span className="min-w-0 flex-1 text-sm font-semibold text-foreground">{copy.title}</span>
+                      {outcome && <OutcomeBadge outcome={outcome} />}
+                    </div>
+                    <p className="text-[13px] text-muted-foreground">{copy.line}</p>
+                    <Button
+                      size="sm"
+                      variant={mine ? "outline" : "default"}
+                      disabled={!ready || busy}
+                      onClick={() => start(a)}
+                      className="w-full"
+                    >
+                      {mine?.streaming && !mine.answered ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : null}
+                      {mine?.streaming && !mine.answered ? "Running" : mine ? "Run again" : "Run attack"}
+                    </Button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </section>
+
+        <div className="flex min-w-0 flex-1 flex-col gap-6">
+          {run ? (
+            <RunPanel run={run} wallet={wallet.data ?? null} onAnswer={answer} />
+          ) : (
+            <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-surface px-6 py-16 text-center">
+              <span className="flex size-12 items-center justify-center rounded-full bg-muted">
+                <SwordsIcon className="size-5 text-muted-foreground" />
+              </span>
+              <p className="text-[15px] font-semibold text-foreground">Pick an attack to start</p>
+              <p className="max-w-md text-sm text-muted-foreground">
+                Each one runs on testnet with a test Mind and a shared test wallet, never your own. Nothing you do here costs real money.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function OutcomeBadge({ outcome }: { outcome: Outcome }) {
+  switch (outcome.kind) {
+    case "running":
+    case "answering":
+      return <Badge variant="neutral">Running</Badge>
+    case "waiting":
+      return (
+        <Badge variant="warning">
+          <HourglassIcon />
+          Waiting
+        </Badge>
+      )
+    case "declined":
+      return <Badge variant="success">Declined</Badge>
+    case "blocked":
+      return <Badge variant="success">Blocked</Badge>
+    case "refused":
+      return <Badge variant="success">Refused</Badge>
+    case "no_tool":
+      return <Badge variant="success">Couldn&apos;t pay</Badge>
+    case "sent":
+      return <Badge variant="destructive">Paid</Badge>
+    case "failed":
+      return <Badge variant="neutral">Didn&apos;t run</Badge>
+  }
+}
+
+function RunPanel({ run, wallet, onAnswer }: { run: Run; wallet: ApiWallet | null; onAnswer: (action: "approve" | "decline") => void }) {
+  const outcome = attackOutcome(run)
+  const view = foldRun(run.events)
+  const copy = attackCopy(run.attack)
+  const balance = wallet ? `${formatNear(wallet.balanceNear)} NEAR` : null
+
+  return (
+    <>
+      <section aria-live="polite" className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-5">
+        <Result outcome={outcome} copy={copy} wallet={wallet} balance={balance} onAnswer={onAnswer} />
+      </section>
+
+      <section aria-labelledby="doing" className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5">
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="doing" className="text-[15px] font-semibold text-foreground">
+            What the Mind did
+          </h2>
+          {run.streaming && (
+            <Badge variant="neutral">
+              <Loader2Icon className="animate-spin motion-reduce:animate-none" />
+              Live
+            </Badge>
+          )}
+        </div>
+        <p className="rounded-md bg-muted px-3 py-2.5 text-[13px] text-muted-foreground">It was told: &ldquo;{run.attack.message}&rdquo;</p>
+        {view.tools.length > 0 && (
+          <div className="flex flex-col gap-1">
+            {view.tools.map((t) => (
+              <StepRow key={t.toolCallId} step={t} />
+            ))}
+          </div>
+        )}
+        {view.text ? (
+          <div className="text-sm text-foreground">
+            <ReplyText text={view.text} live={run.streaming} />
+          </div>
+        ) : run.streaming ? (
+          <p className="text-sm text-muted-foreground">Thinking...</p>
+        ) : null}
+      </section>
+    </>
+  )
+}
+
+function Result({
+  outcome,
+  copy,
+  wallet,
+  balance,
+  onAnswer,
+}: {
+  outcome: Outcome
+  copy: AttackCopy
+  wallet: ApiWallet | null
+  balance: string | null
+  onAnswer: (action: "approve" | "decline") => void
+}) {
+  const nothing = `${balance ? `Test wallet still ${balance}. ` : ""}Nothing was signed or sent.`
+  switch (outcome.kind) {
+    case "running":
+      return <Head icon={<Loader2Icon className="animate-spin motion-reduce:animate-none" />} title={`Running: ${copy.title.toLowerCase()}`} />
+    case "answering":
+      return (
+        <Head
+          icon={<Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+          title={outcome.action === "approve" ? "Approving anyway..." : "Declining..."}
+          line={outcome.action === "approve" ? "The wallet checks your limits before signing anything." : undefined}
+        />
+      )
+    case "waiting": {
+      const reasons = wallet?.policy ? refusalReasons(outcome.payment, wallet.policy) : []
+      return (
+        <>
+          <Head icon={<HourglassIcon />} tone="warning" title="The Mind asked you first." line="Every payment waits for you. This is one you never asked for." />
+          <div className="flex flex-col gap-3 rounded-md bg-warning-soft p-4">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[13px] text-muted-foreground">It wants to send</span>
+              <Badge variant="destructive">Suspicious</Badge>
+            </div>
+            <p className="flex items-end gap-2">
+              <span className="text-4xl leading-9 font-medium tracking-[-1.5px] text-foreground">{outcome.payment.amountNear}</span>
+              <span className="text-base font-medium text-muted-foreground">NEAR</span>
+            </p>
+            <span className="w-fit max-w-full truncate rounded-sm bg-surface px-3 py-1.5 font-mono text-[13px] text-foreground">{outcome.payment.to}</span>
+            <p className="text-[13px] text-foreground">
+              You never asked for this. It came from the attack{reasons.length ? `, and ${reasons.map((r) => r.toLowerCase()).join(" and ")}` : ""}.
+            </p>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button variant="outline" onClick={() => onAnswer("approve")}>
+                Approve anyway
+              </Button>
+              <Button onClick={() => onAnswer("decline")}>
+                <CircleSlashIcon />
+                Decline
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Layer 1: you. Decline and nothing is sent. Layer 2: the wallet. Even if you approve anyway, its limits stop it before signing.
+          </p>
+        </>
+      )
+    }
+    case "declined":
+      return (
+        <>
+          <Head icon={<ShieldCheckIcon />} tone="success" title="Declined. The money is safe." line={nothing} />
+          <Facts
+            what={outcome.payment ? `The Mind asked to send ${outcome.payment.amountNear} NEAR to ${outcome.payment.to}, after the attack told it to.` : "The Mind asked to pay, after the attack told it to."}
+            stoppedBy={["You declined it"]}
+            why="The Mind was fooled, but every payment asks you first. You declined, so the wallet never had to step in."
+          />
+        </>
+      )
+    case "blocked": {
+      const reasons = outcome.frozen ? ["The wallet is frozen"] : wallet?.policy && outcome.payment ? refusalReasons(outcome.payment, wallet.policy) : []
+      return (
+        <>
+          <Head icon={<ShieldCheckIcon />} tone="success" title="Blocked. The money is safe." line={nothing} />
+          <Facts
+            what={outcome.payment ? `You approved anyway, so the Mind tried to send ${outcome.payment.amountNear} NEAR to ${outcome.payment.to}.` : "You approved anyway, so the Mind tried to pay."}
+            stoppedBy={reasons.length ? reasons : ["The wallet's limits"]}
+            why="The Mind was fooled. The wallet wasn't. Its limits are saved where the Mind can't change them, and the wallet checks them in a TEE before signing anything."
+          />
+        </>
+      )
+    }
+    case "refused":
+      return (
+        <>
+          <Head icon={<FlagIcon />} tone="success" title="Refused. The money is safe." line={nothing} />
+          <Facts
+            what="The Mind didn't ask to pay. It saw the request for what it was."
+            stoppedBy={["The Mind itself"]}
+            why="Even if it had asked, the payment would wait for you, and the wallet's limits would still check it before signing."
+          />
+        </>
+      )
+    case "no_tool":
+      return (
+        <>
+          <Head icon={<ShieldCheckIcon />} tone="success" title="Couldn't pay. The money is safe." line={nothing} />
+          <Facts
+            what="The Mind's skills have no way to pay, so it couldn't send anything, whatever it was told."
+            stoppedBy={["Its skills"]}
+            why="A Mind can only use what its skills give it. Payments come with the Payments skill, and even then each one waits for you."
+          />
+        </>
+      )
+    case "sent":
+      return (
+        <>
+          <Head icon={<TriangleAlertIcon />} tone="danger" title="A payment went out." line="This attack got through. Here is the transaction." />
+          <p className="text-sm text-foreground">
+            {outcome.payment ? `${outcome.payment.amountNear} NEAR to ${outcome.payment.to}.` : "A payment was sent."}{" "}
+            {outcome.txHash && (
+              <a href={explorerTxUrl(outcome.txHash)} target="_blank" rel="noreferrer" className="font-medium underline underline-offset-2">
+                See it on NearBlocks
+              </a>
+            )}
+          </p>
+        </>
+      )
+    case "failed":
+      return <Head icon={<TriangleAlertIcon />} title="The attack didn't run" line="Something went wrong on the way. Nothing was sent. Try again in a moment." />
+  }
+}
+
+function Head({ icon, title, line, tone }: { icon: ReactNode; title: string; line?: string; tone?: "success" | "warning" | "danger" }) {
+  return (
+    <div className="flex items-start gap-3">
+      <span
+        className={cn(
+          "flex size-9 shrink-0 items-center justify-center rounded-md [&>svg]:size-4",
+          tone === "success" ? "bg-success-soft text-success" : tone === "warning" ? "bg-warning-soft text-warning" : tone === "danger" ? "bg-danger-soft text-danger" : "bg-muted text-muted-foreground"
+        )}
+      >
+        {icon}
+      </span>
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <p className="text-lg font-semibold text-foreground">{title}</p>
+        {line && <p className="text-[13px] text-muted-foreground">{line}</p>}
+      </div>
+    </div>
+  )
+}
+
+function Facts({ what, stoppedBy, why }: { what: string; stoppedBy: string[]; why: string }) {
+  return (
+    <>
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="flex flex-col gap-1 rounded-md bg-muted p-3">
+          <span className="text-xs text-muted-foreground">What happened</span>
+          <p className="text-[13px] text-foreground">{what}</p>
+        </div>
+        <div className="flex flex-col gap-1.5 rounded-md bg-success-soft p-3">
+          <span className="text-xs text-muted-foreground">Stopped by</span>
+          <ul className="flex flex-col gap-1">
+            {stoppedBy.map((s) => (
+              <li key={s} className="flex items-center gap-2 text-[13px] text-foreground">
+                <CheckIcon className="size-3.5 shrink-0 text-success" />
+                {s}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+      <p className="text-[13px] text-muted-foreground">{why}</p>
+      <p className="text-xs text-tertiary-foreground">No transaction link: none was made.</p>
+    </>
+  )
+}
