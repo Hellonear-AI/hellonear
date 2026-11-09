@@ -1,7 +1,7 @@
 "use client"
 
 import { useQueryClient } from "@tanstack/react-query"
-import { ArrowLeftIcon, BotIcon, CalendarClockIcon, CheckIcon, CircleXIcon, FlaskConicalIcon, GitBranchIcon, Loader2Icon, PlusIcon, SearchIcon, SquareIcon, Trash2Icon, XIcon } from "lucide-react"
+import { ArrowLeftIcon, BotIcon, CalendarClockIcon, CheckIcon, CircleXIcon, FlaskConicalIcon, GitBranchIcon, GlobeIcon, Loader2Icon, PlusIcon, SearchIcon, SquareIcon, Trash2Icon, XIcon } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react"
@@ -26,16 +26,19 @@ import {
   ref,
   comparable,
   resultsBefore,
+  stepFields,
   toCanvas,
   workflowIdFor,
   type AskStep,
   type Branch,
   type Draft,
   type Op,
+  type HttpStep,
   type Repeat,
   type Step,
 } from "@/modules/builder/data/draft"
-import { fieldInfo, toolInfo, TOOLS } from "@/modules/builder/data/tools"
+import { toolInfo, TOOLS } from "@/modules/builder/data/tools"
+import { useSecrets } from "@/modules/connections/hooks/useKeys"
 import { useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
 import { skillCopy } from "@/modules/skills/data/skills"
 import { useSetSkills, useSkillCatalog } from "@/modules/skills/hooks/useSkills"
@@ -97,9 +100,11 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const [draft, setDraft] = useState<Draft>(initial)
   const [selected, setSelected] = useState<string>("start")
   const [saving, setSaving] = useState(false)
-  const [engineIssues, setEngineIssues] = useState<string[]>([])
+  const [engineIssues, setEngineIssues] = useState<{ node: string | null; text: string }[]>([])
   const [saveError, setSaveError] = useState<string | null>(null)
   const dirty = JSON.stringify(draft) !== JSON.stringify(initial)
+  const [savedTry, setSavedTry] = useState<string | null>(null)
+  const dirtySinceSave = savedTry !== null && savedTry !== JSON.stringify(draft)
   const [test, setTest] = useState<{ running: boolean; nodes: Record<string, NodeRun>; status: string | null; failed: boolean } | null>(null)
   const abort = useRef<AbortController | null>(null)
   useEffect(() => () => abort.current?.abort(), [])
@@ -134,9 +139,11 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
     void queryClient.invalidateQueries({ queryKey: autopilotKeys.runs(mindId, workflowId) })
   }
   const problems = draftProblems(draft)
+  // Engine issues pinned to a block mark it too, until the draft changes again.
+  const flagged = (id: string) => problems.some((p) => p.where === id) || (!dirtySinceSave && engineIssues.some((i) => i.node === id))
 
   // A job may only use its Mind's tools: the skills it needs and doesn't have are added on Save.
-  const usedTools = draft.steps.flatMap((s) => (s.kind === "tool" ? [s.tool] : []))
+  const usedTools = draft.steps.flatMap((s) => (s.kind === "tool" ? [s.tool] : s.kind === "http" ? ["http_request"] : []))
   const missingSkills = [...new Set(usedTools.map((t) => catalog?.find((s) => s.tools.includes(t))?.skillId).filter((s): s is string => Boolean(s)))].filter(
     (s) => mind && !mind.skills.includes(s)
   )
@@ -145,9 +152,14 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const setStep = (id: string, patch: Partial<Step>) => setDraft((d) => ({ ...d, steps: d.steps.map((s) => (s.id === id ? ({ ...s, ...patch } as Step) : s)) }))
   const setBranch = (patch: Partial<Branch>) => setDraft((d) => (d.branch ? { ...d, branch: { ...d.branch, ...patch } } : d))
 
-  function addStep(kind: "agent" | "tool") {
-    const id = newId(kind === "agent" ? "ask" : "tool")
-    const step: Step = kind === "agent" ? { id, kind, prompt: "" } : { id, kind, tool: TOOLS[0].tool, args: { accountId: address } }
+  function addStep(kind: "agent" | "tool" | "http") {
+    const id = newId(kind === "agent" ? "ask" : kind)
+    const step: Step =
+      kind === "agent"
+        ? { id, kind, prompt: "" }
+        : kind === "http"
+          ? { id, kind, method: "GET", url: "https://", key: "", body: "" }
+          : { id, kind, tool: TOOLS[0].tool, args: { accountId: address } }
     setDraft((d) => ({ ...d, steps: [...d.steps, step] }))
     setSelected(id)
   }
@@ -172,6 +184,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   async function save() {
     setSaving(true)
     setEngineIssues([])
+    setSavedTry(JSON.stringify(draft))
     setSaveError(null)
     const id = workflowId ?? workflowIdFor(draft.name, jobs.data?.map((j) => j.workflowId) ?? [])
     try {
@@ -184,8 +197,17 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       setSaving(false)
       if (err instanceof ApiError && err.code === "invalid_workflow") {
         const issues = (err.details.issues as { path?: string; message?: string }[] | undefined) ?? []
-        // The engine names blocks by their ids; the message alone reads better here.
-        setEngineIssues(issues.map((i) => (i.message ?? "Something in this job isn't allowed.").replace(/^node [\w-]+:\s*/, "")))
+        // The engine names blocks by their ids ("node ask-x", "nodes.2…"): pin each issue to its block (B1.3).
+        const ids = toCanvas(draft).nodes.map((n) => n.id)
+        setEngineIssues(
+          issues.map((i) => {
+            const where = `${i.path ?? ""} ${i.message ?? ""}`
+            const byId = where.match(/node ([\w-]+)/)?.[1]
+            const byIndex = where.match(/nodes\.(\d+)/)?.[1]
+            const node = byId && ids.includes(byId) ? byId : byIndex !== undefined ? (ids[Number(byIndex)] ?? null) : null
+            return { node, text: (i.message ?? "Something in this job isn't allowed.").replace(/^node [\w-]+:\s*/, "") }
+          })
+        )
       } else {
         setSaveError("Couldn't save. Nothing changed; try again in a moment.")
       }
@@ -232,7 +254,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             {engineIssues.length > 0 && (
               <ul className="list-disc pl-4 text-[13px]">
                 {engineIssues.map((i) => (
-                  <li key={i}>{i}</li>
+                  <li key={`${i.node}${i.text}`}>{i.text}</li>
                 ))}
               </ul>
             )}
@@ -263,7 +285,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       )}
       {dirty && workflowId && <p className="mx-4 mt-3 text-xs text-muted-foreground md:mx-6">Save your changes to test them.</p>}
 
-      <TestRun.Provider value={withIf(test?.nodes ?? {}, draft.branch)}>
+      <TestRun.Provider value={withIf(test?.nodes ?? {}, draft.branch, Boolean(test && !test.running && !test.failed && test.status !== "failed"))}>
       <div className="flex min-w-0 flex-1 flex-col lg:flex-row">
         <aside className="flex flex-col gap-2 border-border p-4 lg:w-60 lg:shrink-0 lg:border-r">
           <h2 className="text-[13px] font-semibold text-foreground">Blocks</h2>
@@ -274,11 +296,11 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
           <PaletteItem
             icon={<GitBranchIcon />}
             title="If or else"
-            line={b ? "A job can have only one" : canIf ? "Choose one of two ways" : "Add an account or time check first"}
+            line={b ? "A job can have only one" : canIf ? "Choose one of two ways" : "Add a check or a website first"}
             onClick={addIf}
             disabled={!canIf}
           />
-          <p className="pt-2 text-xs text-muted-foreground">Calling a website comes next.</p>
+          <PaletteItem icon={<GlobeIcon />} title="Call a website" line="Send to your own service" onClick={() => addStep("http")} />
         </aside>
 
         <main
@@ -288,7 +310,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
           <BlockCard icon={<CalendarClockIcon />} kind="Start" title={scheduleText(cronOf(draft))} line={`${zoneName(draft.timezone)} time`} active={selected === "start"} onClick={() => setSelected("start")} />
           {draft.steps.map((s) => (
             <Linked key={s.id}>
-              <StepCard step={s} name={name} active={selected === s.id} problem={problems.some((p) => p.where === s.id)} onClick={() => setSelected(s.id)} />
+              <StepCard step={s} name={name} active={selected === s.id} problem={flagged(s.id)} onClick={() => setSelected(s.id)} />
             </Linked>
           ))}
           <Linked>
@@ -311,7 +333,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                   nodeId={b.id}
                   title={ifTitle(b, draft.steps)}
                   active={selected === b.id}
-                  warn={problems.some((p) => p.where === b.id)}
+                  warn={flagged(b.id)}
                   onClick={() => setSelected(b.id)}
                 />
               </Linked>
@@ -325,7 +347,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                         step={b[h]!}
                         name={name}
                         active={selected === `${b.id}:${h}`}
-                        problem={problems.some((p) => p.where === b[h]!.id) || (h === "then" && !b.then)}
+                        problem={flagged(b[h]!.id) || (h === "then" && !b.then)}
                         onClick={() => setSelected(`${b.id}:${h}`)}
                       />
                     ) : (
@@ -348,6 +370,15 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
         <aside className="flex flex-col gap-4 border-border p-4 lg:w-[340px] lg:shrink-0 lg:border-l">
           {step?.kind === "agent" ? (
             <AskPanel name={name} title={`Ask ${name}`} step={step} results={resultsBefore(draft.steps, draft.steps.indexOf(step))} onChange={(p) => setStep(step.id, { prompt: p })} onDelete={() => removeStep(step.id)} />
+          ) : step?.kind === "http" ? (
+            <HttpPanel
+              step={step}
+              results={resultsBefore(draft.steps, draft.steps.indexOf(step))}
+              missingSkill={missingSkills.find((s) => catalog?.find((c) => c.skillId === s)?.tools.includes("http_request"))}
+              name={name}
+              onChange={(patch) => setStep(step.id, patch)}
+              onDelete={() => removeStep(step.id)}
+            />
           ) : step?.kind === "tool" ? (
             <ToolPanel
               step={step}
@@ -373,6 +404,16 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
           ) : (
             <StartPanel draft={draft} set={set} />
           )}
+          {(() => {
+            const here = engineIssues.filter((i) => i.node === selected && !dirtySinceSave)
+            return here.length ? (
+              <ul className="flex flex-col gap-1 rounded-md bg-danger-soft p-3 text-xs text-foreground">
+                {here.map((i) => (
+                  <li key={i.text}>{i.text}</li>
+                ))}
+              </ul>
+            ) : null
+          })()}
           {missingSkills.length > 0 && (
             <p className="text-xs text-muted-foreground">
               Saving adds {missingSkills.map((s) => skillCopy(s).title).join(" and ")} to {name}: a job can only use its Mind&apos;s skills.
@@ -392,17 +433,20 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   )
 }
 
-/** Conditions send no events (§3): the If lights up when either of its endings ran. */
-function withIf(nodes: Record<string, NodeRun>, b: Branch | null): Record<string, NodeRun> {
+/**
+ * Conditions send no events (§3): the If lights up from the ending that ran, or, once a run ended
+ * well with its checked step done and no ending run, from the "stop" it took.
+ */
+function withIf(nodes: Record<string, NodeRun>, b: Branch | null, finished: boolean): Record<string, NodeRun> {
   if (!b) return nodes
   const took = [b.then, b.else].find((x) => x && nodes[x.id])
   if (took) return { ...nodes, [b.id]: { status: "ok", note: took === b.then ? "Yes" : "No" } }
+  if (finished && nodes[b.stepId]?.status === "ok") return { ...nodes, [b.id]: { status: "ok", note: b.then ? "No, so it stopped" : "Yes, so it stopped" } }
   return nodes
 }
 
 function ifTitle(b: Branch, steps: Step[]): string {
-  const step = steps.find((s) => s.id === b.stepId)
-  const field = step?.kind === "tool" ? fieldInfo(step.tool, b.field) : null
+  const field = stepFields(steps.find((s) => s.id === b.stepId)).find((f) => f.name === b.field)
   if (!field || !b.right.trim()) return "Pick what to check"
   // "If balance is less than 5 NEAR", "If weekday is Friday", "If weekday is not Sunday".
   const label = OPS.find((o) => o.op === b.op)?.label ?? b.op
@@ -429,6 +473,26 @@ function StepCard({ step, name, active, problem, onClick }: { step: Step; name: 
         nodeId={step.id}
         title={step.prompt.trim() ? short(step.prompt.replace(/\{\{[^}]*\}\}/g, "...")) : "Say what to do"}
         line={step.prompt.trim() ? undefined : "Not set yet"}
+        active={active}
+        warn={problem}
+        onClick={onClick}
+      />
+    )
+  }
+  if (step.kind === "http") {
+    let host = "Not set yet"
+    try {
+      host = new URL(step.url).hostname || host
+    } catch {
+      // keep "Not set yet"
+    }
+    return (
+      <BlockCard
+        icon={<GlobeIcon />}
+        kind="Call a website"
+        nodeId={step.id}
+        title={`${step.method === "GET" ? "Read from" : "Send to"} ${host}`}
+        line={step.key ? `With your key ${step.key}` : undefined}
         active={active}
         warn={problem}
         onClick={onClick}
@@ -603,11 +667,25 @@ function StartPanel({ draft, set }: { draft: Draft; set: (p: Partial<Draft>) => 
 
 type Result = ReturnType<typeof resultsBefore>[number]
 
-function PromptField({ name, value, results, onChange }: { name: string; value: string; results: Result[]; onChange: (p: string) => void }) {
+function PromptField({
+  name,
+  value,
+  results,
+  onChange,
+  labelText,
+  placeholder = "Sum up the emails that need me today, in three lines.",
+}: {
+  name: string
+  value: string
+  results: Result[]
+  onChange: (p: string) => void
+  labelText?: string
+  placeholder?: string
+}) {
   return (
     <label className={field}>
-      <span className={label}>What should {name} do?</span>
-      <Textarea value={value} maxLength={PROMPT_MAX} rows={6} placeholder="Sum up the emails that need me today, in three lines." onChange={(e) => onChange(e.target.value)} />
+      <span className={label}>{labelText ?? `What should ${name} do?`}</span>
+      <Textarea value={value} maxLength={PROMPT_MAX} rows={6} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
       {results.length > 0 && (
         <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
           Put in a result:
@@ -789,6 +867,61 @@ function EndingPanel({
       <PanelHead icon={<BotIcon />} title={`${title}: ask ${name}`} />
       <PromptField name={name} value={step.prompt} results={results} onChange={onChange} />
       <DeleteBlock onClick={onRemove}>{which === "then" ? "Delete this block" : "Stop here instead"}</DeleteBlock>
+    </>
+  )
+}
+
+function HttpPanel({
+  step,
+  results,
+  missingSkill,
+  name,
+  onChange,
+  onDelete,
+}: {
+  step: HttpStep
+  results: Result[]
+  missingSkill?: string
+  name: string
+  onChange: (patch: Partial<Step>) => void
+  onDelete: () => void
+}) {
+  const keys = useSecrets().data ?? []
+  return (
+    <>
+      <PanelHead icon={<GlobeIcon />} title="Call a website" />
+      <label className={field}>
+        <span className={label}>Do</span>
+        <select className={selectCls} value={step.method} onChange={(e) => onChange({ method: e.target.value as HttpStep["method"] })}>
+          <option value="GET">Read from it (GET)</option>
+          <option value="POST">Send to it (POST)</option>
+        </select>
+      </label>
+      <label className={field}>
+        <span className={label}>Address</span>
+        <Input value={step.url} placeholder="https://example.com/status" autoCapitalize="none" spellCheck={false} onChange={(e) => onChange({ url: e.target.value })} />
+      </label>
+      <label className={field}>
+        <span className={label}>Key</span>
+        <select className={selectCls} value={step.key} onChange={(e) => onChange({ key: e.target.value })}>
+          <option value="">No key</option>
+          {keys.map((k) => (
+            <option key={k.name} value={k.name}>
+              {k.name}
+            </option>
+          ))}
+        </select>
+        <span className="text-xs text-muted-foreground">
+          {step.key
+            ? "Sent as Authorization: Bearer, only to the sites the key allows. A job with a key runs with Run now, but can't run on a schedule yet."
+            : keys.length
+              ? "Pick a key saved in Connections if the site needs one."
+              : "Keys you save in Connections show up here."}
+        </span>
+      </label>
+      {step.method === "POST" && <PromptField name={name} value={step.body} results={results} onChange={(body) => onChange({ body })} labelText="What to send" placeholder="Balance is low: please top up." />}
+      {missingSkill && <p className="text-xs text-muted-foreground">Websites come with {skillCopy(missingSkill).title}. Saving adds that skill to {name}.</p>}
+      <DeleteBlock onClick={onDelete} />
     </>
   )
 }

@@ -89,3 +89,33 @@ describe("Builder Test run (B1.2)", () => {
     expect(nodeSummary(null)).toBe("Done")
   })
 })
+
+describe("Builder website block", () => {
+  const web = { id: "w", kind: "http" as const, method: "GET" as const, url: "https://status.example.com/health", key: "SHOP_TOKEN", body: "" }
+  const job: Draft = {
+    name: "Status check",
+    repeat: "daily",
+    day: 1,
+    time: "09:00",
+    timezone: "UTC",
+    steps: [web],
+    branch: { id: "c", stepId: "w", field: "status", op: "gte", right: "400", then: { id: "y", kind: "agent", prompt: "Tell me the site is down." }, else: null },
+  }
+
+  it("saves an http node with the key as a Bearer secret, and opens it again", () => {
+    const c = toCanvas(job)
+    expect(c.nodes.find((n) => n.type === "http")).toMatchObject({ data: { method: "GET", url: web.url, headers: { Authorization: "Bearer {{secrets.SHOP_TOKEN}}" } } })
+    expect(c.nodes.find((n) => n.type === "condition")).toMatchObject({ data: { left: "{{steps.w.status}}", right: 400 } })
+    expect(fromCanvas(c, "UTC")?.steps[0]).toEqual(web)
+    expect(resultsBefore(job.steps).map((r) => r.label)).toEqual(["Status code (like 200)", "Answer"])
+  })
+
+  it("wants an https address and leaves headers it can't show alone", () => {
+    expect(draftProblems({ ...job, steps: [{ ...web, url: "http://x.com" }] }).some((p) => p.where === "w")).toBe(true)
+    expect(draftProblems(job)).toEqual([])
+    const odd = toCanvas(job)
+    const http = odd.nodes.find((n) => n.type === "http")!
+    if (http.type === "http") http.data.headers = { "X-Api-Key": "abc" }
+    expect(fromCanvas(odd, "UTC")).toBeNull()
+  })
+})

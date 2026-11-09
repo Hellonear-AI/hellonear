@@ -49,6 +49,12 @@ export const TOOLS: BuilderTool[] = [
   },
 ]
 
+/** "Call a website" (an http node, the Other apps skill): what its answer gives an If or a prompt. */
+export const HTTP_FIELDS: BuilderTool["fields"] = [
+  { name: "status", label: "Status code (like 200)", kind: "number" },
+  { name: "body", label: "Answer", kind: "text" },
+]
+
 export const toolInfo = (tool: string) => TOOLS.find((t) => t.tool === tool) ?? null
 export const fieldInfo = (tool: string, field: string) => toolInfo(tool)?.fields.find((f) => f.name === field) ?? null
 

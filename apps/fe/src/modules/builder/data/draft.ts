@@ -5,14 +5,28 @@
 // (a website call, two Ifs) isn't opened here.
 
 import type { Canvas, CanvasNode } from "@/modules/autopilot/api"
-import { fieldInfo, NEAR_ACCOUNT, toolInfo } from "@/modules/builder/data/tools"
+import { HTTP_FIELDS, NEAR_ACCOUNT, toolInfo, type BuilderTool } from "@/modules/builder/data/tools"
 
 export type Repeat = "daily" | "weekdays" | "weekly"
 export type Op = "eq" | "ne" | "lt" | "lte" | "gt" | "gte"
 
 export type AskStep = { id: string; kind: "agent"; prompt: string }
 export type ToolStep = { id: string; kind: "tool"; tool: string; args: Record<string, string> }
-export type Step = AskStep | ToolStep
+/** "Call a website": an http node. `key` is a saved key's name, sent as `Authorization: Bearer`. */
+export type HttpStep = { id: string; kind: "http"; method: "GET" | "POST"; url: string; key: string; body: string }
+export type Step = AskStep | ToolStep | HttpStep
+
+/** The result fields a step gives later blocks. */
+export function stepFields(s: Step | undefined): BuilderTool["fields"] {
+  if (!s) return []
+  if (s.kind === "tool") return toolInfo(s.tool)?.fields ?? []
+  if (s.kind === "http") return HTTP_FIELDS
+  return []
+}
+
+export const stepTitle = (s: Step) => (s.kind === "tool" ? (toolInfo(s.tool)?.title ?? "A tool") : s.kind === "http" ? "Call a website" : "Ask")
+
+const BEARER = /^Bearer \{\{secrets\.([A-Z][A-Z0-9_]{0,63})\}\}$/
 
 export type Branch = {
   id: string
@@ -69,12 +83,24 @@ const pos = (x: number, y: number) => ({ x, y })
 
 function stepNode(s: Step, x: number, y: number): CanvasNode {
   if (s.kind === "agent") return { id: s.id, type: "agent", position: pos(x, y), data: { prompt: s.prompt.trim() } }
+  if (s.kind === "http") {
+    return {
+      id: s.id,
+      type: "http",
+      position: pos(x, y),
+      data: {
+        method: s.method,
+        url: s.url.trim(),
+        ...(s.key ? { headers: { Authorization: `Bearer {{secrets.${s.key}}}` } } : {}),
+        ...(s.method === "POST" && s.body.trim() ? { body: s.body } : {}),
+      },
+    }
+  }
   return { id: s.id, type: "tool", position: pos(x, y), data: { tool: s.tool, args: Object.fromEntries(Object.entries(s.args).map(([k, v]) => [k, v.trim()])) } }
 }
 
 export function rightValue(b: Branch, steps: Step[]): string | number {
-  const step = steps.find((s) => s.id === b.stepId)
-  const kind = step?.kind === "tool" ? fieldInfo(step.tool, b.field)?.kind : null
+  const kind = stepFields(steps.find((s) => s.id === b.stepId)).find((f) => f.name === b.field)?.kind
   return kind === "number" ? Number(b.right) : b.right.trim()
 }
 
@@ -103,6 +129,12 @@ export function toCanvas(d: Draft): Canvas {
 function stepOf(n: CanvasNode | undefined): Step | null {
   if (!n) return null
   if (n.type === "agent") return { id: n.id, kind: "agent", prompt: n.data.prompt }
+  if (n.type === "http") {
+    const headers = Object.entries(n.data.headers ?? {})
+    const key = headers.length === 1 && headers[0][0] === "Authorization" ? headers[0][1].match(BEARER)?.[1] : headers.length ? undefined : ""
+    if (key === undefined || (n.data.method !== "GET" && n.data.method !== "POST")) return null
+    return { id: n.id, kind: "http", method: n.data.method, url: n.data.url, key, body: n.data.body ?? "" }
+  }
   if (n.type === "tool" && toolInfo(n.data.tool)) {
     return { id: n.id, kind: "tool", tool: n.data.tool, args: Object.fromEntries(Object.entries(n.data.args ?? {}).map(([k, v]) => [k, String(v)])) }
   }
@@ -168,7 +200,7 @@ export const comparable = (r: { kind: string }) => r.kind !== "list"
 /** The results an If (or a later prompt) can look at: each earlier tool step's fields. */
 export function resultsBefore(steps: Step[], index = steps.length) {
   return steps.slice(0, index).flatMap((s) =>
-    s.kind === "tool" ? (toolInfo(s.tool)?.fields ?? []).map((f) => ({ stepId: s.id, step: toolInfo(s.tool)!.title, ...f })) : []
+    stepFields(s).map((f) => ({ stepId: s.id, step: stepTitle(s), ...f }))
   )
 }
 
@@ -182,6 +214,16 @@ export function draftProblems(d: Draft): DraftProblem[] {
   if (!d.steps.length) out.push({ where: "steps", text: "Add at least one step after Start." })
   for (const s of d.steps) {
     if (s.kind === "agent" && !s.prompt.trim()) out.push({ where: s.id, text: "Say what the Mind should do in this step." })
+    if (s.kind === "http") {
+      let ok = false
+      try {
+        ok = new URL(s.url.trim()).protocol === "https:"
+      } catch {
+        ok = false
+      }
+      if (!ok) out.push({ where: s.id, text: "Website: enter an address that starts with https://." })
+      if (/\$\{/.test(s.url + s.body)) out.push({ where: s.id, text: "Website: \"${\" isn't allowed." })
+    }
     if (s.kind === "tool") {
       for (const a of toolInfo(s.tool)?.args ?? []) {
         const v = (s.args[a.name] ?? "").trim()
@@ -191,8 +233,7 @@ export function draftProblems(d: Draft): DraftProblem[] {
   }
   const b = d.branch
   if (b) {
-    const step = d.steps.find((s) => s.id === b.stepId)
-    const field = step?.kind === "tool" ? fieldInfo(step.tool, b.field) : null
+    const field = stepFields(d.steps.find((s) => s.id === b.stepId)).find((f) => f.name === b.field) ?? null
     if (!field || field.kind === "list") out.push({ where: b.id, text: "If: pick a number or text result from a tool step before it." })
     else if (field.kind === "number" && (b.right.trim() === "" || !Number.isFinite(Number(b.right)))) out.push({ where: b.id, text: "If: enter a number." })
     else if (field.kind === "text" && !b.right.trim()) out.push({ where: b.id, text: "If: enter what to compare with." })
