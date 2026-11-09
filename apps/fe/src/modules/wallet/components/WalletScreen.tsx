@@ -99,7 +99,8 @@ export function WalletScreen({ mindId }: { mindId: string }) {
               <Balance mindId={mindId} name={name} wallet={wallet} />
               <Activity mindId={mindId} name={name} />
             </div>
-            <aside className="flex flex-col gap-6 xl:w-[380px] xl:shrink-0">
+            {/* The limits stay in view beside the activity on desktop (Ancung, 9 Nov). */}
+            <aside className="flex flex-col gap-6 xl:sticky xl:top-8 xl:w-[380px] xl:shrink-0">
               <LimitsCard name={name} wallet={wallet} readOnly={readOnly} noLimits={noLimits} onEdit={() => show("limits")} />
             </aside>
           </div>
