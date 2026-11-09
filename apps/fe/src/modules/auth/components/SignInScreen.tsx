@@ -2,9 +2,10 @@
 
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { ArrowRightIcon, CircleXIcon, FlaskConicalIcon, GlobeIcon, KeyRoundIcon, Loader2Icon, WalletIcon, WalletMinimalIcon } from "lucide-react"
+import { ArrowRightIcon, CircleXIcon, FlaskConicalIcon, GlobeIcon, KeyRoundIcon, Loader2Icon, WalletMinimalIcon } from "lucide-react"
 import { useEffect, useState, type ReactNode } from "react"
 import { cn } from "cn"
+import { MeteorLogo } from "@/components/elements/AppLogos"
 import { Logo } from "@/components/elements/Logo"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -113,7 +114,8 @@ export function SignInScreen() {
               onClick={() => withWallet("meteor")}
               disabled={busy}
               strong
-              icon={signIn.isPending && picked === "meteor" ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <WalletIcon />}
+              icon={signIn.isPending && picked === "meteor" ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <MeteorLogo className="size-6" />}
+              logoTile
               title={signIn.isPending && picked === "meteor" ? "Waiting for Meteor" : returning ? "Continue with Meteor" : "Meteor Wallet"}
               note={
                 signIn.isPending && picked === "meteor"
@@ -175,6 +177,7 @@ function Option({
   note,
   noteMono,
   strong,
+  logoTile,
 }: {
   onClick: () => void
   disabled: boolean
@@ -185,6 +188,8 @@ function Option({
   noteMono?: boolean
   /** The main choice gets the darker edge (Meteor). */
   strong?: boolean
+  /** A brand logo sits on a light tile, the way it's drawn, instead of the dark icon tile. */
+  logoTile?: boolean
 }) {
   return (
     <button
@@ -196,7 +201,14 @@ function Option({
         strong ? "border-foreground" : "border-border"
       )}
     >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground [&>svg]:size-[18px]">{icon}</span>
+      <span
+        className={cn(
+          "flex size-9 shrink-0 items-center justify-center rounded-md",
+          logoTile ? "bg-white text-[#161614] ring-1 ring-border" : "bg-primary text-primary-foreground [&>svg]:size-[18px]"
+        )}
+      >
+        {icon}
+      </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-[15px] font-semibold text-foreground">{title}</span>
         {note && <span className={cn("truncate text-[13px] text-muted-foreground", noteMono && "font-mono")}>{note}</span>}
