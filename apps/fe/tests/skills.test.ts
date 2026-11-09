@@ -6,12 +6,13 @@ import { connectionStatus } from "@/modules/skills/hooks/useSkills"
 afterEach(() => vi.unstubAllGlobals())
 
 describe("skill words (S1)", () => {
-  it("has the engine's eight skills, in plain words, with no dot separators", () => {
+  it("has the engine's nine skills, in plain words, with no dot separators", () => {
     expect(Object.keys(SKILLS).sort()).toEqual([
       "daily-planner",
       "email-address",
       "email-triage",
       "http-request",
+      "meeting-prep",
       "morning-briefing",
       "near-account",
       "payments",

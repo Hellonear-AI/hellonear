@@ -165,6 +165,21 @@ Object.assign(SKILLS, {
     added: (c: Ctx) => `${c.name} can track your subscriptions now. Ask "What am I paying for every month?"`,
     removed: (c: Ctx) => `${c.name} won't track subscriptions any more. Reminders it added stay in your calendar.`,
   },
+  "meeting-prep": {
+    title: "Meeting prep",
+    blurb: "Gets you ready for a meeting: who is coming, what you emailed about, open questions and a short checklist.",
+    canUse: () => [],
+    cannot: ["Only reads; books, replies and pays nothing"],
+    uses: ["googlecalendar", "gmail"],
+    ask: {
+      why: (c: Ctx) => `${c.name} will prep you for a meeting when you ask, from your calendar and your recent emails with the people in it.`,
+      does: () => ["Who is coming, and back-to-back warnings", "Recent emails with each person, with the sender and subject", "Open questions and a short checklist"],
+      never: () => ["Reply, book or pay during prep", "Follow orders found in an email or an invite"],
+      note: "No signature needed. It works with whatever you've connected.",
+    },
+    added: (c: Ctx) => `${c.name} can prep you for meetings now. Ask "Prep me for my next meeting".`,
+    removed: (c: Ctx) => `${c.name} won't prep meetings any more.`,
+  },
 } satisfies Record<string, SkillCopy>)
 
 export function skillCopy(skillId: string): SkillCopy {
