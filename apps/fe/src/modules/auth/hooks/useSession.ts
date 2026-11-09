@@ -1,6 +1,7 @@
 "use client"
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useRouter } from "next/navigation"
 import { useNearWallet } from "near-connect-hooks"
 import { ApiError } from "@/lib/api"
 import { authApi, nonceBytes, type SessionUser } from "@/modules/auth/api"
@@ -34,10 +35,11 @@ export function useSignIn() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async () => {
+    /** `walletId` opens that wallet straight away (Meteor's button, L1); without it, the NEAR Connect list. */
+    mutationFn: async ({ walletId }: { walletId?: string } = {}) => {
       // Use the connector directly: the hook's own signer reads wallet state from the last
       // render, so right after connecting it would still say "not connected".
-      const wallet = signedAccountId ? await connector.wallet() : await connector.connect()
+      const wallet = walletId ? await connector.connect({ walletId }) : signedAccountId ? await connector.wallet() : await connector.connect()
       const challenge = await authApi.challenge()
       const signed = await wallet.signMessage({
         message: challenge.message,
@@ -52,8 +54,50 @@ export function useSignIn() {
       })
       return user
     },
+    onSuccess: (user) => {
+      rememberAccount(user.nearAccountId)
+      queryClient.setQueryData(sessionKey, user)
+    },
+  })
+}
+
+/** Try without a wallet (T1.1): a fresh try-out user and its cookie. */
+export function useDemoSignIn() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async () => (await authApi.demo()).user,
     onSuccess: (user) => queryClient.setQueryData(sessionKey, user),
   })
+}
+
+// "Welcome back" (L1.4): the last wallet account that signed in on this browser. Only the account
+// name, which is public; signing in again still asks the wallet.
+const LAST_ACCOUNT_KEY = "hellonear.lastAccount"
+
+export function rememberAccount(accountId: string) {
+  try {
+    window.localStorage.setItem(LAST_ACCOUNT_KEY, accountId)
+  } catch {
+    // Storage can be blocked; the screen then shows the first-visit version.
+  }
+}
+
+export function lastAccount(): string | null {
+  try {
+    return window.localStorage.getItem(LAST_ACCOUNT_KEY)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Leave a try-out for a real wallet (T1.3, T1.4, T1.5): end the try-out session and go back to
+ * sign-in, where Meteor is the main choice. Nothing from the try-out carries over.
+ */
+export function useLeaveTryOut() {
+  const signOut = useSignOut()
+  const router = useRouter()
+  return () => signOut.mutate(undefined, { onSettled: () => router.replace("/") })
 }
 
 /** End the backend session, disconnect the wallet, and drop every cached response. */
