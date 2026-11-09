@@ -108,6 +108,21 @@ function Gone({ mindId, text }: { mindId: string; text: string }) {
   )
 }
 
+/**
+ * Each kind of block has its own colour, on its icon tile in the palette, on the canvas and in its
+ * settings (design B1.0: Start neutral, Ask the Mind's own colour, tools info blue, If warning amber;
+ * Ancung, 9 Nov: every kind different, so the website block takes the design's "app" purple).
+ * Green and red stay for Test run results, and lime stays the one brand accent.
+ */
+type Tone = "start" | "agent" | "tool" | "if" | "http"
+const TONE: Record<Tone, string> = {
+  start: "bg-muted text-foreground",
+  agent: "bg-node-mind text-primary-foreground",
+  tool: "bg-info-soft text-info",
+  if: "bg-warning-soft text-warning",
+  http: "bg-node-app/15 text-node-app",
+}
+
 /** Test run state per canvas node id, read by every block card (B1.2). */
 const TestRun = createContext<Record<string, NodeRun>>({})
 
@@ -383,9 +398,10 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
 
   const palette = (compact: boolean) => (
     <>
-      <PaletteItem compact={compact} icon={<CalendarClockIcon />} title="Start" line="Every job has one" disabled />
+      <PaletteItem compact={compact} tone="start" icon={<CalendarClockIcon />} title="Start" line="Every job has one" disabled />
       <PaletteItem
         compact={compact}
+        tone="agent"
         icon={<BotIcon />}
         title={`Ask ${name}`}
         line={`${name} writes or decides`}
@@ -395,6 +411,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       />
       <PaletteItem
         compact={compact}
+        tone="tool"
         icon={<SearchIcon />}
         title="Use a tool"
         line="An account, the time, the calendar, the inbox"
@@ -404,6 +421,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       />
       <PaletteItem
         compact={compact}
+        tone="if"
         icon={<GitBranchIcon />}
         title="If or else"
         line={b ? "A job can have only one" : canIf ? "Choose one of two ways" : "Add a check or a website first"}
@@ -414,6 +432,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       />
       <PaletteItem
         compact={compact}
+        tone="http"
         icon={<GlobeIcon />}
         title="Call a website"
         line="Send to your own service"
@@ -653,7 +672,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             ref={canvasContent}
             className={cn("absolute top-0 left-0 flex w-[640px] origin-top-left flex-col items-center pb-24 will-change-transform", spaceDown && "pointer-events-none")}
           >
-          <BlockCard icon={<CalendarClockIcon />} kind="Start" title={scheduleText(cronOf(draft))} line={`${zoneName(draft.timezone)} time`} active={selected === "start"} onClick={() => setSelected("start")} />
+          <BlockCard tone="start" icon={<CalendarClockIcon />} kind="Start" title={scheduleText(cronOf(draft))} line={`${zoneName(draft.timezone)} time`} active={selected === "start"} onClick={() => setSelected("start")} />
           {draft.steps.length > 0 && spot(0)}
           {draft.steps.map((s, i) => (
             <div key={s.id} className="flex flex-col items-center">
@@ -715,6 +734,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             <>
               <Linked>
                 <BlockCard
+                  tone="if"
                   icon={<GitBranchIcon />}
                   kind="If or else"
                   nodeId={b.id}
@@ -739,6 +759,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                       />
                     ) : (
                       <BlockCard
+                        tone="start"
                         icon={<SquareIcon />}
                         kind={h === "then" ? "If yes" : "If no"}
                         title="Stop, nothing else runs"
@@ -932,6 +953,7 @@ function StepCard({ step, name, active, problem, onClick }: { step: Step; name: 
   if (step.kind === "agent") {
     return (
       <BlockCard
+        tone="agent"
         icon={<BotIcon />}
         kind={`Ask ${name}`}
         nodeId={step.id}
@@ -952,6 +974,7 @@ function StepCard({ step, name, active, problem, onClick }: { step: Step; name: 
     }
     return (
       <BlockCard
+        tone="http"
         icon={<GlobeIcon />}
         kind="Call a website"
         nodeId={step.id}
@@ -967,6 +990,7 @@ function StepCard({ step, name, active, problem, onClick }: { step: Step; name: 
   const account = step.args.accountId
   return (
     <BlockCard
+      tone="tool"
       icon={<SearchIcon />}
       kind="Use a tool"
       nodeId={step.id}
@@ -993,7 +1017,9 @@ function BlockCard({
   dashed,
   nodeId,
   onClick,
+  tone,
 }: {
+  tone: Tone
   icon: ReactNode
   kind: string
   title: string
@@ -1028,8 +1054,8 @@ function BlockCard({
                   : "border-border hover:bg-surface-hover"
       )}
     >
-      <span className="flex items-center gap-2 text-xs text-muted-foreground [&>svg]:size-3.5">
-        {icon}
+      <span className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span className={cn("flex size-6 shrink-0 items-center justify-center rounded-[6px] [&>svg]:size-3.5", TONE[tone])}>{icon}</span>
         {kind}
       </span>
       <span className="text-sm font-semibold break-words text-foreground">{title}</span>
@@ -1058,7 +1084,9 @@ function PaletteItem({
   onDragStart,
   onDragEnd,
   compact,
+  tone,
 }: {
+  tone: Tone
   icon: ReactNode
   title: string
   line: string
@@ -1088,7 +1116,7 @@ function PaletteItem({
         compact && "justify-center p-2"
       )}
     >
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-sm bg-surface text-foreground [&>svg]:size-4">{icon}</span>
+      <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-sm [&>svg]:size-4", TONE[tone])}>{icon}</span>
       <span className={cn("flex min-w-0 flex-col", compact && "hidden")}>
         <span className="text-sm font-medium text-foreground">{title}</span>
         <span className="text-xs text-muted-foreground">{line}</span>
@@ -1102,10 +1130,10 @@ const label = "text-[13px] font-medium text-foreground"
 /** "No key" in the key list (Base UI needs a non-empty value); saved as no header. */
 const NO_KEY = "__none__"
 
-function PanelHead({ icon, title }: { icon: ReactNode; title: string }) {
+function PanelHead({ icon, title, tone = "start" }: { icon: ReactNode; title: string; tone?: Tone }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="flex size-8 items-center justify-center rounded-sm bg-muted text-foreground [&>svg]:size-4">{icon}</span>
+      <span className={cn("flex size-8 items-center justify-center rounded-sm [&>svg]:size-4", TONE[tone])}>{icon}</span>
       <h2 className="pr-8 text-[15px] font-semibold text-foreground">{title}</h2>
     </div>
   )
@@ -1209,7 +1237,7 @@ function PromptField({
 function AskPanel({ name, title, step, results, onChange, onDelete }: { name: string; title: string; step: AskStep; results: Result[]; onChange: (p: string) => void; onDelete: () => void }) {
   return (
     <>
-      <PanelHead icon={<BotIcon />} title={title} />
+      <PanelHead tone="agent" icon={<BotIcon />} title={title} />
       <PromptField name={name} value={step.prompt} results={results} onChange={onChange} />
       <DeleteBlock onClick={onDelete} />
     </>
@@ -1234,7 +1262,7 @@ function ToolPanel({
   const info = toolInfo(step.tool)
   return (
     <>
-      <PanelHead icon={<SearchIcon />} title="Use a tool" />
+      <PanelHead tone="tool" icon={<SearchIcon />} title="Use a tool" />
       <div className={field}>
         <span className={label}>Tool</span>
         <ChoiceSelect
@@ -1275,7 +1303,7 @@ function IfPanel({ branch, steps, onChange, onDelete }: { branch: Branch; steps:
   const ops = OPS.filter((o) => current?.kind === "number" || !o.number)
   return (
     <>
-      <PanelHead icon={<GitBranchIcon />} title="If or else" />
+      <PanelHead tone="if" icon={<GitBranchIcon />} title="If or else" />
       <div className={field}>
         <span className={label}>Look at</span>
         <ChoiceSelect
@@ -1348,7 +1376,7 @@ function EndingPanel({
   }
   return (
     <>
-      <PanelHead icon={<BotIcon />} title={`${title}: ask ${name}`} />
+      <PanelHead tone="agent" icon={<BotIcon />} title={`${title}: ask ${name}`} />
       <PromptField name={name} value={step.prompt} results={results} onChange={onChange} />
       <DeleteBlock onClick={onRemove}>{which === "then" ? "Delete this block" : "Stop here instead"}</DeleteBlock>
     </>
@@ -1373,7 +1401,7 @@ function HttpPanel({
   const keys = useSecrets().data ?? []
   return (
     <>
-      <PanelHead icon={<GlobeIcon />} title="Call a website" />
+      <PanelHead tone="http" icon={<GlobeIcon />} title="Call a website" />
       <div className={field}>
         <span className={label}>Do</span>
         <ChoiceSelect<HttpStep["method"]>
