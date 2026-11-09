@@ -34,7 +34,7 @@ const verifiedOf = (evs: Ev[]) => evs.find((e) => e.type === 'run.verified')?.ve
 const mind = (name: string, extra: Record<string, unknown> = {}) => ({
   templateId: 'general-assistant',
   name,
-  soul: { identity: `End every reply with exactly "— ${name}".`, invariants: ['Never invent facts.'], priors: [] },
+  soul: { identity: `End every reply with exactly "[${name}]".`, invariants: ['Never invent facts.'], priors: [] },
   ...extra,
 })
 
@@ -82,7 +82,7 @@ describe('engine HTTP API', () => {
     const res = await fetch(base + '/v1/skills', { headers: { 'x-engine-key': key } })
     assert.equal(res.status, 200)
     const { skills } = await res.json()
-    assert.deepEqual(skills.map((s: Ev) => s.skillId), ['daily-planner', 'email-address', 'email-triage', 'http-request', 'near-account', 'payments'])
+    assert.deepEqual(skills.map((s: Ev) => s.skillId), ['daily-planner', 'email-address', 'email-triage', 'http-request', 'morning-briefing', 'near-account', 'payments', 'subscriptions'])
     assert.deepEqual(skills.find((s: Ev) => s.skillId === 'near-account'), {
       skillId: 'near-account', description: skills.find((s: Ev) => s.skillId === 'near-account').description, status: 'available', connections: [], tools: ['near_view_account'],
     })
@@ -92,7 +92,8 @@ describe('engine HTTP API', () => {
     const a = await events(await post('/v1/minds/persona/chat', { userId, threadId: randomUUID(), message: 'Say hello in one short sentence.', mind: mind('Penny') }))
     assert.match(finalText(a), /Penny/)
     // A new thread: within the same thread the model tends to copy its earlier replies
-    // ("— Penny") even though the instructions already say Rex (verified 3 Nov).
+    // ("[Penny]") even though the instructions already say Rex (verified 3 Nov). No em dash in the
+    // signature: every Mind is told not to use one (#109), and a persona asking for it lost the signature.
     const b = await events(await post('/v1/minds/persona/chat', { userId, threadId: randomUUID(), message: 'Say hello again in one short sentence.', mind: mind('Rex') }))
     assert.match(finalText(b), /Rex/)
   })
@@ -239,6 +240,29 @@ describe('engine HTTP API', () => {
       const err = evs.find((e) => e.type === 'tool.error' && e.tool === 'gmail_list_emails')
       assert.match(err?.error ?? '', /Gmail is not connected/, JSON.stringify(evs.filter((e) => e.tool)))
       assert.ok(!evs.some((e) => e.type === 'tool.result' && e.result?.source === 'sample_inbox'), 'owners never see the sample inbox')
+    })
+  })
+
+  // Read-only skills over the sample data (#104, #105): what they read, and that they never write or pay.
+  describe('briefing and subscription skills', () => {
+    const noWrites = (evs: Ev[]) => !evs.some((e) => e.type === 'tool.approval_required' || (e.type === 'tool.called' && ['send_payment', 'googlecalendar_create_event', 'googlecalendar_create_meeting', 'gmail_create_draft'].includes(e.tool)))
+
+    test('morning-briefing reads the calendar and the inbox, and acts on nothing (#104)', async () => {
+      const m = mind('Bri', { skills: [{ skillId: 'morning-briefing' }] })
+      const evs = await events(await post('/v1/minds/brief/chat', { userId, threadId: randomUUID(), demo: true, mind: m, message: 'Brief me on today.' }))
+      const read = evs.filter((e) => e.type === 'tool.result').map((e) => e.tool)
+      assert.ok(read.includes('googlecalendar_list_events') && read.includes('gmail_list_emails'), JSON.stringify(read))
+      assert.ok(noWrites(evs), 'a briefing never pays, books or drafts')
+      assert.ok(finalText(evs).length > 0)
+      assert.equal(evs.at(-1)?.type, 'run.verified')
+    })
+
+    test('subscriptions finds the sample subscriptions and pays nothing (#105)', async () => {
+      const m = mind('Sub', { skills: [{ skillId: 'subscriptions' }] })
+      const evs = await events(await post('/v1/minds/subs/chat', { userId, threadId: randomUUID(), demo: true, mind: m, message: 'Which subscriptions do I pay for, and what do they cost per month?' }))
+      assert.ok(evs.some((e) => e.type === 'tool.result' && e.tool === 'gmail_list_emails'), JSON.stringify(evs.filter((e) => e.tool).map((e) => e.tool)))
+      assert.ok(noWrites(evs), 'the tracker never pays or books on its own')
+      assert.match(finalText(evs), /StreamBox|CloudNotes/)
     })
   })
 
