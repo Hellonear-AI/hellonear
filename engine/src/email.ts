@@ -44,14 +44,39 @@ export const SAMPLE_INBOX: SampleEmail[] = [
     id: 'demo-6', from: 'The Weekly Byte <newsletter@weeklybyte.example>', to: 'you@hellonear.example', subject: 'This week: 12 tools we liked', hoursAgo: 50, unread: false,
     body: 'Our weekly roundup of developer tools, articles and jobs. Unsubscribe any time.',
   },
+  // Two subscriptions for the subscription tracker (#105): a monthly receipt and a yearly renewal coming up.
+  {
+    id: 'demo-7', from: 'StreamBox <billing@streambox.example>', to: 'you@hellonear.example', subject: 'Receipt: StreamBox Premium, 0.01 NEAR per month', hoursAgo: 72, unread: false,
+    body: 'Thanks for staying with StreamBox Premium. We charged 0.01 NEAR (testnet) for this month. Your plan renews monthly on the 6th. Manage your plan in your StreamBox account.',
+  },
+  {
+    id: 'demo-8', from: 'CloudNotes <no-reply@cloudnotes.example>', to: 'you@hellonear.example', subject: 'Your CloudNotes Pro renews in 3 days', hoursAgo: 26, unread: true,
+    body: 'Heads up: your CloudNotes Pro plan renews in 3 days for 0.12 NEAR (testnet) for one year. Nothing to do if you want to keep it; you can cancel any time in your CloudNotes settings.',
+  },
 ]
 
 const receivedAt = (e: SampleEmail, now: number) => new Date(now - e.hoursAgo * 3600_000).toISOString()
 const snippet = (body: string) => (body.length > 120 ? `${body.slice(0, 117)}...` : body).replace(/\s+/g, ' ')
 
+// A small part of Gmail's search, enough for the playbooks (#105): `a OR b` matches either side, words on one side
+// must all appear, quotes keep a phrase together, `is:unread` is honoured and other operators (`newer_than:7d`,
+// `in:inbox`) are ignored. The real Gmail search runs for owners.
+export function matchesQuery(e: SampleEmail, query: string): boolean {
+  const text = `${e.from} ${e.subject} ${e.body}`.toLowerCase()
+  return query.split(/\s+OR\s+/i).some((side) => {
+    const terms = side.toLowerCase().match(/"[^"]*"|\S+/g) ?? []
+    return terms.every((t) => {
+      if (t === 'is:unread') return e.unread
+      if (/^[a-z_]+:/.test(t)) return true
+      const word = t.replace(/^\(|\)$/g, '').replace(/^"|"$/g, '')
+      return !word || text.includes(word)
+    })
+  })
+}
+
 export function listSample(opts: { query?: string; maxResults?: number }, now = Date.now()) {
-  const q = opts.query?.toLowerCase()
-  const hits = SAMPLE_INBOX.filter((e) => !q || `${e.from} ${e.subject} ${e.body}`.toLowerCase().includes(q)).sort((a, b) => a.hoursAgo - b.hoursAgo)
+  const q = opts.query?.trim()
+  const hits = SAMPLE_INBOX.filter((e) => !q || matchesQuery(e, q)).sort((a, b) => a.hoursAgo - b.hoursAgo)
   return {
     source: 'sample_inbox' as const,
     emails: hits.slice(0, opts.maxResults ?? 10).map((e) => ({ id: e.id, from: e.from, subject: e.subject, snippet: snippet(e.body), receivedAt: receivedAt(e, now), unread: e.unread })),
