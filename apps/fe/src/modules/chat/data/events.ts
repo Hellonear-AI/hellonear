@@ -32,12 +32,17 @@ export type ToolStep = {
   error?: string
 }
 
+/** One piece of the reply in the order it happened: some text, or a tool (by its call id). */
+export type ReplyPart = { kind: "text"; text: string } | { kind: "tool"; toolCallId: string }
+
 export type RunStatus = "running" | "awaiting_approval" | "finished" | "error"
 
 export type RunView = {
   runId: string | null
   threadId: string | null
   text: string
+  /** Text and tools interleaved as they happened, so a card sits between what was said before and after it. */
+  parts: ReplyPart[]
   tools: ToolStep[]
   status: RunStatus
   /** "gateway_tee" or "model_tee" when every model step was verified; null for no badge (§3). */
@@ -58,7 +63,7 @@ const ERROR_STATUSES: ToolStatus[] = ["error", "policy_denied", "wallet_frozen"]
 const RESUMED = new Set(["step.started", "reasoning.delta", "text.delta", "tool.called", "tool.result", "tool.error", "run.error"])
 
 export function foldRun(events: RunEvent[]): RunView {
-  const view: RunView = { runId: null, threadId: null, text: "", tools: [], status: "running", verified: null, error: null, thinking: false, at: null }
+  const view: RunView = { runId: null, threadId: null, text: "", parts: [], tools: [], status: "running", verified: null, error: null, thinking: false, at: null }
   const byCall = new Map<string, ToolStep>()
   const sorted = [...events].sort((a, b) => a.seq - b.seq)
   let paused = false
@@ -82,6 +87,11 @@ export function foldRun(events: RunEvent[]): RunView {
           if (view.text && !/\s$/.test(view.text)) view.text += "\n\n"
         }
         view.text += e.text ?? ""
+        if (e.text) {
+          const last = view.parts.at(-1)
+          if (last?.kind === "text") last.text += e.text
+          else view.parts.push({ kind: "text", text: e.text })
+        }
         break
       case "tool.called":
       case "tool.approval_required": {
@@ -94,6 +104,7 @@ export function foldRun(events: RunEvent[]): RunView {
         if (!byCall.has(e.toolCallId)) {
           byCall.set(e.toolCallId, step)
           view.tools.push(step)
+          view.parts.push({ kind: "tool", toolCallId: e.toolCallId })
         }
         break
       }

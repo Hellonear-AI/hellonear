@@ -58,7 +58,7 @@ export function toTurns(messages: ApiMessage[], views: Map<string, RunView | nul
   for (const m of messages) {
     let turn = byRun.get(m.runId)
     if (!turn) {
-      const fallback: RunView = { runId: m.runId, threadId: null, text: "", tools: [], status: "finished", verified: null, error: null, thinking: false, at: m.createdAt }
+      const fallback: RunView = { runId: m.runId, threadId: null, text: "", parts: [], tools: [], status: "finished", verified: null, error: null, thinking: false, at: m.createdAt }
       turn = { runId: m.runId, message: null, createdAt: m.createdAt, view: views.get(m.runId) ?? fallback }
       byRun.set(m.runId, turn)
       turns.push(turn)

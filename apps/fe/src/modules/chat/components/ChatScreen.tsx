@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { mindHref } from "@/components/layout/nav"
 import { ApiError } from "@/lib/api"
 import { clockTime, shortWhen } from "@/lib/format"
-import { paymentOf, type RunView, type ToolStep } from "@/modules/chat/data/events"
+import { paymentOf, type ReplyPart, type RunView, type ToolStep } from "@/modules/chat/data/events"
 import { composerNote, introFor } from "@/modules/chat/data/intro"
 import { useChatRun } from "@/modules/chat/hooks/ChatRunProvider"
 import { useThread } from "@/modules/chat/hooks/useThread"
@@ -204,11 +204,41 @@ function TurnView({
 }) {
   const { view, live } = turn
   const failed = Boolean(turn.failed) || view.status === "error"
-  const working = live && !view.text
-  // While there's no text yet: "Thinking" while the model reasons. A running tool already has
-  // its own shimmering pill above (C1.3), so only the dots show then.
+  // Stored replies read before their events arrive have text but no parts yet.
+  const parts: ReplyPart[] = view.parts.length > 0 ? view.parts : view.text ? [{ kind: "text", text: view.text }] : []
+  const lastText = parts.findLastIndex((p) => p.kind === "text")
+  // Dots while nothing new is being written: before any reply, or after a tool until text follows.
+  const working = live && parts.at(-1)?.kind !== "text"
+  // "Thinking" while the model reasons; a running tool already shimmers in its own pill (C1.3).
   const activity = view.thinking ? "Thinking" : null
-  const pills = view.tools.filter((t) => !paymentOf(t) || t.status === "ok" || t.status === "declined" || t.status === "running")
+  const byCall = new Map(view.tools.map((t) => [t.toolCallId, t]))
+
+  function toolPart(step: ToolStep) {
+    const payment = paymentOf(step)
+    // Waiting, or being answered right now (then it says "Sending" until the result replaces it).
+    const answeringThis = answering?.toolCallId === step.toolCallId && live
+    if (step.status === "awaiting_approval") {
+      if ((view.status === "awaiting_approval" && !live) || answeringThis) {
+        return (
+          <ApprovalCard
+            mindId={mindId}
+            step={step}
+            wallet={wallet}
+            busy={busy}
+            sending={answeringThis ? answering.action : null}
+            onAnswer={(action) => onAnswer(step, action)}
+          />
+        )
+      }
+      return null
+    }
+    if (!payment || step.status === "running" || step.status === "declined") return <ToolPill step={step} />
+    if (step.status === "ok") return <PaymentReceipt payment={payment} policy={policy} />
+    if (step.status === "policy_denied" || step.status === "wallet_frozen") {
+      return <PaymentRefused step={step} payment={payment} policy={policy} mindName={name} />
+    }
+    return <PaymentFailed payment={payment} />
+  }
 
   return (
     <>
@@ -220,18 +250,28 @@ function TurnView({
         </div>
       )}
 
-      {pills.map((step) => (
-        <ToolPill key={step.toolCallId} step={step} />
-      ))}
-
-      {(view.text || working) && (
-        <div className="flex w-full flex-col gap-2">
+      {(parts.length > 0 || working) && (
+        // The Mind's whole reply under one avatar, in the order it happened: what it said, the
+        // card it needed (approval, then the receipt), and what it said after (Ancung, 9 Nov).
+        <div className="flex w-full flex-col gap-3">
           <div className="flex items-center gap-2">
             <MindAvatar templateId={templateId} size={24} />
             <span className="text-[13px] font-semibold text-foreground">{name}</span>
           </div>
-          {/* Plain text, no bubble (decided 9 Nov with Ancung, like Claude and Gemini). */}
-          {view.text ? <ReplyText key={live ? "live" : "done"} text={view.text} live={live} /> : <Working activity={activity} name={name} />}
+          {parts.map((part, i) => {
+            if (part.kind === "text") {
+              // Plain text, no bubble (decided 9 Nov with Ancung, like Claude and Gemini).
+              return <ReplyText key={`t${i}-${live && i === lastText ? "live" : "done"}`} text={part.text} live={live && i === lastText} />
+            }
+            const step = byCall.get(part.toolCallId)
+            const node = step ? toolPart(step) : null
+            return node ? (
+              <div key={part.toolCallId} className="flex">
+                {node}
+              </div>
+            ) : null
+          })}
+          {working && <Working activity={activity} name={name} />}
           {!live && view.text && (
             <div className="flex items-center gap-2">
               {view.verified && <VerifiedBadge level={view.verified} />}
@@ -240,32 +280,6 @@ function TurnView({
           )}
         </div>
       )}
-
-      {view.tools.map((step) => {
-        const payment = paymentOf(step)
-        // Waiting, or being answered right now (then it says "Sending" until the result replaces it).
-        const answeringThis = answering?.toolCallId === step.toolCallId && live
-        if (step.status === "awaiting_approval" && ((view.status === "awaiting_approval" && !live) || answeringThis)) {
-          return (
-            <ApprovalCard
-              key={step.toolCallId}
-              mindId={mindId}
-              step={step}
-              wallet={wallet}
-              busy={busy}
-              sending={answeringThis ? answering.action : null}
-              onAnswer={(action) => onAnswer(step, action)}
-            />
-          )
-        }
-        if (!payment) return null
-        if (step.status === "ok") return <PaymentReceipt key={step.toolCallId} payment={payment} policy={policy} />
-        if (step.status === "policy_denied" || step.status === "wallet_frozen") {
-          return <PaymentRefused key={step.toolCallId} step={step} payment={payment} policy={policy} mindName={name} />
-        }
-        if (step.status === "error") return <PaymentFailed key={step.toolCallId} payment={payment} />
-        return null
-      })}
 
       {failed && !live && <FailedReply name={name} error={turn.failed ?? view.error} canRetry={Boolean(turn.message) && !busy} onRetry={onRetry} />}
     </>

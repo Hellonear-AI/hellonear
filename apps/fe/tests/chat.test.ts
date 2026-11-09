@@ -175,3 +175,23 @@ describe("while an approval is being answered", () => {
     expect(foldRun([...paused, ev("step.started"), ev("run.finished")]).tools[0].status).toBe("declined")
   })
 })
+
+describe("reply parts", () => {
+  it("keeps text and tools in the order they happened", () => {
+    seq = 0
+    const v = foldRun([
+      ev("text.delta", { text: "On it. " }),
+      ev("text.delta", { text: "Waiting for your OK." }),
+      ev("tool.called", { toolCallId: "c1", tool: "send_payment" }),
+      ev("tool.approval_required", { toolCallId: "c1", tool: "send_payment" }),
+      ev("run.finished"),
+      ev("tool.result", { toolCallId: "c1", tool: "send_payment", status: "ok", result: { status: "sent" } }),
+      ev("text.delta", { text: "Sent!" }),
+    ])
+    expect(v.parts).toEqual([
+      { kind: "text", text: "On it. Waiting for your OK." },
+      { kind: "tool", toolCallId: "c1" },
+      { kind: "text", text: "Sent!" },
+    ])
+  })
+})
