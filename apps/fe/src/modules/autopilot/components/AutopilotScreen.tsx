@@ -8,7 +8,9 @@ import {
   GlobeIcon,
   InfoIcon,
   Loader2Icon,
+  PencilIcon,
   PlayIcon,
+  PlusIcon,
   RepeatIcon,
   SearchIcon,
   Trash2Icon,
@@ -16,6 +18,7 @@ import {
   XIcon,
 } from "lucide-react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { cn } from "cn"
 import { PageTitle } from "@/components/elements/PageTitle"
@@ -33,6 +36,7 @@ import { IDEAS, type Idea } from "@/modules/autopilot/data/ideas"
 import { runSummary } from "@/modules/autopilot/data/runs"
 import { scheduleText, whenNext, zoneName } from "@/modules/autopilot/data/schedule"
 import { jobSteps, type JobStep } from "@/modules/autopilot/data/steps"
+import { fromCanvas } from "@/modules/builder/data/draft"
 import { useAddJob, useAutopilotState, useRemoveJob, useSetAutopilot, useWorkflow, useWorkflowRuns, useWorkflows } from "@/modules/autopilot/hooks/useAutopilot"
 import { useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
 import { skillCopy } from "@/modules/skills/data/skills"
@@ -50,12 +54,22 @@ export function AutopilotScreen({ mindId }: { mindId: string }) {
   const demo = Boolean(useSession().data?.demo)
   const jobs = useWorkflows(mindId)
   const locked = useTryOutLock()
-  const [picked, setPicked] = useState<string | null>(null)
+  // Back from the Builder with ?job=… opens the job just saved.
+  const [picked, setPicked] = useState<string | null>(useSearchParams().get("job"))
   const selected = picked && jobs.data?.some((j) => j.workflowId === picked) ? picked : (jobs.data?.[0]?.workflowId ?? null)
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 md:p-6 xl:p-8">
-      <PageTitle title="Autopilot" description={`Jobs ${name} runs on a schedule, with nobody watching.`} />
+      <PageTitle
+        title="Autopilot"
+        description={`Jobs ${name} runs on a schedule, with nobody watching.`}
+        actions={
+          <Button nativeButton={false} render={<Link href={`${mindHref(mindId, "autopilot")}/new`} />}>
+            <PlusIcon />
+            New job
+          </Button>
+        }
+      />
 
       <div className="flex items-start gap-3 rounded-md bg-info-soft px-4 py-3 text-[13px] text-foreground">
         <InfoIcon className="mt-0.5 size-4 shrink-0 text-info" />
@@ -247,6 +261,12 @@ function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string;
               </p>
             </div>
             <div className="flex shrink-0 gap-2">
+              {fromCanvas(detail.data.canvas, "UTC") && (
+                <Button variant="outline" nativeButton={false} render={<Link href={`${mindHref(mindId, "autopilot")}/${encodeURIComponent(workflowId)}`} />}>
+                  <PencilIcon />
+                  Edit steps
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
@@ -357,7 +377,7 @@ function NoJobs({ mindId, name, demo, onAdded }: { mindId: string; name: string;
       </span>
       <div className="flex flex-col gap-1">
         <p className="text-[15px] font-semibold text-foreground">No jobs yet</p>
-        <p className="max-w-md text-sm text-muted-foreground">A job is a few steps {name} runs on a schedule. Start from one of these.</p>
+        <p className="max-w-md text-sm text-muted-foreground">A job is a few steps {name} runs on a schedule. Start from one of these, or build your own with New job.</p>
       </div>
       <ul className="grid w-full max-w-2xl gap-3 text-left md:grid-cols-2">
         <Ideas mindId={mindId} name={name} demo={demo} taken={[]} onAdded={onAdded} />
