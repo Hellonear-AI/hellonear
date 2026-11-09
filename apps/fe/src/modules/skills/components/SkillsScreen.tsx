@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { CalendarDaysIcon, CheckIcon, PlugIcon, SearchIcon, WalletIcon, type LucideIcon } from "lucide-react"
+import { AtSignIcon, CalendarDaysIcon, CheckIcon, PlugIcon, RepeatIcon, SunriseIcon, SearchIcon, WalletIcon, type LucideIcon } from "lucide-react"
 import { useState, type ComponentType } from "react"
 import { GmailLogo } from "@/components/elements/AppLogos"
 import { cn } from "cn"
@@ -26,6 +26,9 @@ export const SKILL_ICON: Record<string, LucideIcon | ComponentType<{ className?:
   "daily-planner": CalendarDaysIcon,
   "near-account": SearchIcon,
   "http-request": PlugIcon,
+  "email-address": AtSignIcon,
+  "morning-briefing": SunriseIcon,
+  subscriptions: RepeatIcon,
 }
 
 type Filter = "all" | "added" | "not_added"
