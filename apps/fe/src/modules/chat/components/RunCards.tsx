@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { mindHref } from "@/components/layout/nav"
 import { explorerTxUrl } from "@/lib/format"
+import { compareNear } from "@/lib/near"
 import { paymentOf, toolLabel, type Payment, type ToolStep } from "@/modules/chat/data/events"
 import type { ApiWallet } from "@/modules/minds/api"
 
@@ -179,21 +180,8 @@ const NOT_LISTED = "Not on your list of addresses"
 export function refusalReasons(payment: Payment, policy: Policy): string[] {
   const reasons: string[] = []
   if (policy?.whitelist && !policy.whitelist.includes(payment.to.toLowerCase())) reasons.push(NOT_LISTED)
-  if (policy?.perTransactionNear && overLimit(payment.amountNear, policy.perTransactionNear)) {
+  if (policy?.perTransactionNear && compareNear(payment.amountNear, policy.perTransactionNear) === 1) {
     reasons.push(`Over ${policy.perTransactionNear} NEAR per payment`)
   }
   return reasons
-}
-
-/** Compare two decimal NEAR strings without floats. */
-function overLimit(amount: string, limit: string): boolean {
-  const parts = (v: string) => {
-    const [whole = "", frac = ""] = v.trim().split(".")
-    return [whole.replace(/^0+/, ""), frac.padEnd(24, "0").slice(0, 24)] as const
-  }
-  if (!/^\d+(\.\d+)?$/.test(amount.trim()) || !/^\d+(\.\d+)?$/.test(limit.trim())) return false
-  const [aw, af] = parts(amount)
-  const [lw, lf] = parts(limit)
-  if (aw.length !== lw.length) return aw.length > lw.length
-  return aw !== lw ? aw > lw : af > lf
 }
