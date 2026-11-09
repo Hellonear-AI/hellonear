@@ -98,6 +98,7 @@ Wallet (`/minds/[mindId]/wallet`, `src/modules/wallet`, design "5 · Money" W1, 
 - `AddFundsDialog` (W4): the owner's Meteor wallet sends a plain `Transfer` to the Mind's address (no backend call), then the balance is read back until it grew. The owner's sendable balance comes from the testnet RPC (`view_account`, `NEAR_RPC_URL` in `src/lib/config.ts`): the balance minus storage at 10^19 yoctoNEAR per byte over the free 770 bytes (docs.near.org, checked 9 Nov). Quick picks are 1, 2, 5 NEAR, not the design's 5, 10, 20, because the faucet gives 5.
 - "Your limits" keeps Edit beside the per-payment row and drops the design's Manage, which opened the same dialog; no divider lines between the rows (Ancung, 9 Nov). The card stays in view on desktop.
 - The dialogs get a new `key` each time they open, so they start from what is saved.
+- Proven 9 Nov with Meteor (testnet) against the hosted API, Mind "Omaga": payments approved from Approvals and from the chat card (txs `7zdLVHKD…`, `6qPDkivJ…`), Add funds, and Freeze then Unfreeze from the Wallet screen. Not checked yet: Change limits saving, setting up a Mind with no wallet, phone and tablet layouts.
 
 Imports: `@/*` → `src/*`, `@app/*` → `app/*`. Keep route files in `app/` thin; put screens in `src/modules/<feature>/components`.
 
