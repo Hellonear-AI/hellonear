@@ -16,6 +16,9 @@ export const config = {
   runTimeoutMs: 120_000,
   // Reasoning tokens count against this cap; 2048 once went entirely on reasoning and left no reply (#92).
   maxOutputTokens: 4096,
+  // Input budget per model call (#123): the prompt is trimmed to the most recent turns that fit, system prompt kept.
+  // Hosted chat runs had input p50 12,304 and p95 27,795 tokens on 9 Nov, and grew with no limit.
+  contextTokenLimit: Number(process.env.CONTEXT_TOKEN_LIMIT ?? 12_000),
   // Models sent `reasoning_effort: "low"` (#92). For GLM-5.3 Flash it means minimal reasoning (docs.near.ai/cloud/reasoning-models):
   // measured 9 Nov, still 12/12 correct, with tool runs 3x and inbox runs ~2x faster than the default full reasoning.
   lowReasoningModels: ['z-ai/glm-5.3-flash'] as string[],

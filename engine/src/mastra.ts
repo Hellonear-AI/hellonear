@@ -3,6 +3,7 @@
 // for tool approval snapshots) and pgvector for semantic recall.
 import { Mastra } from '@mastra/core'
 import { Agent } from '@mastra/core/agent'
+import { TokenLimiterProcessor } from '@mastra/core/processors'
 import { PgVector, PostgresStore } from '@mastra/pg'
 import { Memory } from '@mastra/memory'
 import { config } from './config.ts'
@@ -52,6 +53,9 @@ export const mindAgent = new Agent({
   tools: (ctx) => toolsFor(skillsOf(ctx).flatMap((s) => s.tools), { unattended: ctx.requestContext.get(UNATTENDED_KEY) === true }),
   skills: (ctx) => skillsOf(ctx).map((s) => s.skill),
   memory,
+  // Bounds every model call's prompt (#123): 'contiguous' keeps the newest turns that fit, keeps the system prompt and
+  // keeps a tool call with its result. Stored history is untouched; only what reaches the model is trimmed.
+  inputProcessors: [new TokenLimiterProcessor({ limit: config.contextTokenLimit, trimMode: 'contiguous' })],
   // Also applies to agent steps inside workflows, which get no per-call options.
   // No automatic retries: each completion must map to one verifiable request (#19).
   defaultOptions: {
