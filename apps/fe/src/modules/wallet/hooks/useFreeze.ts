@@ -41,11 +41,14 @@ export function useFreeze(mindId: string) {
       }
       for (let i = 0; i < 5; i++) {
         const wallet = await mindsApi.wallet(mindId).catch(() => null)
-        if (wallet && wallet.frozen === freeze) return { at: new Date().toISOString() }
+        if (wallet && wallet.frozen === freeze) return { at: new Date().toISOString(), wallet }
         await sleep(1500)
       }
       throw new FreezeError("check", null)
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: mindKeys.wallet(mindId) }),
+    // Show the wallet as read back at once, so the page flips with the dialog (Ancung, 9 Nov:
+    // it still said "Freeze wallet" behind "Wallet frozen").
+    onSuccess: ({ wallet }) => queryClient.setQueryData(mindKeys.wallet(mindId), wallet),
+    onError: () => queryClient.invalidateQueries({ queryKey: mindKeys.wallet(mindId) }),
   })
 }

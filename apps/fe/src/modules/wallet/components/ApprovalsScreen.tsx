@@ -42,6 +42,12 @@ export function ApprovalsScreen({ mindId }: { mindId: string }) {
   const demo = Boolean(useSession().data?.demo)
   const { active, resume } = useChatRun()
   const [freezeOpen, setFreezeOpen] = useState(false)
+  // A fresh dialog per opening: it reads freeze or unfreeze once, when it opens.
+  const [freezeKey, setFreezeKey] = useState(0)
+  const openFreeze = () => {
+    setFreezeKey((k) => k + 1)
+    setFreezeOpen(true)
+  }
 
   const name = mind?.name ?? "Your Mind"
   const templateId = mind?.templateId ?? "general-assistant"
@@ -97,19 +103,19 @@ export function ApprovalsScreen({ mindId }: { mindId: string }) {
                 state={sending ? (answer?.toolCallId === a.toolCallId ? "sending" : "waiting") : "idle"}
                 onApprove={() => respond(a, "approve")}
                 onDecline={() => respond(a, "decline")}
-                onUnfreeze={() => setFreezeOpen(true)}
+                onUnfreeze={openFreeze}
               />
             ))
           )}
         </section>
 
         <aside className="flex flex-col gap-6 xl:w-[380px] xl:shrink-0">
-          <EmergencyStop name={name} wallet={wallet} demo={demo} onOpen={() => setFreezeOpen(true)} />
+          <EmergencyStop name={name} wallet={wallet} demo={demo} onOpen={openFreeze} />
           <RecentDecisions mindId={mindId} />
         </aside>
       </div>
 
-      <FreezeDialog mindId={mindId} name={name} freeze={!wallet?.frozen} open={freezeOpen} onOpenChange={setFreezeOpen} />
+      <FreezeDialog key={freezeKey} mindId={mindId} name={name} freeze={!wallet?.frozen} open={freezeOpen} onOpenChange={setFreezeOpen} />
     </div>
   )
 }

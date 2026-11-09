@@ -26,28 +26,28 @@ const UNFREEZE_LINES = [
 export function FreezeDialog({
   mindId,
   name,
-  freeze,
+  freeze: freezeProp,
   open,
   onOpenChange,
 }: {
   mindId: string
   name: string
-  /** true asks to freeze, false to unfreeze. */
+  /** true asks to freeze, false to unfreeze. Read once when the dialog mounts (the parent keys it per opening). */
   freeze: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  // Fixed for this opening: the wallet flipping behind the dialog must not change what it says.
+  const [freeze] = useState(freezeProp)
   const mutation = useFreeze(mindId)
   const [doneAt, setDoneAt] = useState<string | null>(null)
   const signing = mutation.isPending
 
+  // No reset on close: the content stays as it is while the dialog animates out, and the next
+  // opening is a fresh dialog (Ancung, 9 Nov: the ask flashed back on Close).
   function close(next: boolean) {
     if (!next && signing) return
     onOpenChange(next)
-    if (!next) {
-      setDoneAt(null)
-      mutation.reset()
-    }
   }
 
   const lines = freeze ? FREEZE_LINES(name) : UNFREEZE_LINES.map((l, i) => (i === 0 ? { ...l, text: `${name} ${l.text.toLowerCase()}` } : l))
