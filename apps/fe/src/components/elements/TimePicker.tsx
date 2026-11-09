@@ -4,6 +4,7 @@ import { ClockIcon } from "lucide-react"
 import { useState } from "react"
 import { cn } from "cn"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { useCoarsePointer } from "@/hooks/useCoarsePointer"
 
 const two = (n: number) => String(n).padStart(2, "0")
 const HOURS = Array.from({ length: 24 }, (_, h) => two(h))
@@ -18,11 +19,29 @@ export function minuteChoices(current: string): string[] {
  * A time field with the app's look (Ancung, 10 Nov: the browser's own time list looked out of
  * place). shadcn has no time picker, so it is shadcn's Popover with two scrolling columns, hours
  * 00 to 23 and minutes every 5. Picking a minute closes it; `value` and `onChange` are "HH:MM".
+ * On touch screens it is the device's own time picker in a field that looks the same (10 Nov,
+ * design B1.6): the iOS and Android wheels suit a finger better.
  */
 export function TimePicker({ value, onChange, "aria-label": ariaLabel, className }: { value: string; onChange: (value: string) => void; "aria-label"?: string; className?: string }) {
   const [open, setOpen] = useState(false)
+  const touch = useCoarsePointer()
   const [h = "08", m = "00"] = value.split(":")
   const pick = (hour: string, minute: string) => onChange(`${hour}:${minute}`)
+
+  if (touch) {
+    return (
+      <div className={cn("relative w-full", className)}>
+        <input
+          type="time"
+          aria-label={ariaLabel}
+          value={value}
+          onChange={(e) => e.target.value && onChange(e.target.value)}
+          className="h-11 w-full appearance-none rounded-md border border-input bg-surface pr-10 pl-3.5 text-left text-base text-foreground tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-date-and-time-value]:text-left"
+        />
+        <ClockIcon aria-hidden className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
+      </div>
+    )
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
