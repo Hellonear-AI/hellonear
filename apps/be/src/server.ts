@@ -8,10 +8,10 @@ import { migrate, query } from './db.ts'
 import { engineFetch, engineJson, skills, templates } from './engine.ts'
 import { HttpError, assertSameOrigin, cors, logServerError, readBody, sendJson, setCookie, isLoopback } from './http.ts'
 import { TOOLKITS, connect, disconnect, listConnections, toolkitSchema } from './connections.ts'
-import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, requireMind, updateMind, updateMindSchema, type Mind } from './minds.ts'
+import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, playgroundAttackOf, playgroundMind, requireMind, updateMind, updateMindSchema, type Mind } from './minds.ts'
 import { cancelRun, getRun, listRuns, mindEvents, pendingApprovals, relayRun, runEvents } from './runs.ts'
 import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema, secretsForRun } from './secrets.ts'
-import { createWallet, freezeTransaction, getWallet, hasWallet, policySchema, policyTransaction } from './wallets.ts'
+import { createWallet, freezeTransaction, getWallet, hasWallet, isDemoMind, policySchema, policyTransaction } from './wallets.ts'
 import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
 import { issueMailToken, issueWalletToken, verifyMailToken, verifyWalletToken } from './walletToken.ts'
 import { EMAIL_SKILL, ensureInbox, inboxOf, listMail, listSends, mailEnabled, messageIdSchema, readMail, releaseInbox, sendMail, sendMailSchema } from './mail.ts'
@@ -43,8 +43,12 @@ const chatSchema = z.object({
   timeZone: timeZoneSchema.optional(),
 })
 const resumeSchema = z.object({ toolCallId: z.string().min(1).max(200), reason: z.string().max(500).optional(), timeZone: timeZoneSchema.optional() })
+const attackRunSchema = z.object({ timeZone: timeZoneSchema.optional() })
+const attackIdSchema = z.string().regex(/^[a-z0-9-]{1,40}$/)
+type Attack = { attackId: string; title: string; templateId: string; skills: string[]; message: string }
 const runSchema = runWorkflowSchema.extend({ timeZone: timeZoneSchema.optional() })
 const timeZoneOf = (body: { timeZone?: string }) => (body.timeZone ? { timeZone: body.timeZone } : {})
+const attackOf = (attackId: string | null) => (attackId ? { attackId } : {})
 
 const limitOf = (url: URL, fallback: number, max: number) => Math.min(Math.max(Number(url.searchParams.get('limit') ?? fallback) || fallback, 1), max)
 
@@ -53,13 +57,16 @@ const passthrough = (res: Parameters<typeof sendJson>[0], out: { status: number;
   out.status === 204 ? res.writeHead(204).end() : sendJson(res, out.status, out.body)
 
 // Extra fields for one engine call: the wallet token (#42) only for a Mind that has a wallet, the mail token (#96) only
-// for a Mind with the email-address skill and an inbox, and `demo: true` for a judge try-out user (#43), so the engine
-// can use the sample inbox. Autopilot gets none of them.
+// for a Mind with the email-address skill and an inbox, and `demo: true` for a judge try-out user (#43) or an Attack
+// Playground Mind (#129), so the engine uses the sample inbox and calendar. Autopilot gets none of them.
 const runExtras = async (user: User, mindId: string) => ({
   ...((await hasWallet(mindId)) ? { walletToken: issueWalletToken(user.id, mindId) } : {}),
   ...((await mailEnabled(mindId)) ? { mailToken: issueMailToken(user.id, mindId) } : {}),
-  ...(user.demo ? { demo: true } : {}),
+  ...(user.demo || (await playgroundAttackOf(mindId)) ? { demo: true } : {}),
 })
+
+// A playground run (#129) never gets the owner's secrets: the scenarios are prompt injections.
+const secretsFor = async (userId: string, mindId: string) => ((await playgroundAttackOf(mindId)) ? [] : secretsForRun(userId))
 
 // An owner's Mind gets its inbox when it equips the email-address skill (#96). The skills are saved either way; a
 // failure (AgentMail down, organization full) comes back as `inboxError` and POST …/inbox retries it.
@@ -118,8 +125,8 @@ export const server = createServer(async (req, res) => {
       const { userId, mindId } = verifyWalletToken(req.headers['x-wallet-token'] as string | undefined)
       await requireMind(userId, mindId)
       if (internal[1] === 'send_payment' && req.method === 'POST') {
-        const [owner] = await query<{ is_demo: boolean }>('select is_demo from users where id = $1', [userId])
-        return sendJson(res, 200, await sendPayment(mindId, await readBody(req, sendPaymentSchema), { cap: owner?.is_demo ? demoPaymentCap(userId) : undefined }))
+        // The shared demo wallet (a try-out user's or a playground Mind, #129) keeps the per-user payment cap.
+        return sendJson(res, 200, await sendPayment(mindId, await readBody(req, sendPaymentSchema), { cap: (await isDemoMind(mindId)) ? demoPaymentCap(userId) : undefined }))
       }
       if (internal[1] === 'balance' && req.method === 'GET') return sendJson(res, 200, await walletBalance(mindId))
       if (internal[1] === 'payments' && req.method === 'GET') return sendJson(res, 200, { payments: await listPayments(mindId, limitOf(url, 20, 100)) })
@@ -177,6 +184,30 @@ export const server = createServer(async (req, res) => {
     if (route('GET', /^\/v1\/minds$/)) return sendJson(res, 200, { minds: await listMinds(user.id) })
     if (route('POST', /^\/v1\/minds$/)) return sendJson(res, 201, await withInbox(user, await createMind(user.id, await readBody(req, createMindSchema))))
 
+    // Attack Playground (#129): the engine's scenarios, each run on the user's playground Mind for it.
+    if (route('GET', /^\/v1\/attacks$/)) return passthrough(res, await engineJson('/v1/attacks'))
+    const attackRun = path.match(/^\/v1\/attacks\/([^/]+)\/runs$/)
+    if (attackRun && req.method === 'POST') {
+      const id = attackIdSchema.safeParse(decodeURIComponent(attackRun[1]))
+      const body = await readBody(req, attackRunSchema)
+      const listed = await engineJson('/v1/attacks')
+      const attack = id.success && listed.status === 200 ? ((listed.body as { attacks: Attack[] }).attacks ?? []).find((a) => a.attackId === id.data) : undefined
+      if (!attack) {
+        if (listed.status !== 200) return passthrough(res, listed)
+        throw new HttpError(404, 'unknown_attack')
+      }
+      const mind = await playgroundMind(user.id, attack)
+      await assertDemoRunAllowed(user, req)
+      const threadId = `thr_${newId('x').slice(2)}`
+      // Stop (#121) works on attack runs too.
+      const controller = new AbortController()
+      const engineRes = await engineFetch(`/v1/minds/${encodeURIComponent(mind.id)}/chat`, {
+        method: 'POST', signal: controller.signal,
+        body: { userId: user.id, threadId, message: attack.message, mind: mindConfig(mind), secrets: [], attackId: attack.attackId, ...timeZoneOf(body), ...(await runExtras(user, mind.id)) },
+      })
+      return relayRun(req, res, engineRes, { mindId: mind.id, threadId, userMessage: attack.message, controller })
+    }
+
     // Runs (#14, #17)
     const run = path.match(/^\/v1\/runs\/([^/]+)(\/approve|\/decline|\/cancel)?$/)
     if (run) {
@@ -201,7 +232,10 @@ export const server = createServer(async (req, res) => {
         const controller = new AbortController()
         const engineRes = await engineFetch(`/v1/runs/${encodeURIComponent(found.runId)}${run[2]}?mindId=${encodeURIComponent(mind.id)}`, {
           method: 'POST', signal: controller.signal,
-          body: { userId: user.id, threadId: found.threadId, mind: mindConfig(mind), secrets: await secretsForRun(user.id), toolCallId: body.toolCallId, reason: body.reason, ...timeZoneOf(body), ...(await runExtras(user, mind.id)) },
+          body: {
+            userId: user.id, threadId: found.threadId, mind: mindConfig(mind), secrets: await secretsFor(user.id, mind.id), toolCallId: body.toolCallId, reason: body.reason,
+            ...timeZoneOf(body), ...(await runExtras(user, mind.id)), ...attackOf(await playgroundAttackOf(mind.id)),
+          },
         })
         return relayRun(req, res, engineRes, { mindId: mind.id, threadId: found.threadId ?? undefined, resumeOf: found.runId, controller })
       }
@@ -211,6 +245,8 @@ export const server = createServer(async (req, res) => {
     const m = path.match(/^\/v1\/minds\/([^/]+)(\/.*)?$/)
     if (m) {
       const mind = await requireMind(user.id, decodeURIComponent(m[1]))
+      // A playground Mind (#129) is reached only through /v1/attacks and its runs, never as one of the owner's.
+      if (await playgroundAttackOf(mind.id)) throw new HttpError(404, 'mind_not_found')
       const sub = m[2] ?? ''
 
       // The Mind's OutLayer wallet (#14, #15). Owner actions come back as transactions for the owner to sign.

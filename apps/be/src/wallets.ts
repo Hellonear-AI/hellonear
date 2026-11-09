@@ -80,9 +80,11 @@ async function row(mindId: string): Promise<Row | null> {
 }
 // Judge try-out mode (#43): every demo user's Mind pays from one shared demo wallet (DEMO_OUTLAYER_API_KEY).
 let demoWallet: { walletId: string; address: string } | undefined
-async function isDemoMind(mindId: string): Promise<boolean> {
-  const [r] = await query<{ is_demo: boolean }>('select u.is_demo from minds m join users u on u.id = m.user_id where m.id = $1', [mindId])
-  return r?.is_demo === true
+// A try-out user's Mind, or an Attack Playground Mind (#129): it pays from the shared demo wallet, never its own.
+export async function isDemoMind(mindId: string): Promise<boolean> {
+  const [r] = await query<{ demo: boolean }>(
+    'select u.is_demo or m.playground_attack is not null as demo from minds m join users u on u.id = m.user_id where m.id = $1', [mindId])
+  return r?.demo === true
 }
 
 export async function hasWallet(mindId: string): Promise<boolean> {

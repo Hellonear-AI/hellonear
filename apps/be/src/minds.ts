@@ -85,7 +85,7 @@ async function writeSkills(client: { query: typeof pool.query }, mindId: string,
   }
 }
 
-export async function createMind(userId: string, body: z.infer<typeof createMindSchema>): Promise<Mind> {
+export async function createMind(userId: string, body: z.infer<typeof createMindSchema>, opts: { playgroundAttack?: string } = {}): Promise<Mind> {
   const template = (await templates()).find((t) => t.templateId === body.templateId)
   if (!template) throw new HttpError(400, 'unknown_template')
   const skills = body.skills ?? template.skills.map((s) => s.skillId)
@@ -94,8 +94,8 @@ export async function createMind(userId: string, body: z.infer<typeof createMind
   const client = await pool.connect()
   try {
     await client.query('begin')
-    await client.query('insert into minds (id, user_id, template_id, name, soul, model) values ($1, $2, $3, $4, $5, $6)', [
-      id, userId, template.templateId, body.name, body.soul ?? template.soul, body.model ?? template.model ?? null,
+    await client.query('insert into minds (id, user_id, template_id, name, soul, model, playground_attack) values ($1, $2, $3, $4, $5, $6, $7)', [
+      id, userId, template.templateId, body.name, body.soul ?? template.soul, body.model ?? template.model ?? null, opts.playgroundAttack ?? null,
     ])
     await writeSkills(client, id, skills)
     await client.query('commit')
@@ -109,7 +109,8 @@ export async function createMind(userId: string, body: z.infer<typeof createMind
 }
 
 export async function listMinds(userId: string): Promise<Mind[]> {
-  return (await query(`${SELECT} where m.user_id = $1 order by m.created_at desc`, [userId])).map(toMind)
+  // Attack Playground Minds (#129) are not the owner's: they never show in the list.
+  return (await query(`${SELECT} where m.user_id = $1 and m.playground_attack is null order by m.created_at desc`, [userId])).map(toMind)
 }
 
 // Ownership check for every Mind route: another user's Mind looks exactly like a missing one.
@@ -148,6 +149,37 @@ export async function updateMind(userId: string, mindId: string, body: z.infer<t
     client.release()
   }
   return (await getMind(userId, mindId))!
+}
+
+// The attack scenario a playground Mind (#129) was made for, or null for an owner's own Mind.
+export async function playgroundAttackOf(mindId: string): Promise<string | null> {
+  const [r] = await query<{ playground_attack: string | null }>('select playground_attack from minds where id = $1', [mindId])
+  return r?.playground_attack ?? null
+}
+
+// The user's playground Mind for one attack scenario (#129), made on first use from the scenario's template and
+// skills, and brought back to the scenario's skills if they changed since.
+export async function playgroundMind(userId: string, attack: { attackId: string; title: string; templateId: string; skills: string[] }): Promise<Mind> {
+  const find = async () => {
+    const [r] = await query<{ id: string }>('select id from minds where user_id = $1 and playground_attack = $2', [userId, attack.attackId])
+    return r ? getMind(userId, r.id) : null
+  }
+  let mind = await find()
+  if (!mind) {
+    try {
+      mind = await createMind(userId, { templateId: attack.templateId, name: attack.title, skills: attack.skills }, { playgroundAttack: attack.attackId })
+    } catch (e) {
+      // Two first runs at once: the unique index keeps one Mind; use it.
+      mind = await find()
+      if (!mind) throw e
+    }
+  }
+  if (mind.skills.join() !== attack.skills.join()) {
+    await assertSkills(attack.skills)
+    await writeSkills(pool, mind.id, attack.skills)
+    mind = (await getMind(userId, mind.id))!
+  }
+  return mind
 }
 
 export async function deleteMind(userId: string, mindId: string): Promise<boolean> {
