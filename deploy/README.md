@@ -6,7 +6,7 @@ Hosted demo (#22): the engine, the backend and the web app run natively (no Dock
 |---|---|---|
 | engine | 4100 | `hellonear-engine.service` |
 | backend | 4000 | `hellonear-be.service` (applies migrations at start) |
-| web app (`apps/fe`, `next start`) | 3000 | `hellonear-fe.service` (#125); public at `https://hellonear.jameshub.fun` |
+| web app (`apps/fe`, `next start`) | 3000 | `hellonear-fe.service` (#125); public at `https://hellonear.xyz` |
 | Postgres 17 + pgvector 0.8 | 5432 (loopback) | `postgresql` |
 
 ## One-time container setup (done 5 Nov for the team's container)
@@ -19,7 +19,7 @@ Hosted demo (#22): the engine, the backend and the web app run natively (no Dock
    **Keep `cloudflared` off this container.** The backend's `/internal/*` routes answer only on loopback (#52); that is safe only while the tunnel connects from another host. Run inside the container, tunnel requests would come from 127.0.0.1 and pass that check (the engine key would be the only one left).
 6. IPv6 off in the container (`/etc/sysctl.d/90-hellonear-no-ipv6.conf`: `net.ipv6.conf.all.disable_ipv6 = 1`, same for `default`). The LAN hands out an IPv6 route that does not reach the internet, and `bun install` waits on IPv6 without falling back (the first deploy hung on it, 5 Nov).
 7. `/etc/hellonear/` (root, `700`) holds `db.env`, `engine.env`, `be.env` (`600`), with the names from `engine/.env.example` and `apps/be/.env.example`. Keys are generated in the container and never leave it; `ENGINE_API_KEY` is the same in both files. `be.env` sets `COOKIE_SECURE=true` (HTTPS through the tunnel), `AUTH_RECIPIENT` explicitly (the FE must sign for the same value) and `FE_ORIGIN` to the FE's public origin first; more origins can follow, comma-separated (e.g. `http://localhost:3000` for local FE work against this API).
-8. Web app (#125): the tunnel on the tunnel host routes `hellonear.jameshub.fun` to the container's port 3000 (ingress rule plus a CNAME, like `api-hellonear`), and `be.env` lists `https://hellonear.jameshub.fun` first in `FE_ORIGIN` (sign-in and the Composio return go there). Nothing in `/etc/hellonear/` is needed for it: its only setting, `NEXT_PUBLIC_API_URL`, is public and is built in.
+8. Public names: `hellonear.xyz` (web app, port 3000) and `api.hellonear.xyz` (backend, port 4000), each an ingress rule on the tunnel host plus a proxied CNAME to the tunnel in the `hellonear.xyz` Cloudflare zone. `www.hellonear.xyz` and the first names (`hellonear.jameshub.fun`, `api-hellonear.jameshub.fun`, #125) still route to the same ports; the web app redirects `www` and `hellonear.jameshub.fun` to `https://hellonear.xyz` (`apps/fe/next.config.js`), because its build calls `api.hellonear.xyz` and the session cookie only reaches the API from the same site. `be.env` lists `https://hellonear.xyz` first in `FE_ORIGIN` (sign-in and the Composio return go there). Nothing in `/etc/hellonear/` is needed for it: its only setting, `NEXT_PUBLIC_API_URL`, is public and is built in.
 
 ## Deploy
 
@@ -37,7 +37,7 @@ If the services are not healthy within 2 minutes after the swap, it puts `releas
 
 `DEPLOY_CHECK_ONLY=1` runs only these checks. One-off overrides, each needing Axel's approval for that deploy: `DEPLOY_ALLOW_HAND_EDITS=1`, `DEPLOY_ALLOW_DESTRUCTIVE=1`.
 
-`GET /v1/health` on the backend answers `revision`, so `curl https://api-hellonear.jameshub.fun/v1/health` shows what is live.
+`GET /v1/health` on the backend answers `revision`, so `curl https://api.hellonear.xyz/v1/health` shows what is live.
 
 Manual rollback (needs Axel's approval): `mv /opt/hellonear/app /opt/hellonear/release-bad && mv /opt/hellonear/release-old /opt/hellonear/app && systemctl restart hellonear-engine hellonear-be`.
 
