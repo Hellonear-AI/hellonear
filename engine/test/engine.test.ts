@@ -119,6 +119,15 @@ describe('engine HTTP API', () => {
     assert.ok(!second.some((e) => e.type === 'thread.titled'), 'no title on a later run')
   })
 
+  test('GLM-5.3 Flash reasons briefly and still writes a reply (#92)', async () => {
+    const evs = await events(await post('/v1/minds/reasoning/chat', { userId, threadId: randomUUID(), message: 'Use your tool: what is 17 + 25? Answer with the number.', mind: mind('Rea', { skills: [{ skillId: 'daily-planner' }], model: 'z-ai/glm-5.3-flash' }) }))
+    const fin = evs.find((e) => e.type === 'run.finished')
+    assert.equal(fin?.finishReason, 'stop')
+    assert.match(finalText(evs), /42/)
+    // Default reasoning used ~300 tokens on this prompt (measured 9 Nov); low stays far below.
+    assert.ok((fin?.usage?.reasoningTokens ?? 0) < 150, `reasoning tokens ${fin?.usage?.reasoningTokens}`)
+  })
+
   test('tool calls become normalized events with usage, cost and contiguous seq', async () => {
     const evs = await events(await post('/v1/minds/tools/chat', {
       userId, threadId: randomUUID(), message: 'Use your tool: what is 17 + 25?',

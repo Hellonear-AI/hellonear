@@ -5,6 +5,7 @@
 
 import { formatNear } from "@/lib/format"
 import type { ToolStep } from "@/modules/chat/data/events"
+import { skillCopy } from "@/modules/skills/data/skills"
 
 const LABELS: Record<string, [doing: string, done: string]> = {
   get_balance: ["Checking the balance", "Checked the balance"],
@@ -47,8 +48,17 @@ function summary(step: ToolStep): string | null {
       return count(r.payments, "payment", "payments")
     case "near_view_account":
       return text(r.accountId) ?? text(a.accountId)
-    case "http_request":
-      return typeof r.status === "number" ? (r.status < 400 ? "it answered" : "it returned an error") : null
+    case "http_request": {
+      // Which site, the useful part (Ancung, 9 Nov: "it answered" said nothing).
+      let host: string | null = null
+      try {
+        host = typeof a.url === "string" ? new URL(a.url).hostname : null
+      } catch {
+        host = null
+      }
+      if (typeof r.status === "number" && r.status >= 400) return host ? `${host} returned an error` : "it returned an error"
+      return host
+    }
     case "gmail_list_emails":
       return count(r.emails, "email", "emails")
     case "gmail_read_email":
@@ -60,8 +70,11 @@ function summary(step: ToolStep): string | null {
     case "googlecalendar_create_event":
       return text(r.title)
     case "skill":
-    case "skill_read":
-      return text(a.name) ?? text(a.skillName)
+    case "skill_read": {
+      // The skill's name people know ("Daily planner"), not its id ("daily-planner").
+      const id = text(a.name) ?? text(a.skillName)
+      return id ? skillCopy(id).title : null
+    }
     default:
       return null
   }

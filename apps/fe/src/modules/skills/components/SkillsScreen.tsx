@@ -1,8 +1,9 @@
 "use client"
 
 import Link from "next/link"
-import { CalendarDaysIcon, CheckIcon, MailIcon, PlugIcon, SearchIcon, WalletIcon, XIcon, type LucideIcon } from "lucide-react"
-import { useState } from "react"
+import { CalendarDaysIcon, CheckIcon, PlugIcon, SearchIcon, WalletIcon, type LucideIcon } from "lucide-react"
+import { useState, type ComponentType } from "react"
+import { GmailLogo } from "@/components/elements/AppLogos"
 import { cn } from "cn"
 import { PageTitle } from "@/components/elements/PageTitle"
 import { Badge } from "@/components/ui/badge"
@@ -13,13 +14,15 @@ import { mindHref } from "@/components/layout/nav"
 import { useSession } from "@/modules/auth/hooks/useSession"
 import type { ApiConnection, ApiSkill } from "@/modules/minds/api"
 import { useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
-import { matchesSearch, skillCopy, TOOLKIT_NAME } from "@/modules/skills/data/skills"
+import { matchesSearch, skillCopy, skillLines, TOOLKIT_NAME } from "@/modules/skills/data/skills"
+import { SkillLines } from "@/modules/skills/components/SkillLines"
 import { connectionStatus, useConnections, useSkillCatalog } from "@/modules/skills/hooks/useSkills"
 import { AddSkillDialog } from "@/modules/skills/components/SkillDialogs"
 
-export const SKILL_ICON: Record<string, LucideIcon> = {
+export const SKILL_ICON: Record<string, LucideIcon | ComponentType<{ className?: string }>> = {
   payments: WalletIcon,
-  "email-triage": MailIcon,
+  // The Gmail logo from the design, not a generic envelope (Ancung, 9 Nov).
+  "email-triage": GmailLogo,
   "daily-planner": CalendarDaysIcon,
   "near-account": SearchIcon,
   "http-request": PlugIcon,
@@ -46,7 +49,11 @@ export function SkillsScreen({ mindId }: { mindId: string }) {
 
   const name = mind?.name ?? "Your Mind"
   const equipped = mind?.skills ?? []
-  const ctx = { name, limit: wallet?.policy?.perTransactionNear ?? null }
+  const ctx = {
+    name,
+    limit: wallet?.policy?.perTransactionNear ?? null,
+    apps: Object.fromEntries((connections ?? []).map((c) => [c.toolkit, c.status])),
+  }
   const skills = catalog.data ?? []
   const shown = skills
     .filter((s) => matchesSearch(s.skillId, query))
@@ -163,14 +170,14 @@ function SkillCard({
   skill: ApiSkill
   added: boolean
   needsConnecting: boolean
-  ctx: { name: string; limit: string | null }
+  ctx: Parameters<typeof skillLines>[1]
   onAdd: () => void
 }) {
   const copy = skillCopy(skill.skillId)
   const Icon = SKILL_ICON[skill.skillId] ?? PlugIcon
   const blocked = skill.status === "blocked"
   const app = copy.needs ? TOOLKIT_NAME[copy.needs] : null
-  const lines = [...copy.canUse(ctx).map((t) => ({ ok: true, t })), ...copy.cannot.map((t) => ({ ok: false, t }))]
+  const lines = skillLines(skill.skillId, ctx)
 
   return (
     <li className={cn("flex flex-col gap-4 rounded-lg border border-border bg-surface p-5", blocked && "opacity-70")}>
@@ -187,14 +194,7 @@ function SkillCard({
       {lines.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <p className="text-xs font-medium text-muted-foreground">Can use</p>
-          <ul className="flex flex-col gap-1.5">
-            {lines.map(({ ok, t }) => (
-              <li key={t} className="flex items-start gap-2 text-[13px] text-foreground">
-                {ok ? <CheckIcon className="mt-0.5 size-3.5 shrink-0 text-success" /> : <XIcon className="mt-0.5 size-3.5 shrink-0 text-danger" />}
-                {t}
-              </li>
-            ))}
-          </ul>
+          <SkillLines mindId={mindId} lines={lines} />
         </div>
       )}
       <div className="mt-auto flex items-center justify-between gap-3 pt-1">
