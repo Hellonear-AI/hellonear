@@ -15,3 +15,21 @@ export function compareNear(a: string, b: string): -1 | 0 | 1 | null {
   if (aw !== bw) return aw > bw ? 1 : -1
   return af === bf ? 0 : af > bf ? 1 : -1
 }
+
+const YOCTO_DIGITS = 24
+
+/** "1.5" NEAR -> "1500000000000000000000000" yoctoNEAR, exactly. Null for anything else. */
+export function toYocto(near: string): string | null {
+  const m = /^(\d+)(?:\.(\d{1,24}))?$/.exec(near.trim())
+  if (!m) return null
+  const yocto = (m[1] + (m[2] ?? "").padEnd(YOCTO_DIGITS, "0")).replace(/^0+(?=\d)/, "")
+  return yocto
+}
+
+/** yoctoNEAR -> a NEAR decimal string without trailing zeros ("1500…0" -> "1.5"). */
+export function fromYocto(yocto: string): string {
+  const digits = yocto.replace(/^0+/, "").padStart(YOCTO_DIGITS + 1, "0")
+  const whole = digits.slice(0, -YOCTO_DIGITS)
+  const frac = digits.slice(-YOCTO_DIGITS).replace(/0+$/, "")
+  return frac ? `${whole}.${frac}` : whole
+}

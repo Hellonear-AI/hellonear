@@ -40,7 +40,11 @@ export type ApiWallet = {
 /** An owner action on `outlayer.testnet`, built by the backend for the owner's wallet to sign. */
 export type OwnerTransaction = {
   receiverId: string
-  actions: { type: "FunctionCall"; params: { methodName: string; args: object; gas: string; deposit: string } }[]
+  actions: (
+    | { type: "FunctionCall"; params: { methodName: string; args: object; gas: string; deposit: string } }
+    // Add funds (W4): the owner sends NEAR straight to the Mind's wallet address.
+    | { type: "Transfer"; params: { deposit: string } }
+  )[]
 }
 
 export type ApiApproval = {
