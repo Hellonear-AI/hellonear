@@ -26,28 +26,6 @@ import { approvalChecks } from "@/modules/wallet/data/checks"
 
 type Policy = ApiWallet["policy"]
 
-/** A small line for a tool: what it is doing, or what it did. */
-export function ToolPill({ step }: { step: ToolStep }) {
-  const payment = paymentOf(step)
-  const running = step.status === "running"
-  let text = toolLabel(step.tool)
-  if (payment && step.status === "ok") text = `You approved · Paid ${payment.to}`
-  if (payment && step.status === "declined") text = `You declined · ${payment.amountNear} NEAR to ${payment.to}`
-
-  return (
-    <div className="flex w-fit max-w-full items-center gap-2 rounded-full bg-muted px-3 py-1.5 text-xs text-muted-foreground animate-in fade-in-0 duration-150 ease-out motion-reduce:animate-none">
-      {running ? (
-        <Loader2Icon className="size-3.5 shrink-0 animate-spin motion-reduce:animate-[hn-fade-pulse_1.6s_ease_infinite]" />
-      ) : step.status === "declined" ? (
-        <XIcon className="size-3.5 shrink-0" />
-      ) : (
-        <CheckIcon className="size-3.5 shrink-0" />
-      )}
-      <span className={cn("truncate", running && "text-shimmer")}>{text}</span>
-    </div>
-  )
-}
-
 /** A payment that went out: amount, who, which limit allowed it, and the transaction. */
 export function PaymentReceipt({ payment, policy }: { payment: Payment; policy: Policy }) {
   return (

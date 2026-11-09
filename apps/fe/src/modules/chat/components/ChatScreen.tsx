@@ -16,7 +16,8 @@ import { useChatRun } from "@/modules/chat/hooks/ChatRunProvider"
 import { useThread } from "@/modules/chat/hooks/useThread"
 import { Composer } from "@/modules/chat/components/Composer"
 import { ReplyText } from "@/modules/chat/components/ReplyText"
-import { ApprovalCard, PaymentFailed, PaymentReceipt, PaymentRefused, ToolPill } from "@/modules/chat/components/RunCards"
+import { ApprovalCard, PaymentFailed, PaymentReceipt, PaymentRefused } from "@/modules/chat/components/RunCards"
+import { StepRow, ThoughtRow } from "@/modules/chat/components/ReplySteps"
 import type { ApiWallet } from "@/modules/minds/api"
 import { templateLabel } from "@/modules/minds/data/minds"
 import { useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
@@ -76,7 +77,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
           <h1 className="truncate text-[17px] font-semibold text-foreground">{name}</h1>
           <p className="truncate text-xs text-muted-foreground">
             {templateLabel(templateId)}
-            {limit ? ` · Asks before every payment, up to ${limit} NEAR each` : ""}
+            {limit ? `, asks before every payment, up to ${limit} NEAR each` : ""}
           </p>
         </div>
       </header>
@@ -207,10 +208,11 @@ function TurnView({
   // Stored replies read before their events arrive have text but no parts yet.
   const parts: ReplyPart[] = view.parts.length > 0 ? view.parts : view.text ? [{ kind: "text", text: view.text }] : []
   const lastText = parts.findLastIndex((p) => p.kind === "text")
-  // Dots while nothing new is being written: before any reply, or after a tool until text follows.
-  const working = live && parts.at(-1)?.kind !== "text"
-  // "Thinking" while the model reasons; a running tool already shimmers in its own pill (C1.3).
-  const activity = view.thinking ? "Thinking" : null
+  // Dots only while nothing else shows progress: before anything arrives, or after a finished
+  // tool until the next text. Reasoning and running tools have their own shimmering rows.
+  const lastPart = parts.at(-1)
+  const lastStep = lastPart?.kind === "tool" ? view.tools.find((t) => t.toolCallId === lastPart.toolCallId) : undefined
+  const working = live && (!lastPart || (lastPart.kind === "tool" && lastStep?.status !== "running" && lastStep?.status !== "awaiting_approval"))
   const byCall = new Map(view.tools.map((t) => [t.toolCallId, t]))
 
   function toolPart(step: ToolStep) {
@@ -232,7 +234,7 @@ function TurnView({
       }
       return null
     }
-    if (!payment || step.status === "running" || step.status === "declined") return <ToolPill step={step} />
+    if (!payment || step.status === "running" || step.status === "declined") return <StepRow step={step} />
     if (step.status === "ok") return <PaymentReceipt payment={payment} policy={policy} />
     if (step.status === "policy_denied" || step.status === "wallet_frozen") {
       return <PaymentRefused step={step} payment={payment} policy={policy} mindName={name} />
@@ -259,6 +261,9 @@ function TurnView({
             <span className="text-[13px] font-semibold text-foreground">{name}</span>
           </div>
           {parts.map((part, i) => {
+            if (part.kind === "thought") {
+              return <ThoughtRow key={`r${i}`} text={part.text} from={part.from} to={part.to} live={live && i === parts.length - 1} />
+            }
             if (part.kind === "text") {
               // Plain text, no bubble (decided 9 Nov with Ancung, like Claude and Gemini).
               return <ReplyText key={`t${i}-${live && i === lastText ? "live" : "done"}`} text={part.text} live={live && i === lastText} />
@@ -271,7 +276,7 @@ function TurnView({
               </div>
             ) : null
           })}
-          {working && <Working activity={activity} name={name} />}
+          {working && <Working name={name} />}
           {!live && view.text && (
             <div className="flex items-center gap-2">
               {view.verified && <VerifiedBadge level={view.verified} />}
@@ -286,20 +291,13 @@ function TurnView({
   )
 }
 
-/** The Mind is at work: typing dots, plus what it is doing when we know (design C1.3). */
-function Working({ activity, name }: { activity: string | null; name: string }) {
+/** The Mind is at work and nothing else shows it yet: typing dots, no bubble (design C1.3). */
+function Working({ name }: { name: string }) {
   return (
-    <span role="status" aria-label={activity ? `${name}: ${activity}` : `${name} is working`} className="flex h-[22px] items-center gap-2.5">
-      <span aria-hidden className="flex items-center gap-1">
-        {[0, 1, 2].map((i) => (
-          <span key={i} className="typing-dot size-1.5 rounded-full bg-muted-foreground" style={{ animationDelay: `${i * 160}ms` }} />
-        ))}
-      </span>
-      {activity && (
-        <span key={activity} aria-hidden className="text-shimmer text-sm font-medium animate-in fade-in-0 duration-150 ease-out">
-          {activity}
-        </span>
-      )}
+    <span role="status" aria-label={`${name} is working`} className="flex h-[22px] items-center gap-1">
+      {[0, 1, 2].map((i) => (
+        <span key={i} aria-hidden className="typing-dot size-1.5 rounded-full bg-muted-foreground" style={{ animationDelay: `${i * 160}ms` }} />
+      ))}
     </span>
   )
 }

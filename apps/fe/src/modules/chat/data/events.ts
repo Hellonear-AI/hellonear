@@ -33,7 +33,11 @@ export type ToolStep = {
 }
 
 /** One piece of the reply in the order it happened: some text, or a tool (by its call id). */
-export type ReplyPart = { kind: "text"; text: string } | { kind: "tool"; toolCallId: string }
+export type ReplyPart =
+  | { kind: "text"; text: string }
+  | { kind: "tool"; toolCallId: string }
+  /** The model's reasoning (`reasoning.delta`, GLM only), with when it started and last wrote. */
+  | { kind: "thought"; text: string; from: string; to: string }
 
 export type RunStatus = "running" | "awaiting_approval" | "finished" | "error"
 
@@ -74,7 +78,14 @@ export function foldRun(events: RunEvent[]): RunView {
     view.runId ??= e.runId ?? null
     view.at = e.ts
     if (paused && RESUMED.has(e.type) && !(e.type === "tool.called" && e.toolCallId && byCall.has(e.toolCallId))) resumed = true
-    if (e.type === "reasoning.delta") view.thinking = true
+    if (e.type === "reasoning.delta") {
+      view.thinking = true
+      const last = view.parts.at(-1)
+      if (last?.kind === "thought") {
+        last.text += e.text ?? ""
+        last.to = e.ts
+      } else view.parts.push({ kind: "thought", text: e.text ?? "", from: e.ts, to: e.ts })
+    }
     else if (e.type === "text.delta" || e.type.startsWith("tool.") || e.type.startsWith("run.")) view.thinking = false
     switch (e.type) {
       case "run.started":
