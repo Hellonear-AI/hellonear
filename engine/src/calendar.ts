@@ -36,14 +36,18 @@ export function checkNewEvent(start: string, end: string): { hours: number; minu
 // Start time for GOOGLECALENDAR_CREATE_EVENT. Its schema asks for a naive `YYYY-MM-DDTHH:MM:SS` and says `timezone`
 // (IANA) is required when the time is naive. We only know an offset, not the owner's IANA zone, so we send the same
 // instant in UTC with `timezone: "UTC"`: unambiguous, and Google shows it in each viewer's own time zone.
-export function composioStart(start: string): { start_datetime: string; timezone: 'UTC' } {
-  return { start_datetime: new Date(Date.parse(start)).toISOString().slice(0, 19), timezone: 'UTC' }
+// What the Composio tool router runs is the tool's latest version (20261103_00 on 9 Nov), not the default schema the
+// tools endpoint shows without ?version=latest (#124): start_datetime and end_datetime take an ISO time with its
+// offset, end_datetime wins over the duration fields, and send_updates is 'all' | 'externalOnly' | 'none'.
+export function composioStart(start: string): { start_datetime: string } {
+  return { start_datetime: start }
 }
 
 // Arguments GOOGLECALENDAR_CREATE_EVENT gets for a start and end with an offset.
 export function composioTiming(start: string, end: string) {
   const { hours, minutes } = checkNewEvent(start, end)
-  return { ...composioStart(start), event_duration_hour: hours, event_duration_minutes: minutes }
+  // end_datetime decides the length; the duration fields only matter if a version ignores it.
+  return { ...composioStart(start), end_datetime: end, event_duration_hour: hours, event_duration_minutes: minutes }
 }
 
 // Google's Event resource → our shape. Descriptions are written by whoever sent the invite: data, never instructions.

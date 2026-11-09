@@ -12,6 +12,8 @@ export const fake = {
   nextSeq: new Map<string, number>(),
   // Simulates an engine restart between a pause and its approval: seq starts at 0 again.
   restartBeforeResume: false,
+  // Runs whose stream the backend closed before the end (a cancel, #121).
+  cutOff: new Set<string>(),
 }
 
 export const templates = [
@@ -51,8 +53,11 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 // Writes events with awkward chunking: each event split in two writes, so the backend parser is exercised.
 async function stream(res: ServerResponse, runId: string, mindId: string, start: number, events: Record<string, unknown>[], delayMs = 0) {
   res.writeHead(200, { 'content-type': 'text/event-stream' })
+  let ended = false
+  res.on('close', () => { if (!ended) fake.cutOff.add(runId) })
   let seq = start
   for (const e of events) {
+    if (res.destroyed) return
     const line = `data: ${JSON.stringify({ v: 1, runId, mindId, seq: seq++, ts: new Date().toISOString(), ...e })}\n\n`
     const cut = Math.floor(line.length / 2)
     res.write(line.slice(0, cut))
@@ -60,6 +65,7 @@ async function stream(res: ServerResponse, runId: string, mindId: string, start:
     if (delayMs) await sleep(delayMs)
   }
   fake.nextSeq.set(runId, seq)
+  ended = true
   res.end()
 }
 
