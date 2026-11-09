@@ -144,8 +144,10 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
                       policy={wallet?.policy ?? null}
                       busy={busy}
                       onRetry={() => s.message && send(s.message, threadId ?? activeHere?.threadId ?? null)}
-                      onDecline={(step) =>
-                        s.view.runId && resume({ runId: s.view.runId, threadId: threadId ?? s.view.threadId, toolCallId: step.toolCallId, action: "decline" })
+                      wallet={wallet}
+                      onAnswer={(step, action) =>
+                        s.view.runId &&
+                        resume({ runId: s.view.runId, threadId: threadId ?? s.view.threadId, toolCallId: step.toolCallId, action, tool: step.tool, args: step.args })
                       }
                     />
                     </div>
@@ -183,7 +185,8 @@ function TurnView({
   policy,
   busy,
   onRetry,
-  onDecline,
+  wallet,
+  onAnswer,
 }: {
   mindId: string
   name: string
@@ -192,7 +195,8 @@ function TurnView({
   policy: ApiWallet["policy"]
   busy: boolean
   onRetry: () => void
-  onDecline: (step: ToolStep) => void
+  wallet: ApiWallet | null
+  onAnswer: (step: ToolStep, action: "approve" | "decline") => void
 }) {
   const { view, live } = turn
   const failed = Boolean(turn.failed) || view.status === "error"
@@ -236,7 +240,7 @@ function TurnView({
       {view.tools.map((step) => {
         const payment = paymentOf(step)
         if (step.status === "awaiting_approval" && view.status === "awaiting_approval" && !live) {
-          return <ApprovalCard key={step.toolCallId} mindId={mindId} step={step} busy={busy} onDecline={() => onDecline(step)} />
+          return <ApprovalCard key={step.toolCallId} mindId={mindId} step={step} wallet={wallet} busy={busy} onAnswer={(action) => onAnswer(step, action)} />
         }
         if (!payment) return null
         if (step.status === "ok") return <PaymentReceipt key={step.toolCallId} payment={payment} policy={policy} />

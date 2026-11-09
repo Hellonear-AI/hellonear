@@ -18,6 +18,7 @@ import { explorerTxUrl } from "@/lib/format"
 import { compareNear } from "@/lib/near"
 import { paymentOf, toolLabel, type Payment, type ToolStep } from "@/modules/chat/data/events"
 import type { ApiWallet } from "@/modules/minds/api"
+import { approvalChecks } from "@/modules/wallet/data/checks"
 
 // What a run did, in the chat (design C1.1, C1.3, C1.4, C1.7): a pill per tool, a receipt for a
 // payment, a red card when the wallet refused one, and an approval card while it waits.
@@ -129,19 +130,26 @@ export function PaymentFailed({ payment }: { payment: Payment }) {
   )
 }
 
-/** Waiting for the owner (C1.1). Review opens Approvals (A1), which shows the reason and the checks. */
+/**
+ * Waiting for the owner (C1.1). Answered right here (Ancung, 9 Nov; the design sent "Review and
+ * approve" to Approvals): the same checks as Approvals (A1), and Approve only when nothing would
+ * refuse it; otherwise the button leads to the fix. Approvals still lists every request.
+ */
 export function ApprovalCard({
   mindId,
   step,
-  onDecline,
+  wallet,
   busy,
+  onAnswer,
 }: {
   mindId: string
   step: ToolStep
-  onDecline: () => void
+  wallet: ApiWallet | null
   busy: boolean
+  onAnswer: (action: "approve" | "decline") => void
 }) {
   const payment = paymentOf(step)
+  const { checks, next } = payment ? approvalChecks(payment, wallet) : { checks: [], next: "approve" as const }
   return (
     <div className="flex w-full flex-col gap-3 rounded-lg bg-warning-soft p-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-out motion-reduce:animate-none md:max-w-[480px]">
       <div className="flex items-start justify-between gap-2">
@@ -153,13 +161,30 @@ export function ApprovalCard({
           Waiting for you
         </Badge>
       </div>
+      {checks.length > 0 && (
+        <ul className="flex flex-col gap-1.5">
+          {checks.map((c) => (
+            <li key={c.text} className="flex items-center gap-2 text-[13px] text-foreground">
+              {c.ok ? <CheckIcon className="size-3.5 shrink-0 text-success" /> : <XIcon className="size-3.5 shrink-0 text-danger" />}
+              {c.text}
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" onClick={onDecline} disabled={busy}>
+        <Button variant="outline" size="sm" onClick={() => onAnswer("decline")} disabled={busy}>
           Decline
         </Button>
-        <Button size="sm" nativeButton={false} render={<Link href={mindHref(mindId, "approvals")} />}>
-          Review and approve
-        </Button>
+        {next === "approve" ? (
+          <Button size="sm" onClick={() => onAnswer("approve")} disabled={busy}>
+            <CheckIcon />
+            Approve
+          </Button>
+        ) : (
+          <Button size="sm" nativeButton={false} render={<Link href={mindHref(mindId, next === "unfreeze" ? "approvals" : "wallet")} />}>
+            {next === "unfreeze" ? "Unfreeze first" : next === "add_address" ? "Add the address first" : "Change limits first"}
+          </Button>
+        )}
       </div>
     </div>
   )

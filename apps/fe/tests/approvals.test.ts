@@ -6,10 +6,9 @@ import { approvalChecks } from "@/modules/wallet/data/checks"
 import { freezeErrorText } from "@/modules/wallet/components/FreezeDialog"
 import { FreezeError } from "@/modules/wallet/hooks/useFreeze"
 import { WrongAccountError } from "@/modules/wallet/hooks/useOwnerTransaction"
-import { answerOutcome } from "@/modules/wallet/components/ApprovalsScreen"
+import { answerOutcome } from "@/modules/chat/data/answer"
 import { ApiError } from "@/lib/api"
 import type { ToolStep } from "@/modules/chat/data/events"
-import type { ActiveRun } from "@/modules/chat/hooks/ChatRunProvider"
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -88,9 +87,9 @@ describe("freeze", () => {
 
 describe("answerOutcome (A1.3 toast)", () => {
   const approval = { runId: "r1", threadId: "t1", toolCallId: "c1", tool: "send_payment", args: { to: "shop.testnet", amountNear: "0.1" }, requestedAt: "2026-11-09T10:00:00Z" }
-  const answer = { runId: "r1", toolCallId: "c1", action: "approve" as const, approval }
+  const answer = { runId: "r1", toolCallId: "c1", action: "approve" as const, tool: approval.tool, args: approval.args }
   const view = (tools: ToolStep[]) => ({ runId: "r1", threadId: "t1", text: "", tools, status: "finished" as const, verified: null, error: null, thinking: false, at: null })
-  const run = (over: Partial<ActiveRun>): ActiveRun => ({ id: 1, threadId: "t1", message: null, resumeOf: "r1", events: [], view: view([]), streaming: false, failed: null, ...over })
+  const run = (over: { view?: ReturnType<typeof view>; streaming?: boolean; failed?: unknown }) => ({ view: view([]), streaming: false, failed: null as unknown, ...over })
   const step = (status: ToolStep["status"], result?: unknown): ToolStep => ({ toolCallId: "c1", tool: "send_payment", status, args: approval.args, result })
 
   it("says sending, then sent with the transaction", () => {

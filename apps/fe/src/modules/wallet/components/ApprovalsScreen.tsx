@@ -10,8 +10,7 @@ import {
   SnowflakeIcon,
   XIcon,
 } from "lucide-react"
-import { useEffect, useState } from "react"
-import { toast } from "sonner"
+import { useState } from "react"
 import { CountBadge } from "@/components/elements/CountBadge"
 import { MindAvatar } from "@/components/elements/MindAvatar"
 import { PageTitle } from "@/components/elements/PageTitle"
@@ -19,18 +18,16 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { mindHref } from "@/components/layout/nav"
-import { ApiError } from "@/lib/api"
-import { explorerTxUrl, formatNear, shortWhen, timeAgo } from "@/lib/format"
+import { formatNear, shortWhen, timeAgo } from "@/lib/format"
 import { useSession } from "@/modules/auth/hooks/useSession"
 import { chatApi } from "@/modules/chat/api"
 import { paymentOf, toolLabel, type ToolStep } from "@/modules/chat/data/events"
-import { useChatRun, type ActiveRun } from "@/modules/chat/hooks/ChatRunProvider"
+import { answerLost } from "@/modules/chat/data/answer"
+import { useChatRun } from "@/modules/chat/hooks/ChatRunProvider"
 import type { ApiApproval, ApiPayment, ApiWallet } from "@/modules/minds/api"
 import { useApprovals, useMind, useMindWallet, usePayments } from "@/modules/minds/hooks/useMinds"
 import { approvalChecks } from "@/modules/wallet/data/checks"
 import { FreezeDialog } from "@/modules/wallet/components/FreezeDialog"
-
-type Answer = { runId: string; toolCallId: string; action: "approve" | "decline"; approval: ApiApproval }
 
 /**
  * Approvals (design "5 · Money", A1): every payment the Mind wants to make waits here with what
@@ -44,45 +41,21 @@ export function ApprovalsScreen({ mindId }: { mindId: string }) {
   const approvals = useApprovals(mindId)
   const demo = Boolean(useSession().data?.demo)
   const { active, resume } = useChatRun()
-  const [answer, setAnswer] = useState<Answer | null>(null)
   const [freezeOpen, setFreezeOpen] = useState(false)
 
   const name = mind?.name ?? "Your Mind"
   const templateId = mind?.templateId ?? "general-assistant"
-  const run = answer && active?.resumeOf === answer.runId ? active : null
-  const sending = Boolean(run?.streaming)
-  // The answered card leaves the list, unless the answer never got through (then it can be tried again).
-  const lost = Boolean(run?.failed) && !(run?.failed instanceof ApiError && run.failed.code === "not_awaiting_approval")
-  // The card stays (saying "Sending") until the answer is through; it comes back if it never arrived.
-  const done = Boolean(run && !run.streaming && !lost)
-  const waiting = (approvals.data ?? []).filter((a) => !(answer && done && a.toolCallId === answer.toolCallId))
+  // The answer in progress (from ChatRunProvider, so the chat's card agrees): its card says
+  // "Sending" and the others wait their turn (A1.2). Once through, it leaves the list; if it
+  // never arrived, it stays to be tried again. Progress and result are a toast from the provider.
+  const answer = active?.answer ?? null
+  const sending = Boolean(answer && active?.streaming)
+  const done = Boolean(answer && active && !active.streaming && !answerLost(active.failed))
+  const waiting = (approvals.data ?? []).filter((a) => !(done && a.toolCallId === answer?.toolCallId))
   const empty = !approvals.isPending && !approvals.isError && waiting.length === 0
 
-  // The answer's progress and result as one toast (Ancung, 9 Nov): sending, then sent with a
-  // NearBlocks button, blocked, declined, or not delivered. It follows the user to other screens.
-  const outcome = answer && run ? answerOutcome(answer, run) : null
-  const outcomeKey = outcome ? `${answer?.toolCallId}:${outcome.kind}` : null
-  useEffect(() => {
-    if (!outcome || !answer) return
-    const id = `answer-${answer.toolCallId}`
-    const opts = {
-      id,
-      description: outcome.detail,
-      action: outcome.txHash
-        ? { label: "NearBlocks ↗", onClick: () => window.open(explorerTxUrl(outcome.txHash!), "_blank", "noopener,noreferrer") }
-        : undefined,
-    }
-    if (outcome.kind === "sending") toast.loading(outcome.title, opts)
-    else if (outcome.kind === "sent") toast.success(outcome.title, { ...opts, duration: 10_000 })
-    else if (outcome.kind === "declined") toast(outcome.title, opts)
-    else toast.error(outcome.title, { ...opts, duration: 10_000 })
-    // Only when the outcome changes, not on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [outcomeKey])
-
   function respond(approval: ApiApproval, action: "approve" | "decline") {
-    setAnswer({ runId: approval.runId, toolCallId: approval.toolCallId, action, approval })
-    resume({ runId: approval.runId, threadId: approval.threadId, toolCallId: approval.toolCallId, action })
+    resume({ runId: approval.runId, threadId: approval.threadId, toolCallId: approval.toolCallId, action, tool: approval.tool, args: approval.args })
   }
 
   return (
@@ -244,37 +217,6 @@ function useAsked(mindId: string, approval: ApiApproval): string | null {
     staleTime: Infinity,
   })
   return data ?? null
-}
-
-type Outcome = { kind: "sending" | "sent" | "declined" | "blocked" | "failed"; title: string; detail?: string; txHash?: string }
-
-/** A1.3 as a toast: what happened to the answer just given. */
-export function answerOutcome(answer: Answer, run: ActiveRun): Outcome {
-  const step = run.view.tools.find((t) => t.toolCallId === answer.toolCallId)
-  const payment = paymentOf(step ?? stepOf(answer.approval))
-  const what = payment ? `${payment.amountNear} NEAR to ${payment.to}` : toolLabel(answer.approval.tool)
-
-  if (run.streaming) return { kind: "sending", title: answer.action === "approve" ? `Sending ${what}` : `Declining ${what}` }
-  if (run.failed) {
-    const already = run.failed instanceof ApiError && run.failed.code === "not_awaiting_approval"
-    return already
-      ? { kind: "failed", title: `${what} was already answered` }
-      : { kind: "failed", title: `Couldn't send your answer`, detail: `Nothing changed for ${what}. Try again.` }
-  }
-  if (answer.action === "decline" || step?.status === "declined") return { kind: "declined", title: `Declined ${what}`, detail: "Nothing was sent." }
-  if (step?.status === "ok") return { kind: "sent", title: `Sent ${what}`, txHash: payment?.txHash }
-  if (step?.status === "policy_denied" || step?.status === "wallet_frozen") {
-    return {
-      kind: "blocked",
-      title: `${what} wasn't sent`,
-      detail: step.status === "wallet_frozen" ? "The wallet is frozen." : "Your limits stopped it before signing.",
-    }
-  }
-  return { kind: "failed", title: `${what} didn't go through`, detail: "Nothing was sent." }
-}
-
-function stepOf(a: ApiApproval): ToolStep {
-  return { toolCallId: a.toolCallId, tool: a.tool, status: "awaiting_approval", args: a.args, result: undefined }
 }
 
 /** A1.4: empty is good news. Says when things show up and keeps the limits close. */
