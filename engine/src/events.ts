@@ -1,6 +1,7 @@
 // Normalizes Mastra stream chunks into HelloNear events (docs/api-contract.md §3).
 // The UI and Mind Graph depend on these, never on raw Mastra chunks.
 import { builderNodeId, nodeIdFor, type BuilderStep } from './graph.ts'
+import { plainDashes } from './mind.ts'
 import { priceOf } from './models.ts'
 import { redact } from './secrets.ts'
 import type { Verification } from './verify.ts'
@@ -34,9 +35,14 @@ export function createNormalizer(opts: { mindId: string; threadId: string; model
         return [emit(chunk.runId, 'step.started', { step: ++step })]
       case 'reasoning-delta':
         return p.text ? [emit(chunk.runId, 'reasoning.delta', { text: p.text })] : []
-      case 'text-delta':
-        text += p.text ?? ''
-        return p.text ? [emit(chunk.runId, 'text.delta', { text: p.text })] : []
+      case 'text-delta': {
+        // House style (Axel, 9 Nov): no em or en dashes in what the owner reads. The prompt asks for it (#109), but
+        // a model still copies them from real calendars and inboxes (#124), so the reply text is normalised here.
+        // Display only: the TEE verification covers the model's own completion bytes.
+        const t = plainDashes(p.text ?? '')
+        text += t
+        return t ? [emit(chunk.runId, 'text.delta', { text: t })] : []
+      }
       case 'tool-call':
         return [emit(chunk.runId, 'tool.called', { toolCallId: p.toolCallId, tool, nodeId: nodeIdFor(opts.mindId, tool!, p.args), args: p.args })]
       case 'tool-result':
