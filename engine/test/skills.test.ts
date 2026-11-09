@@ -8,10 +8,22 @@ test('every SKILL.md in engine/skills parses and only uses registered tools', ()
   assert.deepEqual(skillCatalog.get('daily-planner')?.tools, ['get_time', 'add_numbers', 'googlecalendar_list_events', 'googlecalendar_create_event', 'googlecalendar_create_meeting'])
   assert.deepEqual(skillCatalog.get('daily-planner')?.connections, ['googlecalendar', 'googlemeet'])
   assert.equal(skillCatalog.get('payments')?.status, 'available')
-  assert.deepEqual(skillCatalog.get('payments')?.tools, ['send_payment', 'get_balance', 'list_payments', 'get_time'])
+  assert.deepEqual(skillCatalog.get('payments')?.tools, ['send_payment', 'get_balance', 'list_payments', 'get_time', 'near_view_account'])
   assert.equal(skillCatalog.get('email-triage')?.status, 'available')
   assert.deepEqual(skillCatalog.get('email-triage')?.tools, ['gmail_list_emails', 'gmail_read_email', 'gmail_create_draft', 'get_time'])
   assert.equal(skillCatalog.get('daily-planner')?.skill.name, 'daily-planner')
+})
+
+test('shared references load into the skill for skill_read, once per file, reused by several skills', () => {
+  const payments = skillCatalog.get('payments')!
+  const lookup = skillCatalog.get('near-account')!
+  assert.deepEqual(payments.references, ['near-recipients.md'])
+  const text = (payments.skill as unknown as { __referenceContents: Record<string, string> }).__referenceContents['near-recipients.md']
+  assert.match(text, /UNKNOWN_ACCOUNT/)
+  assert.equal((lookup.skill as unknown as { __referenceContents: Record<string, string> }).__referenceContents['near-recipients.md'], text)
+  const md = (refs: string) => `---\nname: t\ndescription: d\nmetadata:\n  hellonear:\n    tools: []\n    connections: []\n    status: available\n    references: ${refs}\n---\n# Body\n`
+  assert.throws(() => parseSkillMd(md('[../secrets.md]'), 't', () => ''), /Invalid|regex|string/i)
+  assert.throws(() => parseSkillMd(md('[missing.md]'), 't'), /ENOENT/)
 })
 
 test('blocked and unknown skills are never usable', () => {
