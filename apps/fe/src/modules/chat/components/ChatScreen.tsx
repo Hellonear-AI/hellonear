@@ -100,8 +100,15 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
       )}
 
       <div className="relative min-h-0 flex-1">
-        <div ref={scrollRef} onScroll={onScroll} className="relative h-full overflow-y-auto overscroll-contain">
-          <div className="mx-auto flex min-h-full w-full max-w-[804px] flex-col gap-5 px-4 py-6 md:px-10">
+        {/* The text fades out over the last 48 px before the composer instead of being cut at a hard
+            line (Ancung, 9 Nov, like Gemini). A mask, so it works on any background; the content has
+            the same room at the bottom so the last line is clear once scrolled to the end. */}
+        <div
+          ref={scrollRef}
+          onScroll={onScroll}
+          className="relative h-full overflow-y-auto overscroll-contain [mask-image:linear-gradient(to_bottom,black_calc(100%-48px),transparent)]"
+        >
+          <div className="mx-auto flex min-h-full w-full max-w-[804px] flex-col gap-5 px-4 pt-6 pb-12 md:px-10">
             {notFound ? (
               <Centered>
                 <p className="text-sm text-muted-foreground">This chat isn&apos;t here any more.</p>
@@ -141,8 +148,8 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
                     <div
                       ref={i === shown.length - 1 ? lastRef : undefined}
                       className="flex flex-col gap-5"
-                      // Room below the pinned turn so it can sit at the top (padding 16 above, 24 below).
-                      style={pinned && i === shown.length - 1 && viewHeight ? { minHeight: viewHeight - 40 } : undefined}
+                      // Room below the pinned turn so it can sit at the top (16 above it, 48 of padding below).
+                      style={pinned && i === shown.length - 1 && viewHeight ? { minHeight: viewHeight - 64 } : undefined}
                     >
                     <TurnView
                       mindId={mindId}
