@@ -1,6 +1,6 @@
 // Client for the backend HTTP API (docs/api-contract.md §7).
 // - Hosted (NEXT_PUBLIC_API_URL set): call the API directly. The FE and the API share a site
-//   (hellonear.jameshub.fun and api-hellonear.jameshub.fun), so the SameSite=Lax cookie is sent,
+//   (app.hellonear.xyz and api.hellonear.xyz), so the SameSite=Lax cookie is sent,
 //   and the backend sees each visitor's own IP (try-out limits are per IP; a proxy would make
 //   every visitor share the host's IP).
 // - Local dev (unset): `/api/v1/…` on our own origin, forwarded by next.config.js, so the cookie
