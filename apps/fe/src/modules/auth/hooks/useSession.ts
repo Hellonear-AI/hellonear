@@ -100,6 +100,23 @@ export function useLeaveTryOut() {
   return () => signOut.mutate(undefined, { onSettled: () => router.replace("/") })
 }
 
+/**
+ * "Connect Meteor" from a try-out (T1.4): opens Meteor right away, in the same click. A wallet
+ * login replaces the try-out's session cookie (`POST /auth/login` sets a new one), so there is no
+ * sign-out first. Then a full reload to `/`, which opens the account's newest Mind, so nothing
+ * cached from the try-out is shown.
+ */
+export function useSwitchToWallet() {
+  const signIn = useSignIn()
+  return {
+    start: () => signIn.mutate({ walletId: "meteor-wallet" }, { onSuccess: () => window.location.replace("/") }),
+    // Stays pending through the reload, so the button keeps saying "Waiting for Meteor".
+    isPending: signIn.isPending || signIn.isSuccess,
+    error: signIn.error,
+    reset: signIn.reset,
+  }
+}
+
 /** End the backend session, disconnect the wallet, and drop every cached response. */
 export function useSignOut() {
   const { signOut } = useNearWallet()

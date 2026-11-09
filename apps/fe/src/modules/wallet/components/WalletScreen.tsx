@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckIcon, CircleSlashIcon, CopyIcon, HourglassIcon, PlusIcon, SnowflakeIcon, WalletIcon, XIcon } from "lucide-react"
+import { CheckIcon, CircleSlashIcon, CopyIcon, HourglassIcon, LockIcon, PlusIcon, SnowflakeIcon, WalletIcon, XIcon } from "lucide-react"
 import { useState, type ReactNode } from "react"
 import { cn } from "cn"
 import { PageTitle } from "@/components/elements/PageTitle"
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatNear } from "@/lib/format"
+import { TryOutLockedDialog, useTryOutLock, type LockedAction } from "@/modules/auth/components/TryOutLockedDialog"
 import { useSession } from "@/modules/auth/hooks/useSession"
 import type { ApiWallet } from "@/modules/minds/api"
 import { useMind, useMindWallet, usePayments } from "@/modules/minds/hooks/useMinds"
@@ -38,6 +39,10 @@ export function WalletScreen({ mindId }: { mindId: string }) {
     setOpened((n) => n + 1)
     setOpen(which)
   }
+  // A try-out sees the owner's buttons, and each one says why it needs a wallet (T1.4).
+  const locked = useTryOutLock()
+  const LOCK: Record<Exclude<Open, null>, LockedAction> = { limits: "limits", funds: "add-funds", freeze: "freeze" }
+  const act = (which: Exclude<Open, null>) => (demo ? locked.lock(wallet ? LOCK[which] : "wallet") : show(which))
 
   const name = mind?.name ?? "Your Mind"
   const readOnly = demo || Boolean(wallet?.shared)
@@ -49,13 +54,13 @@ export function WalletScreen({ mindId }: { mindId: string }) {
       title="Wallet"
       description={wallet === null ? `${name} has no wallet, so it can't pay for anything yet.` : `${name}'s own wallet. It can only spend inside the limits you set.`}
       actions={
-        wallet && !readOnly ? (
+        wallet && (!readOnly || demo) ? (
           <>
-            <Button variant={empty ? "default" : "outline"} onClick={() => show("funds")}>
+            <Button variant={empty && !demo ? "default" : "outline"} onClick={() => act("funds")}>
               <PlusIcon />
               Add funds
             </Button>
-            <Button variant={wallet.frozen ? "outline" : "destructive"} onClick={() => show("freeze")}>
+            <Button variant={wallet.frozen ? "outline" : "destructive"} onClick={() => act("freeze")}>
               <SnowflakeIcon />
               {wallet.frozen ? "Unfreeze" : "Freeze wallet"}
             </Button>
@@ -79,15 +84,15 @@ export function WalletScreen({ mindId }: { mindId: string }) {
           </Button>
         </Card>
       ) : wallet === null || wallet === undefined ? (
-        <NoWallet name={name} demo={demo} onSetUp={() => show("limits")} />
+        <NoWallet name={name} onSetUp={() => act("limits")} />
       ) : (
         <>
           {wallet.frozen && (
             <div role="status" className="flex items-center gap-3 rounded-md bg-danger-soft px-4 py-2.5 text-sm text-foreground">
               <SnowflakeIcon className="size-4 shrink-0 text-danger" />
               <p className="min-w-0 flex-1">{name}&apos;s wallet is frozen. {name} and its skills can&apos;t send anything.</p>
-              {!readOnly && (
-                <button type="button" onClick={() => show("freeze")} className="shrink-0 rounded-sm font-semibold text-danger outline-none hover:underline focus-visible:ring-2 focus-visible:ring-focus">
+              {(!readOnly || demo) && (
+                <button type="button" onClick={() => act("freeze")} className="shrink-0 rounded-sm font-semibold text-danger outline-none hover:underline focus-visible:ring-2 focus-visible:ring-focus">
                   Unfreeze
                 </button>
               )}
@@ -101,12 +106,13 @@ export function WalletScreen({ mindId }: { mindId: string }) {
             </div>
             {/* The limits stay in view beside the activity on desktop (Ancung, 9 Nov). */}
             <aside className="flex flex-col gap-6 xl:sticky xl:top-8 xl:w-[380px] xl:shrink-0">
-              <LimitsCard name={name} wallet={wallet} readOnly={readOnly} noLimits={noLimits} onEdit={() => show("limits")} />
+              <LimitsCard name={name} wallet={wallet} readOnly={readOnly} demo={demo} noLimits={noLimits} onEdit={() => act("limits")} />
             </aside>
           </div>
         </>
       )}
 
+      <TryOutLockedDialog action={locked.action} name={name} onClose={locked.close} />
       {/* Mounted only when there is something to act on; the key resets each opening. */}
       {!readOnly && wallet !== undefined && (
         <LimitsDialog key={`l${opened}`} mindId={mindId} name={name} wallet={wallet ?? null} open={open === "limits"} onOpenChange={(o) => setOpen(o ? "limits" : null)} />
@@ -249,7 +255,21 @@ function Activity({ mindId, name }: { mindId: string; name: string }) {
   )
 }
 
-function LimitsCard({ name, wallet, readOnly, noLimits, onEdit }: { name: string; wallet: ApiWallet; readOnly: boolean; noLimits: boolean; onEdit: () => void }) {
+function LimitsCard({
+  name,
+  wallet,
+  readOnly,
+  demo,
+  noLimits,
+  onEdit,
+}: {
+  name: string
+  wallet: ApiWallet
+  readOnly: boolean
+  demo: boolean
+  noLimits: boolean
+  onEdit: () => void
+}) {
   const limit = wallet.policy?.perTransactionNear
   const count = wallet.policy?.whitelist?.length ?? 0
   return (
@@ -260,7 +280,7 @@ function LimitsCard({ name, wallet, readOnly, noLimits, onEdit }: { name: string
           <p className="text-[13px] text-muted-foreground">
             {name} has no limits yet, so it can&apos;t pay anyone. Set them, and Meteor asks for your signature.
           </p>
-          {!readOnly && (
+          {(!readOnly || demo) && (
             <Button className="w-fit" onClick={onEdit}>
               Set limits
             </Button>
@@ -271,15 +291,30 @@ function LimitsCard({ name, wallet, readOnly, noLimits, onEdit }: { name: string
           {/* One Edit for both: the design's Manage opened the same dialog (Ancung, 9 Nov). No divider lines. */}
           <div className="flex items-center justify-between gap-3">
             <Row label="Per payment" value={`Up to ${limit} NEAR`} />
-            {!readOnly && (
-              <Button variant="outline" size="sm" onClick={onEdit}>
-                Edit
+            {demo ? (
+              // T1.4: the try-out's limits are HelloNear's; this says why instead of hiding Edit.
+              <Button variant="ghost" size="sm" onClick={onEdit} className="text-muted-foreground">
+                <LockIcon />
+                Locked
               </Button>
+            ) : (
+              !readOnly && (
+                <Button variant="outline" size="sm" onClick={onEdit}>
+                  Edit
+                </Button>
+              )
             )}
           </div>
-          <Row label={`Who ${name} can pay`} value={count === 1 ? "1 address you added" : `${count} addresses you added`} />
+          <Row
+            label={`Who ${name} can pay`}
+            value={demo ? "Approved test addresses" : count === 1 ? "1 address you added" : `${count} addresses you added`}
+          />
           <p className="text-xs text-muted-foreground">
-            {readOnly ? "This try-out pays from a shared test wallet. Connect a wallet to set your own limits." : `Saved where ${name} can't change them. Changes need your signature.`}
+            {demo
+              ? "Try-out limits are set by HelloNear. Connect a wallet to set your own."
+              : readOnly
+                ? "This wallet is shared. Its limits are set by HelloNear."
+                : `Saved where ${name} can't change them. Changes need your signature.`}
           </p>
         </>
       )}
@@ -297,7 +332,7 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 /** W1.6: a Mind made without a wallet. It can chat and plan; paying needs a wallet, limits first. */
-function NoWallet({ name, demo, onSetUp }: { name: string; demo: boolean; onSetUp: () => void }) {
+function NoWallet({ name, onSetUp }: { name: string; onSetUp: () => void }) {
   return (
     <Card className="items-center px-6 py-12 text-center">
       <span className="flex size-12 items-center justify-center rounded-full bg-muted">
@@ -307,11 +342,7 @@ function NoWallet({ name, demo, onSetUp }: { name: string; demo: boolean; onSetU
       <p className="max-w-md text-sm text-muted-foreground">
         {name} can chat and plan without one. To let it pay for things, set up a wallet; you choose its limits first.
       </p>
-      {demo ? (
-        <p className="text-xs text-muted-foreground">Connect a wallet to do this.</p>
-      ) : (
-        <Button onClick={onSetUp}>Set up a wallet</Button>
-      )}
+      <Button onClick={onSetUp}>Set up a wallet</Button>
     </Card>
   )
 }

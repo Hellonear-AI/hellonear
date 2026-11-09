@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { ApiError } from "@/lib/api"
 import { authApi } from "@/modules/auth/api"
 import { demoError, walletError } from "@/modules/auth/components/SignInScreen"
+import { lockedReason, type LockedAction } from "@/modules/auth/components/TryOutLockedDialog"
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -24,5 +25,21 @@ describe("wallet sign-in errors (L1.3)", () => {
   it("says nothing changed when the wallet didn't sign", () => {
     expect(walletError(new Error("User rejected"))).toBe("Sign-in was canceled in the wallet. Nothing changed.")
     expect(walletError(new ApiError(401, "invalid_nonce"))).toContain("expired")
+  })
+})
+
+describe("try-out owner actions (T1.4)", () => {
+  const actions: LockedAction[] = ["add-funds", "freeze", "limits", "wallet", "keys"]
+
+  it("says why each action needs a wallet, in plain words", () => {
+    for (const a of actions) {
+      const text = lockedReason(a, "Penny")
+      expect(text.length).toBeGreaterThan(20)
+      expect(text).not.toMatch(/[—·]/) // no em dash, no "·" (UI rules)
+    }
+    expect(lockedReason("freeze", "Penny")).toBe(
+      "Freezing needs the owner's signature. In try-out, Penny uses a shared test wallet that only HelloNear can change."
+    )
+    expect(lockedReason("keys", "Penny")).toContain("can't keep them")
   })
 })
