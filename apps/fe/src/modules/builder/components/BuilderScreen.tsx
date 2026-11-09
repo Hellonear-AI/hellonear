@@ -28,6 +28,7 @@ import { createContext, useContext, useEffect, useRef, useState, useSyncExternal
 import { cn } from "cn"
 import { mindHref } from "@/components/layout/nav"
 import { ChoiceSelect } from "@/components/elements/ChoiceSelect"
+import { TimePicker } from "@/components/elements/TimePicker"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -1248,10 +1249,10 @@ function StartPanel({ draft, set }: { draft: Draft; set: (p: Partial<Draft>) => 
           />
         </div>
       )}
-      <label className={field}>
+      <div className={field}>
         <span className={label}>At</span>
-        <Input type="time" value={draft.time} onChange={(e) => set({ time: e.target.value })} />
-      </label>
+        <TimePicker aria-label="At" value={draft.time} onChange={(time) => set({ time })} />
+      </div>
       <div className={field}>
         <span className={label}>Time zone</span>
         <span className="text-sm text-muted-foreground">{zoneName(draft.timezone)}, from this device</span>

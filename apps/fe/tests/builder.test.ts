@@ -183,3 +183,12 @@ describe("Builder grid when zoomed out", () => {
     expect(gridOf(0.25).opacity).toBeLessThan(0.75)
   })
 })
+
+describe("TimePicker minutes", () => {
+  it("offers every 5 minutes, and keeps a saved odd minute pickable", async () => {
+    const { minuteChoices } = await import("@/components/elements/TimePicker")
+    expect(minuteChoices("15")).toHaveLength(12)
+    expect(minuteChoices("32")).toContain("32")
+    expect(minuteChoices("32").indexOf("32")).toBe(minuteChoices("32").indexOf("30") + 1)
+  })
+})
