@@ -18,6 +18,8 @@ export const mindSchema = z.object({
     priors: z.array(z.string()).default([]),
   }),
   model: z.string().optional(),
+  // Bumped by the backend when the name or soul changes (#116); memory is keyed on it so an old persona is not recalled.
+  personaVersion: z.number().int().min(0).optional(),
   // Equipped skills by id. The engine's catalog decides which tools each skill grants.
   skills: z.array(z.object({ skillId: z.string().refine((id) => skillCatalog.has(id), { message: 'unknown skillId' }) })).default([]),
 })
@@ -69,5 +71,8 @@ export function buildInstructions(mind: Mind): string {
   return lines.join('\n')
 }
 
-// Memory resource: one per user per Mind, so working memory never leaks between Minds.
-export const resourceId = (userId: string, mindId: string) => `${userId}:${mindId}`
+// Memory resource: one per user per Mind (so working memory never leaks between Minds), and per persona version once the owner renamed it or changed its soul
+// (#116): a renamed Mind once signed with its old name, recalled from the old memory. Version 0 / absent keeps the
+// original key, so Minds that never changed keep their memory.
+export const resourceId = (userId: string, mindId: string, personaVersion?: number) =>
+  personaVersion ? `${userId}:${mindId}:v${personaVersion}` : `${userId}:${mindId}`

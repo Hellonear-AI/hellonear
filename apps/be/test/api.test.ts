@@ -219,6 +219,28 @@ describe('minds (#8, #13)', () => {
     assert.equal((await alice.call('GET', `/v1/minds/${mind.id}`)).status, 404)
   })
 
+  test('a new name or soul bumps the persona version the engine keys memory on (#116)', async () => {
+    const alice = await signIn()
+    const { mind } = await (await alice.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Gina' })).json()
+    assert.equal(mind.personaVersion, 0)
+    const sentMind = async () => {
+      await events(await alice.call('POST', `/v1/minds/${mind.id}/chat`, { message: 'hi' }))
+      return fake.requests.findLast((r) => r.path === `/v1/minds/${mind.id}/chat`)!.body.mind
+    }
+    assert.equal('personaVersion' in (await sentMind()), false, 'never changed: no field, so today\'s memory id stays')
+    const patch = async (body: object) => (await (await alice.call('PATCH', `/v1/minds/${mind.id}`, body)).json()).mind.personaVersion
+    assert.equal(await patch({ name: 'Gina' }), 0, 'same name')
+    assert.equal(await patch({ skills: ['http-request'], model: 'z-ai/glm-5.3-flash' }), 0, 'skills and model keep memory')
+    assert.equal(await patch({ name: 'Grace' }), 1)
+    assert.equal((await sentMind()).personaVersion, 1)
+    const soul = { identity: 'Careful.', invariants: ['No.'], priors: [] }
+    assert.equal(await patch({ soul }), 2)
+    assert.equal(await patch({ soul }), 2, 'same soul')
+    assert.equal(await patch({ name: 'Grace', soul }), 2)
+    assert.equal(await patch({ name: 'Gwen', soul: { ...soul, identity: 'Bold.' } }), 3, 'one change, one bump')
+    assert.equal((await sentMind()).personaVersion, 3)
+  })
+
   test('templates pass through the engine card quote (#63)', async () => {
     const a = await signIn()
     const { templates } = await (await a.call('GET', '/v1/templates')).json()

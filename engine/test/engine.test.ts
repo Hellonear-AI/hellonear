@@ -100,6 +100,19 @@ describe('engine HTTP API', () => {
     assert.match(finalText(b), /Rex/)
   })
 
+  test('a renamed Mind (personaVersion) gets a fresh memory resource (#116)', async () => {
+    const threadId = randomUUID()
+    await events(await post('/v1/minds/renamed/chat', { userId, threadId, message: 'Say hi in three words.', mind: { ...mind('Rex'), personaVersion: 2 } }))
+    const db = new pg.Client({ connectionString: process.env.DATABASE_URL })
+    await db.connect()
+    try {
+      const { rows } = await db.query(`select "resourceId" from mastra.mastra_threads where id = $1`, [threadId])
+      assert.equal(rows[0]?.resourceId, `${userId}:renamed:v2`)
+    } finally {
+      await db.end()
+    }
+  })
+
   test('remembers earlier messages in the same thread', async () => {
     const threadId = randomUUID()
     await events(await post('/v1/minds/memory/chat', { userId, threadId, message: 'My favourite colour is teal. Just say OK.', mind: mind('Mo') }))

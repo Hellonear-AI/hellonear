@@ -170,7 +170,7 @@ const loadedSkills = (mind: Mind) => usableSkills(mind.skills.map((s) => s.skill
 
 const agentOptions = (mind: Mind, secrets: Secret[], userId: string, mindId: string, threadId: string, tokens: { walletToken?: string; mailToken?: string; timeZone?: string }, demo?: boolean) => ({
   requestContext: contextFor(mind, secrets, { ...tokens, demo, userId }),
-  memory: { resource: resourceId(userId, mindId), thread: threadId },
+  memory: { resource: resourceId(userId, mindId, mind.personaVersion), thread: threadId },
   maxSteps: 8,
   // No automatic retries: each completion must map to one verifiable request (NEAR AI SDK guide).
   modelSettings: { maxOutputTokens: config.maxOutputTokens, maxRetries: 0, timeout: { totalMs: config.runTimeoutMs } },
