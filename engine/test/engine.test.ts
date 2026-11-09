@@ -94,7 +94,9 @@ describe('engine HTTP API', () => {
     // A new thread: within the same thread the model tends to copy its earlier replies
     // ("[Penny]") even though the instructions already say Rex (verified 3 Nov). No em dash in the
     // signature: every Mind is told not to use one (#109), and a persona asking for it lost the signature.
-    const b = await events(await post('/v1/minds/persona/chat', { userId, threadId: randomUUID(), message: 'Say hello again in one short sentence.', mind: mind('Rex') }))
+    // Another user (another memory resource): the engine's memory is per user per Mind, and semantic recall from the
+    // first thread once brought back "[Penny]" (9 Nov, issue #116). This test is about the persona, not memory.
+    const b = await events(await post('/v1/minds/persona/chat', { userId: `${userId}-rex`, threadId: randomUUID(), message: 'Say hello again in one short sentence.', mind: mind('Rex') }))
     assert.match(finalText(b), /Rex/)
   })
 
