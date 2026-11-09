@@ -12,7 +12,7 @@ set -euo pipefail
 : "${DEPLOY_CT:?set DEPLOY_CT, the LXC vmid}"
 REPO=${AUTODEPLOY_REPO:-Hellonear-AI/hellonear}
 DIR=${AUTODEPLOY_DIR:-$HOME/.local/share/hellonear-autodeploy}
-HEALTH_URL=${AUTODEPLOY_HEALTH_URL:-https://api-hellonear.jameshub.fun/v1/health}
+HEALTH_URL=${AUTODEPLOY_HEALTH_URL:-https://api.hellonear.xyz/v1/health}
 NOTIFY=${AUTODEPLOY_NOTIFY:-}   # e.g. "@someone": mentioned when a deploy needs a person
 
 mkdir -p "$DIR/state" "$DIR/logs"

@@ -28,7 +28,7 @@ rev=$(git rev-parse --short HEAD)
 ct() { ssh -o BatchMode=yes "$DEPLOY_HOST" "pct exec $DEPLOY_CT -- $*"; }
 stop() { echo "STOP: $*" >&2; exit 3; }
 PATHS=(engine apps/be apps/fe deploy)
-FE_API_URL=${DEPLOY_FE_API_URL:-https://api-hellonear.jameshub.fun}
+FE_API_URL=${DEPLOY_FE_API_URL:-https://api.hellonear.xyz}
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 
 # 1. Hand edits: the live release must be exactly git at the revision it was deployed from. Only the folders
