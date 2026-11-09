@@ -1,6 +1,6 @@
 // What each skill means for people (design "6 · Skills and apps", S1 to S3). The engine's own
 // descriptions are written for the model, so the words live here, keyed by skill id. Payments and
-// Email helper follow the design; Daily planner, NEAR account lookup and Your own services follow
+// Email helper follow the design; Daily planner, NEAR account lookup and Other apps follow
 // the same pattern and still need Nabil's review. A skill the FE doesn't know gets a plain card.
 
 import type { ApiConnection } from "@/modules/minds/api"
@@ -87,8 +87,9 @@ export const SKILLS: Record<string, SkillCopy> = {
     removed: (c) => `${c.name} won't look up NEAR accounts any more.`,
   },
   "http-request": {
-    title: "Your own services",
-    blurb: "Calls a web address you trust, using a key you saved in Connections.",
+    // Renamed from the design's "Your own services" (Ancung, 9 Nov: the card didn't say what it was).
+    title: "Other apps",
+    blurb: "Talks to other apps and websites you use, like your shop or your own server, with a key you saved in Connections.",
     canUse: () => ["Only keys you pick in Connections", "Only addresses you give it"],
     cannot: [],
     ask: {
@@ -99,8 +100,8 @@ export const SKILLS: Record<string, SkillCopy> = {
       never: () => ["See your key's value", "Use a key on a site you didn't allow"],
       note: "No signature needed. A key only goes to the sites you listed, and the Mind never sees its value.",
     },
-    added: (c) => `${c.name} can call your own services. Save their keys in Connections first.`,
-    removed: (c) => `${c.name} won't call your services any more. Your saved keys stay in Connections.`,
+    added: (c) => `${c.name} can talk to other apps now. Save their keys in Connections first.`,
+    removed: (c) => `${c.name} won't talk to other apps any more. Your saved keys stay in Connections.`,
   },
 }
 
