@@ -47,7 +47,7 @@ Axel approves every merge to `main`, and that approval covers deploying that `ma
 
 The deploy must stop by itself, and ask, instead of overwriting or breaking things:
 - **Hand edits on the box:** if `/opt/hellonear/app` differs from git at the revision it was deployed from, do not deploy; report it.
-- **Destructive migrations:** if a new file in `apps/be/migrations/` contains `drop`, `delete`, `truncate` or `alter … type`, do not deploy; ask Axel.
+- **Destructive migrations:** if a new file in `apps/be/migrations/` contains `drop`, `delete`, `truncate` or `alter … type`, do not deploy; ask Axel. Foreign-key actions (`on delete cascade`, `on update set null`, …) do not count: they delete nothing when the migration runs. The check is `deploy/destructive-sql.sh` (it prints the statements it stopped on); `deploy/test-destructive-sql.sh` runs it on every migration and on known destructive statements.
 - **Failed health check:** if either `/v1/health` fails after the swap, roll back to `release-old` automatically and report it.
 
 After each deploy, post one comment on the merged PR: the revision, `/v1/health`, and any rollback. That comment also tells the team the merge is live.

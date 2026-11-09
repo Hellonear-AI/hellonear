@@ -53,7 +53,8 @@ if [ -n "$live" ]; then
   changed=$(git diff --name-only --diff-filter=MDR "$live" HEAD -- apps/be/migrations/)
   [ -z "$changed" ] || [ "${DEPLOY_ALLOW_DESTRUCTIVE:-}" = 1 ] || stop "migrations changed after they ran (add a new one instead): $changed"
   for f in $added; do
-    if git show "HEAD:$f" | sed 's/--.*$//' | tr '\n' ' ' | tr ';' '\n' | grep -qiE '\b(drop|delete|truncate)\b|\balter\b[^;]*\btype\b'; then
+    # Foreign-key actions such as `on delete cascade` are not deletes (deploy/destructive-sql.sh).
+    if git show "HEAD:$f" | deploy/destructive-sql.sh >&2; then
       [ "${DEPLOY_ALLOW_DESTRUCTIVE:-}" = 1 ] || stop "$f may destroy data (drop/delete/truncate/alter … type): ask Axel"
       echo "warning: $f may destroy data; going ahead (DEPLOY_ALLOW_DESTRUCTIVE=1)" >&2
     fi

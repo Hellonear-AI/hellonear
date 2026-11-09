@@ -1,4 +1,4 @@
-// Owners' own apps through Composio: Gmail (#13) and Google Calendar (#57). The owner connects each app once through
+// Owners' own apps through Composio: Gmail (#13), Google Calendar (#57) and Google Meet (#97). The owner connects each app once through
 // the backend (#45); Composio keeps the OAuth tokens. The Composio user id is our user id, so a session opened for the
 // run's user only reaches that user's apps. REST v3.1 (docs.composio.dev, read 6 Nov 2026), checked live (7 Nov): one
 // session enables both toolkits, and a toolkit the user has not connected gets 400 ToolRouterV2_NoActiveConnection
@@ -25,8 +25,9 @@ async function call(method: string, path: string, body?: unknown): Promise<{ sta
   return { status: res.status, json: await res.json().catch(() => ({})) }
 }
 
-// Composio toolkit slugs, the same as the backend's `TOOLKITS`.
-const TOOLKITS: App[] = ['gmail', 'googlecalendar']
+// Composio toolkit slugs, the same as the backend's `TOOLKITS`. googlemeet (#97) makes Meet links through the Meet
+// REST API, which works without a paid Workspace account (Calendar's own create_meeting_room does not).
+const TOOLKITS: App[] = ['gmail', 'googlecalendar', 'googlemeet']
 
 // One session per user, reused for a while instead of one per tool call.
 const SESSION_TTL_MS = 30 * 60 * 1000
