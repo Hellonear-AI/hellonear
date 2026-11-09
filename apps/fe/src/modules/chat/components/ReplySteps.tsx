@@ -1,6 +1,6 @@
 "use client"
 
-import { BrainIcon, CheckIcon, ChevronDownIcon, Loader2Icon, XIcon } from "lucide-react"
+import { CheckIcon, ChevronDownIcon, Loader2Icon, XIcon } from "lucide-react"
 import { useId, useState, type ReactNode } from "react"
 import { cn } from "cn"
 import type { ToolStep } from "@/modules/chat/data/events"
@@ -30,7 +30,7 @@ export function ThoughtRow({ text, from, to, live }: { text: string; from: strin
   const seconds = Math.max(1, Math.round((new Date(to).getTime() - new Date(from).getTime()) / 1000))
   return (
     <Row
-      icon={<BrainIcon className="text-muted-foreground" />}
+      icon={null}
       label={live ? "Thinking..." : `Thought for ${seconds}s`}
       detail={null}
       shimmer={live}
@@ -46,6 +46,7 @@ function Row({
   shimmer,
   details,
 }: {
+  /** Status icon for tools; thoughts have none (Ancung, 9 Nov). */
   icon: ReactNode
   label: string
   detail: string | null
@@ -56,7 +57,7 @@ function Row({
   const panelId = useId()
   const line = (
     <>
-      <span className="flex size-4 shrink-0 items-center justify-center [&>svg]:size-3.5">{icon}</span>
+      {icon && <span className="flex size-4 shrink-0 items-center justify-center [&>svg]:size-3.5">{icon}</span>}
       <span className={cn("min-w-0 truncate text-[13px] text-foreground", shimmer && "text-shimmer")}>{label}</span>
       {detail && <span className="min-w-0 truncate text-[13px] text-muted-foreground">{detail}</span>}
     </>
@@ -81,7 +82,8 @@ function Row({
         <div className="flex max-w-full items-center gap-2 py-1">{line}</div>
       )}
       {details && open && (
-        <div id={panelId} className="mt-1 ml-6 max-w-full rounded-md bg-muted px-3 py-2.5 animate-in fade-in-0 duration-150 ease-out motion-reduce:animate-none">
+        // Plain and level with the row: no indent, no box (Ancung, 9 Nov).
+        <div id={panelId} className="max-w-full pt-1 pb-1 animate-in fade-in-0 duration-150 ease-out motion-reduce:animate-none">
           {details}
         </div>
       )}

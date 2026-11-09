@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { foldRun, type RunEvent, type ToolStep } from "@/modules/chat/data/events"
 import { stepText } from "@/modules/chat/data/steps"
 import { lines } from "@/modules/chat/components/ReplySteps"
+import { closeOpenMarks } from "@/modules/chat/components/ReplyText"
 
 const step = (tool: string, status: ToolStep["status"], result?: unknown, args?: unknown): ToolStep => ({ toolCallId: "c", tool, status, args, result })
 
@@ -41,5 +42,14 @@ describe("thought parts", () => {
     ])
     expect(v.parts[0]).toEqual({ kind: "thought", text: "Check balance", from: "2026-11-09T10:00:00Z", to: "2026-11-09T10:00:04Z" })
     expect(v.parts[1]).toEqual({ kind: "tool", toolCallId: "c1" })
+  })
+})
+
+describe("closeOpenMarks (Markdown while streaming)", () => {
+  it("closes a bold or code mark that hasn't arrived yet", () => {
+    expect(closeOpenMarks("Kirim **0.1 NEAR ke `ancung")).toBe("Kirim **0.1 NEAR ke `ancung`**")
+    expect(closeOpenMarks("Kirim **0.1 NE")).toBe("Kirim **0.1 NE**")
+    expect(closeOpenMarks("**done** and `x`")).toBe("**done** and `x`")
+    expect(closeOpenMarks("```\ncode")).toBe("```\ncode")
   })
 })
