@@ -1,7 +1,8 @@
-import { ScreenPlaceholder } from "@/modules/minds/components/ScreenPlaceholder"
+import { SkillsScreen } from "@/modules/skills/components/SkillsScreen"
 
 export const metadata = { title: "Skills" }
 
-export default function Page() {
-  return <ScreenPlaceholder title="Skills" description="Teach your Mind new things. Every skill says what it can touch and spend." />
+export default async function Page({ params }: { params: Promise<{ mindId: string }> }) {
+  const { mindId } = await params
+  return <SkillsScreen mindId={mindId} />
 }
