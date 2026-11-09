@@ -25,6 +25,8 @@ import { chatApi } from "@/modules/chat/api"
 import { paymentOf, toolLabel, type ToolStep } from "@/modules/chat/data/events"
 import { answerLost } from "@/modules/chat/data/answer"
 import { useChatRun } from "@/modules/chat/hooks/ChatRunProvider"
+import { ApprovalDetailLines } from "@/modules/chat/components/RunCards"
+import { approvalDetails } from "@/modules/chat/data/approvalDetails"
 import type { ApiApproval, ApiPayment, ApiWallet } from "@/modules/minds/api"
 import { useApprovals, useMind, useMindWallet, usePayments } from "@/modules/minds/hooks/useMinds"
 import { approvalChecks } from "@/modules/wallet/data/checks"
@@ -149,6 +151,7 @@ function ApprovalCard({
 }) {
   const step: ToolStep = { toolCallId: approval.toolCallId, tool: approval.tool, status: "awaiting_approval", args: approval.args, result: undefined }
   const payment = paymentOf(step)
+  const details = payment ? null : approvalDetails(step)
   const { checks, next } = payment ? approvalChecks(payment, wallet) : { checks: [], next: "approve" as const }
   const asked = useAsked(mindId, approval)
   const busy = state !== "idle"
@@ -174,7 +177,10 @@ function ApprovalCard({
           <span className="max-w-full truncate rounded-sm bg-muted px-3 py-2 font-mono text-[13px] text-foreground">{payment.to}</span>
         </div>
       ) : (
-        <p className="text-lg font-medium text-foreground">{toolLabel(approval.tool)}</p>
+        <div className="flex flex-col gap-2">
+          <p className="text-lg font-medium text-foreground">{details?.title ?? toolLabel(approval.tool)}</p>
+          {details && <ApprovalDetailLines details={details} />}
+        </div>
       )}
 
       {asked && <p className="rounded-md bg-muted px-3 py-2.5 text-[13px] leading-5 text-muted-foreground">You asked: &ldquo;{asked}&rdquo;</p>}

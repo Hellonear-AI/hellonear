@@ -27,7 +27,8 @@ describe("lines (step details, no code font)", () => {
       ["Balance NEAR", "4.79"],
       ["To account", "x.testnet"],
     ])
-    expect(lines({ emails: [1, 2, 3] })).toEqual([["Emails", "3 items"]])
+    expect(lines({ emails: [{}, {}, {}] })).toEqual([["Emails", "3 items"]])
+    expect(lines({ attendees: ["budi@example.com"] })).toEqual([["Attendees", "budi@example.com"]])
     expect(lines("x".repeat(300))[0][1]).toHaveLength(283)
   })
 })

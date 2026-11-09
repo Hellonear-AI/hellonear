@@ -3,7 +3,7 @@
 import { CheckIcon, ExternalLinkIcon, KeyRoundIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon, TriangleAlertIcon } from "lucide-react"
 import { useState, type ReactNode } from "react"
 import { cn } from "cn"
-import { GmailLogo, GoogleCalendarLogo } from "@/components/elements/AppLogos"
+import { GmailLogo, GoogleCalendarLogo, GoogleMeetLogo } from "@/components/elements/AppLogos"
 import { PageTitle } from "@/components/elements/PageTitle"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -26,6 +26,12 @@ const APPS: { toolkit: ApiConnection["toolkit"]; logo: ReactNode; uses: string; 
     logo: <GoogleCalendarLogo />,
     uses: "Used by Daily planner to read your events and add new ones.",
     needs: "Daily planner uses it to read your events and add new ones.",
+  },
+  {
+    toolkit: "googlemeet",
+    logo: <GoogleMeetLogo />,
+    uses: "Used by Daily planner to add a video link to meetings it schedules.",
+    needs: "Daily planner uses it to add a video link to meetings.",
   },
 ]
 
@@ -84,7 +90,7 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
             <h2 id="apps" className="text-[15px] font-semibold text-foreground">
               Apps
             </h2>
-            {demo && <p className="text-[13px] text-muted-foreground">This try-out uses a sample inbox and calendar, so there is nothing to connect.</p>}
+            {demo && <p className="text-[13px] text-muted-foreground">This try-out uses a sample inbox, calendar and Meet link, so there is nothing to connect.</p>}
             {connections.isPending ? (
               <Skeleton className="h-36 w-full" />
             ) : connections.isError ? (

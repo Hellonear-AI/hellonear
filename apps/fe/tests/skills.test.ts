@@ -64,9 +64,9 @@ describe("mindsApi skills calls", () => {
 describe("skillLines", () => {
   it("says whether an optional app is connected, not 'if you connect it'", () => {
     const off = skillLines("daily-planner", { name: "Omaga", limit: null, apps: {} })
-    expect(off.at(-1)).toEqual({ t: "Your Google Calendar, not connected", tone: "off", connect: "googlecalendar" })
+    expect(off).toContainEqual({ t: "Your Google Calendar, not connected", tone: "off", connect: "googlecalendar" })
     const on = skillLines("daily-planner", { name: "Omaga", limit: null, apps: { googlecalendar: "connected" } })
-    expect(on.at(-1)).toEqual({ t: "Your Google Calendar, connected", tone: "ok" })
+    expect(on).toContainEqual({ t: "Your Google Calendar, connected", tone: "ok" })
   })
   it("keeps can't lines last", () => {
     expect(skillLines("near-account", { name: "Omaga", limit: null }).map((l) => l.tone)).toEqual(["ok", "no"])
