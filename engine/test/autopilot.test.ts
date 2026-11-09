@@ -41,7 +41,7 @@ describe('autopilot', () => {
   test('refuses what cannot run unattended, and says why', async () => {
     await json(await call('PUT', path('report'), balanceReport()), 200)
     const codes = async (body: unknown, id = 'report') => (await json(await call('PUT', `${path(id)}/autopilot`, body), 409)).issues.map((i: Ev) => i.code)
-    assert.deepEqual(await codes(on({ mind: penny(['payments']) })), ['missing_tools'])
+    assert.deepEqual(await codes(on({ mind: penny(['daily-planner']) })), ['missing_tools'])
     assert.deepEqual(await codes(on({ input: {} })), ['invalid_input'])
     assert.deepEqual(await codes(on({ input: { account: 7 } })), ['invalid_input'])
     // Secrets would be stored in the schedule as plain JSON.
@@ -113,7 +113,7 @@ describe('autopilot', () => {
     await json(await call('PUT', path('report'), balanceReport('*/5 * * * *')), 200)
     assert.equal((await json(await call('PUT', `${path('report')}/autopilot`, on()), 200)).autopilot.status, 'active', 'turned on again')
     // A Mind that lost a tool pauses the running schedule instead of keeping the old config.
-    const lost = await json(await call('PUT', `${path('report')}/autopilot`, on({ mind: penny(['payments']) })), 409)
+    const lost = await json(await call('PUT', `${path('report')}/autopilot`, on({ mind: penny(['daily-planner']) })), 409)
     assert.equal(lost.autopilot.status, 'paused')
   })
 
