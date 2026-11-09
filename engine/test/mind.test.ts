@@ -33,3 +33,9 @@ test('a Mind knows its skills and what it could add, by the names people see (#1
   assert.ok(!/can add.*Payments/.test(line), 'equipped skills are not offered again')
   assert.match(skillsLine([]), /Your skills: none yet\./)
 })
+
+test('the owner\'s time zone goes into the prompt with its offset (#124)', () => {
+  const mind = mindSchema.parse({ templateId: 't', name: 'Tz', soul: { identity: 'x' } })
+  assert.match(buildInstructions(mind, { timeZone: 'Asia/Jakarta' }), /Asia\/Jakarta \(UTC\+07:00 now\)/)
+  assert.ok(!/time zone is/.test(buildInstructions(mind)), 'no zone, no line')
+})

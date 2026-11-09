@@ -109,9 +109,24 @@ export function checkAttendees(attendees: string[]): string[] {
 
 // GOOGLEMEET_CREATE_MEET returns Google's Space resource in `data.response_data` (`meetingUri`, `meetingCode`, `name`).
 // Its output schema only says "the full JSON response"; the field names are from Google's Meet REST API, not seen live.
+// The Meet link in Composio's GOOGLEMEET_CREATE_MEET answer. Google's REST field is `meetingUri`, but live it was not
+// at `response_data.meetingUri` (#124), so look for the first https://meet.google.com/ URL anywhere in the answer.
+// When there is none, the error names the fields it saw (names only, never values), to find the real shape.
 export function meetLinkOf(data: any): string {
-  const uri = data?.response_data?.meetingUri
-  if (typeof uri !== 'string' || !uri.startsWith('https://meet.google.com/')) throw new Error('Google Meet did not return a meeting link')
+  const seen: string[] = []
+  const walk = (v: any, path: string, depth: number): string | null => {
+    if (typeof v === 'string') return /^https:\/\/meet\.google\.com\/[a-z0-9-]+/i.test(v.trim()) ? v.trim() : null
+    if (!v || typeof v !== 'object' || depth > 5) return null
+    for (const [k, child] of Object.entries(v)) {
+      const p = path ? `${path}.${k}` : k
+      if (seen.length < 40) seen.push(p)
+      const hit = walk(child, p, depth + 1)
+      if (hit) return hit
+    }
+    return null
+  }
+  const uri = walk(data, '', 0)
+  if (!uri) throw new Error(`Google Meet did not return a meeting link (fields: ${seen.join(', ') || 'none'})`)
   return uri
 }
 

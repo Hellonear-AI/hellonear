@@ -207,7 +207,7 @@ Common fields on every event:
 | `run.started` | `threadId`, `model`, `nodeId` (`model:{modelId}`), `skills` (ids actually loaded) | `start` **[tested]** |
 | `step.started` | `step` (1-based) | `step-start` **[tested]** |
 | `reasoning.delta` | `text` | `reasoning-delta` **[tested]** (glm only; DeepSeek sends none) |
-| `text.delta` | `text` | `text-delta` **[tested]** |
+| `text.delta` | `text` | `text-delta` **[tested]** Em and en dashes are replaced by a plain hyphen before the event is sent (house style, #109, #124); the TEE verification covers the model's own bytes |
 | `tool.called` | `toolCallId`, `tool`, `nodeId`, `args` | `tool-call` **[tested]**: payload `{ toolCallId, toolName, args }` |
 | `tool.result` | `toolCallId`, `tool`, `nodeId`, `result`, `status: "ok"` | `tool-result` **[tested]**: payload `{ toolCallId, toolName, args, result }` |
 | `tool.error` | `toolCallId`, `tool`, `nodeId`, `status: "error" \| "policy_denied" \| "wallet_frozen" \| "rejected" \| "rate_limited"`, `error`, `result?` | `tool-error` **[tested]**; for `send_payment`, a `tool-result` whose `status` is `policy_denied` / `wallet_frozen` (the wallet refused before signing, #42): `error` is OutLayer's message, `result` the payment receipt without `txHash` **[tested, fake backend]**; for `mail_send`, a `tool-result` whose `status` is `rejected` / `rate_limited` (#96): `error` is the refusal's `message`, `result` the send record without `messageId` **[tested, predicate only]** |

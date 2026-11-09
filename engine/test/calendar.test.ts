@@ -240,3 +240,21 @@ test('meeting for try-out runs: a fake Meet link, nobody emailed, no Composio ca
   assert.equal((await run('googlecalendar_create_meeting', { ...meeting, attendees: ['nope'], meet: true }, ctx('usr_demo', true))).error, true)
   assert.equal(calls.length, 0)
 })
+
+test('the Meet link is found wherever Composio puts it; without one the error names the fields only (#124)', async () => {
+  const { meetLinkOf } = await import('../src/calendar.ts')
+  assert.equal(meetLinkOf({ response_data: { meetingUri: 'https://meet.google.com/abc-defg-hij' } }), 'https://meet.google.com/abc-defg-hij')
+  assert.equal(meetLinkOf({ data: { space: { name: 'spaces/x', meeting_uri: 'https://meet.google.com/xyz-abcd-efg', meetingCode: 'xyz-abcd-efg' } } }), 'https://meet.google.com/xyz-abcd-efg')
+  assert.throws(() => meetLinkOf({ response_data: { name: 'spaces/x', config: { accessType: 'TRUSTED' } } }), /fields: response_data, response_data\.name, response_data\.config, response_data\.config\.accessType/)
+  assert.throws(() => meetLinkOf({ response_data: { link: 'https://evil.example/meet.google.com/x' } }), /did not return a meeting link/)
+})
+
+test('calendar times must carry the owner\'s offset when the zone is known (#124)', async () => {
+  const { checkOwnerOffset } = await import('../src/tools.ts')
+  assert.doesNotThrow(() => checkOwnerOffset(['2026-11-10T14:00:00+07:00'], 'Asia/Jakarta'))
+  assert.throws(() => checkOwnerOffset(['2026-11-10T14:00:00+00:00'], 'Asia/Jakarta'), /Asia\/Jakarta, UTC\+07:00/)
+  assert.throws(() => checkOwnerOffset(['2026-11-10T14:00:00Z'], 'Asia/Jakarta'), /\+07:00/)
+  assert.doesNotThrow(() => checkOwnerOffset(['2026-11-10T14:00:00Z'], undefined), 'no zone: any offset')
+  // New York changes offset with DST: the check uses the offset at that moment.
+  assert.doesNotThrow(() => checkOwnerOffset(['2026-07-01T09:00:00-04:00', '2026-12-01T09:00:00-05:00'], 'America/New_York'))
+})

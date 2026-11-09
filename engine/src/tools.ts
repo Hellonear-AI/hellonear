@@ -23,6 +23,18 @@ export function localTime(now: Date, timeZone = 'UTC') {
   return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}`, weekday: String(parts.weekday), utcOffset: offset }
 }
 
+// A time for the owner's calendar must carry the owner's offset at that moment (#124): "tomorrow 2pm" once became
+// 14:00+00:00 (21:00 in Jakarta) because the model skipped get_time. Without a known zone, any offset is accepted.
+export function checkOwnerOffset(times: string[], timeZone: string | undefined) {
+  if (!timeZone) return
+  for (const t of times) {
+    const given = /Z$/i.test(t) ? '+00:00' : (t.match(/([+-]\d{2}:\d{2})$/)?.[1] ?? '')
+    const expected = localTime(new Date(t), timeZone).utcOffset
+    if (given !== expected) throw new Error(`${t} is not in the owner's time zone (${timeZone}, UTC${expected} then): call get_time and give the time with ${expected}`)
+  }
+}
+const ownerZone = (context: any) => context?.requestContext?.get(TIME_ZONE_KEY) as string | undefined
+
 const getTime = createTool({
   id: 'get_time',
   description: 'Get the current date and time: UTC, and the owner\'s local date, time and weekday in their time zone. Use the local values when talking to the owner about today, tomorrow or a weekday.',
@@ -184,6 +196,7 @@ const calendarCreateEvent = createTool({
   outputSchema: z.object({ source: z.string(), eventId: z.string(), title: z.string(), start: z.string(), end: z.string(), link: z.string(), status: z.literal('created') }),
   requireApproval: true,
   execute: async ({ title, start, end, location, description }, context) => {
+    checkOwnerOffset([start, end], ownerZone(context))
     if (isDemo(context)) return createSampleEvent({ title, start, end })
     // The tool has no end time: start (UTC) plus a duration. No attendees and send_updates false: nobody else is
     // emailed. create_meeting_room would make a Meet link (Workspace accounts only), so it stays off.
@@ -223,6 +236,7 @@ const calendarCreateMeeting = createTool({
   }),
   requireApproval: true,
   execute: async ({ title, start, end, attendees, meet, location, description }, context) => {
+    checkOwnerOffset([start, end], ownerZone(context))
     if (isDemo(context)) return createSampleMeeting({ title, start, end, attendees, meet })
     const timing = composioTiming(start, end)
     const guests = checkAttendees(attendees)
