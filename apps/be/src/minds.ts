@@ -4,6 +4,7 @@ import { newId } from './crypto.ts'
 import { pool, query } from './db.ts'
 import { skills, templates, type MindConfig } from './engine.ts'
 import { HttpError } from './http.ts'
+import { shownEmail } from './mail.ts'
 
 const soulSchema = z.object({
   identity: z.string().min(1).max(4000),
@@ -34,17 +35,22 @@ export type Mind = {
   model: string | null
   skills: string[]
   outlayerWalletId: string | null
+  // The Mind's email address (#96): its own AgentMail inbox, or the shared demo inbox for a try-out user's Mind that
+  // equips `email-address`. null until then.
+  email: string | null
   createdAt: string
   updatedAt: string
 }
 
 const SELECT = `select m.id, m.template_id, m.name, m.soul, m.model, m.outlayer_wallet_id, m.created_at, m.updated_at,
-  coalesce((select array_agg(ms.skill_id order by ms.position) from mind_skills ms where ms.mind_id = m.id), '{}') as skills
+  coalesce((select array_agg(ms.skill_id order by ms.position) from mind_skills ms where ms.mind_id = m.id), '{}') as skills,
+  (select mi.email from mind_inboxes mi where mi.mind_id = m.id) as email,
+  (select u.is_demo from users u where u.id = m.user_id) as is_demo
   from minds m`
 
 const toMind = (r: any): Mind => ({
   id: r.id, templateId: r.template_id, name: r.name, soul: r.soul, model: r.model, skills: r.skills,
-  outlayerWalletId: r.outlayer_wallet_id, createdAt: r.created_at.toISOString(), updatedAt: r.updated_at.toISOString(),
+  outlayerWalletId: r.outlayer_wallet_id, email: shownEmail(r.is_demo === true, r.skills, r.email ?? null), createdAt: r.created_at.toISOString(), updatedAt: r.updated_at.toISOString(),
 })
 
 // The config the engine builds the agent from on every request (docs/api-contract.md §2).

@@ -2,6 +2,7 @@
 import { z } from 'zod'
 import { secretSchema } from './secrets.ts'
 import { walletTokenSchema } from './wallet.ts'
+import { mailTokenSchema } from './mail.ts'
 import { skillCatalog } from './skills.ts'
 
 export const mindSchema = z.object({
@@ -26,6 +27,8 @@ export const runRequestSchema = z.object({
   secrets: z.array(secretSchema).default([]),
   // Run-scoped token for the payment tools, only when the Mind has a wallet (#42). Never the wallet key.
   walletToken: walletTokenSchema.optional(),
+  // Run-scoped token for the mail tools, only when the Mind has an email address (#96). Never the AgentMail key.
+  mailToken: mailTokenSchema.optional(),
   // A judge try-out user (#43): email tools read the sample inbox, never Gmail.
   demo: z.boolean().optional(),
 })
