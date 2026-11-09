@@ -30,8 +30,14 @@ const fake = createServer(async (req, res) => {
     ] } })
   }
   if (body.tool_slug === 'GOOGLECALENDAR_CREATE_EVENT') {
+    // Like the live tool: no end time, a naive start in `timezone`, the end from the duration (default 30 minutes).
     const a = body.arguments
-    return send(200, { result_type: 'completed', error: null, data: { display_url: 'https://calendar.example/new', response_data: { id: 'new1', summary: a.summary, start: { dateTime: a.start_datetime }, end: { dateTime: a.end_datetime } } } })
+    assert.equal(a.end_datetime, undefined, 'the tool has no end_datetime')
+    assert.equal(a.timezone, 'UTC')
+    const start = Date.parse(`${a.start_datetime}Z`)
+    const end = start + ((a.event_duration_hour ?? 0) * 60 + (a.event_duration_minutes ?? 30)) * 60_000
+    const iso = (t: number) => new Date(t).toISOString().replace('.000Z', 'Z')
+    return send(200, { result_type: 'completed', error: null, data: { display_url: 'https://calendar.example/new', response_data: { id: 'new1', summary: a.summary, start: { dateTime: iso(start), timeZone: 'UTC' }, end: { dateTime: iso(end), timeZone: 'UTC' } } } })
   }
   send(400, { error: { slug: 'unknown_tool' } })
 })
@@ -62,14 +68,35 @@ test('create: only the owner\'s calendar, no guests notified, no Meet link, and 
   const out = await run('googlecalendar_create_event', { title: 'Dentist', start: '2026-11-09T15:00:00+07:00', end: '2026-11-09T16:00:00+07:00', location: 'Clinic' }, ctx('usr_a'))
   const create = calls.find((c) => c.body?.tool_slug === 'GOOGLECALENDAR_CREATE_EVENT')!
   assert.deepEqual(create.body.arguments, {
-    calendar_id: 'primary', summary: 'Dentist', start_datetime: '2026-11-09T15:00:00+07:00', end_datetime: '2026-11-09T16:00:00+07:00',
-    location: 'Clinic', create_meeting_room: false, send_updates: 'none',
+    calendar_id: 'primary', summary: 'Dentist', start_datetime: '2026-11-09T08:00:00', timezone: 'UTC', event_duration_hour: 1, event_duration_minutes: 0,
+    location: 'Clinic', create_meeting_room: false, send_updates: false,
   })
-  assert.deepEqual(out, { source: 'googlecalendar', eventId: 'new1', title: 'Dentist', start: '2026-11-09T15:00:00+07:00', end: '2026-11-09T16:00:00+07:00', link: 'https://calendar.example/new', status: 'created' })
+  assert.deepEqual(out, { source: 'googlecalendar', eventId: 'new1', title: 'Dentist', start: '2026-11-09T08:00:00Z', end: '2026-11-09T09:00:00Z', link: 'https://calendar.example/new', status: 'created' })
   assert.equal(needsApproval('googlecalendar_create_event'), true)
   assert.equal(needsApproval('googlecalendar_list_events'), false)
   // Unattended runs (workflows) never get it: nobody is there to approve.
   assert.deepEqual(Object.keys(toolsFor(['googlecalendar_list_events', 'googlecalendar_create_event'], { unattended: true })), ['get_time', 'googlecalendar_list_events'])
+})
+
+test('create sends the real length as a duration (the tool has no end time), not the 30-minute default', async () => {
+  const cases: [string, string, number, number, string][] = [
+    ['2026-11-09T15:00:00+07:00', '2026-11-09T15:45:00+07:00', 0, 45, '2026-11-09T08:45:00Z'],
+    ['2026-11-09T22:30:00-05:00', '2026-11-10T01:00:00-05:00', 2, 30, '2026-11-10T06:00:00Z'],
+    ['2026-11-09T09:00Z', '2026-11-10T09:00Z', 24, 0, '2026-11-10T09:00:00Z'],
+  ]
+  for (const [start, end, h, m, endUtc] of cases) {
+    calls.length = 0
+    const out = await run('googlecalendar_create_event', { title: 'x', start, end }, ctx('usr_a'))
+    const a = calls.find((c) => c.body?.tool_slug === 'GOOGLECALENDAR_CREATE_EVENT')!.body.arguments
+    assert.deepEqual([a.event_duration_hour, a.event_duration_minutes], [h, m], start)
+    assert.equal(out.end, endUtc)
+  }
+})
+
+test('create refuses events longer than 24 hours or shorter than a minute', async () => {
+  await assert.rejects(run('googlecalendar_create_event', { title: 'x', start: '2026-11-09T09:00Z', end: '2026-11-10T09:01Z' }, ctx('usr_a')), /at most 24 hours/)
+  await assert.rejects(run('googlecalendar_create_event', { title: 'x', start: '2026-11-09T09:00:00Z', end: '2026-11-09T09:00:20Z' }, ctx('usr_a')), /at least one minute/)
+  assert.equal(calls.length, 0)
 })
 
 test('create refuses an event that ends before it starts, before calling Composio', async () => {

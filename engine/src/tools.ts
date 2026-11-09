@@ -6,7 +6,7 @@ import { SECRETS_KEY, assertHostAllowed, assertPublicHttpsUrl, assertResolvesPub
 import { walletCall } from './wallet.ts'
 import { draftSample, isDemo, listSample, readSample } from './email.ts'
 import { addressOf, composioTool, gmail, toListed, toRead } from './composio.ts'
-import { ISO_WITH_OFFSET, MAX_RANGE_DAYS, checkNewEvent, createSampleEvent, listSampleCalendar, listedEvents, rangeOf } from './calendar.ts'
+import { ISO_WITH_OFFSET, MAX_RANGE_DAYS, composioTiming, createSampleEvent, listSampleCalendar, listedEvents, rangeOf } from './calendar.ts'
 
 const getTime = createTool({
   id: 'get_time',
@@ -154,7 +154,7 @@ const calendarListEvents = createTool({
 
 const calendarCreateEvent = createTool({
   id: 'googlecalendar_create_event',
-  description: 'Add an event to the owner\'s own calendar. Always waits for the owner to approve. No guests are invited and no Meet link is made.',
+  description: 'Add an event to the owner\'s own calendar (at most 24 hours long). Always waits for the owner to approve. No guests are invited and no Meet link is made.',
   inputSchema: z.object({
     title: z.string().min(1).max(200),
     start: isoTime,
@@ -166,12 +166,12 @@ const calendarCreateEvent = createTool({
   requireApproval: true,
   execute: async ({ title, start, end, location, description }, context) => {
     if (isDemo(context)) return createSampleEvent({ title, start, end })
-    checkNewEvent(start, end)
-    // send_updates "none" and no attendees: nobody else is emailed. create_meeting_room defaults to true in Composio.
+    // The tool has no end time: start (UTC) plus a duration. No attendees and send_updates false: nobody else is
+    // emailed. create_meeting_room would make a Meet link (Workspace accounts only), so it stays off.
     const data = await composioTool(context, 'googlecalendar', 'GOOGLECALENDAR_CREATE_EVENT', {
-      calendar_id: 'primary', summary: title, start_datetime: start, end_datetime: end,
+      calendar_id: 'primary', summary: title, ...composioTiming(start, end),
       ...(location ? { location } : {}), ...(description ? { description } : {}),
-      create_meeting_room: false, send_updates: 'none',
+      create_meeting_room: false, send_updates: false,
     })
     const e = data?.response_data ?? {}
     return {
