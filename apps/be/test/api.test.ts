@@ -356,6 +356,60 @@ describe('chat and runs (#14, #17)', () => {
     assert.equal((await stored())[0].n, 27)
   })
 
+  test('cancel stops a streaming run: the engine stream is cut, the run is canceled, the stream ends (#121)', async () => {
+    const alice = await signIn()
+    const { mind } = await (await alice.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Stop' })).json()
+    const res = await alice.call('POST', `/v1/minds/${mind.id}/chat`, { message: 'slow' })
+    assert.equal(res.status, 200)
+    // Read until run.started gives the run id, then cancel while the 20 slow deltas are still coming.
+    const reader = res.body!.getReader()
+    const decoder = new TextDecoder()
+    let buf = ''
+    let runId = ''
+    while (!runId) {
+      const { value, done } = await reader.read()
+      assert.equal(done, false, 'stream ended before run.started')
+      buf += decoder.decode(value, { stream: true })
+      runId = buf.match(/"runId":"([^"]+)"/)?.[1] ?? ''
+    }
+    const bob = await signIn()
+    assert.equal((await bob.call('POST', `/v1/runs/${runId}/cancel`, {})).status, 404, 'only the owner')
+
+    const canceled = await alice.call('POST', `/v1/runs/${runId}/cancel`, {})
+    assert.equal(canceled.status, 200)
+    assert.equal((await canceled.json()).run.status, 'canceled')
+    for (;;) {
+      const { value, done } = await reader.read()
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+    }
+    const sent = buf.split('\n').filter((l) => l.startsWith('data: ')).map((l) => JSON.parse(l.slice(6)))
+    assert.deepEqual([sent.at(-1).type, sent.at(-1).status], ['run.finished', 'canceled'], 'the open stream ends like any run')
+    assert.deepEqual(sent.map((e) => e.seq), sent.map((_, i) => i))
+    assert.ok(sent.filter((e) => e.type === 'text.delta').length < 20, 'stopped before the reply was complete')
+    assert.ok(fake.cutOff.has(runId), 'the engine request was closed')
+
+    const { run, events: stored } = await (await alice.call('GET', `/v1/runs/${runId}`)).json()
+    assert.equal(run.status, 'canceled')
+    assert.ok(run.finishedAt)
+    assert.deepEqual(stored.at(-1), sent.at(-1))
+    const again = await alice.call('POST', `/v1/runs/${runId}/cancel`, {})
+    assert.equal(again.status, 409)
+    assert.deepEqual(await again.json(), { error: 'not_running', status: 'canceled' })
+  })
+
+  test('cancel answers 409 for a finished run or one paused for approval (decline that one) (#121)', async () => {
+    const alice = await signIn()
+    const { mind } = await (await alice.call('POST', '/v1/minds', { templateId: 'payments-mind', name: 'C' })).json()
+    const done = await events(await alice.call('POST', `/v1/minds/${mind.id}/chat`, { message: 'hi' }))
+    assert.deepEqual(await (await alice.call('POST', `/v1/runs/${done[0].runId}/cancel`, {})).json(), { error: 'not_running', status: 'finished' })
+    const paused = await events(await alice.call('POST', `/v1/minds/${mind.id}/chat`, { message: 'pay the bill' }))
+    const res = await alice.call('POST', `/v1/runs/${paused[0].runId}/cancel`, {})
+    assert.equal(res.status, 409)
+    assert.deepEqual(await res.json(), { error: 'not_running', status: 'awaiting_approval' })
+    assert.equal((await alice.call('POST', `/v1/runs/run_nope/cancel`, {})).status, 404)
+  })
+
   test("the owner's time zone goes to the engine with a run, and an unknown one is refused (#112)", async () => {
     const alice = await signIn()
     const { mind } = await (await alice.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'TZ' })).json()
