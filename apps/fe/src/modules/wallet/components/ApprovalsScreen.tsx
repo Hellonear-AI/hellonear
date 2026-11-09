@@ -301,7 +301,7 @@ function RecentDecisions({ mindId }: { mindId: string }) {
                     {formatNear(p.amountNear)} NEAR to {p.to}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {shortWhen(p.at)} · {line.note}
+                    {shortWhen(p.at)}, {line.note.toLowerCase()}
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
