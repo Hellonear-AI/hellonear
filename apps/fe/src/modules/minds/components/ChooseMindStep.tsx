@@ -11,7 +11,7 @@ import type { ApiTemplate } from "@/modules/minds/api"
 import { templateImage } from "@/modules/minds/data/minds"
 import { NAME_RULE, isValidMindName, skillLabels, sortTemplates } from "@/modules/minds/data/templates"
 import { useTemplates } from "@/modules/minds/hooks/useMinds"
-import { StepHeader } from "@/modules/minds/components/StepHeader"
+import { StepHeader, type StepLeave } from "@/modules/minds/components/StepHeader"
 
 // L2 Choose a Mind (design/hellonear.pen, "3 · Start"): pick a template, name it, Continue.
 // Nothing is created here (except for try-out users); the Mind is created in step 2.
@@ -26,6 +26,8 @@ export function ChooseMindStep({
   onNameChange,
   onContinue,
   busy,
+  leave,
+  tryOut,
 }: {
   picked: string | null
   onPick: (templateId: string) => void
@@ -34,6 +36,9 @@ export function ChooseMindStep({
   onContinue: () => void
   /** Try-out users create the Mind right here (no limits step), so Continue can be busy. */
   busy: boolean
+  leave?: StepLeave
+  /** A try-out goes straight to the chat: no step count, and the next line says so. */
+  tryOut?: boolean
 }) {
   const templates = useTemplates()
   const nameId = useId()
@@ -47,7 +52,7 @@ export function ChooseMindStep({
   return (
     <div className="flex min-h-dvh flex-col bg-background">
       <div className="mx-auto flex w-full max-w-[1312px] flex-1 flex-col gap-6 px-4 pt-4 pb-40 md:px-10 md:pt-6 md:pb-32 xl:gap-8 xl:px-16 xl:[@media(max-height:820px)]:gap-6">
-        <StepHeader step={1} />
+        <StepHeader step={1} leave={leave} tryOut={tryOut} />
 
         <div className="flex flex-col gap-2 xl:items-center xl:text-center">
           <h1 className="text-[30px] leading-tight font-medium tracking-tight text-foreground md:text-4xl xl:text-5xl xl:[@media(max-height:820px)]:text-4xl">
@@ -104,7 +109,7 @@ export function ChooseMindStep({
               nameInvalid ? "text-danger" : picked ? "hidden text-muted-foreground md:block" : "hidden text-tertiary-foreground md:block"
             )}
           >
-            {nameInvalid ? NAME_RULE : `Next: set what ${shownName} may spend`}
+            {nameInvalid ? NAME_RULE : tryOut ? `Next: start chatting with ${shownName}` : `Next: set what ${shownName} may spend`}
           </p>
           <Button type="submit" disabled={!canContinue} className="w-full md:w-auto">
             {busy ? "Creating" : "Continue"}
