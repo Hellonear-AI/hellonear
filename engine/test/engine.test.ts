@@ -162,6 +162,35 @@ describe('engine HTTP API', () => {
     assert.ok(!evs.some((e) => e.tool === 'send_payment'), 'answering a question pays nothing')
   })
 
+  test('dropping the request stops the run: no more text is generated (#121)', async () => {
+    const http = await import('node:http')
+    const write = http.ServerResponse.prototype.write
+    let cut = 0, after = 0
+    http.ServerResponse.prototype.write = function (this: unknown, chunk: any, ...rest: any[]) {
+      if (cut && String(chunk).includes('"type":"text.delta"')) after++
+      return (write as any).call(this, chunk, ...rest)
+    } as any
+    try {
+      const ac = new AbortController()
+      const res = await fetch(base + '/v1/minds/stop/chat', { method: 'POST', signal: ac.signal, headers: { 'content-type': 'application/json', 'x-engine-key': key },
+        body: JSON.stringify({ userId, threadId: randomUUID(), message: 'Write a detailed 1200-word essay about the history of tea, with many sections.', mind: mind('Tea') }) })
+      const reader = res.body!.getReader()
+      let got = ''
+      while (got.split('text.delta').length <= 5) {
+        const { value, done } = await reader.read()
+        if (done) break
+        got += new TextDecoder().decode(value)
+      }
+      cut = Date.now()
+      ac.abort()
+      // Without the abort the engine kept writing for ~25 s (301 deltas, measured 9 Nov).
+      await new Promise((r) => setTimeout(r, 8000))
+      assert.ok(after <= 2, `${after} deltas after the cut`)
+    } finally {
+      http.ServerResponse.prototype.write = write
+    }
+  })
+
   test('reply text never shows an em or en dash, even when asked for one (#124)', async () => {
     const evs = await events(await post('/v1/minds/dash/chat', { userId, threadId: randomUUID(), message: 'Quote this exactly: "Saturday 08:00 — leave; 09:00–10:00 breakfast".', mind: mind('Dash') }))
     const text = evs.filter((e) => e.type === 'text.delta').map((e) => e.text).join('')

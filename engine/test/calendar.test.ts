@@ -36,12 +36,13 @@ const fake = createServer(async (req, res) => {
     ] } })
   }
   if (body.tool_slug === 'GOOGLECALENDAR_CREATE_EVENT') {
-    // Like the live tool: no end time, a naive start in `timezone`, the end from the duration (default 30 minutes).
+    // Like the tool router's latest version (20261103_00, the one that runs live, #124): ISO times with an offset,
+    // end_datetime wins over the duration, and send_updates must be one of the strings (a boolean is a 400 live).
     const a = body.arguments
-    assert.equal(a.end_datetime, undefined, 'the tool has no end_datetime')
-    assert.equal(a.timezone, 'UTC')
-    const start = Date.parse(`${a.start_datetime}Z`)
-    const end = start + ((a.event_duration_hour ?? 0) * 60 + (a.event_duration_minutes ?? 30)) * 60_000
+    if (!['all', 'externalOnly', 'none'].includes(a.send_updates)) return send(400, { error: { message: "Input should be 'all', 'externalOnly' or 'none' on parameter `send_updates`" } })
+    assert.match(a.start_datetime, /(Z|[+-]\d{2}:\d{2})$/, 'start carries its offset')
+    const start = Date.parse(a.start_datetime)
+    const end = a.end_datetime ? Date.parse(a.end_datetime) : start + ((a.event_duration_hour ?? 0) * 60 + (a.event_duration_minutes ?? 30)) * 60_000
     const iso = (t: number) => new Date(t).toISOString().replace('.000Z', 'Z')
     return send(200, { result_type: 'completed', error: null, data: { display_url: 'https://calendar.example/new', response_data: { id: 'new1', summary: a.summary, start: { dateTime: iso(start), timeZone: 'UTC' }, end: { dateTime: iso(end), timeZone: 'UTC' } } } })
   }
@@ -74,8 +75,8 @@ test('create: only the owner\'s calendar, no guests notified, no Meet link, and 
   const out = await run('googlecalendar_create_event', { title: 'Dentist', start: '2026-11-09T15:00:00+07:00', end: '2026-11-09T16:00:00+07:00', location: 'Clinic' }, ctx('usr_a'))
   const create = calls.find((c) => c.body?.tool_slug === 'GOOGLECALENDAR_CREATE_EVENT')!
   assert.deepEqual(create.body.arguments, {
-    calendar_id: 'primary', summary: 'Dentist', start_datetime: '2026-11-09T08:00:00', timezone: 'UTC', event_duration_hour: 1, event_duration_minutes: 0,
-    location: 'Clinic', create_meeting_room: false, send_updates: false,
+    calendar_id: 'primary', summary: 'Dentist', start_datetime: '2026-11-09T15:00:00+07:00', end_datetime: '2026-11-09T16:00:00+07:00', event_duration_hour: 1, event_duration_minutes: 0,
+    location: 'Clinic', create_meeting_room: false, send_updates: 'none',
   })
   assert.deepEqual(out, { source: 'googlecalendar', eventId: 'new1', title: 'Dentist', start: '2026-11-09T08:00:00Z', end: '2026-11-09T09:00:00Z', link: 'https://calendar.example/new', status: 'created' })
   assert.equal(needsApproval('googlecalendar_create_event'), true)
@@ -84,7 +85,7 @@ test('create: only the owner\'s calendar, no guests notified, no Meet link, and 
   assert.deepEqual(Object.keys(toolsFor(['googlecalendar_list_events', 'googlecalendar_create_event'], { unattended: true })), ['get_time', 'googlecalendar_list_events'])
 })
 
-test('create sends the real length as a duration (the tool has no end time), not the 30-minute default', async () => {
+test('create sends the real length (end time and duration), not the 30-minute default', async () => {
   const cases: [string, string, number, number, string][] = [
     ['2026-11-09T15:00:00+07:00', '2026-11-09T15:45:00+07:00', 0, 45, '2026-11-09T08:45:00Z'],
     ['2026-11-09T22:30:00-05:00', '2026-11-10T01:00:00-05:00', 2, 30, '2026-11-10T06:00:00Z'],
@@ -94,7 +95,7 @@ test('create sends the real length as a duration (the tool has no end time), not
     calls.length = 0
     const out = await run('googlecalendar_create_event', { title: 'x', start, end }, ctx('usr_a'))
     const a = calls.find((c) => c.body?.tool_slug === 'GOOGLECALENDAR_CREATE_EVENT')!.body.arguments
-    assert.deepEqual([a.event_duration_hour, a.event_duration_minutes], [h, m], start)
+    assert.deepEqual([a.end_datetime, a.event_duration_hour, a.event_duration_minutes], [end, h, m], start)
     assert.equal(out.end, endUtc)
   }
 })
@@ -160,9 +161,9 @@ test('meeting: a Meet space first, then an event with the link, the guests, and 
   assert.deepEqual(execs.map((b) => b.tool_slug), ['GOOGLEMEET_CREATE_MEET', 'GOOGLECALENDAR_CREATE_EVENT'])
   assert.deepEqual(execs[0].arguments, { access_type: 'TRUSTED' })
   assert.deepEqual(execs[1].arguments, {
-    calendar_id: 'primary', summary: 'Call with Budi', start_datetime: '2026-11-10T08:00:00', timezone: 'UTC', event_duration_hour: 0, event_duration_minutes: 30,
+    calendar_id: 'primary', summary: 'Call with Budi', start_datetime: '2026-11-10T15:00:00+07:00', end_datetime: '2026-11-10T15:30:00+07:00', event_duration_hour: 0, event_duration_minutes: 30,
     location: 'https://meet.google.com/abc-mnop-xyz', description: 'Join with Google Meet: https://meet.google.com/abc-mnop-xyz',
-    attendees: ['budi@example.com', 'sari@example.org'], send_updates: true, create_meeting_room: false,
+    attendees: ['budi@example.com', 'sari@example.org'], send_updates: 'all', create_meeting_room: false,
   })
   assert.deepEqual(out, {
     source: 'googlecalendar', eventId: 'new1', title: 'Call with Budi', start: '2026-11-10T08:00:00Z', end: '2026-11-10T08:30:00Z', link: 'https://calendar.example/new',
@@ -182,7 +183,7 @@ test('meeting: the owner\'s location stays and the link goes in the description;
 test('meeting without guests emails nobody; without meet it makes no Meet space', async () => {
   const solo = await run('googlecalendar_create_meeting', { ...meeting, attendees: [], meet: true }, ctx('usr_a'))
   const a = calls.find((c) => c.body?.tool_slug === 'GOOGLECALENDAR_CREATE_EVENT')!.body.arguments
-  assert.equal(a.send_updates, false)
+  assert.equal(a.send_updates, 'none')
   assert.equal(a.attendees, undefined)
   assert.equal(solo.invitesSent, false)
   calls.length = 0
@@ -191,7 +192,7 @@ test('meeting without guests emails nobody; without meet it makes no Meet space'
   const b = calls.find((c) => c.body?.tool_slug === 'GOOGLECALENDAR_CREATE_EVENT')!.body.arguments
   assert.equal(b.location, 'Warung Sederhana')
   assert.equal(b.description, undefined)
-  assert.equal(b.send_updates, true)
+  assert.equal(b.send_updates, 'all')
   assert.equal(inPerson.meetLink, '')
 })
 

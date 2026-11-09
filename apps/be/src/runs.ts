@@ -6,7 +6,23 @@ import { UPSTREAM_ERROR, logServerError } from './http.ts'
 import { sseEvents } from './sse.ts'
 
 type Event = Record<string, any> & { runId?: string; seq: number; type: string; ts: string }
-type RunContext = { mindId: string; threadId?: string; workflowId?: string; resumeOf?: string; userMessage?: string }
+// `controller` aborts the engine request (passed to engineFetch as its signal) when the run is canceled (#121).
+type RunContext = { mindId: string; threadId?: string; workflowId?: string; resumeOf?: string; userMessage?: string; controller?: AbortController }
+
+// Runs this process is relaying right now (#121). Cancel aborts the engine request; the relay then stores the
+// run as canceled and ends the stream. A run that is not here (finished, paused for approval, or relayed before
+// a backend restart) is not running.
+type Live = { controller: AbortController; canceled: boolean; done: Promise<void> }
+const live = new Map<string, Live>()
+
+// Cancels a live run and resolves once the relay has stored it; null when the run is not live.
+export function cancelRun(runId: string): Promise<void> | null {
+  const run = live.get(runId)
+  if (!run) return null
+  run.canceled = true
+  run.controller.abort()
+  return run.done
+}
 
 // Deltas arrive many per second; they are written in batches, everything else right away.
 const BATCHED = new Set(['text.delta', 'reasoning.delta'])
@@ -73,6 +89,14 @@ export async function relayRun(req: IncomingMessage, res: ServerResponse, engine
   let runStored = false
   let pending: Event[] = []
   const flush = async () => { await insertEvents(pending); pending = [] }
+  let finishLive = () => {}
+  let entry: Live | undefined
+  const register = (id: string) => {
+    if (entry || !ctx.controller) return
+    entry = { controller: ctx.controller, canceled: false, done: new Promise((resolve) => { finishLive = resolve }) }
+    live.set(id, entry)
+  }
+  if (runId) register(runId)
 
   try {
     for await (const raw of sseEvents(engineRes.body as unknown as AsyncIterable<Uint8Array>)) {
@@ -82,7 +106,7 @@ export async function relayRun(req: IncomingMessage, res: ServerResponse, engine
         shiftDecided = true
       }
       e.seq += offset
-      if (e.runId) runId = e.runId
+      if (e.runId) { runId = e.runId; register(runId) }
       lastSeq = e.seq
       if (e.runId) {
         // The run row exists before its first event is stored: from run.started / workflow.started,
@@ -102,14 +126,27 @@ export async function relayRun(req: IncomingMessage, res: ServerResponse, engine
     await flush()
   } catch {
     await flush().catch(() => {})
-    const e: Event = { v: 1, type: 'run.error', runId, mindId: ctx.mindId, seq: lastSeq + 1, ts: new Date().toISOString(), error: 'engine_stream_interrupted' }
-    if (runId) {
-      await insertEvents([e]).catch(() => {})
-      await updateRun(e).catch(() => {})
+    const ts = new Date().toISOString()
+    if (entry?.canceled) {
+      // Canceled (#121): the stream ends like any other run, with its finish event and status canceled.
+      const e: Event = { v: 1, type: ctx.workflowId ? 'workflow.finished' : 'run.finished', runId, mindId: ctx.mindId, seq: lastSeq + 1, ts, status: 'canceled', finishReason: 'canceled' }
+      if (runId) {
+        await insertEvents([e]).catch(() => {})
+        await query(`update runs set status = 'canceled', finished_at = now() where id = $1`, [runId]).catch(() => {})
+      }
+      send(`data: ${JSON.stringify(e)}\n\n`)
+    } else {
+      const e: Event = { v: 1, type: 'run.error', runId, mindId: ctx.mindId, seq: lastSeq + 1, ts, error: 'engine_stream_interrupted' }
+      if (runId) {
+        await insertEvents([e]).catch(() => {})
+        await updateRun(e).catch(() => {})
+      }
+      send(`data: ${JSON.stringify(e)}\n\n`)
     }
-    send(`data: ${JSON.stringify(e)}\n\n`)
   } finally {
     clearInterval(heartbeat)
+    if (runId && entry && live.get(runId) === entry) live.delete(runId)
+    finishLive()
     res.end()
   }
 }
