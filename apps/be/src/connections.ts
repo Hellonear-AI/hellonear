@@ -8,7 +8,10 @@ import { HttpError, UPSTREAM_ERROR, fetchFailure } from './http.ts'
 
 // Composio toolkit slugs, checked live (6 Nov): both use Composio-managed Google OAuth. Calendar's default scopes are
 // calendar + calendar.events; the engine only exposes list and create (with approval), see #57.
-export const TOOLKITS = ['gmail', 'googlecalendar'] as const
+// googlemeet (#97): read live 9 Nov, it has Composio-managed OAUTH2 (scopes meetings.space.created and
+// meetings.space.settings) and our project had no googlemeet auth config yet; per Composio's docs the first session
+// for it creates one with managed auth, as happened for googlecalendar. The engine only creates Meet spaces.
+export const TOOLKITS = ['gmail', 'googlecalendar', 'googlemeet'] as const
 export const toolkitSchema = z.enum(TOOLKITS)
 export type Toolkit = z.infer<typeof toolkitSchema>
 
