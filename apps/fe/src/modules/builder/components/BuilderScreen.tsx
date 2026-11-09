@@ -29,7 +29,7 @@ import { cn } from "cn"
 import { mindHref } from "@/components/layout/nav"
 import { ChoiceSelect } from "@/components/elements/ChoiceSelect"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -37,9 +37,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { ApiError } from "@/lib/api"
 import { autopilotApi } from "@/modules/autopilot/api"
 import { nodeSummary, type NodeRun } from "@/modules/builder/data/testRun"
-import { dropDraft, keepDraft, readDraft } from "@/modules/builder/data/autosave"
 import { useCanvasView } from "@/modules/builder/hooks/useCanvasView"
-import { timeAgo } from "@/lib/format"
+import { useLeaveGuard } from "@/modules/builder/hooks/useLeaveGuard"
 import { scheduleText, zoneName } from "@/modules/autopilot/data/schedule"
 import { autopilotKeys, useWorkflow, useWorkflows } from "@/modules/autopilot/hooks/useAutopilot"
 import {
@@ -140,11 +139,6 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const setSkills = useSetSkills(mindId)
   const jobs = useWorkflows(mindId)
   const [draft, setDraft] = useState<Draft>(initial)
-  // Changes kept on this device from an earlier visit (autosave), offered back once.
-  const [kept, setKept] = useState(() => {
-    const k = readDraft(mindId, workflowId)
-    return k && JSON.stringify(k.draft) !== JSON.stringify(initial) ? k : null
-  })
   // The block whose settings show on the right; null closes that panel (n8n opens it on demand).
   // Desktop opens on Start's settings; phones open on the canvas, since settings are a sheet there.
   const [selected, setSelected] = useState<string | null>(() => (window.matchMedia("(min-width: 1024px)").matches ? "start" : null))
@@ -232,13 +226,8 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const [engineIssues, setEngineIssues] = useState<{ node: string | null; text: string }[]>([])
   const [saveError, setSaveError] = useState<string | null>(null)
   const dirty = JSON.stringify(draft) !== JSON.stringify(initial)
-  // Autosave: every change is kept on this device until Save, so leaving loses nothing. Not while
-  // an earlier draft waits for Restore or Discard, so it isn't overwritten first.
-  useEffect(() => {
-    if (kept) return
-    const t = setTimeout(() => (dirty ? keepDraft(mindId, workflowId, draft) : dropDraft(mindId, workflowId)), 400)
-    return () => clearTimeout(t)
-  }, [draft, dirty, kept, mindId, workflowId])
+  // Unsaved changes ask before you leave: the back arrow, the browser's Back, closing the tab.
+  const guard = useLeaveGuard(dirty)
   const [savedTry, setSavedTry] = useState<string | null>(null)
   const dirtySinceSave = savedTry !== null && savedTry !== JSON.stringify(draft)
   const [test, setTest] = useState<{ running: boolean; nodes: Record<string, NodeRun>; status: string | null; failed: boolean } | null>(null)
@@ -374,7 +363,6 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       await autopilotApi.save(mindId, id, toCanvas(draft))
       await queryClient.invalidateQueries({ queryKey: autopilotKeys.list(mindId) })
       await queryClient.invalidateQueries({ queryKey: autopilotKeys.one(mindId, id) })
-      dropDraft(mindId, workflowId)
       router.push(`${mindHref(mindId, "autopilot")}?job=${encodeURIComponent(id)}`)
     } catch (err) {
       setSaving(false)
@@ -518,13 +506,13 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   return (
     <div className="flex h-dvh min-w-0 flex-col overflow-hidden bg-background">
       <header className="flex items-center gap-3 border-b border-border px-4 py-3 md:px-6">
-        <Button variant="ghost" size="icon" aria-label="Back to Autopilot" nativeButton={false} render={<Link href={mindHref(mindId, "autopilot")} />}>
+        <Button variant="ghost" size="icon" aria-label="Back to Autopilot" onClick={() => guard.leave(mindHref(mindId, "autopilot"))}>
           <ArrowLeftIcon />
         </Button>
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="truncate text-[15px] font-semibold text-foreground">{draft.name.trim() || "Untitled job"}</span>
           <span className="text-xs text-muted-foreground">
-            {dirty ? "Draft kept on this device, not saved yet" : !workflowId ? "Not saved yet" : "All changes saved"}
+            {dirty ? "Unsaved changes" : !workflowId ? "Not saved yet" : "All changes saved"}
           </span>
         </div>
         {workflowId && (
@@ -545,30 +533,6 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
         </Button>
       </header>
 
-      {kept && (
-        <div role="status" className="mx-4 mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md bg-info-soft px-3.5 py-2.5 text-sm text-foreground md:mx-6">
-          <span className="min-w-0 flex-1">You have unsaved changes from {timeAgo(kept.at)} on this device.</span>
-          <Button
-            size="sm"
-            onClick={() => {
-              setDraft(kept.draft)
-              setKept(null)
-            }}
-          >
-            Restore
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              dropDraft(mindId, workflowId)
-              setKept(null)
-            }}
-          >
-            Discard
-          </Button>
-        </div>
-      )}
       {(engineIssues.length > 0 || saveError) && (
         <div role="alert" className="mx-4 mt-4 flex items-start gap-2.5 rounded-md bg-danger-soft px-3.5 py-3 text-sm text-foreground md:mx-6">
           <CircleXIcon className="mt-0.5 size-4 shrink-0 text-danger" />
@@ -903,6 +867,38 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       />
       </TestRun.Provider>
       <ShortcutsDialog open={helpOpen} onOpenChange={setHelpOpen} />
+      <Dialog open={guard.asking} onOpenChange={(open) => !open && guard.stay()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>You have unsaved changes</DialogTitle>
+            <DialogDescription>
+              {problems.length > 0
+                ? "If you leave now, your changes to this job are lost. It can't be saved yet: fix what the panel lists first."
+                : "If you leave now, your changes to this job are lost. Save them first?"}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" className="text-danger" onClick={guard.discard}>
+              Leave without saving
+            </Button>
+            <Button variant="outline" onClick={guard.stay}>
+              Keep editing
+            </Button>
+            {problems.length === 0 && (
+              <Button
+                disabled={saving}
+                onClick={() => {
+                  guard.stay()
+                  void save()
+                }}
+              >
+                {saving && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+                Save
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
