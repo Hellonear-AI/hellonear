@@ -10,6 +10,11 @@ type Ctx = {
   limit: string | null
   /** App connection status, so a line can say "connected" instead of "if you connect it". */
   apps?: Partial<Record<ApiConnection["toolkit"], ApiConnection["status"]>>
+  /**
+   * A try-out user: the engine gives them a sample inbox and calendar (`demo: true` runs), so
+   * no line names their own apps or offers to connect them (Ancung, 9 Nov).
+   */
+  tryOut?: boolean
 }
 
 export type SkillCopy = {
@@ -50,7 +55,7 @@ export const SKILLS: Record<string, SkillCopy> = {
   "email-triage": {
     title: "Email helper",
     blurb: "Reads, sorts and sums up your email, and writes draft replies for you to send.",
-    canUse: () => ["Your Gmail: read mail and save drafts"],
+    canUse: (c) => [c.tryOut ? "A sample inbox for the try-out: read mail and save drafts" : "Your Gmail: read mail and save drafts"],
     cannot: ["Can't send email for you"],
     needs: "gmail",
     ask: {
@@ -188,6 +193,10 @@ export function skillLines(skillId: string, ctx: Ctx): SkillLine[] {
   const lines: SkillLine[] = copy.canUse(ctx).map((t) => ({ t, tone: "ok" }))
   for (const toolkit of copy.uses ? [copy.uses].flat() : []) {
     const app = TOOLKIT_NAME[toolkit]
+    if (ctx.tryOut) {
+      lines.push({ t: `A sample ${toolkit === "gmail" ? "inbox" : "calendar"} for the try-out`, tone: "ok" })
+      continue
+    }
     lines.push(
       ctx.apps?.[toolkit] === "connected"
         ? { t: `Your ${app}, connected`, tone: "ok" }

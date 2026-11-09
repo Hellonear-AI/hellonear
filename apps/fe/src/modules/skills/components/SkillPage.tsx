@@ -11,6 +11,7 @@ import { useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
 import { skillCopy, skillLines, type SkillLine } from "@/modules/skills/data/skills"
 import { SkillLines } from "@/modules/skills/components/SkillLines"
 import { useConnections } from "@/modules/skills/hooks/useSkills"
+import { useSession } from "@/modules/auth/hooks/useSession"
 import { RemoveSkillDialog } from "@/modules/skills/components/SkillDialogs"
 import { SKILL_ICON } from "@/modules/skills/components/SkillsScreen"
 
@@ -27,10 +28,12 @@ export function SkillPage({ mindId, skillId }: { mindId: string; skillId: string
 
   const name = mind?.name ?? "Your Mind"
   const connections = useConnections().data
+  const session = useSession()
   const ctx = {
     name,
     limit: wallet?.policy?.perTransactionNear ?? null,
     apps: Object.fromEntries((connections ?? []).map((c) => [c.toolkit, c.status])),
+    tryOut: Boolean(session.data?.demo),
   }
   const copy = skillCopy(skillId)
   const Icon = SKILL_ICON[skillId] ?? PlugIcon
