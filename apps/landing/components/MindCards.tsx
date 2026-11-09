@@ -123,7 +123,7 @@ export function MeetMinds() {
   const [headRef, headSeen] = useInView<HTMLDivElement>(0.4);
   const [cardsRef, dealt] = useInView<HTMLDivElement>(0.2);
   return (
-    <section id="minds" className="mx-auto flex max-w-[1200px] flex-col gap-12 px-5 py-24">
+    <section id="minds" className="mx-auto flex max-w-[1200px] flex-col gap-12 px-5 pb-8 pt-24">
       <div ref={headRef} className="flex flex-col items-center gap-3 text-center">
         <h2 className="max-w-[760px] text-[36px] font-medium leading-[1.12] tracking-[-1.2px] md:text-[48px]" aria-label={TITLE}>
           {TITLE.split(" ").map((w, i) => (
