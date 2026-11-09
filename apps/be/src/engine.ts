@@ -14,10 +14,11 @@ export type SkillInfo = { skillId: string; description: string; status: string; 
 export type Template = MindConfig & { tagline: string; quote: string; skills: SkillInfo[] }
 export type CatalogSkill = SkillInfo & { tools: string[] }
 
-export async function engineFetch(path: string, init: { method?: string; body?: unknown } = {}): Promise<Response> {
+export async function engineFetch(path: string, init: { method?: string; body?: unknown; signal?: AbortSignal } = {}): Promise<Response> {
   try {
     return await fetch(config.engineUrl + path, {
       method: init.method ?? 'GET',
+      signal: init.signal,
       headers: { 'x-engine-key': config.engineApiKey, ...(init.body === undefined ? {} : { 'content-type': 'application/json' }) },
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
     })
