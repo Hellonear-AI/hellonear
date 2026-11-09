@@ -24,7 +24,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
 import { cn } from "cn"
 import { mindHref } from "@/components/layout/nav"
 import { ChoiceSelect } from "@/components/elements/ChoiceSelect"
@@ -145,6 +145,16 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
     endPan,
   } = useCanvasView()
   const [helpOpen, setHelpOpen] = useState(false)
+  // The fold only applies from lg (1024 px); below that the list sits on top, always open.
+  const desktop = useSyncExternalStore(
+    (on) => {
+      const q = window.matchMedia("(min-width: 1024px)")
+      q.addEventListener("change", on)
+      return () => q.removeEventListener("change", on)
+    },
+    () => window.matchMedia("(min-width: 1024px)").matches,
+    () => true
+  )
   // The Blocks panel folds to icons; remembered on this device.
   const [paletteOpen, setPaletteOpen] = useState(() => {
     try {
@@ -371,6 +381,49 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const ending = b && (selected === `${b.id}:then` ? "then" : selected === `${b.id}:else` ? "else" : null)
   const canIf = !b && resultsBefore(draft.steps).some(comparable)
 
+  const palette = (compact: boolean) => (
+    <>
+      <PaletteItem compact={compact} icon={<CalendarClockIcon />} title="Start" line="Every job has one" disabled />
+      <PaletteItem
+        compact={compact}
+        icon={<BotIcon />}
+        title={`Ask ${name}`}
+        line={`${name} writes or decides`}
+        onClick={() => addStep("agent")}
+        onDragStart={() => startDrag({ add: "agent" })}
+        onDragEnd={endDrag}
+      />
+      <PaletteItem
+        compact={compact}
+        icon={<SearchIcon />}
+        title="Use a tool"
+        line="An account, the time, the calendar, the inbox"
+        onClick={() => addStep("tool")}
+        onDragStart={() => startDrag({ add: "tool" })}
+        onDragEnd={endDrag}
+      />
+      <PaletteItem
+        compact={compact}
+        icon={<GitBranchIcon />}
+        title="If or else"
+        line={b ? "A job can have only one" : canIf ? "Choose one of two ways" : "Add a check or a website first"}
+        onClick={addIf}
+        disabled={!canIf}
+        onDragStart={() => startDrag({ add: "if" })}
+        onDragEnd={endDrag}
+      />
+      <PaletteItem
+        compact={compact}
+        icon={<GlobeIcon />}
+        title="Call a website"
+        line="Send to your own service"
+        onClick={() => addStep("http")}
+        onDragStart={() => startDrag({ add: "http" })}
+        onDragEnd={endDrag}
+      />
+    </>
+  )
+
   // Keyboard shortcuts (n8n's, the simple ones; "?" lists them). Letters and arrows wait while you
   // type in a field; Save and Test run work from anywhere.
   const order = [
@@ -531,59 +584,50 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
 
       <TestRun.Provider value={withIf(test?.nodes ?? {}, draft.branch, Boolean(test && !test.running && !test.failed && test.status !== "failed"))}>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
-        <aside className={cn("flex shrink-0 flex-col gap-2 border-border p-4 lg:overflow-y-auto lg:border-r", paletteOpen ? "lg:w-60" : "lg:w-[72px] lg:items-center lg:px-3")}>
-          <div className={cn("flex items-center justify-between gap-2", !paletteOpen && "lg:justify-center")}>
-            <h2 className={cn("text-[13px] font-semibold text-foreground", !paletteOpen && "lg:sr-only")}>Blocks</h2>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="hidden lg:inline-flex"
-              aria-label={paletteOpen ? "Fold the Blocks panel ([)" : "Open the Blocks panel ([)"}
-              title={paletteOpen ? "Fold ([)" : "Open ([)"}
-              onClick={togglePalette}
-            >
-              {paletteOpen ? <PanelLeftCloseIcon /> : <PanelLeftOpenIcon />}
-            </Button>
+        {/* The Blocks panel folds like the app's sidebar (AppShell): the width slides 240 <-> 72
+            (ease-in-out, 200 ms) and the full list crossfades with the icon rail. Phones and
+            tablets always get the full list on top. */}
+        <aside
+          className={cn(
+            "relative shrink-0 border-border lg:overflow-hidden lg:border-r lg:transition-[width] lg:duration-200 lg:ease-in-out motion-reduce:transition-none",
+            paletteOpen ? "lg:w-60" : "lg:w-[72px]"
+          )}
+        >
+          <div
+            inert={desktop && !paletteOpen}
+            className={cn(
+              "flex flex-col gap-2 p-4 lg:absolute lg:inset-y-0 lg:left-0 lg:w-60 lg:overflow-x-hidden lg:overflow-y-auto lg:transition-opacity lg:duration-150 lg:ease-out motion-reduce:transition-none",
+              paletteOpen ? "lg:opacity-100 lg:delay-50" : "lg:opacity-0"
+            )}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-[13px] font-semibold text-foreground">Blocks</h2>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="hidden lg:inline-flex"
+                aria-label="Fold the Blocks panel ([)"
+                title="Fold ([)"
+                onClick={togglePalette}
+              >
+                <PanelLeftCloseIcon />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Drag one onto the canvas, or tap to add it at the end.</p>
+            {palette(false)}
           </div>
-          <p className={cn("text-xs text-muted-foreground", !paletteOpen && "lg:hidden")}>Drag one onto the canvas, or tap to add it at the end.</p>
-          <PaletteItem compact={!paletteOpen} icon={<CalendarClockIcon />} title="Start" line="Every job has one" disabled />
-          <PaletteItem
-            compact={!paletteOpen}
-            icon={<BotIcon />}
-            title={`Ask ${name}`}
-            line={`${name} writes or decides`}
-            onClick={() => addStep("agent")}
-            onDragStart={() => startDrag({ add: "agent" })}
-            onDragEnd={endDrag}
-          />
-          <PaletteItem
-            compact={!paletteOpen}
-            icon={<SearchIcon />}
-            title="Use a tool"
-            line="An account, the time, the calendar, the inbox"
-            onClick={() => addStep("tool")}
-            onDragStart={() => startDrag({ add: "tool" })}
-            onDragEnd={endDrag}
-          />
-          <PaletteItem
-            compact={!paletteOpen}
-            icon={<GitBranchIcon />}
-            title="If or else"
-            line={b ? "A job can have only one" : canIf ? "Choose one of two ways" : "Add a check or a website first"}
-            onClick={addIf}
-            disabled={!canIf}
-            onDragStart={() => startDrag({ add: "if" })}
-            onDragEnd={endDrag}
-          />
-          <PaletteItem
-            compact={!paletteOpen}
-            icon={<GlobeIcon />}
-            title="Call a website"
-            line="Send to your own service"
-            onClick={() => addStep("http")}
-            onDragStart={() => startDrag({ add: "http" })}
-            onDragEnd={endDrag}
-          />
+          <div
+            inert={!desktop || paletteOpen}
+            className={cn(
+              "absolute inset-y-0 left-0 hidden w-[72px] flex-col items-center gap-2 overflow-x-hidden overflow-y-auto px-3 py-4 transition-opacity duration-150 ease-out motion-reduce:transition-none lg:flex",
+              paletteOpen ? "opacity-0" : "opacity-100 delay-50"
+            )}
+          >
+            <Button variant="ghost" size="icon-sm" aria-label="Open the Blocks panel ([)" title="Open ([)" onClick={togglePalette}>
+              <PanelLeftOpenIcon />
+            </Button>
+            {palette(true)}
+          </div>
         </aside>
 
         <main
@@ -1041,11 +1085,11 @@ function PaletteItem({
       title={compact ? `${title}: ${line}` : undefined}
       className={cn(
         "flex items-center gap-3 rounded-md bg-muted px-3 py-2.5 text-left outline-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-60",
-        compact && "lg:justify-center lg:p-2"
+        compact && "justify-center p-2"
       )}
     >
       <span className="flex size-8 shrink-0 items-center justify-center rounded-sm bg-surface text-foreground [&>svg]:size-4">{icon}</span>
-      <span className={cn("flex min-w-0 flex-col", compact && "lg:hidden")}>
+      <span className={cn("flex min-w-0 flex-col", compact && "hidden")}>
         <span className="text-sm font-medium text-foreground">{title}</span>
         <span className="text-xs text-muted-foreground">{line}</span>
       </span>
