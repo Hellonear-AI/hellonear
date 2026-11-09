@@ -20,17 +20,30 @@ export const chatApi = {
   runEvents: async (runId: string) => (await api<{ events: RunEvent[] }>(`/runs/${enc(runId)}`)).events,
 
   send: (mindId: string, body: { message: string; threadId?: string }, onEvent: (e: RunEvent) => void, signal?: AbortSignal) =>
-    stream(`/minds/${enc(mindId)}/chat`, body, onEvent, signal),
+    stream(`/minds/${enc(mindId)}/chat`, { ...body, ...ownerTimeZone() }, onEvent, signal),
   resume: (
     runId: string,
     action: "approve" | "decline",
     body: { toolCallId: string; reason?: string },
     onEvent: (e: RunEvent) => void,
     signal?: AbortSignal
-  ) => stream(`/runs/${enc(runId)}/${action}`, body, onEvent, signal),
+  ) => stream(`/runs/${enc(runId)}/${action}`, { ...body, ...ownerTimeZone() }, onEvent, signal),
 }
 
 /** POST, then hand every event to `onEvent` until the stream ends. Throws `ApiError` before it starts. */
+/**
+ * The owner's time zone from the browser (`docs/api-contract.md`, #112), so "2pm tomorrow" and
+ * get_time mean the owner's clock, not UTC. Left out when the browser can't say.
+ */
+export function ownerTimeZone(): { timeZone?: string } {
+  try {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    return timeZone ? { timeZone } : {}
+  } catch {
+    return {}
+  }
+}
+
 async function stream(path: string, body: unknown, onEvent: (e: RunEvent) => void, signal?: AbortSignal): Promise<void> {
   const res = await fetch(apiUrl(path), {
     method: "POST",
