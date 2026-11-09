@@ -8,6 +8,7 @@ import {
   GlobeIcon,
   InfoIcon,
   Loader2Icon,
+  EllipsisIcon,
   PencilIcon,
   PlayIcon,
   PlusIcon,
@@ -18,6 +19,7 @@ import {
   XIcon,
 } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useSearchParams } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { cn } from "cn"
@@ -25,6 +27,8 @@ import { PageTitle } from "@/components/elements/PageTitle"
 import { mindHref } from "@/components/layout/nav"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { ApiError } from "@/lib/api"
@@ -37,6 +41,7 @@ import { runSummary } from "@/modules/autopilot/data/runs"
 import { scheduleText, whenNext, zoneName } from "@/modules/autopilot/data/schedule"
 import { jobSteps, type JobStep } from "@/modules/autopilot/data/steps"
 import { fromCanvas } from "@/modules/builder/data/draft"
+import { TONE, TONE_OF_NODE } from "@/modules/builder/data/tone"
 import { useAddJob, useAutopilotState, useRemoveJob, useSetAutopilot, useWorkflow, useWorkflowRuns, useWorkflows } from "@/modules/autopilot/hooks/useAutopilot"
 import { useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
 import { skillCopy } from "@/modules/skills/data/skills"
@@ -213,6 +218,8 @@ function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string;
   const [runError, setRunError] = useState<string | null>(null)
   const runs = useWorkflowRuns(mindId, workflowId, running)
   const remove = useRemoveJob(mindId)
+  const router = useRouter()
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const abort = useRef<AbortController | null>(null)
   useEffect(() => () => abort.current?.abort(), [])
 
@@ -244,6 +251,8 @@ function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string;
 
   const canvas = detail.data?.canvas
   const steps = canvas ? jobSteps(canvas, name) : []
+  const editable = Boolean(canvas && fromCanvas(canvas, "UTC"))
+  const editHref = `${mindHref(mindId, "autopilot")}/${encodeURIComponent(workflowId)}`
   const trigger = canvas?.nodes.find((n) => n.type === "trigger")
   const schedule = trigger?.type === "trigger" ? trigger.data.schedule : undefined
 
@@ -264,55 +273,47 @@ function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string;
                 {scheduleText(schedule?.cron)} ({zoneName(schedule?.timezone)} time).
               </p>
             </div>
-            <div className="flex shrink-0 gap-2">
-              {fromCanvas(detail.data.canvas, "UTC") && (
-                <Button variant="outline" nativeButton={false} render={<Link href={`${mindHref(mindId, "autopilot")}/${encodeURIComponent(workflowId)}`} />}>
-                  <PencilIcon />
-                  Edit steps
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={`Delete ${detail.data.name}`}
-                title="Delete job"
-                disabled={remove.isPending || running}
-                onClick={() => remove.mutate(workflowId)}
-              >
-                <Trash2Icon />
-              </Button>
+            {/* One main action, the rest in a menu (Ancung, 10 Nov: three buttons were too many). */}
+            <div className="flex shrink-0 items-center gap-2">
               <Button onClick={() => void runNow()} disabled={running}>
                 {running ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <PlayIcon />}
                 {running ? "Running" : "Run now"}
               </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  aria-label={`More for ${detail.data.name}`}
+                  className="flex size-11 items-center justify-center rounded-full text-muted-foreground outline-none hover:bg-surface-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus aria-expanded:bg-surface-hover"
+                >
+                  <EllipsisIcon className="size-5" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-44">
+                  {editable && (
+                    <DropdownMenuItem onClick={() => router.push(editHref)}>
+                      <PencilIcon />
+                      Edit steps
+                    </DropdownMenuItem>
+                  )}
+                  {editable && <DropdownMenuSeparator />}
+                  <DropdownMenuItem variant="destructive" disabled={remove.isPending || running} onClick={() => setConfirmDelete(true)}>
+                    <Trash2Icon />
+                    Delete job
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
           {runError && <p className="text-[13px] text-danger">{runError}</p>}
 
           <div className="flex flex-col gap-2">
-            <h3 className="text-[13px] text-muted-foreground">Steps</h3>
-            <ol className="flex flex-col gap-2.5">
-              {steps.map((s) => {
-                const Icon = STEP_ICON[s.kind]
-                return (
-                  <li key={s.id} className={cn("flex items-start gap-3", s.branch && "pl-6")}>
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                      <Icon className="size-4" />
-                    </span>
-                    <div className="flex min-w-0 flex-col">
-                      <span className="text-sm text-foreground">
-                        {s.branch === "then" ? "If yes: " : s.branch === "else" ? "If no: " : ""}
-                        {s.title}
-                      </span>
-                      {s.note && <span className="text-xs text-muted-foreground">{s.note}</span>}
-                    </div>
-                  </li>
-                )
-              })}
-              {steps.some((s) => s.kind === "condition") && !steps.some((s) => s.branch === "else") && (
-                <li className="flex items-center gap-3 pl-6 text-xs text-muted-foreground">If no: it stops there.</li>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-[13px] text-muted-foreground">Steps</h3>
+              {editable && (
+                <Link href={editHref} className="rounded-sm text-xs font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus">
+                  Edit
+                </Link>
               )}
-            </ol>
+            </div>
+            <StepsTimeline steps={steps} />
           </div>
 
           <div className="flex flex-col gap-2">
@@ -334,7 +335,86 @@ function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string;
           </div>
         </>
       )}
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete {detail.data?.name ?? "this job"}?</DialogTitle>
+            <DialogDescription>The job and its schedule are removed. This cannot be undone.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={remove.isPending}
+              onClick={() => remove.mutate(workflowId, { onSuccess: () => setConfirmDelete(false) })}
+            >
+              {remove.isPending && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+              Delete job
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
+  )
+}
+
+/**
+ * A job's steps as a timeline (Ancung, 10 Nov: the plain list looked thin): each step's icon in
+ * the Builder's colour for its kind, a line joining them, and an If's two ways side by side, an
+ * empty way reading "Stops here".
+ */
+function StepsTimeline({ steps }: { steps: JobStep[] }) {
+  const line = steps.filter((x) => !x.branch)
+  const ways = (["then", "else"] as const).map((h) => ({ h, step: steps.find((x) => x.branch === h) ?? null }))
+  const hasIf = line.some((x) => x.kind === "condition")
+  return (
+    <div className="flex flex-col">
+      <ol className="flex flex-col">
+        {line.map((x, i) => {
+          const Icon = STEP_ICON[x.kind]
+          const last = i === line.length - 1
+          return (
+            <li key={x.id} className="relative flex items-start gap-3 pb-4 last:pb-0">
+              {!last && <span aria-hidden className="absolute top-9 bottom-0 left-4 w-px bg-border-strong" />}
+              <span className={cn("relative flex size-8 shrink-0 items-center justify-center rounded-md [&>svg]:size-4", TONE[TONE_OF_NODE[x.kind]])}>
+                <Icon />
+              </span>
+              <div className="flex min-w-0 flex-col pt-1">
+                <span className="text-sm font-medium text-foreground">{x.title}</span>
+                {x.note && <span className="text-xs break-words text-muted-foreground">{x.note}</span>}
+              </div>
+            </li>
+          )
+        })}
+      </ol>
+      {hasIf && (
+        <div className="mt-3 grid gap-2 pl-11 sm:grid-cols-2">
+          {ways.map(({ h, step }) => {
+            const Icon = step ? STEP_ICON[step.kind] : null
+            return (
+              <div key={h} className="flex flex-col gap-2 rounded-md bg-muted/50 p-3">
+                <span className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{h === "then" ? "Yes" : "No"}</span>
+                {step && Icon ? (
+                  <div className="flex items-start gap-2.5">
+                    <span className={cn("flex size-7 shrink-0 items-center justify-center rounded-md [&>svg]:size-3.5", TONE[TONE_OF_NODE[step.kind]])}>
+                      <Icon />
+                    </span>
+                    <div className="flex min-w-0 flex-col">
+                      <span className="text-sm font-medium text-foreground">{step.title}</span>
+                      {step.note && <span className="text-xs break-words text-muted-foreground">{step.note}</span>}
+                    </div>
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">Stops here</span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
 

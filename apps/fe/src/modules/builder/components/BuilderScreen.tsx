@@ -39,6 +39,7 @@ import { toast } from "sonner"
 import { ApiError } from "@/lib/api"
 import { autopilotApi } from "@/modules/autopilot/api"
 import { nodeSummary, type NodeRun } from "@/modules/builder/data/testRun"
+import { TONE, type Tone } from "@/modules/builder/data/tone"
 import { useCanvasView } from "@/modules/builder/hooks/useCanvasView"
 import { useLeaveGuard } from "@/modules/builder/hooks/useLeaveGuard"
 import { scheduleText, zoneName } from "@/modules/autopilot/data/schedule"
@@ -114,20 +115,6 @@ function Gone({ mindId, text }: { mindId: string; text: string }) {
   )
 }
 
-/**
- * Each kind of block has its own colour, on its icon tile in the palette, on the canvas and in its
- * settings (design B1.0: Start neutral, Ask the Mind's own colour, tools info blue, If warning amber;
- * Ancung, 9 Nov: every kind different, so the website block takes the design's "app" purple).
- * Green and red stay for Test run results, and lime stays the one brand accent.
- */
-type Tone = "start" | "agent" | "tool" | "if" | "http"
-const TONE: Record<Tone, string> = {
-  start: "bg-muted text-foreground",
-  agent: "bg-node-mind text-primary-foreground",
-  tool: "bg-info-soft text-info",
-  if: "bg-warning-soft text-warning",
-  http: "bg-node-app/15 text-node-app",
-}
 
 /** Test run state per canvas node id, read by every block card (B1.2). */
 const TestRun = createContext<Record<string, NodeRun>>({})
