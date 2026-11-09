@@ -1,0 +1,41 @@
+// The tools a Builder job can use (design B1 "Use a tool: check balance, time, math"), in people's
+// words. Only tools that run unattended and need no key or approval (engine/src/builder.ts refuses
+// approval tools; docs/api-contract.md §2). Fields are from each tool's output schema in
+// engine/src/tools.ts, so an If can only look at something the tool really returns.
+
+export type FieldKind = "number" | "text"
+
+export type BuilderTool = {
+  tool: string
+  title: string
+  line: string
+  args: { name: string; label: string; kind: "account" }[]
+  fields: { name: string; label: string; kind: FieldKind }[]
+}
+
+export const TOOLS: BuilderTool[] = [
+  {
+    tool: "near_view_account",
+    title: "Check a NEAR account",
+    line: "Its balance on testnet",
+    args: [{ name: "accountId", label: "Account", kind: "account" }],
+    fields: [{ name: "balanceNear", label: "Balance (NEAR)", kind: "number" }],
+  },
+  {
+    tool: "get_time",
+    title: "Check the time",
+    line: "Today's date, time and weekday",
+    args: [],
+    fields: [
+      { name: "weekday", label: "Weekday", kind: "text" },
+      { name: "time", label: "Time (like 08:00)", kind: "text" },
+      { name: "date", label: "Date (like 2026-11-09)", kind: "text" },
+    ],
+  },
+]
+
+export const toolInfo = (tool: string) => TOOLS.find((t) => t.tool === tool) ?? null
+export const fieldInfo = (tool: string, field: string) => toolInfo(tool)?.fields.find((f) => f.name === field) ?? null
+
+/** NEAR testnet account ids: named (`shop.testnet`) or implicit (64 hex). */
+export const NEAR_ACCOUNT = /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/
