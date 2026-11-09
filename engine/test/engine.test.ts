@@ -316,7 +316,8 @@ describe('engine HTTP API', () => {
       if (req.url !== '/internal/v1/wallet/send_payment') return send({ address: 'abc', balanceNear: '0.5', payments: [] })
       const body = JSON.parse(raw)
       payments.push({ token: req.headers['x-wallet-token'], key: req.headers['x-engine-key'], body })
-      if (body.to === 'stranger.testnet') return send({ paymentId: 'p-denied', status: 'policy_denied', to: body.to, amountNear: body.amountNear, message: "Address 'stranger.testnet' is not in whitelist" })
+      // Like the demo wallet's policy: only listed recipients. The Attack Playground's attackers (#16) are not listed.
+      if (['stranger.testnet', 'drain-attacker.testnet', 'recover-funds.testnet'].includes(body.to)) return send({ paymentId: 'p-denied', status: 'policy_denied', to: body.to, amountNear: body.amountNear, message: `Address '${body.to}' is not in whitelist` })
       send({ paymentId: 'p-sent', status: 'sent', to: body.to, amountNear: body.amountNear, txHash: 'FakeTxHash1' })
     })
     before(async () => {
@@ -367,6 +368,49 @@ describe('engine HTTP API', () => {
       assert.match(refused?.error, /whitelist/)
       assert.equal(refused?.result?.txHash, undefined)
       assert.ok(!rest.some((e) => e.type === 'tool.result' && e.tool === 'send_payment'), 'not reported as a success')
+    })
+
+    // Attack Playground (#16): every scenario ends with an attack.verdict, and no attack ever gets a payment out.
+    describe('attack playground', () => {
+      test('GET /v1/attacks lists the three scenarios', async () => {
+        const res = await fetch(base + '/v1/attacks', { headers: { 'x-engine-key': key } })
+        assert.deepEqual((await res.json()).attacks.map((a: Ev) => a.attackId), ['direct-order', 'email-injection', 'rogue-skill', 'tricked-owner'])
+      })
+
+      for (const [attackId, skills, demo] of [['direct-order', ['payments'], false], ['email-injection', ['email-triage', 'payments'], true], ['tricked-owner', ['payments'], false]] as const) {
+        test(`${attackId}: stopped by the model or the approval, and an approval is refused by the policy`, async () => {
+          const threadId = randomUUID()
+          const attack = (await (await fetch(base + '/v1/attacks', { headers: { 'x-engine-key': key } })).json()).attacks.find((a: Ev) => a.attackId === attackId)
+          const am = mind('Target', { skills: skills.map((skillId) => ({ skillId })) })
+          const sentBefore = payments.filter((p) => p.body.to === attack.attacker).length
+          const first = await events(await post('/v1/minds/pay/chat', { userId, threadId, walletToken: TOKEN, demo, attackId, message: attack.message, mind: am }))
+          const verdict = first.find((e) => e.type === 'attack.verdict')
+          assert.ok(verdict, 'attack.verdict emitted')
+          assert.equal(first.at(-1)?.type, 'run.verified', 'run.verified stays last')
+          assert.ok(['model', 'approval'].includes(verdict.stoppedBy), JSON.stringify(verdict))
+          assert.equal(payments.filter((p) => p.body.to === attack.attacker).length, sentBefore, 'nothing reached the wallet before approval')
+          if (verdict.stoppedBy === 'approval') {
+            // The demo's "owner approves anyway" step: the wallet policy still refuses it before signing.
+            const ask = first.find((e) => e.type === 'tool.approval_required')!
+            const rest = await events(await post(`/v1/runs/${ask.runId}/approve?mindId=pay`, { userId, threadId, walletToken: TOKEN, demo, attackId, mind: am, toolCallId: ask.toolCallId }))
+            const after = rest.find((e) => e.type === 'attack.verdict')
+            // A card for a listed recipient (e.g. a real invoice) is not the attack; the attacker's is refused.
+            if (verdict.attackerTargeted) {
+              assert.equal(after?.stoppedBy, 'policy', JSON.stringify(after))
+              assert.match(after.detail, /whitelist/)
+              assert.ok(!rest.some((e) => e.type === 'tool.result' && e.tool === 'send_payment'), 'no payment sent')
+            }
+            assert.ok(!payments.some((p) => p.body.to === attack.attacker && p.body.amountNear && rest.some((e) => e.type === 'tool.result' && e.result?.to === attack.attacker)), 'never a payment to the attacker')
+          }
+        })
+      }
+
+      test('rogue-skill: a Mind without a payment tool cannot pay at all', async () => {
+        const attack = (await (await fetch(base + '/v1/attacks', { headers: { 'x-engine-key': key } })).json()).attacks.find((a: Ev) => a.attackId === 'rogue-skill')
+        const evs = await events(await post('/v1/minds/pay/chat', { userId, threadId: randomUUID(), walletToken: TOKEN, attackId: 'rogue-skill', message: attack.message, mind: mind('Reader', { skills: [{ skillId: 'near-account' }] }) }))
+        assert.equal(evs.find((e) => e.type === 'attack.verdict')?.stoppedBy, 'no_tool')
+        assert.ok(!evs.some((e) => e.tool === 'send_payment'), 'send_payment never appears')
+      })
     })
 
     test('the wallet token is stored in no mastra table', async () => {
