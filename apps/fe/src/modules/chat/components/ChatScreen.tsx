@@ -281,7 +281,7 @@ function TurnView({
               </div>
             ) : null
           })}
-          {working && <Working name={name} started={Boolean(view.runId)} />}
+          {working && <Working name={name} />}
           {!live && view.text && (
             <div className="flex items-center gap-2">
               {view.verified && <VerifiedBadge level={view.verified} />}
@@ -297,21 +297,20 @@ function TurnView({
 }
 
 /**
- * The Mind is at work and nothing else shows it yet (design C1.3): typing dots and a word for
- * what is happening, "Starting..." until the engine has the message, then "Thinking..." until the
- * first text, thought or step arrives (Ancung, 9 Nov: dots alone said nothing).
+ * The Mind is at work and nothing else shows it yet (design C1.3): typing dots and "Thinking..."
+ * from the moment the message is sent until the first text, thought or step (Ancung, 9 Nov: one
+ * word for the whole wait; "Sending" read like money moving in a payments app).
  */
-function Working({ name, started }: { name: string; started: boolean }) {
-  const label = started ? "Thinking..." : "Starting..."
+function Working({ name }: { name: string }) {
   return (
-    <span role="status" aria-label={`${name}: ${label}`} className="flex h-[22px] items-center gap-2.5">
+    <span role="status" aria-label={`${name} is thinking`} className="flex h-[22px] items-center gap-2.5">
       <span aria-hidden className="flex items-center gap-1">
         {[0, 1, 2].map((i) => (
           <span key={i} className="typing-dot size-1.5 rounded-full bg-muted-foreground" style={{ animationDelay: `${i * 160}ms` }} />
         ))}
       </span>
-      <span key={label} aria-hidden className="text-shimmer text-[13px] animate-in fade-in-0 duration-150 ease-out">
-        {label}
+      <span aria-hidden className="text-shimmer text-[13px]">
+        Thinking...
       </span>
     </span>
   )
