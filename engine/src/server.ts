@@ -4,7 +4,7 @@ import { timingSafeEqual } from 'node:crypto'
 import { RequestContext } from '@mastra/core/request-context'
 import { z } from 'zod'
 import { config } from './config.ts'
-import { createNormalizer, createWorkflowNormalizer } from './events.ts'
+import { createNormalizer, createWorkflowNormalizer, type HelloNearEvent } from './events.ts'
 import { MIND_KEY, UNATTENDED_KEY, mastra, storage } from './mastra.ts'
 import { resourceId, runRequestSchema, type Mind } from './mind.ts'
 import { SECRETS_KEY, redact, type Secret } from './secrets.ts'
@@ -17,14 +17,16 @@ import { attestationStatus, modelInfo, verifyCompletions, warmAttestation } from
 import { summarize } from './verify.ts'
 import { templateSummaries, templates } from './templates.ts'
 import { isNewThread, makeTitle } from './titles.ts'
+import { attackIdSchema, attackSummaries, verdictOf, type AttackId } from './attacks.ts'
 import { BuilderError, mastraWorkflowId, mindIdSchema, workflowIdSchema } from './builder.ts'
 import { mindSchema } from './mind.ts'
 import { secretSchema } from './secrets.ts'
 import { deleteWorkflow, listWorkflows, loadWorkflow, saveWorkflow } from './workflows.ts'
 import { autopilotSchema, deleteAutopilot, getAutopilot, listRuns, setAutopilot } from './autopilot.ts'
 
-const chatSchema = runRequestSchema.extend({ message: z.string().min(1) })
-const resumeSchema = runRequestSchema.extend({ toolCallId: z.string().min(1), reason: z.string().optional() })
+// `attackId` (#16): an Attack Playground run; the engine ends it with an `attack.verdict` event.
+const chatSchema = runRequestSchema.extend({ message: z.string().min(1), attackId: attackIdSchema.optional() })
+const resumeSchema = runRequestSchema.extend({ toolCallId: z.string().min(1), reason: z.string().optional(), attackId: attackIdSchema.optional() })
 // A workflow run has no chat thread; the Mind config and secrets come with every run, as in chat.
 const workflowRunSchema = z.object({
   userId: z.string().min(1),
@@ -88,13 +90,15 @@ function contextFor(mind: Mind, secrets: Secret[], opts: { unattended?: boolean;
 // Values no event may carry: the owner's secrets and the run's wallet and mail tokens.
 const hiddenValues = (secrets: Secret[], ...tokens: (string | undefined)[]) => [...secrets.map((s) => s.value), ...tokens.filter((t): t is string => !!t)]
 
-async function pipeRun(res: ServerResponse, stream: { fullStream: AsyncIterable<any> }, opts: { mindId: string; threadId: string; model: string; skills: string[]; secretValues: string[]; runId?: string; title?: Promise<string | null> }) {
+async function pipeRun(res: ServerResponse, stream: { fullStream: AsyncIterable<any> }, opts: { mindId: string; threadId: string; model: string; skills: string[]; secretValues: string[]; runId?: string; title?: Promise<string | null>; attack?: { id: AttackId; skills: string[] } }) {
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' })
   const normalize = createNormalizer({ ...opts, startSeq: opts.runId ? nextSeq.get(opts.runId) : 0 })
   let runId = opts.runId
+  const seen: HelloNearEvent[] = []
   try {
     for await (const chunk of stream.fullStream) {
       for (const event of await normalize(chunk)) {
+        seen.push(event)
         runId = event.runId
         nextSeq.set(runId, event.seq + 1)
         res.write(`data: ${JSON.stringify(event)}\n\n`)
@@ -108,6 +112,12 @@ async function pipeRun(res: ServerResponse, stream: { fullStream: AsyncIterable<
         nextSeq.set(runId, event.seq + 1)
         res.write(`data: ${JSON.stringify(event)}\n\n`)
       }
+    }
+    // Attack Playground (#16): which layer stopped the attack in this run.
+    if (runId && opts.attack) {
+      const event = normalize.event(runId, 'attack.verdict', verdictOf(opts.attack.id, opts.attack.skills, seen as any))
+      nextSeq.set(runId, event.seq + 1)
+      res.write(`data: ${JSON.stringify(event)}\n\n`)
     }
     // The stream is fully read, so the SDK holds every completion's bytes: verify them (#19).
     if (runId) {
@@ -170,6 +180,7 @@ export const server = createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/v1/templates') return sendJson(res, 200, { templates: templateSummaries() })
     if (req.method === 'GET' && url.pathname === '/v1/skills') return sendJson(res, 200, { skills: skillCatalogSummaries() })
+    if (req.method === 'GET' && url.pathname === '/v1/attacks') return sendJson(res, 200, { attacks: attackSummaries() })
 
     const agent = mastra.getAgent('mind')
 
@@ -177,25 +188,26 @@ export const server = createServer(async (req, res) => {
     if (req.method === 'POST' && chat) {
       const parsed = chatSchema.safeParse(await readJson(req))
       if (!parsed.success) return sendJson(res, 400, { error: 'invalid_body', issues: parsed.error.issues })
-      const { userId, threadId, message, mind, secrets, walletToken, mailToken, demo } = parsed.data
+      const { userId, threadId, message, mind, secrets, walletToken, mailToken, demo, attackId } = parsed.data
       const mindId = decodeURIComponent(chat[1])
+      const attack = attackId ? { id: attackId, skills: mind.skills.map((s) => s.skillId) } : undefined
       // Started before the run so it is usually ready when the run ends; it never throws.
       const title = (await isNewThread(threadId)) ? makeTitle(message) : undefined
       const stream = await agent.stream(message, agentOptions(mind, secrets, userId, mindId, threadId, { walletToken, mailToken }, demo))
-      return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secretValues: hiddenValues(secrets, walletToken, mailToken), title })
+      return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secretValues: hiddenValues(secrets, walletToken, mailToken), title, attack })
     }
 
     const resume = url.pathname.match(/^\/v1\/runs\/([^/]+)\/(approve|decline)$/)
     if (req.method === 'POST' && resume) {
       const parsed = resumeSchema.safeParse(await readJson(req))
       if (!parsed.success) return sendJson(res, 400, { error: 'invalid_body', issues: parsed.error.issues })
-      const { userId, threadId, mind, secrets, walletToken, mailToken, demo, toolCallId, reason } = parsed.data
+      const { userId, threadId, mind, secrets, walletToken, mailToken, demo, toolCallId, reason, attackId } = parsed.data
       const runId = decodeURIComponent(resume[1])
       const mindId = String(url.searchParams.get('mindId') ?? '')
       if (!mindId) return sendJson(res, 400, { error: 'mindId query parameter is required' })
       const options = { ...agentOptions(mind, secrets, userId, mindId, threadId, { walletToken, mailToken }, demo), runId, toolCallId }
       const stream = resume[2] === 'approve' ? await agent.approveToolCall(options) : await agent.declineToolCall({ ...options, reason })
-      return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secretValues: hiddenValues(secrets, walletToken, mailToken), runId })
+      return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secretValues: hiddenValues(secrets, walletToken, mailToken), runId, attack: attackId ? { id: attackId, skills: mind.skills.map((s) => s.skillId) } : undefined })
     }
 
     const wfList = url.pathname.match(/^\/v1\/minds\/([^/]+)\/workflows$/)
