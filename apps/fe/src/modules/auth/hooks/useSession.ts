@@ -57,6 +57,9 @@ export function useSignIn() {
     },
     onSuccess: (user) => {
       rememberAccount(user.nearAccountId)
+      // A wallet login can replace a try-out's session (sign-in page, T1.4): drop what was
+      // cached for it, so its (empty) Mind list doesn't send the new account to Choose a Mind.
+      queryClient.clear()
       queryClient.setQueryData(sessionKey, user)
     },
   })
