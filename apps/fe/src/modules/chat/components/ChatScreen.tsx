@@ -150,7 +150,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
           <Button
             size="sm"
             variant="secondary"
-            className="absolute bottom-3 left-1/2 -translate-x-1/2 shadow-sm animate-in fade-in-0 duration-150 motion-reduce:animate-none"
+            className="absolute bottom-3 left-1/2 -translate-x-1/2 cursor-pointer shadow-sm animate-in fade-in-0 duration-150 motion-reduce:animate-none"
             onClick={toBottom}
           >
             <ArrowDownIcon />
@@ -372,18 +372,27 @@ function useFollow(turns: number, events: number) {
   const stuck = useRef(true)
   const [atBottom, setAtBottom] = useState(true)
 
+  // True while "New message" glides down, so the scroll events on the way don't bring it back.
+  const gliding = useRef(false)
+
   const toBottom = useCallback(() => {
     const el = ref.current
     if (!el) return
-    el.scrollTop = el.scrollHeight
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    gliding.current = !reduce
     stuck.current = true
     setAtBottom(true)
+    el.scrollTo({ top: el.scrollHeight, behavior: reduce ? "auto" : "smooth" })
+    // If the user scrolls away mid-glide, stop ignoring their scrolling soon after.
+    window.setTimeout(() => {
+      gliding.current = false
+    }, 800)
   }, [])
 
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
-    if (stuck.current) el.scrollTop = el.scrollHeight
+    if (stuck.current && !gliding.current) el.scrollTop = el.scrollHeight
   }, [turns, events])
 
   // Streamed text grows the content without new turns or events; keep following it.
@@ -392,7 +401,7 @@ function useFollow(turns: number, events: number) {
     const content = el?.firstElementChild
     if (!el || !content) return
     const observer = new ResizeObserver(() => {
-      if (stuck.current) el.scrollTop = el.scrollHeight
+      if (stuck.current && !gliding.current) el.scrollTop = el.scrollHeight
     })
     observer.observe(content)
     return () => observer.disconnect()
@@ -402,6 +411,10 @@ function useFollow(turns: number, events: number) {
     const el = ref.current
     if (!el) return
     const near = el.scrollHeight - el.scrollTop - el.clientHeight < 48
+    if (gliding.current) {
+      if (near) gliding.current = false
+      return
+    }
     stuck.current = near
     setAtBottom(near)
   }, [])
