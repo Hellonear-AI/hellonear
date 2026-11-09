@@ -1,0 +1,22 @@
+[Unit]
+Description=HelloNear web app (Next.js, apps/fe)
+After=network-online.target hellonear-be.service
+Wants=network-online.target
+
+[Service]
+User=hellonear
+WorkingDirectory=/opt/hellonear/app/apps/fe
+# Built by deploy/deploy.sh on the deploying machine with NEXT_PUBLIC_API_URL; the box only runs it.
+Environment=NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
+ExecStart=/usr/local/bin/node node_modules/next/dist/bin/next start -H 0.0.0.0 -p 3000
+Restart=on-failure
+RestartSec=5
+MemoryMax=512M
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/hellonear
+
+[Install]
+WantedBy=multi-user.target
