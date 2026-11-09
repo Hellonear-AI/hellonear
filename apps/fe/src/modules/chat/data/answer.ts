@@ -22,17 +22,17 @@ export function answerOutcome(answer: Answer, run: { view: RunView; streaming: b
   const step = run.view.tools.find((t) => t.toolCallId === answer.toolCallId)
   const payment = paymentOf(step ?? { toolCallId: answer.toolCallId, tool: answer.tool, status: "awaiting_approval", args: answer.args, result: undefined })
   const what = payment ? `${payment.amountNear} NEAR to ${payment.to}` : (THING[answer.tool] ?? "the request")
-  const nothing = payment ? "Nothing was sent." : "Nothing was done."
+  const nothing = payment ? "No payment was sent." : "No changes were made."
 
   if (run.streaming) {
     if (answer.action === "decline") return { kind: "sending", title: `Declining ${what}` }
-    return { kind: "sending", title: payment ? `Sending ${what}` : `Going ahead with ${what}` }
+    return { kind: "sending", title: payment ? `Sending ${what}` : `Approving ${what}` }
   }
   if (run.failed) {
     const already = run.failed instanceof ApiError && run.failed.code === "not_awaiting_approval"
     return already
       ? { kind: "failed", title: `${capital(what)} was already answered` }
-      : { kind: "failed", title: "Couldn't send your answer", detail: `Nothing changed for ${what}. Try again.` }
+      : { kind: "failed", title: "Could not send your answer", detail: "No changes were made. Please try again." }
   }
   if (answer.action === "decline" || step?.status === "declined") return { kind: "declined", title: `Declined ${what}`, detail: nothing }
   if (step?.status === "ok") {
@@ -42,11 +42,11 @@ export function answerOutcome(answer: Answer, run: { view: RunView; streaming: b
   if (step?.status === "policy_denied" || step?.status === "wallet_frozen") {
     return {
       kind: "blocked",
-      title: `${capital(what)} wasn't sent`,
-      detail: step.status === "wallet_frozen" ? "The wallet is frozen." : "Your limits stopped it before signing.",
+      title: `${capital(what)} was not sent`,
+      detail: step.status === "wallet_frozen" ? "The wallet is frozen." : "Blocked by your wallet limits before signing."
     }
   }
-  return { kind: "failed", title: `${capital(what)} didn't go through`, detail: nothing }
+  return { kind: "failed", title: `${capital(what)} could not be completed`, detail: nothing }
 }
 
 /** An answer that never reached the run (network, 5xx) leaves the request waiting. */

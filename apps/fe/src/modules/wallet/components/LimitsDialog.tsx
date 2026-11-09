@@ -71,7 +71,7 @@ export function LimitsDialog({
       {
         onSuccess: () => {
           onOpenChange(false)
-          toast.success(`Limits saved. ${name} can now pay up to ${limits.perTransactionNear} NEAR at a time.`)
+          toast.success("Limits saved", { description: `Up to ${limits.perTransactionNear} NEAR per payment.` })
         },
       }
     )

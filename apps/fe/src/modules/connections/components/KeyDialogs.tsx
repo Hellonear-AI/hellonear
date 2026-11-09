@@ -69,7 +69,7 @@ export function KeyDialog({
         onSuccess: () => {
           onOpenChange(false)
           onSaved(keyName)
-          toast.success(`Key saved. It will only be sent to ${parsed.hosts.join(", ")}.`)
+          toast.success("Key saved", { description: `Sent only to ${parsed.hosts.join(", ")}.` })
         },
       }
     )
@@ -211,7 +211,7 @@ export function DeleteKeyDialog({ mindName, secret, open, onOpenChange }: { mind
               del.mutate(secret.name, {
                 onSuccess: () => {
                   onOpenChange(false)
-                  toast(`${secret.name} deleted`)
+                  toast("Key deleted", { description: secret.name })
                 },
               })
             }

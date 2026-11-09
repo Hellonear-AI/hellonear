@@ -55,7 +55,7 @@ describe("Builder stage 1 (#20)", () => {
   it("says what an If still needs", () => {
     const tool = { id: "t", kind: "tool" as const, tool: "near_view_account", args: { accountId: "shop.testnet" } }
     const base: Draft = { ...draft, steps: [tool], branch: { id: "c", stepId: "t", field: "balanceNear", op: "lt", right: "", then: null, else: null } }
-    expect(draftProblems(base).map((p) => p.text)).toEqual(["If: enter a number.", "If: add a step for If yes."])
+    expect(draftProblems(base).map((p) => p.text)).toEqual(["Enter a number in the If block.", "Add a step for If yes."])
     expect(draftProblems({ ...base, steps: [{ ...tool, args: { accountId: "Not An Account!" } }] }).some((p) => p.where === "t")).toBe(true)
     const text: Draft = { ...draft, steps: [{ id: "n", kind: "tool", tool: "get_time", args: {} }], branch: { id: "c", stepId: "n", field: "weekday", op: "eq", right: "Friday", then: { id: "y", kind: "agent", prompt: "Weekend plan." }, else: null } }
     expect(draftProblems(text)).toEqual([])

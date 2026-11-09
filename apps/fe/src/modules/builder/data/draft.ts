@@ -219,11 +219,11 @@ export type DraftProblem = { where: string; text: string }
 /** What would stop Save, checked as you type, before the engine checks it again. */
 export function draftProblems(d: Draft): DraftProblem[] {
   const out: DraftProblem[] = []
-  if (!d.name.trim()) out.push({ where: "name", text: "Give the job a name." })
-  if (!/^\d{2}:\d{2}$/.test(d.time)) out.push({ where: "start", text: "Pick a time." })
+  if (!d.name.trim()) out.push({ where: "name", text: "Job name is required." })
+  if (!/^\d{2}:\d{2}$/.test(d.time)) out.push({ where: "start", text: "Time is required." })
   if (!d.steps.length) out.push({ where: "steps", text: "Add at least one step after Start." })
   for (const s of d.steps) {
-    if (s.kind === "agent" && !s.prompt.trim()) out.push({ where: s.id, text: "Say what the Mind should do in this step." })
+    if (s.kind === "agent" && !s.prompt.trim()) out.push({ where: s.id, text: "Instructions are required for this step." })
     if (s.kind === "http") {
       let ok = false
       try {
@@ -231,26 +231,26 @@ export function draftProblems(d: Draft): DraftProblem[] {
       } catch {
         ok = false
       }
-      if (!ok) out.push({ where: s.id, text: "Website: enter an address that starts with https://." })
-      if (/\$\{/.test(s.url + s.body)) out.push({ where: s.id, text: "Website: \"${\" isn't allowed." })
+      if (!ok) out.push({ where: s.id, text: "Website address must start with https://." })
+      if (/\$\{/.test(s.url + s.body)) out.push({ where: s.id, text: "Website address and body cannot contain \"${\"." })
     }
     if (s.kind === "tool") {
       for (const a of toolInfo(s.tool)?.args ?? []) {
         const v = (s.args[a.name] ?? "").trim()
-        if (a.kind === "account" && !NEAR_ACCOUNT.test(v)) out.push({ where: s.id, text: `${a.label}: enter a NEAR account, like shop.testnet.` })
+        if (a.kind === "account" && !NEAR_ACCOUNT.test(v)) out.push({ where: s.id, text: "Enter a valid NEAR account, for example shop.testnet." })
       }
     }
   }
   const b = d.branch
   if (b) {
     const field = stepFields(d.steps.find((s) => s.id === b.stepId)).find((f) => f.name === b.field) ?? null
-    if (!field || field.kind === "list") out.push({ where: b.id, text: "If: pick a number or text result from a tool step before it." })
-    else if (field.kind === "number" && (b.right.trim() === "" || !Number.isFinite(Number(b.right)))) out.push({ where: b.id, text: "If: enter a number." })
-    else if (field.kind === "text" && !b.right.trim()) out.push({ where: b.id, text: "If: enter what to compare with." })
-    if (!b.then) out.push({ where: b.id, text: "If: add a step for If yes." })
+    if (!field || field.kind === "list") out.push({ where: b.id, text: "Select a value to compare in the If block." })
+    else if (field.kind === "number" && (b.right.trim() === "" || !Number.isFinite(Number(b.right)))) out.push({ where: b.id, text: "Enter a number in the If block." })
+    else if (field.kind === "text" && !b.right.trim()) out.push({ where: b.id, text: "Enter a value in the If block." })
+    if (!b.then) out.push({ where: b.id, text: "Add a step for If yes." })
     // Engine rule (docs/api-contract.md §2): both ways can't ask the Mind (they'd need the same input).
-    if (b.then && b.else) out.push({ where: b.else.id, text: "If yes and If no can't both ask the Mind. Let If no stop." })
-    for (const s of [b.then, b.else]) if (s && !s.prompt.trim()) out.push({ where: s.id, text: "Say what the Mind should do in this step." })
+    if (b.then && b.else) out.push({ where: b.else.id, text: "If yes and If no cannot both ask the Mind. Set If no to stop." })
+    for (const s of [b.then, b.else]) if (s && !s.prompt.trim()) out.push({ where: s.id, text: "Instructions are required for this step." })
   }
   return out
 }
