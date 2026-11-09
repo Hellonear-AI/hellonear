@@ -63,7 +63,7 @@ export function ReplyText({ text, live }: { text: string; live: boolean }) {
             </div>
           ),
           th: ({ children }) => <th className="border-b border-border bg-muted px-3 py-2 font-semibold whitespace-nowrap">{words(children)}</th>,
-          td: ({ children }) => <td className="border-b border-border px-3 py-2 align-top last:border-b-0 [tr:last-child_&]:border-b-0">{words(children)}</td>,
+          td: ({ children }) => <td className="border-b border-border px-3 py-2 align-top [tr:last-child_&]:border-b-0">{words(children)}</td>,
           p: ({ children }) => <p>{words(children)}</p>,
           li: ({ children }) => <li>{words(children)}</li>,
           strong: ({ children }) => <strong>{words(children)}</strong>,
