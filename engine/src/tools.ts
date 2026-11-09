@@ -198,12 +198,12 @@ const calendarCreateEvent = createTool({
   execute: async ({ title, start, end, location, description }, context) => {
     checkOwnerOffset([start, end], ownerZone(context))
     if (isDemo(context)) return createSampleEvent({ title, start, end })
-    // The tool has no end time: start (UTC) plus a duration. No attendees and send_updates false: nobody else is
+    // Start and end with the owner's offset (Composio's latest schema). No attendees and send_updates 'none': nobody else is
     // emailed. create_meeting_room would make a Meet link (Workspace accounts only), so it stays off.
     const data = await composioTool(context, 'googlecalendar', 'GOOGLECALENDAR_CREATE_EVENT', {
       calendar_id: 'primary', summary: title, ...composioTiming(start, end),
       ...(location ? { location } : {}), ...(description ? { description } : {}),
-      create_meeting_room: false, send_updates: false,
+      create_meeting_room: false, send_updates: 'none',
     })
     const e = data?.response_data ?? {}
     return {
@@ -247,7 +247,7 @@ const calendarCreateMeeting = createTool({
     const data = await composioTool(context, 'googlecalendar', 'GOOGLECALENDAR_CREATE_EVENT', {
       calendar_id: 'primary', summary: title, ...timing,
       ...(place.location ? { location: place.location } : {}), ...(place.description ? { description: place.description } : {}),
-      ...(guests.length ? { attendees: guests } : {}), send_updates: guests.length > 0, create_meeting_room: false,
+      ...(guests.length ? { attendees: guests } : {}), send_updates: guests.length ? 'all' : 'none', create_meeting_room: false,
     })
     const e = data?.response_data ?? {}
     return {
