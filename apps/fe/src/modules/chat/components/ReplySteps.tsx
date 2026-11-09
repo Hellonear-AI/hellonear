@@ -133,7 +133,8 @@ function Row({
 function StepDetails({ step }: { step: ToolStep }) {
   const blocks: [string, unknown][] = [
     ["Asked with", step.args],
-    [step.error ? "Error" : "Got back", step.error ?? step.result],
+    // The engine passes JS error text ("Error: ..."); the heading already says Error.
+    [step.error ? "Error" : "Got back", step.error ? step.error.replace(/^\w*Error:\s*/, "") : step.result],
   ]
   const shown = blocks.filter(([, v]) => v !== undefined && v !== null && !(typeof v === "object" && Object.keys(v as object).length === 0))
   return (
@@ -163,7 +164,10 @@ export function lines(value: unknown): [string | null, string][] {
       ? "none"
       : typeof v === "object"
         ? Array.isArray(v)
-          ? `${v.length} ${v.length === 1 ? "item" : "items"}`
+          ? // A short list of plain values (a meeting's guests) reads better than "1 item".
+            v.length > 0 && v.length <= 5 && v.every((x) => typeof x === "string" || typeof x === "number")
+            ? cut(v.join(", "))
+            : `${v.length} ${v.length === 1 ? "item" : "items"}`
           : `${Object.keys(v).length} fields`
         : cut(String(v))
   if (value === null || typeof value !== "object" || Array.isArray(value)) return [[null, show(value)]]
