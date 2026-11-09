@@ -142,6 +142,13 @@ describe('engine HTTP API', () => {
     assert.equal(bad.status, 400)
   })
 
+  test('every Mind can answer questions about HelloNear through the built-in guide (#114)', async () => {
+    const evs = await events(await post('/v1/minds/guide/chat', { userId, threadId: randomUUID(), message: 'What is this app, and how do I freeze my wallet?', mind: mind('Gia', { skills: [{ skillId: 'payments' }] }) }))
+    assert.match(finalText(evs), /HelloNear/)
+    assert.match(finalText(evs), /Freeze/i)
+    assert.ok(!evs.some((e) => e.tool === 'send_payment'), 'answering a question pays nothing')
+  })
+
   test('tool calls become normalized events with usage, cost and contiguous seq', async () => {
     const evs = await events(await post('/v1/minds/tools/chat', {
       userId, threadId: randomUUID(), message: 'Use your tool: what is 17 + 25?',

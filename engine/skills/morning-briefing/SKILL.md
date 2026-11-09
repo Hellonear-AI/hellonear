@@ -6,6 +6,8 @@ metadata:
     tools: [get_time, googlecalendar_list_events, gmail_list_emails, gmail_read_email, get_balance, list_payments]
     connections: [googlecalendar, gmail]
     status: available
+    title: Morning briefing
+    blurb: one read-only briefing of the day's calendar, inbox and wallet
     note: Read-only. Uses the owner's Google Calendar and Gmail through Composio, and this Mind's wallet if it has one; try-out visitors get the sample calendar and inbox (#104).
 ---
 

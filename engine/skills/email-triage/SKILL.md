@@ -6,6 +6,8 @@ metadata:
     tools: [gmail_list_emails, gmail_read_email, gmail_create_draft, get_time]
     connections: [gmail]
     status: available
+    title: Email helper
+    blurb: reads the owner's Gmail and saves drafts, never sends
     note: The owner's own Gmail through Composio, after connecting it under Connections (#13). Try-out visitors get a fixed sample inbox instead (#43).
 ---
 

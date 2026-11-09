@@ -6,6 +6,8 @@ metadata:
     tools: [near_view_account]
     connections: []
     status: available
+    title: NEAR account lookup
+    blurb: looks up NEAR testnet accounts, cannot spend
 ---
 
 # NEAR account

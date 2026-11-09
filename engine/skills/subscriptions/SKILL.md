@@ -6,6 +6,8 @@ metadata:
     tools: [get_time, gmail_list_emails, gmail_read_email, add_numbers, googlecalendar_create_event]
     connections: [gmail, googlecalendar]
     status: available
+    title: Subscriptions
+    blurb: finds subscriptions and renewals in Gmail and adds up the costs
     note: Finds receipts, renewal notices and invoices in the owner's Gmail; a renewal reminder in Google Calendar waits for the owner's approval. Paying stays with the payments skill (#105). Try-out visitors get the sample inbox.
 ---
 
