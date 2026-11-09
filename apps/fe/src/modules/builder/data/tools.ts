@@ -3,7 +3,8 @@
 // approval tools; docs/api-contract.md §2). Fields are from each tool's output schema in
 // engine/src/tools.ts, so an If can only look at something the tool really returns.
 
-export type FieldKind = "number" | "text"
+/** "list" results (emails, events) can go into an Ask step, but an If can only compare a number or text. */
+export type FieldKind = "number" | "text" | "list"
 
 export type BuilderTool = {
   tool: string
@@ -31,6 +32,20 @@ export const TOOLS: BuilderTool[] = [
       { name: "time", label: "Time (like 08:00)", kind: "text" },
       { name: "date", label: "Date (like 2026-11-09)", kind: "text" },
     ],
+  },
+  {
+    tool: "googlecalendar_list_events",
+    title: "Read the calendar",
+    line: "Upcoming events from Google Calendar",
+    args: [],
+    fields: [{ name: "events", label: "Calendar events", kind: "list" }],
+  },
+  {
+    tool: "gmail_list_emails",
+    title: "Read the inbox",
+    line: "Recent emails from Gmail",
+    args: [],
+    fields: [{ name: "emails", label: "Emails", kind: "list" }],
   },
 ]
 

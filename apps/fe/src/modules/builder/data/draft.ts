@@ -162,6 +162,9 @@ export function workflowIdFor(name: string, taken: string[]): string {
   for (let i = 2; ; i++) if (!taken.includes(`${base}-${i}`)) return `${base}-${i}`
 }
 
+/** The results an If can compare: number and text fields only. */
+export const comparable = (r: { kind: string }) => r.kind !== "list"
+
 /** The results an If (or a later prompt) can look at: each earlier tool step's fields. */
 export function resultsBefore(steps: Step[], index = steps.length) {
   return steps.slice(0, index).flatMap((s) =>
@@ -190,7 +193,7 @@ export function draftProblems(d: Draft): DraftProblem[] {
   if (b) {
     const step = d.steps.find((s) => s.id === b.stepId)
     const field = step?.kind === "tool" ? fieldInfo(step.tool, b.field) : null
-    if (!field) out.push({ where: b.id, text: "If: pick a result from a tool step before it." })
+    if (!field || field.kind === "list") out.push({ where: b.id, text: "If: pick a number or text result from a tool step before it." })
     else if (field.kind === "number" && (b.right.trim() === "" || !Number.isFinite(Number(b.right)))) out.push({ where: b.id, text: "If: enter a number." })
     else if (field.kind === "text" && !b.right.trim()) out.push({ where: b.id, text: "If: enter what to compare with." })
     if (!b.then) out.push({ where: b.id, text: "If: add a step for If yes." })

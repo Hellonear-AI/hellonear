@@ -23,6 +23,7 @@ import {
   NAME_MAX,
   PROMPT_MAX,
   ref,
+  comparable,
   resultsBefore,
   toCanvas,
   workflowIdFor,
@@ -114,7 +115,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
     setSelected(id)
   }
   function addIf() {
-    const first = resultsBefore(draft.steps)[0]
+    const first = resultsBefore(draft.steps).find(comparable)
     const id = newId("check")
     setDraft((d) => ({
       ...d,
@@ -157,7 +158,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const b = draft.branch
   const step = draft.steps.find((s) => s.id === selected)
   const ending = b && (selected === `${b.id}:then` ? "then" : selected === `${b.id}:else` ? "else" : null)
-  const canIf = !b && resultsBefore(draft.steps).length > 0
+  const canIf = !b && resultsBefore(draft.steps).some(comparable)
 
   return (
     <div className="flex min-h-[calc(100dvh-64px)] min-w-0 flex-col md:min-h-dvh">
@@ -197,11 +198,11 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
           <p className="text-xs text-muted-foreground">Tap one to add it.</p>
           <PaletteItem icon={<CalendarClockIcon />} title="Start" line="Every job has one" disabled />
           <PaletteItem icon={<BotIcon />} title={`Ask ${name}`} line={`${name} writes or decides`} onClick={() => addStep("agent")} />
-          <PaletteItem icon={<SearchIcon />} title="Use a tool" line="Check an account or the time" onClick={() => addStep("tool")} />
+          <PaletteItem icon={<SearchIcon />} title="Use a tool" line="An account, the time, the calendar, the inbox" onClick={() => addStep("tool")} />
           <PaletteItem
             icon={<GitBranchIcon />}
             title="If or else"
-            line={b ? "A job can have only one" : canIf ? "Choose one of two ways" : "Add a tool step first"}
+            line={b ? "A job can have only one" : canIf ? "Choose one of two ways" : "Add an account or time check first"}
             onClick={addIf}
             disabled={!canIf}
           />
@@ -587,7 +588,7 @@ function ToolPanel({
 }
 
 function IfPanel({ branch, steps, onChange, onDelete }: { branch: Branch; steps: Step[]; onChange: (p: Partial<Branch>) => void; onDelete: () => void }) {
-  const results = resultsBefore(steps)
+  const results = resultsBefore(steps).filter(comparable)
   const current = results.find((r) => r.stepId === branch.stepId && r.name === branch.field)
   const ops = OPS.filter((o) => current?.kind === "number" || !o.number)
   return (
