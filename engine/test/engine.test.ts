@@ -162,6 +162,14 @@ describe('engine HTTP API', () => {
     assert.ok(!evs.some((e) => e.tool === 'send_payment'), 'answering a question pays nothing')
   })
 
+  test('reply text never shows an em or en dash, even when asked for one (#124)', async () => {
+    const evs = await events(await post('/v1/minds/dash/chat', { userId, threadId: randomUUID(), message: 'Quote this exactly: "Saturday 08:00 — leave; 09:00–10:00 breakfast".', mind: mind('Dash') }))
+    const text = evs.filter((e) => e.type === 'text.delta').map((e) => e.text).join('')
+    assert.ok(text.length > 0)
+    assert.ok(!/[—–]/.test(text), text)
+    assert.ok(!/[—–]/.test(finalText(evs)))
+  })
+
   test('tool calls become normalized events with usage, cost and contiguous seq', async () => {
     const evs = await events(await post('/v1/minds/tools/chat', {
       userId, threadId: randomUUID(), message: 'Use your tool: what is 17 + 25?',
@@ -311,6 +319,14 @@ describe('engine HTTP API', () => {
       assert.equal(listed.result.source, 'sample_calendar')
       assert.ok(listed.result.events.length > 0)
       assert.equal(evs.at(-1)?.type, 'run.verified')
+    })
+
+    test('with the owner\'s zone, a relative meeting time carries the owner\'s offset (#124)', async () => {
+      const evs = await events(await post('/v1/minds/cal/chat', { userId, threadId: randomUUID(), demo: true, timeZone: 'Asia/Jakarta', mind: planner, message: 'Schedule "Sync" tomorrow from 2pm to 3pm with budi@example.com, with a Google Meet link.' }))
+      const ask = evs.find((e) => e.type === 'tool.approval_required' && e.tool === 'googlecalendar_create_meeting')
+      assert.ok(ask, JSON.stringify(evs.filter((e) => e.tool).map((e) => `${e.type}:${e.tool}`)))
+      assert.match(ask.args.start, /\+07:00$/)
+      assert.match(ask.args.start, /T14:00/)
     })
 
     for (const action of ['approve', 'decline'] as const) {

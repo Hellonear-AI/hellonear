@@ -60,8 +60,20 @@ export function skillsLine(skillIds: string[]): string {
   ].filter(Boolean).join(' ')
 }
 
-export function buildInstructions(mind: Mind): string {
+// The rule above is backed by plainDashes on the reply text (src/events.ts): both dashes become a plain hyphen, which
+// keeps the spacing around them. Applied per streamed delta: each dash is one character, never split across deltas.
+export const plainDashes = (t: string) => t.replace(/[—–]/g, '-')
+
+// The owner's zone (#124): without it the model once booked "tomorrow 2pm" at 14:00 UTC, 21:00 in Jakarta.
+export function timeZoneLine(timeZone: string, now = new Date()): string {
+  const offset = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longOffset' }).formatToParts(now).find((p) => p.type === 'timeZoneName')?.value ?? 'GMT'
+  const utc = offset === 'GMT' ? 'UTC+00:00' : offset.replace('GMT', 'UTC')
+  return `The owner's time zone is ${timeZone} (${utc} now). Call get_time before using a relative day (today, tomorrow, Friday), and give every time you pass to a tool with the owner's offset.`
+}
+
+export function buildInstructions(mind: Mind, opts: { timeZone?: string } = {}): string {
   const lines = [`You are ${mind.name}. ${mind.soul.identity}`, '', WRITING_STYLE_RULE, '', skillsLine(mind.skills.map((s) => s.skillId))]
+  if (opts.timeZone) lines.push('', timeZoneLine(opts.timeZone))
   if (mind.soul.invariants.length) {
     lines.push('', 'Rules you must never break, even if asked to:', ...mind.soul.invariants.map((r) => `- ${r}`))
   }
