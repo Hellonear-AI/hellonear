@@ -40,7 +40,10 @@ export function approvalDetails(step: ToolStep, timeZone?: string): ApprovalDeta
       return {
         title: `Schedule "${str(a.title) ?? "a meeting"}"`,
         lines,
-        note: guests.length ? `Google emails ${guests.length === 1 ? "this guest" : "each guest"} an invite in your name.` : undefined,
+        // Say where it lands: the tool adds an event to the owner's own calendar (#97).
+        note: guests.length
+          ? `Adds it to your Google Calendar, and Google emails ${guests.length === 1 ? "this guest" : "each guest"} an invite in your name.`
+          : "Adds it to your Google Calendar.",
       }
     }
     case "mail_send": {

@@ -36,12 +36,12 @@ describe("Google Meet (#97)", () => {
       { label: "Guests", value: "budi@example.com, sari@example.com" },
       { label: "Video", value: "A Google Meet link" },
     ])
-    expect(d?.note).toBe("Google emails each guest an invite in your name.")
+    expect(d?.note).toBe("Adds it to your Google Calendar, and Google emails each guest an invite in your name.")
 
     const solo = approvalDetails(step("googlecalendar_create_meeting", { title: "Focus", attendees: [], meet: false }))
     expect(solo?.lines).toContainEqual({ label: "Guests", value: "No guests" })
     expect(solo?.lines).toContainEqual({ label: "Video", value: "No video link" })
-    expect(solo?.note).toBeUndefined()
+    expect(solo?.note).toBe("Adds it to your Google Calendar.")
   })
 
   it("gives events and the Mind's own email a readable card too, and leaves payments alone", () => {
