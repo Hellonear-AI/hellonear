@@ -205,7 +205,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   }
   const spot = (at: number) =>
     accepts(at) ? (
-      <DropSpot key={`spot-${at}`} id={`spot-${at}`} over={over} setOver={setOver} onDrop={() => dropAt(at)} label={drag && "add" in drag && drag.add === "if" ? "Drop the If here" : "Drop here"} />
+      <DropSpot key={`spot-${at}`} id={`spot-${at}`} over={over} setOver={setOver} onDrop={() => dropAt(at)} label="Drop here" />
     ) : null
 
   function addStep(kind: "agent" | "tool" | "http", at?: number) {
@@ -419,7 +419,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
           className="flex min-w-0 flex-1 flex-col items-center overflow-x-auto bg-[radial-gradient(var(--color-border)_1px,transparent_1px)] bg-size-[20px_20px] px-4 py-8"
         >
           <BlockCard icon={<CalendarClockIcon />} kind="Start" title={scheduleText(cronOf(draft))} line={`${zoneName(draft.timezone)} time`} active={selected === "start"} onClick={() => setSelected("start")} />
-          {spot(0)}
+          {draft.steps.length > 0 && spot(0)}
           {draft.steps.map((s, i) => (
             <div key={s.id} className="flex flex-col items-center">
               <Linked>
@@ -436,18 +436,44 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                   <StepCard step={s} name={name} active={selected === s.id} problem={flagged(s.id)} onClick={() => setSelected(s.id)} />
                 </div>
               </Linked>
-              {spot(i + 1)}
+              {i + 1 < draft.steps.length && spot(i + 1)}
             </div>
           ))}
           <Linked>
+            {/* The end of the line is this card: it is also where a dragged block lands (Ancung, 9 Nov:
+                a second "Drop here" box under it was confusing). */}
             <button
               type="button"
               onClick={() => addStep("agent")}
-              className="flex w-full max-w-[280px] flex-col items-center gap-1 rounded-lg border border-dashed border-border-strong bg-surface/60 px-4 py-3 text-center outline-none hover:bg-surface focus-visible:ring-2 focus-visible:ring-focus"
+              onDragOver={(e) => {
+                if (!accepts(draft.steps.length)) return
+                e.preventDefault()
+                if (over !== "end") setOver("end")
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(null)
+              }}
+              onDrop={(e) => {
+                if (!accepts(draft.steps.length)) return
+                e.preventDefault()
+                dropAt(draft.steps.length)
+              }}
+              className={cn(
+                "flex w-full max-w-[280px] flex-col items-center gap-1 rounded-lg border border-dashed px-4 py-3 text-center outline-none transition-colors duration-100 ease-out focus-visible:ring-2 focus-visible:ring-focus",
+                over === "end"
+                  ? "border-solid border-foreground bg-surface-hover ring-4 ring-foreground/10"
+                  : drag && accepts(draft.steps.length)
+                    ? "border-foreground/60 bg-surface"
+                    : "border-border-strong bg-surface/60 hover:bg-surface"
+              )}
             >
-              <PlusIcon className="size-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-foreground">Add the next step</span>
-              <span className="text-xs text-muted-foreground">{b ? "It goes before the If" : `Ask ${name} to do something`}</span>
+              <PlusIcon className={cn("size-4", over === "end" ? "text-foreground" : "text-muted-foreground")} />
+              <span className="text-sm font-medium text-foreground">
+                {drag && accepts(draft.steps.length) ? (drag && "add" in drag && drag.add === "if" ? "Drop to add the If here" : "Drop to add it here") : "Add the next step"}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {b ? "It goes before the If" : `Ask ${name} to do something`}
+              </span>
             </button>
           </Linked>
           {b && (
@@ -581,13 +607,16 @@ function ifTitle(b: Branch, steps: Step[]): string {
   return `If ${what} ${verb} ${b.right.trim()}${field.name === "balanceNear" ? " NEAR" : ""}`
 }
 
-/** A place a dragged block may land (B1.7): + marks it, and it turns dark while hovered. */
+/**
+ * A place between two steps where a dragged block may go (B1.7): a slim dashed line with a small +,
+ * bright while hovered. Its hit area is taller than it looks so it's easy to land on.
+ */
 function DropSpot({ id, over, setOver, onDrop, label }: { id: string; over: string | null; setOver: (id: string | null) => void; onDrop: () => void; label: string }) {
   const hot = over === id
   return (
-    <div className="flex flex-col items-center">
-      <span aria-hidden className="h-3 w-px bg-border-strong" />
+    <div className="flex w-[280px] max-w-full flex-col items-center">
       <div
+        aria-label={label}
         onDragOver={(e) => {
           e.preventDefault()
           if (!hot) setOver(id)
@@ -599,13 +628,18 @@ function DropSpot({ id, over, setOver, onDrop, label }: { id: string; over: stri
           e.preventDefault()
           onDrop()
         }}
-        className={cn(
-          "flex h-10 w-[220px] max-w-full items-center justify-center gap-1.5 rounded-full border border-dashed text-xs transition-colors duration-100 ease-out",
-          hot ? "border-foreground bg-foreground text-background" : "border-border-strong bg-surface/80 text-muted-foreground"
-        )}
+        className="flex h-7 w-full items-center gap-2"
       >
-        <PlusIcon className="size-3.5" />
-        {label}
+        <span className={cn("h-0.5 flex-1 rounded-full border-t-2 border-dashed transition-colors duration-100 ease-out", hot ? "border-foreground" : "border-border-strong")} />
+        <span
+          className={cn(
+            "flex size-5 shrink-0 items-center justify-center rounded-full transition-colors duration-100 ease-out",
+            hot ? "bg-surface-hover text-foreground ring-2 ring-foreground" : "bg-surface text-muted-foreground ring-1 ring-border-strong"
+          )}
+        >
+          <PlusIcon className="size-3" />
+        </span>
+        <span className={cn("h-0.5 flex-1 rounded-full border-t-2 border-dashed transition-colors duration-100 ease-out", hot ? "border-foreground" : "border-border-strong")} />
       </div>
     </div>
   )
