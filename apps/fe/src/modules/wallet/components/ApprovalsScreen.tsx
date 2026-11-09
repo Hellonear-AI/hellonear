@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { mindHref } from "@/components/layout/nav"
 import { formatNear, shortWhen, timeAgo } from "@/lib/format"
+import { TryOutLockedDialog, useTryOutLock } from "@/modules/auth/components/TryOutLockedDialog"
 import { useSession } from "@/modules/auth/hooks/useSession"
 import { chatApi } from "@/modules/chat/api"
 import { paymentOf, toolLabel, type ToolStep } from "@/modules/chat/data/events"
@@ -48,6 +49,8 @@ export function ApprovalsScreen({ mindId }: { mindId: string }) {
     setFreezeKey((k) => k + 1)
     setFreezeOpen(true)
   }
+  // A try-out sees Freeze too, and it says why it needs a wallet (T1.4).
+  const locked = useTryOutLock()
 
   const name = mind?.name ?? "Your Mind"
   const templateId = mind?.templateId ?? "general-assistant"
@@ -110,11 +113,12 @@ export function ApprovalsScreen({ mindId }: { mindId: string }) {
         </section>
 
         <aside className="flex flex-col gap-6 xl:w-[380px] xl:shrink-0">
-          <EmergencyStop name={name} wallet={wallet} demo={demo} onOpen={openFreeze} />
+          <EmergencyStop name={name} wallet={wallet} onOpen={demo ? () => locked.lock("freeze") : wallet?.shared ? null : openFreeze} />
           <RecentDecisions mindId={mindId} />
         </aside>
       </div>
 
+      <TryOutLockedDialog action={locked.action} name={name} onClose={locked.close} />
       <FreezeDialog key={freezeKey} mindId={mindId} name={name} freeze={!wallet?.frozen} open={freezeOpen} onOpenChange={setFreezeOpen} />
     </div>
   )
@@ -241,7 +245,7 @@ function NothingWaiting({ mindId, name }: { mindId: string; name: string }) {
   )
 }
 
-function EmergencyStop({ name, wallet, demo, onOpen }: { name: string; wallet: ApiWallet | null; demo: boolean; onOpen: () => void }) {
+function EmergencyStop({ name, wallet, onOpen }: { name: string; wallet: ApiWallet | null; onOpen: (() => void) | null }) {
   if (!wallet) return null
   const frozen = wallet.frozen
   return (
@@ -259,9 +263,8 @@ function EmergencyStop({ name, wallet, demo, onOpen }: { name: string; wallet: A
           ? `Nothing can leave ${name}'s wallet until you unfreeze it. Waiting requests stay here.`
           : `Freezing stops every payment from ${name} right away, including the skills. Waiting requests stay here.`}
       </p>
-      {demo || wallet.shared ? (
-        <p className="text-xs text-muted-foreground">Connect a wallet to do this. This try-out pays from a shared test wallet.</p>
-      ) : (
+      {/* A try-out's button opens T1.4; a shared wallet that isn't a try-out has nothing to offer. */}
+      {onOpen && (
         <Button variant={frozen ? "outline" : "destructive"} className="w-fit" onClick={onOpen}>
           <SnowflakeIcon />
           {frozen ? `Unfreeze ${name}'s wallet` : `Freeze ${name}'s wallet`}

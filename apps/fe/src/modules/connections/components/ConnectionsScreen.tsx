@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { shortWhen } from "@/lib/format"
+import { TryOutLockedDialog, useTryOutLock } from "@/modules/auth/components/TryOutLockedDialog"
 import { useSession } from "@/modules/auth/hooks/useSession"
 import type { ApiSecret } from "@/modules/connections/api"
 import { DeleteKeyDialog, DisconnectDialog, KeyDialog } from "@/modules/connections/components/KeyDialogs"
@@ -51,6 +52,8 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
     setOpened((n) => n + 1)
     setOpen(o)
   }
+  // A try-out sees Add key too, and it says why keys need a wallet (T1.4).
+  const locked = useTryOutLock()
 
   const name = mind?.name ?? "Your Mind"
   const expired = APPS.filter((a) => connectionStatus(connections.data, a.toolkit) === "expired")
@@ -171,12 +174,10 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
                 </h2>
                 <p className="text-[13px] text-muted-foreground">For your own services. Used by the Other apps skill.</p>
               </div>
-              {!demo && (
-                <Button size="sm" onClick={() => show({ kind: "add" })}>
-                  <PlusIcon />
-                  Add key
-                </Button>
-              )}
+              <Button size="sm" onClick={() => (demo ? locked.lock("keys") : show({ kind: "add" }))}>
+                <PlusIcon />
+                Add key
+              </Button>
             </div>
             {secrets.isPending ? (
               <Skeleton className="h-24 w-full" />
@@ -184,7 +185,7 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
               <p className="text-[13px] text-muted-foreground">Couldn&apos;t load your keys.</p>
             ) : !secrets.data?.length ? (
               <p className="py-2 text-[13px] text-muted-foreground">
-                {demo ? "Connect a wallet to save keys." : `No keys yet. Add one when you want ${name} to call a service of your own.`}
+                {demo ? "A try-out can't keep keys." : `No keys yet. Add one when you want ${name} to call a service of your own.`}
               </p>
             ) : (
               <ul className="flex flex-col">
@@ -242,6 +243,7 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
         </aside>
       </div>
 
+      <TryOutLockedDialog action={locked.action} name={name} onClose={locked.close} />
       {open?.kind === "add" || open?.kind === "replace" ? (
         <KeyDialog
           key={opened}

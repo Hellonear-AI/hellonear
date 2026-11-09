@@ -7,6 +7,8 @@ import { useState, type ReactNode } from "react"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { NETWORK_ID } from "@/lib/config"
+// Starts listening for Back/Forward on every page, before any Mind page loads (MindGate reads it).
+import "@/lib/historyNav"
 
 // Wallet libraries need browser APIs, so the provider loads after hydration.
 const NearProvider = dynamic(() => import("near-connect-hooks").then((m) => m.NearProvider), {

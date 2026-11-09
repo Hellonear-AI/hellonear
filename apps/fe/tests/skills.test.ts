@@ -83,3 +83,13 @@ describe("new skills (9 Nov)", () => {
     expect(SKILLS.subscriptions.needs).toBe("gmail")
   })
 })
+
+describe("try-out skill lines", () => {
+  it("name the sample inbox and calendar, and never offer to connect", () => {
+    const ctx = { name: "Mpruy", limit: "0.05", tryOut: true }
+    expect(skillLines("email-triage", ctx)[0].t).toBe("A sample inbox for the try-out: read mail and save drafts")
+    const briefing = skillLines("morning-briefing", ctx)
+    expect(briefing.some((l) => l.connect)).toBe(false)
+    expect(briefing.map((l) => l.t)).toContain("A sample calendar for the try-out")
+  })
+})

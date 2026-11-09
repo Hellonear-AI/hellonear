@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { ApiError } from "@/lib/api"
 import { authApi } from "@/modules/auth/api"
 import { demoError, walletError } from "@/modules/auth/components/SignInScreen"
+import { lockedReason, type LockedAction } from "@/modules/auth/components/TryOutLockedDialog"
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -24,5 +25,39 @@ describe("wallet sign-in errors (L1.3)", () => {
   it("says nothing changed when the wallet didn't sign", () => {
     expect(walletError(new Error("User rejected"))).toBe("Sign-in was canceled in the wallet. Nothing changed.")
     expect(walletError(new ApiError(401, "invalid_nonce"))).toContain("expired")
+  })
+})
+
+describe("try-out owner actions (T1.4)", () => {
+  const actions: LockedAction[] = ["add-funds", "freeze", "limits", "wallet", "keys"]
+
+  it("says why each action needs a wallet, in plain words", () => {
+    for (const a of actions) {
+      const text = lockedReason(a, "Penny")
+      expect(text.length).toBeGreaterThan(20)
+      expect(text).not.toMatch(/[—·]/) // no em dash, no "·" (UI rules)
+    }
+    expect(lockedReason("freeze", "Penny")).toBe(
+      "Freezing needs the owner's signature. In try-out, Penny uses a shared test wallet that only HelloNear can change."
+    )
+    expect(lockedReason("keys", "Penny")).toContain("can't keep them")
+  })
+})
+
+describe("Minds of a session that ended (Back after switching accounts)", () => {
+  it("keeps the ids per tab, without repeats, and survives blocked storage", async () => {
+    const store = new Map<string, string>()
+    vi.stubGlobal("window", {
+      sessionStorage: { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v) },
+    })
+    const { leftMinds, rememberLeftMinds } = await import("@/modules/auth/data/leftMinds")
+    expect(leftMinds()).toEqual([])
+    rememberLeftMinds(["mnd_a", "mnd_b"])
+    rememberLeftMinds(["mnd_b", "mnd_c"])
+    expect(leftMinds()).toEqual(["mnd_a", "mnd_b", "mnd_c"])
+
+    vi.stubGlobal("window", { sessionStorage: { getItem: () => { throw new Error("blocked") }, setItem: () => { throw new Error("blocked") } } })
+    expect(leftMinds()).toEqual([])
+    expect(() => rememberLeftMinds(["mnd_d"])).not.toThrow()
   })
 })

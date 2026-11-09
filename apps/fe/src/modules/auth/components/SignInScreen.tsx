@@ -20,6 +20,9 @@ const METEOR = "meteor-wallet"
  * Sign in (design "3 · Start", L1 and T1.1). Meteor is the main choice and opens straight away;
  * "Other NEAR wallets" opens the NEAR Connect list; "Try without a wallet" sits under them after a
  * divider. Once signed in, it opens the newest Mind, or Choose a Mind when there is none.
+ * A try-out with no Mind yet stays here (Ancung, 9 Nov): Back from Choose a Mind returns to this
+ * page, nothing is lost, and "Try without a wallet" continues the same try-out instead of
+ * making a new one (the backend allows 10 new try-outs per network per hour).
  */
 export function SignInScreen() {
   const router = useRouter()
@@ -39,11 +42,20 @@ export function SignInScreen() {
   }, [])
 
   const user = session.data
+  // A try-out that hasn't made a Mind has nothing to lose here, so it may stay on this page.
+  const emptyTryOut = Boolean(user?.demo && minds.data?.length === 0)
   useEffect(() => {
-    if (!user || !minds.data) return
+    if (!user || !minds.data || emptyTryOut) return
     const newest = minds.data[0]
     router.replace(newest ? mindHref(newest.mindId) : "/minds/new")
-  }, [user, minds.data, router])
+  }, [user, minds.data, emptyTryOut, router])
+
+  // push, not replace: Back from Choose a Mind comes back here.
+  function tryOut() {
+    signIn.reset()
+    if (user?.demo) router.push("/minds/new")
+    else demo.mutate(undefined, { onSuccess: () => router.push("/minds/new") })
+  }
 
   const busy = signIn.isPending || demo.isPending
   const error = signIn.error ? walletError(signIn.error) : demo.error ? demoError(demo.error) : null
@@ -64,7 +76,7 @@ export function SignInScreen() {
       </div>
     )
   }
-  if (session.isPending || user) {
+  if (session.isPending || (user && !emptyTryOut)) {
     return <div aria-busy="true" className="min-h-dvh bg-background" />
   }
 
@@ -138,14 +150,11 @@ export function SignInScreen() {
             </div>
 
             <Option
-              onClick={() => {
-                signIn.reset()
-                demo.mutate()
-              }}
+              onClick={tryOut}
               disabled={busy}
               icon={demo.isPending ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <FlaskConicalIcon />}
-              title="Try without a wallet"
-              note="No sign-up. 20 messages and a shared test wallet. Deleted after 7 days."
+              title={emptyTryOut ? "Continue your try-out" : "Try without a wallet"}
+              note={emptyTryOut ? "Pick a Mind and start chatting." : "No sign-up. 20 messages and a shared test wallet. Deleted after 7 days."}
             />
           </div>
 

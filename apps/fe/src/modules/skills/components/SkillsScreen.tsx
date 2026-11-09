@@ -56,6 +56,7 @@ export function SkillsScreen({ mindId }: { mindId: string }) {
     name,
     limit: wallet?.policy?.perTransactionNear ?? null,
     apps: Object.fromEntries((connections ?? []).map((c) => [c.toolkit, c.status])),
+    tryOut: demo,
   }
   const skills = catalog.data ?? []
   const shown = skills
