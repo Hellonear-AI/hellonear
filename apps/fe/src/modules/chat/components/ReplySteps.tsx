@@ -1,10 +1,10 @@
 "use client"
 
-import { CheckIcon, ChevronDownIcon, Loader2Icon, XIcon } from "lucide-react"
-import { useId, useState, type ReactNode } from "react"
+import { CheckIcon, ListChecksIcon, ChevronDownIcon, Loader2Icon, XIcon } from "lucide-react"
+import { useEffect, useId, useState, type ReactNode } from "react"
 import { cn } from "cn"
 import type { ToolStep } from "@/modules/chat/data/events"
-import { stepText } from "@/modules/chat/data/steps"
+import { duration, stepDuration, stepText } from "@/modules/chat/data/steps"
 
 // The Mind's work inside its reply (Ancung, 9 Nov, instead of a separate live view): one quiet
 // row per tool and per stretch of reasoning. Running rows shimmer; finished rows open to show
@@ -13,6 +13,7 @@ import { stepText } from "@/modules/chat/data/steps"
 /** One tool call: "Checking the balance..." while it runs, then "Checked the balance 4.79 NEAR". */
 export function StepRow({ step }: { step: ToolStep }) {
   const { label, detail, tone } = stepText(step)
+  const took = tone === "doing" ? null : stepDuration(step)
   const icon =
     tone === "doing" ? (
       <Loader2Icon className="animate-spin motion-reduce:animate-[hn-fade-pulse_1.6s_ease_infinite]" />
@@ -22,7 +23,32 @@ export function StepRow({ step }: { step: ToolStep }) {
       <XIcon className="text-danger" />
     )
   const details = tone === "doing" ? null : <StepDetails step={step} />
-  return <Row icon={icon} label={label} detail={detail} shimmer={tone === "doing"} details={details} />
+  return (
+    <Row
+      icon={icon}
+      label={label}
+      detail={detail}
+      shimmer={tone === "doing"}
+      details={details}
+      // How long it took, or a live count while it runs (Ancung, 9 Nov: to see where the time went).
+      after={tone === "doing" ? <Elapsed /> : took ? <span className="text-xs text-tertiary-foreground tabular-nums">{took}</span> : null}
+    />
+  )
+}
+
+/**
+ * Seconds since this mounted, shown from 3 s on so short waits stay quiet. Counted on this
+ * device's clock while live (the engine's clock may differ); finished rows use event times.
+ */
+export function Elapsed() {
+  const [seconds, setSeconds] = useState(0)
+  useEffect(() => {
+    const t0 = Date.now()
+    const timer = setInterval(() => setSeconds(Math.floor((Date.now() - t0) / 1000)), 1000)
+    return () => clearInterval(timer)
+  }, [])
+  if (seconds < 3) return null
+  return <span className="text-xs text-tertiary-foreground tabular-nums">{duration(seconds * 1000)}</span>
 }
 
 /** A stretch of reasoning: "Thinking..." while it streams, then "Thought for 4s" with the text inside. */
@@ -39,12 +65,21 @@ export function ThoughtRow({ text, from, to, live }: { text: string; from: strin
   )
 }
 
+/**
+ * A finished reply's steps and thoughts folded into one line that opens to show them all, in
+ * order, each still openable (Ancung, 9 Nov). While the Mind works they show one by one instead.
+ */
+export function StepsSummary({ label, children }: { label: string; children: ReactNode }) {
+  return <Row icon={<ListChecksIcon className="text-muted-foreground" />} label={label} detail={null} shimmer={false} details={<div className="flex flex-col">{children}</div>} />
+}
+
 function Row({
   icon,
   label,
   detail,
   shimmer,
   details,
+  after,
 }: {
   /** Status icon for tools; thoughts have none (Ancung, 9 Nov). */
   icon: ReactNode
@@ -52,6 +87,8 @@ function Row({
   detail: string | null
   shimmer: boolean
   details: ReactNode
+  /** Something small after the line, like how long the step took. */
+  after?: ReactNode
 }) {
   const [open, setOpen] = useState(false)
   const panelId = useId()
@@ -60,6 +97,7 @@ function Row({
       {icon && <span className="flex size-4 shrink-0 items-center justify-center [&>svg]:size-3.5">{icon}</span>}
       <span className={cn("min-w-0 truncate text-[13px] text-foreground", shimmer && "text-shimmer")}>{label}</span>
       {detail && <span className="min-w-0 truncate text-[13px] text-muted-foreground">{detail}</span>}
+      {after && <span className="ml-1 shrink-0">{after}</span>}
     </>
   )
 

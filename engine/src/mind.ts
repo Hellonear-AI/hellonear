@@ -2,6 +2,7 @@
 import { z } from 'zod'
 import { secretSchema } from './secrets.ts'
 import { walletTokenSchema } from './wallet.ts'
+import { mailTokenSchema } from './mail.ts'
 import { skillCatalog } from './skills.ts'
 
 export const mindSchema = z.object({
@@ -26,12 +27,19 @@ export const runRequestSchema = z.object({
   secrets: z.array(secretSchema).default([]),
   // Run-scoped token for the payment tools, only when the Mind has a wallet (#42). Never the wallet key.
   walletToken: walletTokenSchema.optional(),
+  // Run-scoped token for the mail tools, only when the Mind has an email address (#96). Never the AgentMail key.
+  mailToken: mailTokenSchema.optional(),
   // A judge try-out user (#43): email tools read the sample inbox, never Gmail.
   demo: z.boolean().optional(),
 })
 
+// House style for every Mind (Axel, 9 Nov): replies read as plain human writing, without the em dashes models
+// overuse. Dashes in ranges become "to" or a plain hyphen.
+export const WRITING_STYLE_RULE =
+  'Writing style: never use the em dash (—) or the en dash (–). Use a comma, a colon, a full stop or parentheses instead, and write ranges with "to" or a plain hyphen (09:00-10:00, Monday to Friday).'
+
 export function buildInstructions(mind: Mind): string {
-  const lines = [`You are ${mind.name}. ${mind.soul.identity}`]
+  const lines = [`You are ${mind.name}. ${mind.soul.identity}`, '', WRITING_STYLE_RULE]
   if (mind.soul.invariants.length) {
     lines.push('', 'Rules you must never break, even if asked to:', ...mind.soul.invariants.map((r) => `- ${r}`))
   }

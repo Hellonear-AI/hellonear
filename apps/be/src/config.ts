@@ -38,13 +38,21 @@ export const config = {
   // Judge try-out mode (#43). Off unless DEMO_MODE=true; the shared demo wallet's agent key is optional.
   demoMode: process.env.DEMO_MODE === 'true',
   demoWalletKey: process.env.DEMO_OUTLAYER_API_KEY ?? '',
-  demo: { runsPerUser: 20, runsPerIpPerHour: 60, signupsPerIpPerHour: 10, paymentsPerUser: 2, retentionDays: 7 },
+  demo: { runsPerUser: 20, runsPerIpPerHour: 60, signupsPerIpPerHour: 10, paymentsPerUser: 2, mailPerUser: 2, retentionDays: 7 },
   // OutLayer (#14, #15): the wallet API and the contract owners sign policy and freeze calls on.
   outlayerUrl: process.env.OUTLAYER_URL ?? 'https://testnet-api.outlayer.ai',
   outlayerContractId: process.env.OUTLAYER_CONTRACT_ID ?? 'outlayer.testnet',
   // Composio (#13). Without a key the connection routes answer 503 composio_not_configured.
   composioApiKey: process.env.COMPOSIO_API_KEY ?? '',
   composioUrl: process.env.COMPOSIO_URL ?? 'https://backend.composio.dev/api/v3.1',
+  // AgentMail (#96): one inbox per Mind that equips the `email-address` skill. Keys by slot: slot 0 is
+  // AGENTMAIL_API_KEY; slot 1 (AGENTMAIL_API_KEY_2, a second organization) takes new inboxes once slot 0 is full.
+  // Each inbox row stores its slot. Without a key the mail routes answer 503 agentmail_not_configured.
+  agentmailUrl: process.env.AGENTMAIL_URL ?? 'https://api.agentmail.to/v0',
+  agentmailKeys: [process.env.AGENTMAIL_API_KEY ?? '', process.env.AGENTMAIL_API_KEY_2 ?? ''],
+  // The shared try-out inbox (its inbox id, which is its address), on key slot 0. Empty: try-out Minds get no inbox.
+  demoInbox: (process.env.DEMO_AGENTMAIL_INBOX ?? '').trim().toLowerCase(),
+  mail: { maxRecipients: 5, sendsPerMindPerDay: 20 },
   nonceTtlMs: 5 * 60 * 1000,
   sessionTtlMs: 7 * 24 * 60 * 60 * 1000,
 }

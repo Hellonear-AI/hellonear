@@ -79,3 +79,27 @@ function summary(step: ToolStep): string | null {
       return null
   }
 }
+
+/** "8s", "1m 05s": short and plain, for step rows and the summary. */
+export function duration(ms: number): string {
+  const total = Math.max(1, Math.round(ms / 1000))
+  if (total < 60) return `${total}s`
+  const m = Math.floor(total / 60)
+  return `${m}m ${String(total % 60).padStart(2, "0")}s`
+}
+
+/** How long a finished step took, from its own call and result times. */
+export function stepDuration(step: ToolStep): string | null {
+  if (!step.startedAt || !step.endedAt || step.status === "declined") return null
+  const ms = new Date(step.endedAt).getTime() - new Date(step.startedAt).getTime()
+  return Number.isFinite(ms) ? duration(ms) : null
+}
+
+/**
+ * The one line a finished reply's steps fold into (Ancung, 9 Nov, like Claude): how long the Mind
+ * worked in all (not only how long it thought), then how many steps it used.
+ */
+export function summaryLabel(steps: number, workMs: number): string {
+  const worked = `Worked for ${duration(workMs)}`
+  return steps > 0 ? `${worked}, used ${steps} ${steps === 1 ? "step" : "steps"}` : worked
+}

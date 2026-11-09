@@ -5,6 +5,7 @@ import { priceOf } from './models.ts'
 import { redact } from './secrets.ts'
 import type { Verification } from './verify.ts'
 import { HARD_STOPS } from './wallet.ts'
+import { isMailRefusal } from './mail.ts'
 
 export type HelloNearEvent = { v: 1; type: string; runId: string; mindId: string; seq: number; ts: string } & Record<string, unknown>
 type Usage = { inputTokens?: number; outputTokens?: number; reasoningTokens?: number; totalTokens?: number }
@@ -39,8 +40,9 @@ export function createNormalizer(opts: { mindId: string; threadId: string; model
       case 'tool-call':
         return [emit(chunk.runId, 'tool.called', { toolCallId: p.toolCallId, tool, nodeId: nodeIdFor(opts.mindId, tool!, p.args), args: p.args })]
       case 'tool-result':
-        // The wallet refused before signing (#42): a hard stop, red in the Mind Graph, never with a tx link.
-        if (HARD_STOPS.has(p.result?.status)) {
+        // The wallet refused before signing (#42), or a send was refused (#96): a hard stop, red in the Mind Graph,
+        // never with a tx link or a message id.
+        if (HARD_STOPS.has(p.result?.status) || isMailRefusal(tool, p.result)) {
           return [emit(chunk.runId, 'tool.error', { toolCallId: p.toolCallId, tool, nodeId: nodeIdFor(opts.mindId, tool!, p.args), status: p.result.status, error: String(p.result.message ?? p.result.status), result: p.result })]
         }
         return [emit(chunk.runId, 'tool.result', { toolCallId: p.toolCallId, tool, nodeId: nodeIdFor(opts.mindId, tool!, p.args), result: p.result, status: 'ok' })]

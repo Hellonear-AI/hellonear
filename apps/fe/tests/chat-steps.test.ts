@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { foldRun, type RunEvent, type ToolStep } from "@/modules/chat/data/events"
-import { stepText } from "@/modules/chat/data/steps"
+import { stepDuration, stepText, summaryLabel } from "@/modules/chat/data/steps"
 import { lines } from "@/modules/chat/components/ReplySteps"
 import { closeOpenMarks } from "@/modules/chat/components/ReplyText"
 
@@ -58,5 +58,43 @@ describe("closeOpenMarks (Markdown while streaming)", () => {
 describe("skill steps", () => {
   it("name the skill as people know it", () => {
     expect(stepText({ toolCallId: "c", tool: "skill", status: "ok", args: { name: "daily-planner" }, result: {} }).detail).toBe("Daily planner")
+  })
+})
+
+describe("summaryLabel (folded steps)", () => {
+  it("says how long the Mind worked in all, then the steps, with no dot separators", () => {
+    expect(summaryLabel(4, 20_000)).toBe("Worked for 20s, used 4 steps")
+    expect(summaryLabel(1, 400)).toBe("Worked for 1s, used 1 step")
+    expect(summaryLabel(0, 65_000)).toBe("Worked for 1m 05s")
+  })
+})
+
+describe("time worked", () => {
+  let seq = 0
+  const ev = (type: string, ts: string, extra: Partial<RunEvent> = {}): RunEvent => ({ v: 1, type, runId: "r", mindId: "m", seq: seq++, ts: `2026-11-09T10:${ts}Z`, ...extra })
+  it("spans the run and gives each tool its own time", () => {
+    seq = 0
+    const v = foldRun([
+      ev("run.started", "00:00"),
+      ev("tool.called", "00:02", { toolCallId: "c1", tool: "googlecalendar_list_events" }),
+      ev("tool.result", "00:08", { toolCallId: "c1", tool: "googlecalendar_list_events", status: "ok", result: { events: [] } }),
+      ev("text.delta", "00:15", { text: "Hi" }),
+      ev("run.finished", "00:20"),
+    ])
+    expect(v.workMs).toBe(20_000)
+    expect(stepDuration(v.tools[0])).toBe("6s")
+  })
+  it("leaves out the wait for the owner's approval", () => {
+    seq = 0
+    const v = foldRun([
+      ev("run.started", "00:00"),
+      ev("tool.approval_required", "00:04", { toolCallId: "c1", tool: "send_payment" }),
+      ev("run.finished", "00:05"),
+      // The owner answered three minutes later.
+      ev("step.started", "03:05"),
+      ev("tool.result", "03:07", { toolCallId: "c1", tool: "send_payment", status: "ok", result: { status: "sent" } }),
+      ev("run.finished", "03:10"),
+    ])
+    expect(v.workMs).toBe(10_000)
   })
 })
