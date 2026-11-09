@@ -152,3 +152,18 @@ describe("Builder autosave (on this device)", () => {
     vi.unstubAllGlobals()
   })
 })
+
+describe("Builder canvas pan and zoom", () => {
+  it("zooms around the pointer and fits the job, never above 100%", async () => {
+    const { fitView, zoomAround, MAX_ZOOM, MIN_ZOOM } = await import("@/modules/builder/hooks/useCanvasView")
+    // The point under the pointer stays put.
+    const v = zoomAround({ x: 100, y: 50, zoom: 1 }, 2, 300, 250)
+    expect((300 - v.x) / v.zoom).toBeCloseTo((300 - 100) / 1)
+    expect((250 - v.y) / v.zoom).toBeCloseTo((250 - 50) / 1)
+    expect(zoomAround({ x: 0, y: 0, zoom: 1 }, 99, 0, 0).zoom).toBe(MAX_ZOOM)
+    expect(zoomAround({ x: 0, y: 0, zoom: 1 }, 0.01, 0, 0).zoom).toBe(MIN_ZOOM)
+    // A small job fits at 100%, centered; a tall one shrinks to fit.
+    expect(fitView({ w: 1000, h: 800 }, { w: 640, h: 400 })).toEqual({ zoom: 1, x: 180, y: 200 })
+    expect(fitView({ w: 1000, h: 600 }, { w: 640, h: 1008 }).zoom).toBeCloseTo(0.5)
+  })
+})

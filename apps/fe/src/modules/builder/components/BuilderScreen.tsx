@@ -1,7 +1,27 @@
 "use client"
 
 import { useQueryClient } from "@tanstack/react-query"
-import { ArrowLeftIcon, BotIcon, CalendarClockIcon, CheckIcon, CircleXIcon, FlaskConicalIcon, GitBranchIcon, GlobeIcon, Loader2Icon, PlusIcon, SearchIcon, SquareIcon, Trash2Icon, XIcon } from "lucide-react"
+import {
+  ArrowLeftIcon,
+  BotIcon,
+  CalendarClockIcon,
+  CheckIcon,
+  CircleXIcon,
+  FlaskConicalIcon,
+  GitBranchIcon,
+  GlobeIcon,
+  KeyboardIcon,
+  Loader2Icon,
+  MinusIcon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
+  PlusIcon,
+  ScanIcon,
+  SearchIcon,
+  SquareIcon,
+  Trash2Icon,
+  XIcon,
+} from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react"
@@ -9,6 +29,7 @@ import { cn } from "cn"
 import { mindHref } from "@/components/layout/nav"
 import { ChoiceSelect } from "@/components/elements/ChoiceSelect"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
@@ -16,6 +37,7 @@ import { ApiError } from "@/lib/api"
 import { autopilotApi } from "@/modules/autopilot/api"
 import { nodeSummary, type NodeRun } from "@/modules/builder/data/testRun"
 import { dropDraft, keepDraft, readDraft } from "@/modules/builder/data/autosave"
+import { useCanvasView } from "@/modules/builder/hooks/useCanvasView"
 import { timeAgo } from "@/lib/format"
 import { scheduleText, zoneName } from "@/modules/autopilot/data/schedule"
 import { autopilotKeys, useWorkflow, useWorkflows } from "@/modules/autopilot/hooks/useAutopilot"
@@ -107,7 +129,76 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
     const k = readDraft(mindId, workflowId)
     return k && JSON.stringify(k.draft) !== JSON.stringify(initial) ? k : null
   })
-  const [selected, setSelected] = useState<string>("start")
+  // The block whose settings show on the right; null closes that panel (n8n opens it on demand).
+  const [selected, setSelected] = useState<string | null>("start")
+  const {
+    frame: canvasFrame,
+    content: canvasContent,
+    view: zoomView,
+    space: spaceDown,
+    panning,
+    reset: resetView,
+    fit: fitView,
+    zoomBy,
+    onPointerDown: panStart,
+    onPointerMove: panMove,
+    endPan,
+  } = useCanvasView()
+  const [helpOpen, setHelpOpen] = useState(false)
+  // The Blocks panel folds to icons; remembered on this device.
+  const [paletteOpen, setPaletteOpen] = useState(() => {
+    try {
+      return window.localStorage.getItem("hellonear.builder.palette") !== "closed"
+    } catch {
+      return true
+    }
+  })
+  const togglePalette = () =>
+    setPaletteOpen((open) => {
+      try {
+        window.localStorage.setItem("hellonear.builder.palette", open ? "closed" : "open")
+      } catch {
+        // Not remembered, still works.
+      }
+      return !open
+    })
+
+  // Undo and redo (Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z): earlier drafts, up to 50. Typing within a second
+  // counts as one change.
+  const past = useRef<Draft[]>([])
+  const future = useRef<Draft[]>([])
+  const prevDraft = useRef(draft)
+  const fromHistory = useRef(false)
+  const lastChange = useRef(0)
+  useEffect(() => {
+    if (prevDraft.current === draft) return
+    if (fromHistory.current) {
+      fromHistory.current = false
+    } else {
+      const now = Date.now()
+      if (now - lastChange.current > 1000 || !past.current.length) {
+        past.current.push(prevDraft.current)
+        if (past.current.length > 50) past.current.shift()
+      }
+      lastChange.current = now
+      future.current = []
+    }
+    prevDraft.current = draft
+  }, [draft])
+  const undo = () => {
+    const back = past.current.pop()
+    if (!back) return
+    future.current.push(draft)
+    fromHistory.current = true
+    setDraft(back)
+  }
+  const redo = () => {
+    const ahead = future.current.pop()
+    if (!ahead) return
+    past.current.push(draft)
+    fromHistory.current = true
+    setDraft(ahead)
+  }
   const [saving, setSaving] = useState(false)
   const [engineIssues, setEngineIssues] = useState<{ node: string | null; text: string }[]>([])
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -280,8 +371,74 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const ending = b && (selected === `${b.id}:then` ? "then" : selected === `${b.id}:else` ? "else" : null)
   const canIf = !b && resultsBefore(draft.steps).some(comparable)
 
+  // Keyboard shortcuts (n8n's, the simple ones; "?" lists them). Letters and arrows wait while you
+  // type in a field; Save and Test run work from anywhere.
+  const order = [
+    "start",
+    ...draft.steps.map((x) => x.id),
+    ...(b ? [b.id, `${b.id}:then`, `${b.id}:else`] : []),
+  ]
+  const removeSelected = () => {
+    if (!selected || selected === "start") return
+    if (b && selected === b.id) {
+      set({ branch: null })
+      setSelected("start")
+    } else if (b && (selected === `${b.id}:then` || selected === `${b.id}:else`)) {
+      setBranch({ [selected.endsWith(":then") ? "then" : "else"]: null } as Partial<Branch>)
+    } else if (draft.steps.some((x) => x.id === selected)) {
+      removeStep(selected)
+    }
+  }
+  const shortcuts = useRef<(e: KeyboardEvent) => void>(() => undefined)
+  useEffect(() => {
+    shortcuts.current = (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey
+      const t = e.target as HTMLElement | null
+      const typing = Boolean(t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.closest("[role='listbox'], [role='option'], [role='dialog']")))
+      const k = e.key.toLowerCase()
+      if (mod && k === "s") {
+        e.preventDefault()
+        if (!saving && problems.length === 0 && (!workflowId || dirty)) void save()
+        return
+      }
+      if (mod && e.key === "Enter") {
+        e.preventDefault()
+        if (workflowId && !dirty && !test?.running) void runTest()
+        return
+      }
+      if (typing) return
+      if (mod && k === "z") {
+        e.preventDefault()
+        if (e.shiftKey) redo()
+        else undo()
+        return
+      }
+      if (mod) return
+      if (e.key === "+" || e.key === "=") zoomBy(1.2)
+      else if (e.key === "-" || e.key === "_") zoomBy(1 / 1.2)
+      else if (e.key === "0") resetView()
+      else if (e.key === "1") fitView()
+      else if (e.key === "[") togglePalette()
+      else if (e.key === "]") setSelected((sel) => (sel ? null : "start"))
+      else if (e.key === "?") setHelpOpen(true)
+      else if (e.key === "Escape") setSelected(null)
+      else if (e.key === "Delete" || e.key === "Backspace") removeSelected()
+      else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        const i = selected ? order.indexOf(selected) : -1
+        const next = e.key === "ArrowDown" ? Math.min(order.length - 1, i + 1) : Math.max(0, i - 1)
+        setSelected(order[next] ?? "start")
+      } else return
+      e.preventDefault()
+    }
+  })
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => shortcuts.current(e)
+    window.addEventListener("keydown", on)
+    return () => window.removeEventListener("keydown", on)
+  }, [])
+
   return (
-    <div className="flex min-h-dvh min-w-0 flex-col bg-background">
+    <div className="flex h-dvh min-w-0 flex-col overflow-hidden bg-background">
       <header className="flex items-center gap-3 border-b border-border px-4 py-3 md:px-6">
         <Button variant="ghost" size="icon" aria-label="Back to Autopilot" nativeButton={false} render={<Link href={mindHref(mindId, "autopilot")} />}>
           <ArrowLeftIcon />
@@ -373,12 +530,25 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       {dirty && workflowId && <p className="mx-4 mt-3 text-xs text-muted-foreground md:mx-6">Save your changes to test them.</p>}
 
       <TestRun.Provider value={withIf(test?.nodes ?? {}, draft.branch, Boolean(test && !test.running && !test.failed && test.status !== "failed"))}>
-      <div className="flex min-w-0 flex-1 flex-col lg:flex-row">
-        <aside className="flex flex-col gap-2 border-border p-4 lg:w-60 lg:shrink-0 lg:border-r">
-          <h2 className="text-[13px] font-semibold text-foreground">Blocks</h2>
-          <p className="text-xs text-muted-foreground">Drag one onto the canvas, or tap to add it at the end.</p>
-          <PaletteItem icon={<CalendarClockIcon />} title="Start" line="Every job has one" disabled />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+        <aside className={cn("flex shrink-0 flex-col gap-2 border-border p-4 lg:overflow-y-auto lg:border-r", paletteOpen ? "lg:w-60" : "lg:w-[72px] lg:items-center lg:px-3")}>
+          <div className={cn("flex items-center justify-between gap-2", !paletteOpen && "lg:justify-center")}>
+            <h2 className={cn("text-[13px] font-semibold text-foreground", !paletteOpen && "lg:sr-only")}>Blocks</h2>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="hidden lg:inline-flex"
+              aria-label={paletteOpen ? "Fold the Blocks panel ([)" : "Open the Blocks panel ([)"}
+              title={paletteOpen ? "Fold ([)" : "Open ([)"}
+              onClick={togglePalette}
+            >
+              {paletteOpen ? <PanelLeftCloseIcon /> : <PanelLeftOpenIcon />}
+            </Button>
+          </div>
+          <p className={cn("text-xs text-muted-foreground", !paletteOpen && "lg:hidden")}>Drag one onto the canvas, or tap to add it at the end.</p>
+          <PaletteItem compact={!paletteOpen} icon={<CalendarClockIcon />} title="Start" line="Every job has one" disabled />
           <PaletteItem
+            compact={!paletteOpen}
             icon={<BotIcon />}
             title={`Ask ${name}`}
             line={`${name} writes or decides`}
@@ -387,6 +557,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             onDragEnd={endDrag}
           />
           <PaletteItem
+            compact={!paletteOpen}
             icon={<SearchIcon />}
             title="Use a tool"
             line="An account, the time, the calendar, the inbox"
@@ -395,6 +566,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             onDragEnd={endDrag}
           />
           <PaletteItem
+            compact={!paletteOpen}
             icon={<GitBranchIcon />}
             title="If or else"
             line={b ? "A job can have only one" : canIf ? "Choose one of two ways" : "Add a check or a website first"}
@@ -404,6 +576,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             onDragEnd={endDrag}
           />
           <PaletteItem
+            compact={!paletteOpen}
             icon={<GlobeIcon />}
             title="Call a website"
             line="Send to your own service"
@@ -414,10 +587,28 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
         </aside>
 
         <main
+          ref={canvasFrame}
           aria-label="Job steps"
           onDragOver={(e) => drag && e.preventDefault()}
-          className="flex min-w-0 flex-1 flex-col items-center overflow-x-auto bg-[radial-gradient(var(--color-border)_1px,transparent_1px)] bg-size-[20px_20px] px-4 py-8"
+          onPointerDown={panStart}
+          onPointerMove={panMove}
+          onPointerUp={(e) => {
+            const moved = endPan(e)
+            // A click on empty canvas closes the settings panel, as in n8n.
+            if (!moved && e.button === 0 && !spaceDown && e.target instanceof Element && !e.target.closest("button, a, input, textarea, [draggable='true']")) setSelected(null)
+          }}
+          onPointerCancel={endPan}
+          style={{ backgroundPosition: `${zoomView.x}px ${zoomView.y}px`, backgroundSize: `${20 * zoomView.zoom}px ${20 * zoomView.zoom}px` }}
+          className={cn(
+            "relative min-h-[60dvh] min-w-0 flex-1 touch-none overflow-hidden bg-[radial-gradient(var(--color-border)_1px,transparent_1px)] select-none lg:min-h-0",
+            panning ? "cursor-grabbing" : spaceDown ? "cursor-grab" : "cursor-default"
+          )}
         >
+          <div
+            ref={canvasContent}
+            className={cn("absolute top-0 left-0 flex w-[640px] origin-top-left flex-col items-center pb-24", spaceDown && "pointer-events-none")}
+            style={{ transform: `translate(${zoomView.x}px, ${zoomView.y}px) scale(${zoomView.zoom})` }}
+          >
           <BlockCard icon={<CalendarClockIcon />} kind="Start" title={scheduleText(cronOf(draft))} line={`${zoneName(draft.timezone)} time`} active={selected === "start"} onClick={() => setSelected("start")} />
           {draft.steps.length > 0 && spot(0)}
           {draft.steps.map((s, i) => (
@@ -517,9 +708,46 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
               </div>
             </>
           )}
+          </div>
+
+          {/* Zoom controls (n8n's, bottom left): out, the level (click for 100%), in, fit, shortcuts. */}
+          <div className="absolute bottom-4 left-4 flex items-center gap-1 rounded-full border border-border bg-surface p-1 shadow-xs">
+            <Button variant="ghost" size="icon-sm" aria-label="Zoom out (-)" title="Zoom out (-)" onClick={() => zoomBy(1 / 1.2)}>
+              <MinusIcon />
+            </Button>
+            <button
+              type="button"
+              onClick={resetView}
+              title="Back to 100% (0)"
+              className="min-w-12 rounded-full px-1.5 py-1 text-center text-xs font-medium text-foreground tabular-nums outline-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus"
+            >
+              {Math.round(zoomView.zoom * 100)}%
+            </button>
+            <Button variant="ghost" size="icon-sm" aria-label="Zoom in (+)" title="Zoom in (+)" onClick={() => zoomBy(1.2)}>
+              <PlusIcon />
+            </Button>
+            <Button variant="ghost" size="icon-sm" aria-label="Fit the job on screen (1)" title="Fit (1)" onClick={fitView}>
+              <ScanIcon />
+            </Button>
+            <span aria-hidden className="mx-0.5 h-4 w-px bg-border" />
+            <Button variant="ghost" size="icon-sm" aria-label="Keyboard shortcuts (?)" title="Keyboard shortcuts (?)" onClick={() => setHelpOpen(true)}>
+              <KeyboardIcon />
+            </Button>
+          </div>
         </main>
 
-        <aside className="flex flex-col gap-4 border-border p-4 lg:w-[340px] lg:shrink-0 lg:border-l">
+        {selected && (
+        <aside className="relative flex shrink-0 flex-col gap-4 border-border p-4 lg:w-[340px] lg:overflow-y-auto lg:border-l">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="absolute top-3 right-3"
+            aria-label="Close the settings (Esc)"
+            title="Close (Esc)"
+            onClick={() => setSelected(null)}
+          >
+            <XIcon />
+          </Button>
           {step?.kind === "agent" ? (
             <AskPanel name={name} title={`Ask ${name}`} step={step} results={resultsBefore(draft.steps, draft.steps.indexOf(step))} onChange={(p) => setStep(step.id, { prompt: p })} onDelete={() => removeStep(step.id)} />
           ) : step?.kind === "http" ? (
@@ -579,8 +807,10 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             </ul>
           )}
         </aside>
+        )}
       </div>
       </TestRun.Provider>
+      <ShortcutsDialog open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
   )
 }
@@ -783,6 +1013,7 @@ function PaletteItem({
   disabled,
   onDragStart,
   onDragEnd,
+  compact,
 }: {
   icon: ReactNode
   title: string
@@ -791,6 +1022,8 @@ function PaletteItem({
   disabled?: boolean
   onDragStart?: () => void
   onDragEnd?: () => void
+  /** The folded panel: the icon only, its name in a tooltip (desktop). */
+  compact?: boolean
 }) {
   return (
     <button
@@ -804,10 +1037,15 @@ function PaletteItem({
         onDragStart?.()
       }}
       onDragEnd={onDragEnd}
-      className="flex items-center gap-3 rounded-md bg-muted px-3 py-2.5 text-left outline-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-60"
+      aria-label={compact ? `${title}: ${line}` : undefined}
+      title={compact ? `${title}: ${line}` : undefined}
+      className={cn(
+        "flex items-center gap-3 rounded-md bg-muted px-3 py-2.5 text-left outline-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-60",
+        compact && "lg:justify-center lg:p-2"
+      )}
     >
       <span className="flex size-8 shrink-0 items-center justify-center rounded-sm bg-surface text-foreground [&>svg]:size-4">{icon}</span>
-      <span className="flex min-w-0 flex-col">
+      <span className={cn("flex min-w-0 flex-col", compact && "lg:hidden")}>
         <span className="text-sm font-medium text-foreground">{title}</span>
         <span className="text-xs text-muted-foreground">{line}</span>
       </span>
@@ -824,7 +1062,7 @@ function PanelHead({ icon, title }: { icon: ReactNode; title: string }) {
   return (
     <div className="flex items-center gap-2.5">
       <span className="flex size-8 items-center justify-center rounded-sm bg-muted text-foreground [&>svg]:size-4">{icon}</span>
-      <h2 className="text-[15px] font-semibold text-foreground">{title}</h2>
+      <h2 className="pr-8 text-[15px] font-semibold text-foreground">{title}</h2>
     </div>
   )
 }
@@ -1128,5 +1366,46 @@ function HttpPanel({
       {missingSkill && <p className="text-xs text-muted-foreground">Websites come with {skillCopy(missingSkill).title}. Saving adds that skill to {name}.</p>}
       <DeleteBlock onClick={onDelete} />
     </>
+  )
+}
+
+const SHORTCUTS: [string, string][] = [
+  ["Scroll, or drag empty canvas", "Move around"],
+  ["Space + drag, or the middle button", "Move around from anywhere"],
+  ["Ctrl/Cmd + scroll, or pinch", "Zoom"],
+  ["+ and -", "Zoom in and out"],
+  ["0", "Back to 100%"],
+  ["1", "Fit the job on screen"],
+  ["Ctrl/Cmd + S", "Save"],
+  ["Ctrl/Cmd + Enter", "Test run"],
+  ["Ctrl/Cmd + Z", "Undo"],
+  ["Ctrl/Cmd + Shift + Z", "Redo"],
+  ["Up and Down", "Pick the block above or below"],
+  ["Delete", "Delete the picked block"],
+  ["Esc", "Close the settings"],
+  ["[", "Fold or open the Blocks panel"],
+  ["]", "Close or open the settings"],
+  ["?", "This list"],
+]
+
+/** The shortcuts, taken from n8n's and kept to the simple ones (Ancung, 9 Nov). */
+function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Keyboard shortcuts</DialogTitle>
+          <DialogDescription>Letters and arrows wait while you type in a field. Save and Test run work from anywhere.</DialogDescription>
+        </DialogHeader>
+        <dl className="flex flex-col">
+          {SHORTCUTS.map(([keys, does]) => (
+            <div key={keys} className="flex items-center justify-between gap-4 py-1.5 text-sm">
+              <dt className="text-muted-foreground">{does}</dt>
+              <dd className="shrink-0 rounded-sm bg-muted px-2 py-0.5 text-xs font-medium text-foreground">{keys}</dd>
+            </div>
+          ))}
+        </dl>
+      </DialogContent>
+    </Dialog>
   )
 }
