@@ -28,7 +28,7 @@ import { mindHref } from "@/components/layout/nav"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { ApiError } from "@/lib/api"
@@ -281,20 +281,23 @@ function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string;
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger
-                  aria-label={`More for ${detail.data.name}`}
-                  className="flex size-11 items-center justify-center rounded-full text-muted-foreground outline-none hover:bg-surface-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus aria-expanded:bg-surface-hover"
+                  render={<Button variant="ghost" size="icon" aria-label={`More for ${detail.data.name}`} className="aria-expanded:bg-surface-hover" />}
                 >
-                  <EllipsisIcon className="size-5" />
+                  <EllipsisIcon />
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-44">
+                <DropdownMenuContent align="end" sideOffset={8} className="w-48 p-1.5">
                   {editable && (
-                    <DropdownMenuItem onClick={() => router.push(editHref)}>
+                    <DropdownMenuItem className="gap-2.5 px-3 py-2.5" onClick={() => router.push(editHref)}>
                       <PencilIcon />
                       Edit steps
                     </DropdownMenuItem>
                   )}
-                  {editable && <DropdownMenuSeparator />}
-                  <DropdownMenuItem variant="destructive" disabled={remove.isPending || running} onClick={() => setConfirmDelete(true)}>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    className="gap-2.5 px-3 py-2.5"
+                    disabled={remove.isPending || running}
+                    onClick={() => setConfirmDelete(true)}
+                  >
                     <Trash2Icon />
                     Delete job
                   </DropdownMenuItem>
@@ -305,14 +308,7 @@ function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string;
           {runError && <p className="text-[13px] text-danger">{runError}</p>}
 
           <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="text-[13px] text-muted-foreground">Steps</h3>
-              {editable && (
-                <Link href={editHref} className="rounded-sm text-xs font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus">
-                  Edit
-                </Link>
-              )}
-            </div>
+            <h3 className="text-[13px] text-muted-foreground">Steps</h3>
             <StepsTimeline steps={steps} />
           </div>
 
