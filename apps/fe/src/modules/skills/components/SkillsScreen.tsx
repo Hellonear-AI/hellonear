@@ -1,8 +1,9 @@
 "use client"
 
 import Link from "next/link"
-import { CalendarDaysIcon, CheckIcon, MailIcon, PlugIcon, SearchIcon, WalletIcon, XIcon, type LucideIcon } from "lucide-react"
-import { useState } from "react"
+import { CalendarDaysIcon, CheckIcon, PlugIcon, SearchIcon, WalletIcon, XIcon, type LucideIcon } from "lucide-react"
+import { useState, type ComponentType } from "react"
+import { GmailLogo } from "@/components/elements/AppLogos"
 import { cn } from "cn"
 import { PageTitle } from "@/components/elements/PageTitle"
 import { Badge } from "@/components/ui/badge"
@@ -17,9 +18,10 @@ import { matchesSearch, skillCopy, TOOLKIT_NAME } from "@/modules/skills/data/sk
 import { connectionStatus, useConnections, useSkillCatalog } from "@/modules/skills/hooks/useSkills"
 import { AddSkillDialog } from "@/modules/skills/components/SkillDialogs"
 
-export const SKILL_ICON: Record<string, LucideIcon> = {
+export const SKILL_ICON: Record<string, LucideIcon | ComponentType<{ className?: string }>> = {
   payments: WalletIcon,
-  "email-triage": MailIcon,
+  // The Gmail logo from the design, not a generic envelope (Ancung, 9 Nov).
+  "email-triage": GmailLogo,
   "daily-planner": CalendarDaysIcon,
   "near-account": SearchIcon,
   "http-request": PlugIcon,
