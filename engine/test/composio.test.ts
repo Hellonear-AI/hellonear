@@ -45,7 +45,7 @@ const run = (tool: keyof typeof toolRegistry, input: unknown, userId?: string) =
 test('list: a session for the run\'s user, then GMAIL_FETCH_EMAILS, mapped to our shape', async () => {
   const out = await run('gmail_list_emails', { query: 'is:unread', maxResults: 5 }, 'usr_a')
   assert.deepEqual(out, { source: 'gmail', emails: [{ id: '19b1', from: 'Rina Hartono <rina@acme.example>', subject: 'Standup', snippet: 'Can you confirm?', receivedAt: '2026-11-06T01:00:00Z', unread: true }] })
-  assert.deepEqual(calls[0].body, { user_id: 'usr_a', toolkits: { enable: ['gmail', 'googlecalendar'] }, manage_connections: { enable: false } })
+  assert.deepEqual(calls[0].body, { user_id: 'usr_a', toolkits: { enable: ['gmail', 'googlecalendar', 'googlemeet'] }, manage_connections: { enable: false } })
   assert.equal(calls[0].key, 'ak_test')
   assert.deepEqual(calls[1].body, { tool_slug: 'GMAIL_FETCH_EMAILS', arguments: { max_results: 5, query: 'is:unread', verbose: false } })
 })
