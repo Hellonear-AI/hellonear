@@ -56,8 +56,8 @@ test('AgentMail live: client_id idempotency, a send to the demo inbox itself, li
     for (let i = 0; i < 10 && !found; i++) {
       await new Promise((r) => setTimeout(r, 2000))
       const listed = await listMail(mindId, 10)
-      found = listed.messages.find((m) => m.subject === sent.subject && m.direction === 'received')
-      if (i === 0) console.log('listed', listed.messages.slice(0, 4).map((m) => ({ subject: m.subject, labels: m.labels, direction: m.direction, armor: m.agentArmor })))
+      found = listed.messages.find((m: { subject: string; direction: string }) => m.subject === sent.subject && m.direction === 'received')
+      if (i === 0) console.log('listed', listed.messages.slice(0, 4).map((m: { subject: string; labels: string[]; direction: string; agentArmor: unknown }) => ({ subject: m.subject, labels: m.labels, direction: m.direction, armor: m.agentArmor })))
     }
     assert.ok(found, 'the email to itself arrived in the demo inbox within 20 s')
     const read = await readMail(mindId, found.messageId)
