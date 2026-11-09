@@ -30,6 +30,9 @@ export type ToolStep = {
   args: unknown
   result: unknown
   error?: string
+  /** When the tool was called and when its result came (engine `ts`), for "6s" on its row. */
+  startedAt?: string
+  endedAt?: string
 }
 
 /** One piece of the reply in the order it happened: some text, or a tool (by its call id). */
@@ -56,6 +59,11 @@ export type RunView = {
   thinking: boolean
   /** When the run's last event was written. */
   at: string | null
+  /**
+   * How long the Mind worked, in ms, from its first event to its last, leaving out the time a
+   * paused run waited for the owner's approval (Ancung, 9 Nov: "thought for 4s" hid a 20 s wait).
+   */
+  workMs: number
 }
 
 const ERROR_STATUSES: ToolStatus[] = ["error", "policy_denied", "wallet_frozen"]
@@ -67,17 +75,24 @@ const ERROR_STATUSES: ToolStatus[] = ["error", "policy_denied", "wallet_frozen"]
 const RESUMED = new Set(["step.started", "reasoning.delta", "text.delta", "tool.called", "tool.result", "tool.error", "run.error"])
 
 export function foldRun(events: RunEvent[]): RunView {
-  const view: RunView = { runId: null, threadId: null, text: "", parts: [], tools: [], status: "running", verified: null, error: null, thinking: false, at: null }
+  const view: RunView = { runId: null, threadId: null, text: "", parts: [], tools: [], status: "running", verified: null, error: null, thinking: false, at: null, workMs: 0 }
   const byCall = new Map<string, ToolStep>()
   const sorted = [...events].sort((a, b) => a.seq - b.seq)
   let paused = false
   let resumed = false
   let joined = false
 
+  let prevTs: number | null = null
+
   for (const e of sorted) {
     view.runId ??= e.runId ?? null
     view.at = e.ts
+    const wasResumed = resumed
     if (paused && RESUMED.has(e.type) && !(e.type === "tool.called" && e.toolCallId && byCall.has(e.toolCallId))) resumed = true
+    // Add the time since the last event, except the gap where the run waited for the owner.
+    const ts = new Date(e.ts).getTime()
+    if (prevTs !== null && Number.isFinite(ts) && !(resumed && !wasResumed)) view.workMs += Math.max(0, ts - prevTs)
+    if (Number.isFinite(ts)) prevTs = ts
     if (e.type === "reasoning.delta") {
       view.thinking = true
       const last = view.parts.at(-1)
@@ -107,7 +122,7 @@ export function foldRun(events: RunEvent[]): RunView {
       case "tool.called":
       case "tool.approval_required": {
         if (!e.toolCallId) break
-        const step = byCall.get(e.toolCallId) ?? { toolCallId: e.toolCallId, tool: e.tool ?? "", nodeId: e.nodeId, status: "running" as ToolStatus, args: e.args, result: undefined }
+        const step = byCall.get(e.toolCallId) ?? { toolCallId: e.toolCallId, tool: e.tool ?? "", nodeId: e.nodeId, status: "running" as ToolStatus, args: e.args, result: undefined, startedAt: e.ts }
         if (e.type === "tool.approval_required") {
           step.status = "awaiting_approval"
           paused = true
@@ -124,6 +139,7 @@ export function foldRun(events: RunEvent[]): RunView {
         const step = e.toolCallId ? byCall.get(e.toolCallId) : undefined
         if (!step) break
         step.result = e.result
+        step.endedAt = e.ts
         const status = (e.status ?? (e.type === "tool.error" ? "error" : "ok")) as ToolStatus
         step.status = e.type === "tool.result" && paymentRefused(e.result) ? paymentRefused(e.result)! : status
         if (ERROR_STATUSES.includes(step.status)) step.error = typeof e.error === "string" ? e.error : undefined

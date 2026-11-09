@@ -17,7 +17,7 @@ import { useThread } from "@/modules/chat/hooks/useThread"
 import { Composer } from "@/modules/chat/components/Composer"
 import { ReplyText } from "@/modules/chat/components/ReplyText"
 import { ApprovalCard, PaymentFailed, PaymentReceipt, PaymentRefused } from "@/modules/chat/components/RunCards"
-import { StepRow, StepsSummary, ThoughtRow } from "@/modules/chat/components/ReplySteps"
+import { Elapsed, StepRow, StepsSummary, ThoughtRow } from "@/modules/chat/components/ReplySteps"
 import { summaryLabel } from "@/modules/chat/data/steps"
 import type { ApiWallet } from "@/modules/minds/api"
 import { templateLabel } from "@/modules/minds/data/minds"
@@ -229,10 +229,7 @@ function TurnView({
   // Once the reply is done, its rows fold into one line above it (Ancung, 9 Nov, like Claude).
   const folded = !live && parts.some(rowPart)
   const foldLabel = folded
-    ? summaryLabel(
-        parts.filter((p) => p.kind === "tool" && rowPart(p)).length,
-        parts.flatMap((p) => (p.kind === "thought" ? [p] : []))
-      )
+    ? summaryLabel(parts.filter((p) => p.kind === "tool" && rowPart(p)).length, view.workMs)
     : ""
 
   function rowNode(part: ReplyPart, i: number) {
@@ -343,6 +340,7 @@ function Working({ name }: { name: string }) {
       <span aria-hidden className="text-shimmer text-[13px]">
         Thinking...
       </span>
+      <Elapsed />
     </span>
   )
 }

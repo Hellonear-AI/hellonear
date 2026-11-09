@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { foldRun, type RunEvent, type ToolStep } from "@/modules/chat/data/events"
-import { stepText, summaryLabel } from "@/modules/chat/data/steps"
+import { stepDuration, stepText, summaryLabel } from "@/modules/chat/data/steps"
 import { lines } from "@/modules/chat/components/ReplySteps"
 import { closeOpenMarks } from "@/modules/chat/components/ReplyText"
 
@@ -62,10 +62,39 @@ describe("skill steps", () => {
 })
 
 describe("summaryLabel (folded steps)", () => {
-  const t = (from: string, to: string) => ({ from: `2026-11-09T10:00:${from}Z`, to: `2026-11-09T10:00:${to}Z` })
-  it("reads like Claude's, with no dot separators", () => {
-    expect(summaryLabel(3, [t("00", "04"), t("10", "11"), t("20", "23")])).toBe("Used 3 steps, thought for 8s")
-    expect(summaryLabel(1, [])).toBe("Used 1 step")
-    expect(summaryLabel(0, [t("00", "00")])).toBe("Thought for 1s")
+  it("says how long the Mind worked in all, then the steps, with no dot separators", () => {
+    expect(summaryLabel(4, 20_000)).toBe("Worked for 20s, used 4 steps")
+    expect(summaryLabel(1, 400)).toBe("Worked for 1s, used 1 step")
+    expect(summaryLabel(0, 65_000)).toBe("Worked for 1m 05s")
+  })
+})
+
+describe("time worked", () => {
+  let seq = 0
+  const ev = (type: string, ts: string, extra: Partial<RunEvent> = {}): RunEvent => ({ v: 1, type, runId: "r", mindId: "m", seq: seq++, ts: `2026-11-09T10:${ts}Z`, ...extra })
+  it("spans the run and gives each tool its own time", () => {
+    seq = 0
+    const v = foldRun([
+      ev("run.started", "00:00"),
+      ev("tool.called", "00:02", { toolCallId: "c1", tool: "googlecalendar_list_events" }),
+      ev("tool.result", "00:08", { toolCallId: "c1", tool: "googlecalendar_list_events", status: "ok", result: { events: [] } }),
+      ev("text.delta", "00:15", { text: "Hi" }),
+      ev("run.finished", "00:20"),
+    ])
+    expect(v.workMs).toBe(20_000)
+    expect(stepDuration(v.tools[0])).toBe("6s")
+  })
+  it("leaves out the wait for the owner's approval", () => {
+    seq = 0
+    const v = foldRun([
+      ev("run.started", "00:00"),
+      ev("tool.approval_required", "00:04", { toolCallId: "c1", tool: "send_payment" }),
+      ev("run.finished", "00:05"),
+      // The owner answered three minutes later.
+      ev("step.started", "03:05"),
+      ev("tool.result", "03:07", { toolCallId: "c1", tool: "send_payment", status: "ok", result: { status: "sent" } }),
+      ev("run.finished", "03:10"),
+    ])
+    expect(v.workMs).toBe(10_000)
   })
 })
