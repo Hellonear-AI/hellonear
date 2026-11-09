@@ -5,6 +5,7 @@
 
 import { formatNear } from "@/lib/format"
 import type { ToolStep } from "@/modules/chat/data/events"
+import { skillCopy } from "@/modules/skills/data/skills"
 
 const LABELS: Record<string, [doing: string, done: string]> = {
   get_balance: ["Checking the balance", "Checked the balance"],
@@ -60,8 +61,11 @@ function summary(step: ToolStep): string | null {
     case "googlecalendar_create_event":
       return text(r.title)
     case "skill":
-    case "skill_read":
-      return text(a.name) ?? text(a.skillName)
+    case "skill_read": {
+      // The skill's name people know ("Daily planner"), not its id ("daily-planner").
+      const id = text(a.name) ?? text(a.skillName)
+      return id ? skillCopy(id).title : null
+    }
     default:
       return null
   }

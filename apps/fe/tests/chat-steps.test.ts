@@ -53,3 +53,9 @@ describe("closeOpenMarks (Markdown while streaming)", () => {
     expect(closeOpenMarks("```\ncode")).toBe("```\ncode")
   })
 })
+
+describe("skill steps", () => {
+  it("name the skill as people know it", () => {
+    expect(stepText({ toolCallId: "c", tool: "skill", status: "ok", args: { name: "daily-planner" }, result: {} }).detail).toBe("Daily planner")
+  })
+})
