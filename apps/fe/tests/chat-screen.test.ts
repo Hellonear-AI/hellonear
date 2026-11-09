@@ -34,3 +34,9 @@ describe("dayLabel", () => {
     expect(dayLabel("2026-11-09T09:00:00", "2026-11-08T10:00:00", now)).toBe("Today")
   })
 })
+
+describe("no reply", () => {
+  it("says the Mind didn't write one", () => {
+    expect(failureText("Omaga", "no_reply")).toBe("Omaga thought about it but didn't write a reply. Try asking again.")
+  })
+})

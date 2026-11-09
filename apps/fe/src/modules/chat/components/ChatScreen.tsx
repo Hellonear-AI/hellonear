@@ -291,6 +291,11 @@ function TurnView({
         </div>
       )}
 
+      {/* The run ended with nothing to show: say so instead of leaving a bare "Thought for" (Ancung, 9 Nov). */}
+      {!failed && !live && view.status === "finished" && !view.text.trim() && view.tools.length === 0 && (
+        <FailedReply name={name} error="no_reply" canRetry={Boolean(turn.message) && !busy} onRetry={onRetry} />
+      )}
+
       {failed && !live && <FailedReply name={name} error={turn.failed ?? view.error} canRetry={Boolean(turn.message) && !busy} onRetry={onRetry} />}
     </>
   )
@@ -352,6 +357,7 @@ export function failureText(name: string, error: unknown): string {
     if (error.status >= 500) return `${name} couldn't answer. The AI service didn't respond, so nothing happened.`
     return `${name} couldn't answer. Nothing happened.`
   }
+  if (error === "no_reply") return `${name} thought about it but didn't write a reply. Try asking again.`
   // A string is a run.error from the stream: the message was stored before the run broke.
   if (typeof error === "string") return `${name} couldn't answer. The AI service stopped partway. Your message is saved and nothing else happened.`
   return `${name} couldn't answer. The connection dropped, so check yours and try again.`
