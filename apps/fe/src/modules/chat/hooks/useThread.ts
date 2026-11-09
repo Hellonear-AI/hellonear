@@ -1,0 +1,71 @@
+"use client"
+
+import { useInfiniteQuery, useQueries } from "@tanstack/react-query"
+import { useMemo } from "react"
+import { chatApi, type ApiMessage } from "@/modules/chat/api"
+import { foldRun, type RunView } from "@/modules/chat/data/events"
+import { useSession } from "@/modules/auth/hooks/useSession"
+
+export const chatKeys = {
+  thread: (mindId: string, threadId: string) => ["minds", mindId, "threads", threadId] as const,
+  run: (runId: string) => ["runs", runId] as const,
+}
+
+/** One exchange in a thread: what the user said and how the run answered. */
+export type Turn = {
+  runId: string
+  message: string | null
+  createdAt: string
+  /** From the run's events once they are read; until then only the stored reply text. */
+  view: RunView
+}
+
+/**
+ * A thread's turns, oldest first. Messages come from `…/messages` (whole runs per page); each
+ * run's events (`GET /runs/{runId}`) add what text alone can't show: payments, approvals, the badge.
+ */
+export function useThread(mindId: string, threadId: string | null) {
+  const signedIn = Boolean(useSession().data)
+  const messages = useInfiniteQuery({
+    queryKey: chatKeys.thread(mindId, threadId ?? "none"),
+    enabled: signedIn && Boolean(threadId),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) => chatApi.messages(mindId, threadId!, pageParam),
+    getNextPageParam: (page) => page.nextBefore ?? undefined,
+  })
+
+  // Pages are newest first; each page is oldest first.
+  const all = useMemo(() => [...(messages.data?.pages ?? [])].reverse().flatMap((p) => p.messages), [messages.data])
+  const runIds = useMemo(() => [...new Set(all.map((m) => m.runId))], [all])
+
+  const runs = useQueries({
+    queries: runIds.map((runId) => ({
+      queryKey: chatKeys.run(runId),
+      queryFn: () => chatApi.runEvents(runId),
+      enabled: signedIn,
+      staleTime: Infinity,
+    })),
+  })
+
+  const turns = toTurns(all, new Map(runIds.map((id, i) => [id, runs[i]?.data ? foldRun(runs[i].data) : null])))
+
+  return { ...messages, turns }
+}
+
+export function toTurns(messages: ApiMessage[], views: Map<string, RunView | null>): Turn[] {
+  const turns: Turn[] = []
+  const byRun = new Map<string, Turn>()
+  for (const m of messages) {
+    let turn = byRun.get(m.runId)
+    if (!turn) {
+      const fallback: RunView = { runId: m.runId, threadId: null, text: "", tools: [], status: "finished", verified: null, error: null, at: m.createdAt }
+      turn = { runId: m.runId, message: null, createdAt: m.createdAt, view: views.get(m.runId) ?? fallback }
+      byRun.set(m.runId, turn)
+      turns.push(turn)
+    }
+    if (m.role === "user") turn.message = m.text
+    // Only fill the text from the message when the events aren't read yet.
+    else if (!views.get(m.runId)) turn.view = { ...turn.view, text: turn.view.text + m.text, at: m.createdAt }
+  }
+  return turns
+}
