@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button"
 import { mindHref } from "@/components/layout/nav"
 import { explorerTxUrl } from "@/lib/format"
 import { compareNear } from "@/lib/near"
+import { approvalDetails, type ApprovalDetails } from "@/modules/chat/data/approvalDetails"
 import { paymentOf, toolLabel, type Payment, type ToolStep } from "@/modules/chat/data/events"
 import type { ApiWallet } from "@/modules/minds/api"
 import { approvalChecks } from "@/modules/wallet/data/checks"
@@ -130,18 +131,20 @@ export function ApprovalCard({
   onAnswer: (action: "approve" | "decline") => void
 }) {
   const payment = paymentOf(step)
+  const details = payment ? null : approvalDetails(step)
   const { checks, next } = payment ? approvalChecks(payment, wallet) : { checks: [], next: "approve" as const }
   return (
     <div className="flex w-full flex-col gap-3 rounded-lg bg-warning-soft p-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-out motion-reduce:animate-none md:max-w-[480px]">
       <div className="flex items-start justify-between gap-2">
         <p className="min-w-0 flex-1 text-sm font-semibold break-words text-foreground">
-          {payment ? `${payment.amountNear} NEAR to ${payment.to}` : toolLabel(step.tool)}
+          {payment ? `${payment.amountNear} NEAR to ${payment.to}` : (details?.title ?? toolLabel(step.tool))}
         </p>
         <Badge variant="warning">
           <HourglassIcon />
           Waiting for you
         </Badge>
       </div>
+      {details && <ApprovalDetailLines details={details} />}
       {checks.length > 0 && (
         <ul className="flex flex-col gap-1.5">
           {checks.map((c) => (
@@ -168,6 +171,23 @@ export function ApprovalCard({
           </Button>
         )}
       </div>
+    </div>
+  )
+}
+
+/** The arguments the owner is approving, as plain "Label value" rows (no code font, per the UI rules). */
+export function ApprovalDetailLines({ details }: { details: ApprovalDetails }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <dl className="flex flex-col gap-1">
+        {details.lines.map((l) => (
+          <div key={l.label} className="flex min-w-0 gap-2 text-[13px]">
+            <dt className="w-14 shrink-0 text-muted-foreground">{l.label}</dt>
+            <dd className="min-w-0 break-words text-foreground">{l.value}</dd>
+          </div>
+        ))}
+      </dl>
+      {details.note && <p className="text-xs text-muted-foreground">{details.note}</p>}
     </div>
   )
 }
