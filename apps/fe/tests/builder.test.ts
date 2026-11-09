@@ -167,3 +167,17 @@ describe("Builder canvas pan and zoom", () => {
     expect(fitView({ w: 1000, h: 600 }, { w: 640, h: 1008 }).zoom).toBeCloseTo(0.5)
   })
 })
+
+describe("Builder wheel feel (gentler, 9 Nov)", () => {
+  it("turns any wheel into pixels and zooms about 18% per mouse notch, capped", async () => {
+    const { wheelPixels, wheelZoomFactor } = await import("@/modules/builder/hooks/useCanvasView")
+    expect(wheelPixels({ deltaX: 0, deltaY: 3, deltaMode: 1 })).toEqual({ dx: 0, dy: 48 })
+    expect(wheelPixels({ deltaX: 5, deltaY: 10, deltaMode: 0 })).toEqual({ dx: 5, dy: 10 })
+    expect(wheelZoomFactor(-100)).toBeCloseTo(1.221, 2)
+    expect(wheelZoomFactor(100)).toBeCloseTo(0.819, 2)
+    // A fast wheel's big delta counts as one notch, so it can't jump.
+    expect(wheelZoomFactor(-1000)).toBeCloseTo(wheelZoomFactor(-120))
+    // A trackpad pinch sends small deltas: small steps.
+    expect(wheelZoomFactor(-4)).toBeCloseTo(1.008, 3)
+  })
+})

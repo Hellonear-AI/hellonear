@@ -134,7 +134,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const {
     frame: canvasFrame,
     content: canvasContent,
-    view: zoomView,
+    zoomLabel,
     space: spaceDown,
     panning,
     reset: resetView,
@@ -598,7 +598,6 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             if (!moved && e.button === 0 && !spaceDown && e.target instanceof Element && !e.target.closest("button, a, input, textarea, [draggable='true']")) setSelected(null)
           }}
           onPointerCancel={endPan}
-          style={{ backgroundPosition: `${zoomView.x}px ${zoomView.y}px`, backgroundSize: `${20 * zoomView.zoom}px ${20 * zoomView.zoom}px` }}
           className={cn(
             "relative min-h-[60dvh] min-w-0 flex-1 touch-none overflow-hidden bg-[radial-gradient(var(--color-border)_1px,transparent_1px)] select-none lg:min-h-0",
             panning ? "cursor-grabbing" : spaceDown ? "cursor-grab" : "cursor-default"
@@ -606,8 +605,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
         >
           <div
             ref={canvasContent}
-            className={cn("absolute top-0 left-0 flex w-[640px] origin-top-left flex-col items-center pb-24", spaceDown && "pointer-events-none")}
-            style={{ transform: `translate(${zoomView.x}px, ${zoomView.y}px) scale(${zoomView.zoom})` }}
+            className={cn("absolute top-0 left-0 flex w-[640px] origin-top-left flex-col items-center pb-24 will-change-transform", spaceDown && "pointer-events-none")}
           >
           <BlockCard icon={<CalendarClockIcon />} kind="Start" title={scheduleText(cronOf(draft))} line={`${zoneName(draft.timezone)} time`} active={selected === "start"} onClick={() => setSelected("start")} />
           {draft.steps.length > 0 && spot(0)}
@@ -717,11 +715,11 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             </Button>
             <button
               type="button"
-              onClick={resetView}
+              onClick={() => resetView()}
               title="Back to 100% (0)"
               className="min-w-12 rounded-full px-1.5 py-1 text-center text-xs font-medium text-foreground tabular-nums outline-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus"
             >
-              {Math.round(zoomView.zoom * 100)}%
+              <span ref={zoomLabel}>100%</span>
             </button>
             <Button variant="ghost" size="icon-sm" aria-label="Zoom in (+)" title="Zoom in (+)" onClick={() => zoomBy(1.2)}>
               <PlusIcon />
