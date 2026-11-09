@@ -14,7 +14,7 @@ import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema
 import { createWallet, freezeTransaction, getWallet, hasWallet, policySchema, policyTransaction } from './wallets.ts'
 import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
 import { issueMailToken, issueWalletToken, verifyMailToken, verifyWalletToken } from './walletToken.ts'
-import { EMAIL_SKILL, ensureInbox, inboxOf, listMail, listSends, mailEnabled, messageIdSchema, readMail, sendMail, sendMailSchema } from './mail.ts'
+import { EMAIL_SKILL, ensureInbox, inboxOf, listMail, listSends, mailEnabled, messageIdSchema, readMail, releaseInbox, sendMail, sendMailSchema } from './mail.ts'
 import { listThreads, parseCursor, threadExists, threadMessages } from './threads.ts'
 import { assertDemoRunAllowed, cleanupDemoUsers, createDemoUser, demoPaymentCap, denyDemo } from './demo.ts'
 import type { User } from './auth.ts'
@@ -228,6 +228,7 @@ export const server = createServer(async (req, res) => {
       }
       if (sub === '' && req.method === 'DELETE') {
         await deleteAllWorkflows(mind.id)
+        await releaseInbox(mind.id)
         await deleteMind(user.id, mind.id)
         return res.writeHead(204).end()
       }

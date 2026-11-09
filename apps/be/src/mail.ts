@@ -3,6 +3,7 @@
 // REST v0 with fetch, no SDK (docs.agentmail.to, read 9 Nov 2026): POST /inboxes (client_id makes a retry return the
 // same inbox), POST /inboxes/{id}/messages/send (Idempotency-Key header), GET /inboxes/{id}/messages[/{message_id}].
 // Every send attempt is stored in mail_sends, refusals included.
+import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { config } from './config.ts'
 import { newId } from './crypto.ts'
@@ -133,7 +134,9 @@ export async function sendMail(mindId: string, body: z.infer<typeof sendMailSche
   const inbox = await inboxOf(mindId)
   if (!inbox) throw new HttpError(404, 'no_inbox')
   const to = [...new Set(body.to)]
-  const id = newId('mail')
+  // A retry with the same idempotency key (the engine sends its tool call id) maps to the same row, so it is stored,
+  // listed and counted once, and AgentMail sends it once.
+  const id = body.idempotencyKey ? `mail_${createHash('sha256').update(`${mindId}.${body.idempotencyKey}`).digest('hex').slice(0, 32)}` : newId('mail')
   const base = { sendId: id, from: inbox.email, to, subject: body.subject }
   let refused: { code: string; message: string } | null = null
   // Try-out Minds share one address and may only write to it, so a visitor cannot use it to email strangers.
@@ -142,6 +145,11 @@ export async function sendMail(mindId: string, body: z.infer<typeof sendMailSche
   try {
     await client.query('begin')
     await client.query('select pg_advisory_xact_lock(4100003, hashtext($1))', [opts.cap?.userId ?? mindId])
+    const { rows: [seen] } = await client.query('select * from mail_sends where id = $1 and mind_id = $2', [id, mindId])
+    if (seen) {
+      await client.query('commit')
+      return sendResultOf(seen, inbox.email)
+    }
     if (!refused && opts.cap) {
       const { rows: [{ n }] } = await client.query(
         `select count(*)::int as n from mail_sends s join minds m on m.id = s.mind_id where m.user_id = $1 and s.status in ('sent', 'pending')`, [opts.cap.userId])
@@ -186,6 +194,26 @@ export async function sendMail(mindId: string, body: z.infer<typeof sendMailSche
   return { ...base, status, code, message }
 }
 
+const sendResultOf = (r: any, from: string): SendResult => ({
+  sendId: r.id, status: r.status as MailStatus, from, to: r.to_addresses as string[], subject: r.subject,
+  ...(r.message_id ? { messageId: r.message_id } : {}), ...(r.thread_id ? { threadId: r.thread_id } : {}),
+  ...(r.error_code ? { code: r.error_code } : {}), ...(r.message ? { message: r.message } : {}),
+})
+
+// Deleting a Mind frees its AgentMail inbox (the Free plan has 3 per organization). Best effort: the Mind is deleted
+// even if AgentMail cannot be reached; the shared try-out inbox is never deleted.
+export async function releaseInbox(mindId: string): Promise<void> {
+  const own = await row(mindId)
+  if (!own) return
+  try {
+    const out = await agentmail(own.slot, 'DELETE', `/inboxes/${encodeURIComponent(own.inboxId)}`)
+    // AgentMail deletes in the background: 202 started, 409 resource_deleting already started, 404 already gone.
+    if (![200, 202, 204, 404, 409].includes(out.status)) console.error('mail error', JSON.stringify({ action: 'release_inbox', mindId, status: out.status }))
+  } catch {
+    console.error('mail error', JSON.stringify({ action: 'release_inbox', mindId, error: 'agentmail_unreachable' }))
+  }
+}
+
 export async function listSends(mindId: string, limit = 20) {
   const rows = await query('select * from mail_sends where mind_id = $1 order by created_at desc limit $2', [mindId, limit])
   return rows.map((r) => ({
@@ -221,12 +249,25 @@ const directionOf = (inbox: Inbox, m: any): 'sent' | 'received' => {
   return String(m?.from ?? '').toLowerCase().includes(inbox.email) ? 'sent' : 'received'
 }
 
+// The shared try-out inbox is public: anyone (another visitor, or anyone on the internet) can mail it. A try-out
+// Mind therefore only sees the messages its own user's Minds sent, never text planted by someone else (#96 review).
+async function ownSendIds(mindId: string): Promise<Set<string>> {
+  const rows = await query(
+    `select s.message_id from mail_sends s join minds m on m.id = s.mind_id
+      where m.user_id = (select user_id from minds where id = $1) and s.message_id is not null`, [mindId])
+  return new Set(rows.map((r) => String(r.message_id)))
+}
+
 export async function listMail(mindId: string, limit = 10) {
   const inbox = await inboxOf(mindId)
   if (!inbox) throw new HttpError(404, 'no_inbox')
-  const out = await agentmail(inbox.slot, 'GET', `/inboxes/${encodeURIComponent(inbox.inboxId)}/messages?limit=${limit}`)
+  const own = inbox.shared ? await ownSendIds(mindId) : null
+  // Shared inbox: read a wider page, then keep only this user's own messages.
+  const out = await agentmail(inbox.slot, 'GET', `/inboxes/${encodeURIComponent(inbox.inboxId)}/messages?limit=${own ? 100 : limit}`)
   if (out.status !== 200) throw mailError(out)
-  const messages = (Array.isArray(out.body?.messages) ? out.body.messages : []).map((m: any) => ({
+  const all = Array.isArray(out.body?.messages) ? out.body.messages : []
+  const visible = own ? all.filter((m: any) => own.has(String(m.message_id))).slice(0, limit) : all
+  const messages = visible.map((m: any) => ({
     messageId: String(m.message_id), threadId: String(m.thread_id), from: String(m.from ?? ''), to: Array.isArray(m.to) ? m.to.map(String) : [],
     subject: String(m.subject ?? ''), preview: String(m.preview ?? '').slice(0, 200), at: String(m.timestamp ?? m.created_at ?? ''),
     direction: directionOf(inbox, m), ...safety(m),
@@ -240,6 +281,7 @@ const MAX_TEXT = 8000
 export async function readMail(mindId: string, messageId: string) {
   const inbox = await inboxOf(mindId)
   if (!inbox) throw new HttpError(404, 'no_inbox')
+  if (inbox.shared && !(await ownSendIds(mindId)).has(messageId)) throw new HttpError(404, 'mail_not_found')
   const out = await agentmail(inbox.slot, 'GET', `/inboxes/${encodeURIComponent(inbox.inboxId)}/messages/${encodeURIComponent(messageId)}`)
   if (out.status !== 200) throw mailError(out)
   const m = out.body ?? {}

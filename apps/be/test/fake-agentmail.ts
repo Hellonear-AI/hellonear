@@ -53,6 +53,14 @@ export const agentmailServer = createServer(async (req, res) => {
     return send(res, 200, { pod_id: 'pod', ...inbox, org: undefined, created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
   }
 
+  // Delete inbox (docs: api-reference/inboxes/delete): asynchronous, 202 when it starts, 404 if unknown.
+  const del = req.method === 'DELETE' && p.match(/^\/inboxes\/([^/]+)$/)
+  if (del) {
+    const i = fakeAgentmail.inboxes.findIndex((x) => x.inbox_id === decodeURIComponent(del[1]) && x.org === org)
+    if (i < 0) return send(res, 404, { name: 'NotFoundError', code: 'not_found', message: 'Inbox not found' })
+    fakeAgentmail.inboxes.splice(i, 1)
+    return send(res, 202, {})
+  }
   const m = p.match(/^\/inboxes\/([^/]+)\/messages(?:\/(send|[^/]+))?$/)
   const inbox = m && fakeAgentmail.inboxes.find((i) => i.inbox_id === decodeURIComponent(m[1]) && i.org === org)
   if (m && !inbox) return send(res, 404, { name: 'NotFoundError', code: 'not_found', message: 'Inbox not found' })
