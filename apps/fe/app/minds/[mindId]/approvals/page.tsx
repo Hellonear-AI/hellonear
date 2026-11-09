@@ -1,7 +1,8 @@
-import { ScreenPlaceholder } from "@/modules/minds/components/ScreenPlaceholder"
+import { ApprovalsScreen } from "@/modules/wallet/components/ApprovalsScreen"
 
 export const metadata = { title: "Approvals" }
 
-export default function Page() {
-  return <ScreenPlaceholder title="Approvals" description="Every payment your Mind wants to make. Nothing is sent until you say yes." />
+export default async function Page({ params }: { params: Promise<{ mindId: string }> }) {
+  const { mindId } = await params
+  return <ApprovalsScreen mindId={mindId} />
 }
