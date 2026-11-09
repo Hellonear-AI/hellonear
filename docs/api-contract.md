@@ -301,7 +301,7 @@ Index `run_events (run_id, seq)` and `runs (mind_id, started_at desc)`. Migratio
 1. SSE between backend and engine, or a queue? **Decided (James, 4 Nov): direct SSE.** The backend reads the engine stream to the end even if the browser leaves, so `run_events` stays complete (load test: 1,377 runs, none missing events).
 2. Does the backend send the full Mind config each request, or should the engine read `minds` itself? **Decided: the backend sends it** (the engine has no access to backend tables).
 3. Run timeout: **kept** at Mastra `modelSettings.timeout.totalMs = 120000`. The backend sends an SSE comment (`: ping`) every 15 s so proxies do not close a quiet stream.
-4. Autopilot and secrets (#21): scheduled runs cannot get secrets today. Option: the engine asks the backend for a Mind's secrets at execution (an internal endpoint authenticated with the engine key), never storing them. Needed before a scheduled workflow can call an authenticated API.
+4. Autopilot and secrets (#21): **Decided (James, 9 Nov): no secrets for scheduled runs, for the submission.** Autopilot refuses workflows that use `{{secrets.…}}`. Possible later (after 14 Nov): the engine asks the backend for a Mind's secrets at execution (an internal endpoint authenticated with the engine key), never storing them.
 
 ## 7. Backend HTTP API (called by the browser)
 
