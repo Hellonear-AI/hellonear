@@ -1,6 +1,6 @@
 # HelloNear
 
-> Built at NEAR HACKATHON (1–14 Nov 2026). Status on 9 Nov: engine, backend and contract work and are tested; the web app (`apps/fe`) has sign-in, try-out, chat, approvals, wallet, skills and connections, and runs against the hosted API from `localhost:3000`. The hosted web app is https://hellonear.xyz (try-out needs no wallet); the API steps below work without it.
+> Built at NEAR HACKATHON (1–14 Nov 2026). Status on 9 Nov: engine, backend and contract work and are tested; the web app (`apps/fe`) has sign-in, try-out, chat, approvals, wallet, skills and connections, and runs against the hosted API from `localhost:3000`. The hosted web app is https://app.hellonear.xyz (try-out needs no wallet); the API steps below work without it.
 
 HelloNear lets a person run an AI agent (a "Mind") that can read their email and pay on their behalf, while the money rules sit outside the AI's reach. Each Mind has a persona, memory, skills it can equip, and its own NEAR wallet on testnet.
 
@@ -23,7 +23,7 @@ An AI assistant that can pay is one prompt injection away from paying the wrong 
 
 ## Try it (API, works today)
 
-The web app is `https://hellonear.xyz` and the hosted backend is `https://api.hellonear.xyz` (testnet). Try-out mode needs no wallet: it makes a temporary user (20 runs, deleted after 7 days). Replies stream as [server-sent events](docs/api-contract.md#3-hellonear-events-engine--backend--browser).
+The web app is `https://app.hellonear.xyz` and the hosted backend is `https://api.hellonear.xyz` (testnet). Try-out mode needs no wallet: it makes a temporary user (20 runs, deleted after 7 days). Replies stream as [server-sent events](docs/api-contract.md#3-hellonear-events-engine--backend--browser).
 
 ```sh
 B=https://api.hellonear.xyz                 # or http://localhost:4000 (see "Run locally")
