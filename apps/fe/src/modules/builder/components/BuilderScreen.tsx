@@ -226,6 +226,20 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const [engineIssues, setEngineIssues] = useState<{ node: string | null; text: string }[]>([])
   const [saveError, setSaveError] = useState<string | null>(null)
   const dirty = JSON.stringify(draft) !== JSON.stringify(initial)
+  // What blocks Save, one click away (Ancung, 10 Nov: Save was off and the reason was hidden in a
+  // closed panel): the name goes to the name field in the header, anything else picks its block.
+  const nameField = useRef<HTMLInputElement>(null)
+  const fix = (where: string) => {
+    if (where === "name") {
+      nameField.current?.focus()
+      return
+    }
+    const br = draft.branch
+    if (br && br.then?.id === where) setSelected(`${br.id}:then`)
+    else if (br && br.else?.id === where) setSelected(`${br.id}:else`)
+    else if (where === "start" || where === "steps") setSelected("start")
+    else setSelected(where)
+  }
   // Unsaved changes ask before you leave: the back arrow, the browser's Back, closing the tab.
   const guard = useLeaveGuard(dirty, mindHref(mindId, "autopilot"))
   const [savedTry, setSavedTry] = useState<string | null>(null)
@@ -264,6 +278,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
     void queryClient.invalidateQueries({ queryKey: autopilotKeys.runs(mindId, workflowId) })
   }
   const problems = draftProblems(draft)
+  const saveBlockedBy = problems[0]?.text
   // Engine issues pinned to a block mark it too, until the draft changes again.
   const flagged = (id: string) => problems.some((p) => p.where === id) || (!dirtySinceSave && engineIssues.some((i) => i.node === id))
 
@@ -510,10 +525,27 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
           <ArrowLeftIcon />
         </Button>
         <div className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-[15px] font-semibold text-foreground">{draft.name.trim() || "Untitled job"}</span>
-          <span className="text-xs text-muted-foreground">
-            {dirty ? "Unsaved changes" : !workflowId ? "Not saved yet" : "All changes saved"}
-          </span>
+          {/* The job's name, edited right here (n8n does the same); the Start panel shows the same field. */}
+          <input
+            ref={nameField}
+            aria-label="Job name"
+            value={draft.name}
+            maxLength={NAME_MAX}
+            placeholder="Untitled job"
+            onChange={(e) => set({ name: e.target.value })}
+            className="-mx-1.5 w-full max-w-md truncate rounded-sm bg-transparent px-1.5 text-[15px] font-semibold text-foreground outline-none placeholder:text-foreground hover:bg-muted focus:bg-muted focus:placeholder:text-tertiary-foreground"
+          />
+          {problems.length > 0 && dirty ? (
+            <button
+              type="button"
+              onClick={() => fix(problems[0].where)}
+              className="w-fit text-left text-xs font-medium text-warning underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-focus"
+            >
+              {problems.length === 1 ? `To save: ${problems[0].text.replace(/\.$/, "").toLowerCase()}` : `${problems.length} things to fix before saving`}
+            </button>
+          ) : (
+            <span className="text-xs text-muted-foreground">{dirty ? "Unsaved changes" : !workflowId ? "Not saved yet" : "All changes saved"}</span>
+          )}
         </div>
         {workflowId && (
           <Button
@@ -527,7 +559,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             {test?.running ? "Testing" : "Test run"}
           </Button>
         )}
-        <Button className="hidden lg:inline-flex" onClick={() => void save()} disabled={saving || problems.length > 0 || (Boolean(workflowId) && !dirty)}>
+        <Button className="hidden lg:inline-flex" onClick={() => void save()} disabled={saving || problems.length > 0 || (Boolean(workflowId) && !dirty)} title={saveBlockedBy ?? undefined}>
           {saving && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
           Save
         </Button>
@@ -826,11 +858,22 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             </p>
           )}
           {problems.length > 0 && (
-            <ul className="flex flex-col gap-1 rounded-md bg-muted p-3 text-xs text-muted-foreground">
-              {problems.map((p) => (
-                <li key={`${p.where}${p.text}`}>{p.text}</li>
-              ))}
-            </ul>
+            <div className="flex flex-col gap-1.5 rounded-md bg-warning-soft p-3">
+              <p className="text-xs font-medium text-foreground">Before you can save</p>
+              <ul className="flex flex-col gap-1">
+                {problems.map((p) => (
+                  <li key={`${p.where}${p.text}`}>
+                    <button
+                      type="button"
+                      onClick={() => fix(p.where)}
+                      className="text-left text-xs text-foreground underline decoration-warning/60 underline-offset-2 outline-none hover:decoration-warning focus-visible:ring-2 focus-visible:ring-focus"
+                    >
+                      {p.text}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </SettingsFrame>
         )}
@@ -844,7 +887,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             {test?.running ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <FlaskConicalIcon />}
             {test?.running ? "Testing" : "Test run"}
           </Button>
-          <Button onClick={() => void save()} disabled={saving || problems.length > 0 || (Boolean(workflowId) && !dirty)}>
+          <Button onClick={() => void save()} disabled={saving || problems.length > 0 || (Boolean(workflowId) && !dirty)} title={saveBlockedBy ?? undefined}>
             {saving ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <CheckIcon />}
             Save
           </Button>
