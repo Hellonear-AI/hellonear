@@ -1,7 +1,8 @@
-import { ScreenPlaceholder } from "@/modules/minds/components/ScreenPlaceholder"
+import { AutopilotScreen } from "@/modules/autopilot/components/AutopilotScreen"
 
 export const metadata = { title: "Autopilot" }
 
-export default function Page() {
-  return <ScreenPlaceholder title="Autopilot" description="Jobs your Mind runs on a schedule, with nobody watching." />
+export default async function Page({ params }: { params: Promise<{ mindId: string }> }) {
+  const { mindId } = await params
+  return <AutopilotScreen mindId={mindId} />
 }

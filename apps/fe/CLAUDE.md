@@ -115,6 +115,13 @@ Connections (`/minds/[mindId]/connections`, `src/modules/connections`, design "6
 - Proven 9 Nov (Ancung, Omaga): Google Calendar connected from this page; from the chat, Daily planner read tomorrow's events and added "Rapat KKN" after an approval. Not checked yet: keys from this page, disconnecting, an expired connection, phone and tablet layouts.
 - "How your keys are kept" only states what api-contract.md marks [tested]: no values back, https and listed hosts only, the model sees placeholders, Autopilot gets no secrets.
 
+Autopilot (`/minds/[mindId]/autopilot`, `src/modules/autopilot`, design "7 · Automations" P1.1 to P1.6, #21):
+- Jobs are the Mind's workflows (`GET …/workflows`, each job's `…/autopilot` and `…/runs`, docs/api-contract.md §2 and §7). The list shows each job with its schedule in words (`scheduleText`: "Every day at 08:00", "Weekdays at 07:30"), a switch (`PUT …/autopilot` `{ enabled }`), and "Next: tomorrow 08:00" or why it is paused. The detail shows its steps in plain words (`jobSteps`, from the saved canvas), Run now (`POST …/runs`, SSE; the list is read again every 3 s while a run is going), Delete, and every run with a one-line result (`runSummary`: what the Mind wrote, else what it found, else what broke).
+- Until the Builder (#20) exists, jobs come from two ready ideas (`data/ideas.ts`, P1.2): "Morning balance check" (`near_view_account` on the Mind's own address, then a note if under 5 NEAR; it adds the NEAR account lookup skill, since a workflow may only use its Mind's tools) and "Plan my day" (one agent step, weekdays 07:30). Both use the browser's time zone. "New job" and "Edit steps" aren't shown yet.
+- A 409 `cannot_autopilot` shows the engine's reason on the card in the owner's words (`issueText`, P1.4). The info line says what unattended jobs can't do (pay, approve, keys) and that they get no badge.
+- Try-out: saving a job and Run now work; the switch opens T1.4 (`autopilot`, the backend refuses `PUT …/autopilot` with `demo_not_allowed`), and a ready job stays off.
+- Proven 9 Nov in Chrome (try-out Mind against the hosted API): adding "Morning balance check", Run now from Running to Worked with the Mind's note, and the switch opening T1.4. Not checked yet: turning a job on as an owner, a real scheduled run, a 409, phone and tablet layouts.
+
 Imports: `@/*` → `src/*`, `@app/*` → `app/*`. Keep route files in `app/` thin; put screens in `src/modules/<feature>/components`.
 
 ## Backend and sign-in
