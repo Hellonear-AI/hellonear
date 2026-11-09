@@ -36,8 +36,9 @@ export type Branch = {
   op: Op
   /** As typed; a number field turns it into a number on save. */
   right: string
-  then: AskStep | null
-  else: AskStep | null
+  /** What runs when the check is true, or false; empty means the job stops there (as in n8n). */
+  then: Step | null
+  else: Step | null
 }
 
 export type Draft = {
@@ -104,12 +105,24 @@ export function rightValue(b: Branch, steps: Step[]): string | number {
   return kind === "number" ? Number(b.right) : b.right.trim()
 }
 
+/** The opposite comparison, to swap Yes and No. */
+export const INVERT: Record<Op, Op> = { eq: "ne", ne: "eq", lt: "gte", gte: "lt", lte: "gt", gt: "lte" }
+
+/**
+ * The branch as the engine wants it: a condition needs a "then" step (docs/api-contract.md §2). An
+ * empty Yes with a step on No is saved as the opposite check with that step on Yes, so either side
+ * can be the one that stops (n8n leaves an output unconnected; Ancung, 10 Nov).
+ */
+export function engineBranch(b: Branch): Branch {
+  return !b.then && b.else ? { ...b, op: INVERT[b.op], then: b.else, else: null } : b
+}
+
 export function toCanvas(d: Draft): Canvas {
   const nodes: CanvasNode[] = [{ id: "start", type: "trigger", position: pos(0, 0), data: { schedule: { cron: cronOf(d), timezone: d.timezone } } }]
   d.steps.forEach((s, i) => nodes.push(stepNode(s, 0, (i + 1) * 140)))
   const order = nodes.map((n) => n.id)
   const edges: Canvas["edges"] = order.slice(1).map((id, i) => ({ source: order[i], target: id }))
-  const b = d.branch
+  const b = d.branch ? engineBranch(d.branch) : null
   if (b) {
     const y = (d.steps.length + 1) * 140
     nodes.push({ id: b.id, type: "condition", position: pos(0, y), data: { left: ref(b.stepId, b.field), op: b.op, right: rightValue(b, d.steps) } })
@@ -166,7 +179,7 @@ export function fromCanvas(c: Canvas, fallbackZone: string): Draft | null {
         const e = c.edges.find((x) => x.source === n.id && x.sourceHandle === h)
         if (!e) return null
         const s = stepOf(byId.get(e.target))
-        if (!s || s.kind !== "agent") return undefined
+        if (!s) return undefined
         seen.add(s.id)
         return s
       }
@@ -217,12 +230,7 @@ export function resultsBefore(steps: Step[], index = steps.length) {
 export type DraftProblem = { where: string; text: string }
 
 /** What would stop Save, checked as you type, before the engine checks it again. */
-export function draftProblems(d: Draft): DraftProblem[] {
-  const out: DraftProblem[] = []
-  if (!d.name.trim()) out.push({ where: "name", text: "Job name is required." })
-  if (!/^\d{2}:\d{2}$/.test(d.time)) out.push({ where: "start", text: "Time is required." })
-  if (!d.steps.length) out.push({ where: "steps", text: "Add at least one step after Start." })
-  for (const s of d.steps) {
+function stepProblems(s: Step, out: DraftProblem[]) {
     if (s.kind === "agent" && !s.prompt.trim()) out.push({ where: s.id, text: "Instructions are required for this step." })
     if (s.kind === "http") {
       let ok = false
@@ -240,17 +248,59 @@ export function draftProblems(d: Draft): DraftProblem[] {
         if (a.kind === "account" && !NEAR_ACCOUNT.test(v)) out.push({ where: s.id, text: "Enter a valid NEAR account, for example shop.testnet." })
       }
     }
-  }
+}
+
+export function draftProblems(d: Draft): DraftProblem[] {
+  const out: DraftProblem[] = []
+  if (!d.name.trim()) out.push({ where: "name", text: "Job name is required." })
+  if (!/^\d{2}:\d{2}$/.test(d.time)) out.push({ where: "start", text: "Time is required." })
+  if (!d.steps.length) out.push({ where: "steps", text: "Add at least one step after Start." })
+  for (const s of d.steps) stepProblems(s, out)
   const b = d.branch
   if (b) {
     const field = stepFields(d.steps.find((s) => s.id === b.stepId)).find((f) => f.name === b.field) ?? null
     if (!field || field.kind === "list") out.push({ where: b.id, text: "Select a value to compare in the If block." })
     else if (field.kind === "number" && (b.right.trim() === "" || !Number.isFinite(Number(b.right)))) out.push({ where: b.id, text: "Enter a number in the If block." })
     else if (field.kind === "text" && !b.right.trim()) out.push({ where: b.id, text: "Enter a value in the If block." })
-    if (!b.then) out.push({ where: b.id, text: "Add a step for If yes." })
+    if (!b.then && !b.else) out.push({ where: b.id, text: "Add a step to If yes or If no." })
     // Engine rule (docs/api-contract.md §2): both ways can't ask the Mind (they'd need the same input).
-    if (b.then && b.else) out.push({ where: b.else.id, text: "If yes and If no cannot both ask the Mind. Set If no to stop." })
-    for (const s of [b.then, b.else]) if (s && !s.prompt.trim()) out.push({ where: s.id, text: "Instructions are required for this step." })
+    if (b.then?.kind === "agent" && b.else?.kind === "agent") out.push({ where: b.else.id, text: "If yes and If no cannot both ask the Mind." })
+    for (const s of [b.then, b.else]) if (s) stepProblems(s, out)
   }
   return out
+}
+
+const REF = /\{\{\s*steps\.([\w-]+)\.(\w+)\s*\}\}/g
+
+/** "Balance (NEAR)" -> "Balance"; a second "Balance" from another step becomes "Balance 2". */
+export function tokenLabels(results: { stepId: string; name: string; label: string }[]): Map<string, string> {
+  const out = new Map<string, string>()
+  const used = new Map<string, number>()
+  for (const r of results) {
+    const base = r.label.replace(/ \(.*\)$/, "")
+    const n = (used.get(base) ?? 0) + 1
+    used.set(base, n)
+    out.set(`${r.stepId}.${r.name}`, n === 1 ? base : `${base} ${n}`)
+  }
+  return out
+}
+
+/** A prompt as people read and type it: each earlier result is a {Label} (Ancung, 10 Nov). */
+export function promptToDisplay(prompt: string, results: { stepId: string; name: string; label: string }[]): string {
+  const labels = tokenLabels(results)
+  return prompt.replace(REF, (whole, id: string, field: string) => {
+    const l = labels.get(`${id}.${field}`)
+    return l ? `{${l}}` : whole
+  })
+}
+
+/** Back to what the engine reads: {Label} becomes {{steps.id.field}}; other braces stay as typed. */
+export function promptFromDisplay(text: string, results: { stepId: string; name: string; label: string }[]): string {
+  const byLabel = new Map([...tokenLabels(results)].map(([key, l]) => [l, key]))
+  return text.replace(/\{([^{}]+)\}/g, (whole, l: string) => {
+    const key = byLabel.get(l.trim())
+    if (!key) return whole
+    const [id, field] = key.split(".")
+    return ref(id, field)
+  })
 }

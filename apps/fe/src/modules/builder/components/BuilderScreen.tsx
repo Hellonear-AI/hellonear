@@ -52,7 +52,11 @@ import {
   PROMPT_MAX,
   ref,
   comparable,
+  INVERT,
   moveStepIn,
+  tokenLabels,
+  promptFromDisplay,
+  promptToDisplay,
   resultsBefore,
   stepFields,
   toCanvas,
@@ -286,7 +290,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const flagged = (id: string) => (tried && problems.some((p) => p.where === id)) || (!dirtySinceSave && engineIssues.some((i) => i.node === id))
 
   // A job may only use its Mind's tools: the skills it needs and doesn't have are added on Save.
-  const usedTools = draft.steps.flatMap((s) => (s.kind === "tool" ? [s.tool] : s.kind === "http" ? ["http_request"] : []))
+  const usedTools = [...draft.steps, draft.branch?.then, draft.branch?.else].flatMap((s) => (!s ? [] : s.kind === "tool" ? [s.tool] : s.kind === "http" ? ["http_request"] : []))
   const missingSkills = [...new Set(usedTools.map((t) => catalog?.find((s) => s.tools.includes(t))?.skillId).filter((s): s is string => Boolean(s)))].filter(
     (s) => mind && !mind.skills.includes(s)
   )
@@ -352,12 +356,28 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
     })
     setSelected(id)
   }
+  const newStep = (kind: "agent" | "tool" | "http"): Step => {
+    const id = newId(kind === "agent" ? "ask" : kind)
+    return kind === "agent"
+      ? { id, kind, prompt: "" }
+      : kind === "http"
+        ? { id, kind, method: "GET", url: "https://", key: "", body: "" }
+        : { id, kind, tool: TOOLS[0].tool, args: { accountId: address } }
+  }
+  /** Put a block on If yes or If no (B1: each way of an If takes one block; empty stops). */
+  function setEnding(h: "then" | "else", kind: "agent" | "tool" | "http") {
+    const br = draft.branch
+    if (!br) return
+    const step = newStep(kind)
+    setBranch({ [h]: step } as Partial<Branch>)
+    setSelected(`${br.id}:${h}`)
+  }
   function addIf() {
     const first = resultsBefore(draft.steps).find(comparable)
     const id = newId("check")
     setDraft((d) => ({
       ...d,
-      branch: { id, stepId: first?.stepId ?? "", field: first?.name ?? "", op: first?.kind === "number" ? "lt" : "eq", right: "", then: { id: newId("yes"), kind: "agent", prompt: "" }, else: null },
+      branch: { id, stepId: first?.stepId ?? "", field: first?.name ?? "", op: first?.kind === "number" ? "lt" : "eq", right: "", then: null, else: null },
     }))
     setSelected(id)
   }
@@ -691,12 +711,15 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                   onDragEnd={endDrag}
                   className={cn("cursor-grab active:cursor-grabbing", drag && "move" in drag && drag.move === s.id && "opacity-40")}
                 >
-                  <StepCard step={s} name={name} active={selected === s.id} problem={flagged(s.id)} onClick={() => setSelected(s.id)} />
+                  <StepCard step={s} name={name} results={resultsBefore(draft.steps, i)} active={selected === s.id} problem={flagged(s.id)} onClick={() => setSelected(s.id)} />
                 </div>
               </Linked>
-              {i + 1 < draft.steps.length && spot(i + 1)}
+              {(i + 1 < draft.steps.length || b) && spot(i + 1)}
             </div>
           ))}
+          {/* With an If, new steps go in through the + between blocks; the Add card only ends a line
+              without one (Ancung, 10 Nov). */}
+          {!b && (
           <Linked>
             {/* The end of the line is this card: it is also where a dragged block lands (Ancung, 9 Nov:
                 a second "Drop here" box under it was confusing). */}
@@ -729,11 +752,10 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
               <span className="text-sm font-medium text-foreground">
                 {drag && accepts(draft.steps.length) ? (drag && "add" in drag && drag.add === "if" ? "Drop to add the If here" : "Drop to add it here") : "Add the next step"}
               </span>
-              <span className="text-xs text-muted-foreground">
-                {b ? "It goes before the If" : desktop ? `Ask ${name} to do something` : "Tap to pick a block"}
-              </span>
+              <span className="text-xs text-muted-foreground">{desktop ? `Ask ${name} to do something` : "Tap to pick a block"}</span>
             </button>
           </Linked>
+          )}
           {b && (
             <>
               <Linked>
@@ -754,22 +776,30 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                     <span aria-hidden className="h-6 w-px bg-border-strong" />
                     <span className="pb-1.5 text-xs font-medium text-muted-foreground">{h === "then" ? "Yes" : "No"}</span>
                     {b[h] ? (
-                      <StepCard
-                        step={b[h]!}
-                        name={name}
-                        active={selected === `${b.id}:${h}`}
-                        problem={flagged(b[h]!.id) || (h === "then" && !b.then)}
-                        onClick={() => setSelected(`${b.id}:${h}`)}
-                      />
+                      <>
+                        <StepCard
+                          step={b[h]!}
+                          name={name}
+                          results={resultsBefore(draft.steps)}
+                          active={selected === `${b.id}:${h}`}
+                          problem={flagged(b[h]!.id)}
+                          onClick={() => setSelected(`${b.id}:${h}`)}
+                        />
+                        <span aria-hidden className="h-3 w-px bg-border-strong" />
+                        <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">End</span>
+                      </>
                     ) : (
-                      <BlockCard
-                        tone="start"
-                        icon={<SquareIcon />}
-                        kind={h === "then" ? "If yes" : "If no"}
-                        title="Stop, nothing else runs"
+                      <EndingSlot
+                        id={`slot-${h}`}
                         active={selected === `${b.id}:${h}`}
-                        dashed
-                        onClick={() => setSelected(`${b.id}:${h}`)}
+                        over={over}
+                        setOver={setOver}
+                        accepts={Boolean(drag && "add" in drag && drag.add !== "if")}
+                        onPick={() => setSelected(`${b.id}:${h}`)}
+                        onDrop={() => {
+                          if (drag && "add" in drag && drag.add !== "if") setEnding(h, drag.add)
+                          endDrag()
+                        }}
                       />
                     )}
                   </div>
@@ -829,17 +859,22 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             />
           ) : b && selected === b.id ? (
             <IfPanel branch={b} steps={draft.steps} onChange={setBranch} onDelete={() => (set({ branch: null }), setSelected("start"))} />
+          ) : b && ending && b[ending] ? (
+            (() => {
+              const e = b[ending]!
+              const label = ending === "then" ? "If yes" : "If no"
+              const patch = (p: Partial<Step>) => setBranch({ [ending]: { ...e, ...p } as Step } as Partial<Branch>)
+              const remove = () => setBranch({ [ending]: null } as Partial<Branch>)
+              return e.kind === "agent" ? (
+                <AskPanel name={name} title={`${label}: ask ${name}`} step={e} results={resultsBefore(draft.steps)} onChange={(p) => patch({ prompt: p })} onDelete={remove} />
+              ) : e.kind === "http" ? (
+                <HttpPanel step={e} results={resultsBefore(draft.steps)} missingSkill={missingSkills.find((x) => catalog?.find((c) => c.skillId === x)?.tools.includes("http_request"))} name={name} onChange={patch} onDelete={remove} />
+              ) : (
+                <ToolPanel step={e} address={address} name={name} missingSkill={missingSkills.find((x) => catalog?.find((c) => c.skillId === x)?.tools.includes(e.tool))} onChange={patch} onDelete={remove} />
+              )
+            })()
           ) : b && ending ? (
-            <EndingPanel
-              name={name}
-              which={ending}
-              step={b[ending]}
-              results={resultsBefore(draft.steps)}
-              canAdd={ending === "then" || !b.then}
-              onAdd={() => setBranch({ [ending]: { id: newId(ending === "then" ? "yes" : "no"), kind: "agent", prompt: "" } } as Partial<Branch>)}
-              onChange={(p) => setBranch({ [ending]: { ...(b[ending] as AskStep), prompt: p } } as Partial<Branch>)}
-              onRemove={() => setBranch({ [ending]: null } as Partial<Branch>)}
-            />
+            <EndingPanel name={name} which={ending} otherAsks={b[ending === "then" ? "else" : "then"]?.kind === "agent"} onPick={(kind) => setEnding(ending, kind)} />
           ) : (
             <StartPanel draft={draft} set={set} />
           )}
@@ -998,7 +1033,22 @@ function Linked({ children }: { children: ReactNode }) {
   )
 }
 
-function StepCard({ step, name, active, problem, onClick }: { step: Step; name: string; active: boolean; problem: boolean; onClick: () => void }) {
+function StepCard({
+  step,
+  name,
+  results = [],
+  active,
+  problem,
+  onClick,
+}: {
+  step: Step
+  name: string
+  /** Earlier results, so a prompt shows {Balance} instead of its reference. */
+  results?: Result[]
+  active: boolean
+  problem: boolean
+  onClick: () => void
+}) {
   if (step.kind === "agent") {
     return (
       <BlockCard
@@ -1006,7 +1056,7 @@ function StepCard({ step, name, active, problem, onClick }: { step: Step; name: 
         icon={<BotIcon />}
         kind={`Ask ${name}`}
         nodeId={step.id}
-        title={step.prompt.trim() ? short(step.prompt.replace(/\{\{[^}]*\}\}/g, "...")) : "Say what to do"}
+        title={step.prompt.trim() ? short(promptToDisplay(step.prompt, results)) : "Say what to do"}
         line={step.prompt.trim() ? undefined : "Not set yet"}
         active={active}
         warn={problem}
@@ -1264,7 +1314,14 @@ function PromptField({
   return (
     <label className={field}>
       <span className={label}>{labelText ?? `What should ${name} do?`}</span>
-      <Textarea value={value} maxLength={PROMPT_MAX} rows={6} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+      {/* Earlier results read as {Balance} here; they are saved as the engine's {{steps.…}} references. */}
+      <Textarea
+        value={promptToDisplay(value, results)}
+        maxLength={PROMPT_MAX}
+        rows={6}
+        placeholder={placeholder}
+        onChange={(e) => onChange(promptFromDisplay(e.target.value, results))}
+      />
       {results.length > 0 && (
         <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
           Put in a result:
@@ -1273,6 +1330,7 @@ function PromptField({
               key={`${r.stepId}.${r.name}`}
               type="button"
               onClick={() => onChange(`${value}${value && !value.endsWith(" ") ? " " : ""}${ref(r.stepId, r.name)}`)}
+              title={`Puts {${tokenLabels(results).get(`${r.stepId}.${r.name}`)}} in the text`}
               className="rounded-full bg-muted px-2 py-0.5 text-foreground outline-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus"
             >
               {r.label}
@@ -1383,7 +1441,10 @@ function IfPanel({ branch, steps, onChange, onDelete }: { branch: Branch; steps:
           onChange={(e) => onChange({ right: e.target.value })}
         />
       </label>
-      <p className="text-xs text-muted-foreground">Then pick what happens for yes and for no on the canvas.</p>
+      <p className="text-xs text-muted-foreground">Then pick what happens for yes and for no on the canvas. A way left empty stops the job there.</p>
+      <Button variant="outline" className="w-fit" onClick={() => onChange({ op: INVERT[branch.op], then: branch.else, else: branch.then })}>
+        Swap Yes and No
+      </Button>
       <DeleteBlock onClick={onDelete} />
     </>
   )
@@ -1392,45 +1453,98 @@ function IfPanel({ branch, steps, onChange, onDelete }: { branch: Branch; steps:
 function EndingPanel({
   name,
   which,
-  step,
-  results,
-  onAdd,
-  canAdd,
-  onChange,
-  onRemove,
+  otherAsks,
+  onPick,
 }: {
   name: string
   which: "then" | "else"
-  step: AskStep | null
-  results: Result[]
-  canAdd: boolean
-  onAdd: () => void
-  onChange: (p: string) => void
-  onRemove: () => void
+  /** The other way already asks the Mind, which the engine allows only once. */
+  otherAsks: boolean
+  onPick: (kind: "agent" | "tool" | "http") => void
 }) {
-  const title = which === "then" ? "If yes" : "If no"
-  if (!step) {
-    return (
-      <>
-        <PanelHead icon={<SquareIcon />} title={title} />
-        <p className="text-sm text-muted-foreground">Nothing else runs. The job stops here.</p>
-        {canAdd ? (
-          <Button variant="outline" className="w-fit" onClick={onAdd}>
-            <PlusIcon />
-            Ask {name} to do something
-          </Button>
-        ) : (
-          <p className="text-xs text-muted-foreground">A job can ask {name} on only one of the two ways, and If yes already does.</p>
-        )}
-      </>
-    )
-  }
+  const options: { kind: "agent" | "tool" | "http"; tone: Tone; icon: ReactNode; title: string; off?: string }[] = [
+    { kind: "agent", tone: "agent", icon: <BotIcon />, title: `Ask ${name}`, off: otherAsks ? `Only one way can ask ${name}` : undefined },
+    { kind: "tool", tone: "tool", icon: <SearchIcon />, title: "Use a tool" },
+    { kind: "http", tone: "http", icon: <GlobeIcon />, title: "Call a website" },
+  ]
   return (
     <>
-      <PanelHead tone="agent" icon={<BotIcon />} title={`${title}: ask ${name}`} />
-      <PromptField name={name} value={step.prompt} results={results} onChange={onChange} />
-      <DeleteBlock onClick={onRemove}>{which === "then" ? "Delete this block" : "Stop here instead"}</DeleteBlock>
+      <PanelHead icon={<SquareIcon />} title={which === "then" ? "If yes" : "If no"} />
+      <p className="text-sm text-muted-foreground">Nothing runs here yet, so the job stops. Add a block, or drag one onto this way.</p>
+      <div className="flex flex-col gap-2">
+        {options.map((o) => (
+          <button
+            key={o.kind}
+            type="button"
+            disabled={Boolean(o.off)}
+            onClick={() => onPick(o.kind)}
+            className="flex items-center gap-3 rounded-md bg-muted px-3 py-2.5 text-left outline-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-60"
+          >
+            <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-sm [&>svg]:size-4", TONE[o.tone])}>{o.icon}</span>
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="text-sm font-medium text-foreground">{o.title}</span>
+              {o.off && <span className="text-xs text-muted-foreground">{o.off}</span>}
+            </span>
+            {!o.off && <PlusIcon className="size-4 shrink-0 text-muted-foreground" />}
+          </button>
+        ))}
+      </div>
     </>
+  )
+}
+
+/** An empty way of the If: tap to pick a block, or drop one on it. Empty means the job stops. */
+function EndingSlot({
+  id,
+  active,
+  over,
+  setOver,
+  accepts,
+  onPick,
+  onDrop,
+}: {
+  id: string
+  active: boolean
+  over: string | null
+  setOver: (id: string | null) => void
+  accepts: boolean
+  onPick: () => void
+  onDrop: () => void
+}) {
+  const hot = over === id
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      onDragOver={(e) => {
+        if (!accepts) return
+        e.preventDefault()
+        if (!hot) setOver(id)
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(null)
+      }}
+      onDrop={(e) => {
+        if (!accepts) return
+        e.preventDefault()
+        onDrop()
+      }}
+      aria-pressed={active}
+      className={cn(
+        "flex w-[280px] max-w-full flex-col items-center gap-1 rounded-lg border border-dashed px-4 py-3 text-center outline-none transition-[background-color,border-color,box-shadow] duration-100 ease-out focus-visible:ring-2 focus-visible:ring-focus",
+        hot
+          ? "border-solid border-foreground bg-surface-hover ring-4 ring-foreground/10"
+          : accepts
+            ? "border-foreground/60 bg-surface"
+            : active
+              ? "border-foreground bg-surface ring-2 ring-foreground ring-offset-2 ring-offset-background"
+              : "border-border-strong bg-surface/60 hover:bg-surface"
+      )}
+    >
+      <PlusIcon className="size-4 text-muted-foreground" />
+      <span className="text-sm font-medium text-foreground">{accepts ? "Drop to add it here" : "Add a step"}</span>
+      <span className="text-xs text-muted-foreground">Empty: the job stops here</span>
+    </button>
   )
 }
 
