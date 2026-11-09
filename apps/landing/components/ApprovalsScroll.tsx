@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { ApprovalVisual, Icon, Point } from "./Sections";
+import { ApprovalScene, Icon, Point } from "./Sections";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -13,7 +13,8 @@ gsap.registerPlugin(ScrollTrigger);
 //    inside. The title is one huge line across the screen.
 // 2. The section pins. Scrolling on, the title shrinks into its place in the left column, breaking into
 //    two lines ("Every payment" / "asks you first"), while the approval card pops in from the right.
-// 3. Then the subtitle and the three points slide up one by one. The card keeps floating gently.
+// 3. Then the subtitle and the three points slide up one by one. A big frame (nature, glass UI, Penny)
+//    swipes in from the right edge.
 // Phones and reduced motion: the final layout, with simple reveals (phones) or none.
 
 const LINES = ["Every payment", "asks you first"];
@@ -159,12 +160,10 @@ export function ApprovalsScroll() {
         // The second line drops below first, then slides left, so the two lines never cross.
         .to(line2, { y: 0, duration: MOVE * 0.55, ease: "power2.out" }, LETTERS)
         .to(line2, { x: 0, duration: MOVE * 0.8, ease: "power2.inOut" }, LETTERS + MOVE * 0.2)
-        .fromTo(
-          q(".ap-visual"),
-          { xPercent: 70, scale: 0.7, rotate: 8, autoAlpha: 0 },
-          { xPercent: 0, scale: 1, rotate: 0, autoAlpha: 1, duration: CARD, ease: "back.out(1.6)" },
-          LETTERS + MOVE * 0.8,
-        );
+        // The frame swipes in from the right edge (a wipe, its contents slide a little slower).
+        .fromTo(q(".ap-visual"), { clipPath: "inset(0 0 0 100%)" }, { clipPath: "inset(0 0 0 0%)", duration: CARD, ease: "power3.out" }, LETTERS + MOVE * 0.75)
+        .fromTo(q(".ap-scene-bg"), { xPercent: 12 }, { xPercent: 0, duration: CARD, ease: "power3.out" }, LETTERS + MOVE * 0.75)
+        .fromTo(q(".ap-penny"), { xPercent: 30, autoAlpha: 0 }, { xPercent: 0, autoAlpha: 1, duration: CARD * 0.9, ease: "power3.out" }, LETTERS + MOVE * 0.85);
       reveal.reverse(); // start "reversed" so the first play() runs it forward
 
       return () => gsap.set([title, line2, run, lift, ...chars], { clearProps: "transform,opacity" });
@@ -182,9 +181,10 @@ export function ApprovalsScroll() {
 
   return (
     <section ref={root} id="how-it-works" className="relative">
-      <div className="ap-pin flex min-h-screen items-center overflow-hidden">
-        <div className="mx-auto grid w-full max-w-[1200px] items-center gap-14 px-5 py-24 md:grid-cols-[480px_1fr]">
-          <div className="flex flex-col gap-5">
+      <div className="ap-pin relative flex min-h-screen items-center overflow-hidden">
+        {/* Copy: left column of the 1200 px container. */}
+        <div className="relative z-10 mx-auto w-full max-w-[1200px] px-5 py-24">
+          <div className="flex w-full flex-col gap-5 md:w-[440px]">
             <div className="ap-lift">
             <h2 className="ap-title text-[40px] font-medium leading-[1.04] tracking-[-1.6px] md:text-[60px]" aria-label={LINES.join(" ")}>
               <span className="ap-run block w-fit">
@@ -206,11 +206,13 @@ export function ApprovalsScroll() {
               <Point className="ap-reveal" d={Icon.snow}>Freeze the wallet in one tap, any time.</Point>
             </ul>
           </div>
-          <div className="ap-visual">
-            <div className="float-idle">
-              <ApprovalVisual />
-            </div>
-          </div>
+        </div>
+        {/* The frame: from the end of the copy column to the right edge of the screen, no gap. */}
+        <div
+          className="ap-visual mt-8 h-[520px] md:absolute md:right-0 md:top-1/2 md:mt-0 md:h-[78vh] md:max-h-[760px] md:-translate-y-1/2"
+          style={{ left: "max(500px, calc((100vw - 1200px) / 2 + 520px))" }}
+        >
+          <ApprovalScene />
         </div>
       </div>
     </section>

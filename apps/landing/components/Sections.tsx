@@ -89,6 +89,79 @@ export function ApprovalVisual() {
   );
 }
 
+/** The approval scene: a big photo frame (nature background, a glass approval UI and Penny pointing at
+    Approve). Placeholder art until the generated background and pose are in (see ApprovalsScroll). */
+export const SCENE = {
+  bg: null as string | null, // "/scenes/approval-bg.webp" once generated
+  penny: "/minds/payments-mind.webp", // "/scenes/approval-penny.webp" (pointing pose) once generated
+};
+
+export function ApprovalScene() {
+  return (
+    <div className="relative h-full w-full overflow-hidden rounded-l-[36px] bg-[#9EC0DE]">
+      {/* Background: generated nature art, or a sky + meadow placeholder. */}
+      {SCENE.bg ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={SCENE.bg} alt="" aria-hidden="true" className="ap-scene-bg absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <div className="ap-scene-bg absolute inset-0 bg-gradient-to-b from-[#6F9BCB] via-[#A9C6E0] to-[#E5E8E0]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/hero/cumulus-right.webp" alt="" aria-hidden="true" className="absolute left-[-10%] top-[18%] w-[95%] max-w-none opacity-90" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/hero/slope.webp" alt="" aria-hidden="true" className="absolute bottom-[-4%] left-[-60%] w-[220%] max-w-none" />
+        </div>
+      )}
+
+      {/* Glass UI: Penny's message and the approval card. */}
+      <div className="absolute left-[7%] top-1/2 flex w-[min(400px,52%)] -translate-y-1/2 flex-col gap-3">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <span className="relative size-7 overflow-hidden rounded-full bg-white/70">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/minds/payments-mind.webp" alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-contain p-0.5" />
+            </span>
+            <span className="text-[13px] font-semibold">Penny</span>
+          </div>
+          <p className="glass rounded-[4px_18px_18px_18px] px-4 py-3 text-[15px] leading-[1.45]">
+            Biznet sent your internet bill. I&apos;ve got it ready, it just needs your OK.
+          </p>
+        </div>
+        <div className="glass flex flex-col gap-4 rounded-[20px] p-6">
+          <div className="flex items-center justify-between">
+            <span className="text-[14px] text-[var(--color-text-2)]">Penny wants to send</span>
+            <span className="flex items-center gap-1.5 rounded-full bg-[var(--color-warning-soft)] px-2.5 py-1 text-[12px] font-medium text-[var(--color-warning)]">
+              <I d={Icon.hourglass} size={13} /> Needs approval
+            </span>
+          </div>
+          <div className="flex items-end gap-2">
+            <span className="text-[44px] font-medium leading-none tracking-[-1.5px]">1.5</span>
+            <span className="text-[16px] font-medium text-[var(--color-text-2)]">NEAR</span>
+          </div>
+          <div className="flex items-center gap-2.5 text-[14px]">
+            <span className="text-[var(--color-text-2)]">to</span>
+            <span className="rounded-[8px] bg-white/60 px-3 py-1.5 font-mono">biznet.testnet</span>
+          </div>
+          <p className="text-[14px] text-[var(--color-text-2)]">Within your 2 NEAR limit, to an address on your list.</p>
+          <div className="flex justify-end gap-2">
+            <span className="rounded-full border border-[var(--color-border-strong)] bg-white/50 px-5 py-2.5 text-[14px] font-medium">Decline</span>
+            <span className="ap-approve flex items-center gap-2 rounded-full bg-[var(--color-primary)] px-5 py-2.5 text-[14px] font-medium text-[var(--color-on-primary)]">
+              <I d={Icon.check} /> Approve
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Penny, big, beside the UI, glancing at it and pointing at Approve. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={SCENE.penny}
+        alt="Penny, the Payments Mind, pointing at the Approve button"
+        className="ap-penny absolute bottom-0 right-[-4%] h-[86%] w-auto max-w-none object-contain object-bottom"
+      />
+    </div>
+  );
+}
+
 function Layer({ n, title, sub, children }: { n: number; title: string; sub: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-5 rounded-[24px] bg-[var(--color-surface)] p-8">
