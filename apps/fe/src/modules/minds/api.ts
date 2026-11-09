@@ -52,6 +52,17 @@ export type ApiApproval = {
   requestedAt: string
 }
 
+/** One attempt to pay from the Mind's wallet (`GET …/wallet/payments`), newest first. */
+export type ApiPayment = {
+  paymentId: string
+  to: string
+  amountNear: string
+  status: "sent" | "policy_denied" | "wallet_frozen" | "failed" | "pending"
+  txHash?: string
+  message?: string
+  at: string
+}
+
 export type ApiThread = {
   threadId: string
   /** First user message cut to ~60 characters, or null for old threads. */
@@ -89,6 +100,12 @@ export const mindsApi = {
       .transaction,
   approvals: async (mindId: string) =>
     (await api<{ approvals: ApiApproval[] }>(`/minds/${encodeURIComponent(mindId)}/approvals`)).approvals,
+  payments: async (mindId: string, limit = 20) =>
+    (await api<{ payments: ApiPayment[] }>(`/minds/${encodeURIComponent(mindId)}/wallet/payments?limit=${limit}`)).payments,
+  /** `freeze_wallet` / `unfreeze_wallet` on outlayer.testnet for the owner to sign (30 Tgas, no deposit). */
+  freezeTransaction: async (mindId: string, freeze: boolean) =>
+    (await api<{ transaction: OwnerTransaction }>(`/minds/${encodeURIComponent(mindId)}/wallet/${freeze ? "freeze" : "unfreeze"}`, { method: "POST", body: {} }))
+      .transaction,
   threads: async (mindId: string, limit = 20) =>
     (await api<{ threads: ApiThread[] }>(`/minds/${encodeURIComponent(mindId)}/threads?limit=${limit}`)).threads,
 }
