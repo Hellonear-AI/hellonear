@@ -186,7 +186,7 @@ Common fields on every event:
 | `tool.approval_required` | `toolCallId`, `tool`, `nodeId`, `args` | `tool-call-approval` **[tested, #11]** |
 | `step.finished` | `step`, `usage` | `step-finish` **[tested]** |
 | `run.finished` | `finishReason`, `text`, `usage`, `costUsd`, `verification: { status: "pending" }` | `finish` **[tested]** |
-| `thread.titled` | `threadId`, `title` (3 to 6 words summing up the chat, in the user's language, no quotes or final period) | engine, after the `run.finished` of a thread's first run and before `run.verified`; skipped if making the title fails **[proposed, #86: the backend reads it (tested with stored events), the engine does not send it yet]** |
+| `thread.titled` | `threadId`, `title` (3 to 6 words summing up the user's first message, in the user's language, no quotes or final period) | engine (`src/titles.ts`, #86, #93), after the `run.finished` of a thread's first run and before `run.verified`; skipped if making the title fails or takes too long, and then the backend keeps the first-message cut **[tested: engine tests; backend tests with stored events; live on the hosted demo, 9 Nov]** |
 | `run.verified` | `model`, `nodeId`, `verification` (see below). Always the run's **last** event | engine, after the stream is read **[tested, #19]** |
 | `run.error` | `error` | `error` chunk or a thrown error |
 | `workflow.started` | `workflowId`, `nodeId` (`workflow:{workflowId}`), `model`, `skills` | `workflow-start`; first event of a builder run **[tested, #20]** |
