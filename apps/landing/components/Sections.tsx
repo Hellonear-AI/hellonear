@@ -1,7 +1,7 @@
 // The landing sections under the hero, following "Landing v0.2" in design/landing.pen.
 // First pass so the layout can be judged in the browser; visuals marked "placeholder" come later.
 
-const Icon = {
+export const Icon = {
   ban: "M4.9 4.9l14.2 14.2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
   list: "M3 6h.01M3 12h.01M3 18h.01M8 6h13M8 12h13M8 18h13",
   snow: "M12 2v20M4.9 4.9l14.2 14.2M2 12h20M4.9 19.1 19.1 4.9",
@@ -16,7 +16,7 @@ const Icon = {
   github: "M9 19c-4 1.5-4-2-6-2.5m12 5V18a3.4 3.4 0 0 0-1-2.6c3.2-.4 6.5-1.6 6.5-7a5.4 5.4 0 0 0-1.5-3.8 5 5 0 0 0-.1-3.8s-1.2-.4-3.9 1.5a13.4 13.4 0 0 0-7 0C6.3.4 5.1.8 5.1.8a5 5 0 0 0-.1 3.8A5.4 5.4 0 0 0 3.5 8.4c0 5.4 3.3 6.6 6.5 7a3.4 3.4 0 0 0-1 2.6V22",
 };
 
-function I({ d, size = 16, className = "" }: { d: string; size?: number; className?: string }) {
+export function I({ d, size = 16, className = "" }: { d: string; size?: number; className?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
       <path d={d} />
@@ -39,9 +39,9 @@ const MINDS = [
   { img: "email-manager", name: "Email Manager", role: "Keeps your inbox calm", quote: "I read the noise so you only see what matters.", bg: "var(--color-warning-soft)" },
 ];
 
-function Point({ d, children }: { d: string; children: React.ReactNode }) {
+export function Point({ d, children, className = "" }: { d: string; children: React.ReactNode; className?: string }) {
   return (
-    <li className="flex items-center gap-3">
+    <li className={`flex items-center gap-3 ${className}`}>
       <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[var(--color-surface)]">
         <I d={d} />
       </span>
@@ -50,55 +50,42 @@ function Point({ d, children }: { d: string; children: React.ReactNode }) {
   );
 }
 
-export function Approvals() {
+export function ApprovalVisual() {
   return (
-    <section id="how-it-works" className="mx-auto grid max-w-[1200px] items-center gap-14 px-5 py-24 md:grid-cols-[480px_1fr]">
-      <div className="flex flex-col gap-5">
-        <h2 className="text-[36px] font-medium leading-[1.08] tracking-[-1.2px] md:text-[44px]">Every payment asks you first</h2>
-        <p className="text-[17px] leading-[1.5] text-[var(--color-text-2)]">
-          Penny finds the bill and gets it ready. Nothing leaves the wallet until you tap Approve.
+    <div className="flex flex-col items-center justify-center gap-4 rounded-[24px] bg-[var(--color-surface-muted)] p-8 md:p-12">
+      <div className="flex w-full max-w-[420px] flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <span className="size-6 rounded-full bg-[var(--color-accent-soft)] bg-cover" style={{ backgroundImage: "url(/minds/payments-mind.webp)" }} />
+          <span className="text-[13px] font-semibold">Penny</span>
+        </div>
+        <p className="rounded-[4px_18px_18px_18px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-[15px] leading-[1.45]">
+          Biznet sent your internet bill. I&apos;ve got it ready, it just needs your OK.
         </p>
-        <ul className="flex flex-col gap-3">
-          <Point d={Icon.ban}>Over your per-payment limit? Refused before signing, even if you approve.</Point>
-          <Point d={Icon.list}>Only addresses on your list can be paid.</Point>
-          <Point d={Icon.snow}>Freeze the wallet in one tap, any time.</Point>
-        </ul>
       </div>
-      <div className="flex flex-col items-center justify-center gap-4 rounded-[24px] bg-[var(--color-surface-muted)] p-8 md:p-12">
-        <div className="flex w-full max-w-[420px] flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <span className="size-6 rounded-full bg-[var(--color-accent-soft)] bg-cover" style={{ backgroundImage: "url(/minds/payments-mind.webp)" }} />
-            <span className="text-[13px] font-semibold">Penny</span>
-          </div>
-          <p className="rounded-[4px_18px_18px_18px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-[15px] leading-[1.45]">
-            Biznet sent your internet bill. I&apos;ve got it ready, it just needs your OK.
-          </p>
+      <div className="flex w-full max-w-[420px] flex-col gap-4 rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-[0_12px_32px_rgb(22_22_20/0.07)]">
+        <div className="flex items-center justify-between">
+          <span className="text-[14px] text-[var(--color-text-2)]">Penny wants to send</span>
+          <span className="flex items-center gap-1.5 rounded-full bg-[var(--color-warning-soft)] px-2.5 py-1 text-[12px] font-medium text-[var(--color-warning)]">
+            <I d={Icon.hourglass} size={13} /> Needs approval
+          </span>
         </div>
-        <div className="flex w-full max-w-[420px] flex-col gap-4 rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-[0_12px_32px_rgb(22_22_20/0.07)]">
-          <div className="flex items-center justify-between">
-            <span className="text-[14px] text-[var(--color-text-2)]">Penny wants to send</span>
-            <span className="flex items-center gap-1.5 rounded-full bg-[var(--color-warning-soft)] px-2.5 py-1 text-[12px] font-medium text-[var(--color-warning)]">
-              <I d={Icon.hourglass} size={13} /> Needs approval
-            </span>
-          </div>
-          <div className="flex items-end gap-2">
-            <span className="text-[44px] font-medium leading-none tracking-[-1.5px]">1.5</span>
-            <span className="text-[16px] font-medium text-[var(--color-text-2)]">NEAR</span>
-          </div>
-          <div className="flex items-center gap-2.5 text-[14px]">
-            <span className="text-[var(--color-text-2)]">to</span>
-            <span className="rounded-[8px] bg-[var(--color-surface-muted)] px-3 py-1.5 font-mono">biznet.testnet</span>
-          </div>
-          <p className="text-[14px] text-[var(--color-text-2)]">Within your 2 NEAR limit, to an address on your list.</p>
-          <div className="flex justify-end gap-2">
-            <button className="rounded-full border border-[var(--color-border-strong)] px-5 py-2.5 text-[14px] font-medium">Decline</button>
-            <button className="flex items-center gap-2 rounded-full bg-[var(--color-primary)] px-5 py-2.5 text-[14px] font-medium text-[var(--color-on-primary)]">
-              <I d={Icon.check} /> Approve
-            </button>
-          </div>
+        <div className="flex items-end gap-2">
+          <span className="text-[44px] font-medium leading-none tracking-[-1.5px]">1.5</span>
+          <span className="text-[16px] font-medium text-[var(--color-text-2)]">NEAR</span>
+        </div>
+        <div className="flex items-center gap-2.5 text-[14px]">
+          <span className="text-[var(--color-text-2)]">to</span>
+          <span className="rounded-[8px] bg-[var(--color-surface-muted)] px-3 py-1.5 font-mono">biznet.testnet</span>
+        </div>
+        <p className="text-[14px] text-[var(--color-text-2)]">Within your 2 NEAR limit, to an address on your list.</p>
+        <div className="flex justify-end gap-2">
+          <button className="rounded-full border border-[var(--color-border-strong)] px-5 py-2.5 text-[14px] font-medium">Decline</button>
+          <button className="flex items-center gap-2 rounded-full bg-[var(--color-primary)] px-5 py-2.5 text-[14px] font-medium text-[var(--color-on-primary)]">
+            <I d={Icon.check} /> Approve
+          </button>
         </div>
       </div>
-    </section>
+    </div>
   );
 }
 

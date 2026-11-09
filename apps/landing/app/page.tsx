@@ -1,6 +1,7 @@
 import { Nav } from "@/components/Nav";
 import { Hero } from "@/components/hero/Hero";
-import { Approvals, Cta, Demo, Footer, Safety, SeeInside } from "@/components/Sections";
+import { Cta, Demo, Footer, Safety, SeeInside } from "@/components/Sections";
+import { ApprovalsScroll } from "@/components/ApprovalsScroll";
 import { MeetMinds } from "@/components/MindCards";
 
 export default function Home() {
@@ -10,7 +11,7 @@ export default function Home() {
       <main id="top">
         <Hero />
         <MeetMinds />
-        <Approvals />
+        <ApprovalsScroll />
         <Safety />
         <SeeInside />
         <Demo />

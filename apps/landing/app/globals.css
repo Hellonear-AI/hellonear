@@ -585,3 +585,17 @@ body {
     opacity: 0;
   }
 }
+
+/* Gentle idle float for visuals (the approval card). */
+.float-idle {
+  animation: float-idle 6s ease-in-out infinite;
+}
+@keyframes float-idle {
+  0%, 100% { transform: translateY(0) rotate(-0.6deg); }
+  50% { transform: translateY(-12px) rotate(0.6deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .float-idle {
+    animation: none;
+  }
+}

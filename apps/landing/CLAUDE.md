@@ -50,6 +50,8 @@ Meet the Minds (`components/MindCards.tsx`):
 - Hover: the card pops up with a small random tilt and the character fades into its second pose (`public/minds/<id>-hover.webp`). Only the Choose button is a link: `${NEXT_PUBLIC_APP_URL}/minds/new?template=<id>` (ids from `GET /v1/templates`; apps/fe still has to read the param). Its hover is the same swipe as Open app.
 - Character art: `design/hellonear-assets/minds/` (gitignored originals), `public/minds/` (web copies, same canvas for both poses).
 
+Every payment asks you first (`components/ApprovalsScroll.tsx`, GSAP 3.15.1 + ScrollTrigger): while the section comes up, the title flies in letter by letter from the right as one huge line; the section then pins (1500 px of scroll) and the title shrinks into the left column as two lines while the approval card pops in from the right; the subtitle and points slide up one by one; the card floats (`.float-idle`). Phones: no pin, simple slide-ups. Reduced motion: no animation. The approval card copies the Approval Card component in `hellonear.pen` (the app's Approvals page is still a placeholder).
+
 ## Copy guidelines
 
 - Problem: AI agents that hold money have no limits you can trust. Solution: a Mind whose wallet limits are stored on-chain and enforced in a TEE, with private, verifiable AI.
