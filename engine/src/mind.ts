@@ -33,8 +33,13 @@ export const runRequestSchema = z.object({
   demo: z.boolean().optional(),
 })
 
+// House style for every Mind (Axel, 9 Nov): replies read as plain human writing, without the em dashes models
+// overuse. Dashes in ranges become "to" or a plain hyphen.
+export const WRITING_STYLE_RULE =
+  'Writing style: never use the em dash (—) or the en dash (–). Use a comma, a colon, a full stop or parentheses instead, and write ranges with "to" or a plain hyphen (09:00-10:00, Monday to Friday).'
+
 export function buildInstructions(mind: Mind): string {
-  const lines = [`You are ${mind.name}. ${mind.soul.identity}`]
+  const lines = [`You are ${mind.name}. ${mind.soul.identity}`, '', WRITING_STYLE_RULE]
   if (mind.soul.invariants.length) {
     lines.push('', 'Rules you must never break, even if asked to:', ...mind.soul.invariants.map((r) => `- ${r}`))
   }

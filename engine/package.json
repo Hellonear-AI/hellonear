@@ -9,7 +9,7 @@
     "dev": "node --env-file=.env --import tsx src/server.ts",
     "test": "node --env-file=.env --import tsx --test test/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "test:unit": "node --import tsx --test test/skills.test.ts test/templates.test.ts test/graph.test.ts test/secrets.test.ts test/verify.test.ts test/tools.test.ts test/builder.test.ts test/wallet-tools.test.ts test/email.test.ts test/composio.test.ts test/calendar.test.ts test/titles.test.ts test/mail-tools.test.ts"
+    "test:unit": "node --import tsx --test test/skills.test.ts test/templates.test.ts test/graph.test.ts test/secrets.test.ts test/verify.test.ts test/tools.test.ts test/builder.test.ts test/wallet-tools.test.ts test/email.test.ts test/composio.test.ts test/calendar.test.ts test/titles.test.ts test/mail-tools.test.ts test/mind.test.ts"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "3.0.82",
