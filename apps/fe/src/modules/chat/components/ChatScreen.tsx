@@ -269,7 +269,9 @@ function TurnView({
             }
             if (part.kind === "text") {
               // Plain text, no bubble (decided 9 Nov with Ancung, like Claude and Gemini).
-              return <ReplyText key={`t${i}-${live && i === lastText ? "live" : "done"}`} text={part.text} live={live && i === lastText} />
+              // A stable key: text already shown stays as it is when the run goes on (an approval),
+              // and only what arrives after it is revealed (Ancung, 9 Nov: it re-typed on Approve).
+              return <ReplyText key={`t${i}`} text={part.text} live={live && i === lastText} />
             }
             const step = byCall.get(part.toolCallId)
             const node = step ? toolPart(step) : null
