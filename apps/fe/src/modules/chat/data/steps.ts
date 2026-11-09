@@ -19,6 +19,7 @@ const LABELS: Record<string, [doing: string, done: string]> = {
   gmail_create_draft: ["Saving a draft in Gmail", "Saved a draft in Gmail"],
   googlecalendar_list_events: ["Checking your calendar", "Checked your calendar"],
   googlecalendar_create_event: ["Adding to your calendar", "Added to your calendar"],
+  googlecalendar_create_meeting: ["Scheduling a meeting", "Scheduled a meeting"],
   mail_send: ["Sending an email", "Sent an email"],
   mail_list: ["Checking its inbox", "Checked its inbox"],
   mail_read: ["Reading an email", "Read an email"],
@@ -72,6 +73,11 @@ function summary(step: ToolStep): string | null {
       return count(r.events, "event", "events")
     case "googlecalendar_create_event":
       return text(r.title)
+    case "googlecalendar_create_meeting":
+      // Who was invited matters more than the title here: Google emailed them.
+      return Array.isArray(r.attendees) && r.attendees.length
+        ? `${text(r.title) ?? "Meeting"}, ${r.attendees.length} ${r.attendees.length === 1 ? "guest" : "guests"} invited`
+        : text(r.title)
     case "skill":
     case "skill_read": {
       // The skill's name people know ("Daily planner"), not its id ("daily-planner").

@@ -134,7 +134,8 @@ describe("chatApi.send", () => {
     expect(got.map((e) => e.type)).toEqual(["run.started", "text.delta"])
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe("/api/v1/minds/m1/chat")
-    expect(JSON.parse(init.body as string)).toEqual({ message: "hey" })
+    // The owner's time zone rides along (#112), so "2pm tomorrow" means their clock.
+    expect(JSON.parse(init.body as string)).toEqual({ message: "hey", timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })
   })
 
   it("throws the backend's error before a stream starts", async () => {
