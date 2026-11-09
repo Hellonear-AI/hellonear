@@ -2,13 +2,15 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeftIcon, ArrowUpRightIcon, CheckIcon, PlugIcon, XIcon } from "lucide-react"
+import { ArrowLeftIcon, ArrowUpRightIcon, CheckIcon, PlugIcon } from "lucide-react"
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { mindHref } from "@/components/layout/nav"
 import { useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
-import { skillCopy } from "@/modules/skills/data/skills"
+import { skillCopy, skillLines, type SkillLine } from "@/modules/skills/data/skills"
+import { SkillLines } from "@/modules/skills/components/SkillLines"
+import { useConnections } from "@/modules/skills/hooks/useSkills"
 import { RemoveSkillDialog } from "@/modules/skills/components/SkillDialogs"
 import { SKILL_ICON } from "@/modules/skills/components/SkillsScreen"
 
@@ -24,19 +26,24 @@ export function SkillPage({ mindId, skillId }: { mindId: string; skillId: string
   const [opened, setOpened] = useState(0)
 
   const name = mind?.name ?? "Your Mind"
-  const ctx = { name, limit: wallet?.policy?.perTransactionNear ?? null }
+  const connections = useConnections().data
+  const ctx = {
+    name,
+    limit: wallet?.policy?.perTransactionNear ?? null,
+    apps: Object.fromEntries((connections ?? []).map((c) => [c.toolkit, c.status])),
+  }
   const copy = skillCopy(skillId)
   const Icon = SKILL_ICON[skillId] ?? PlugIcon
   const added = Boolean(mind?.skills.includes(skillId))
   const skillsHref = mindHref(mindId, "skills")
-  const rules =
+  const rules: SkillLine[] =
     skillId === "payments"
       ? [
-          { ok: true, t: "Asks you before every payment" },
-          { ok: true, t: ctx.limit ? `Up to ${ctx.limit} NEAR each, from ${name}'s wallet` : `Only inside the limits you set in Wallet` },
-          { ok: true, t: "Only to the addresses on your list" },
+          { t: "Asks you before every payment", tone: "ok" },
+          { t: ctx.limit ? `Up to ${ctx.limit} NEAR each, from ${name}'s wallet` : "Only inside the limits you set in Wallet", tone: "ok" },
+          { t: "Only to the addresses on your list", tone: "ok" },
         ]
-      : [...copy.canUse(ctx).map((t) => ({ ok: true, t })), ...copy.cannot.map((t) => ({ ok: false, t }))]
+      : skillLines(skillId, ctx)
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4 md:p-6 xl:p-8">
@@ -64,14 +71,7 @@ export function SkillPage({ mindId, skillId }: { mindId: string; skillId: string
       {rules.length > 0 && (
         <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5">
           <h2 className="text-[15px] font-semibold text-foreground">{skillId === "payments" ? "How it pays" : "What it can use"}</h2>
-          <ul className="flex flex-col gap-2">
-            {rules.map(({ ok, t }) => (
-              <li key={t} className="flex items-start gap-2 text-sm text-foreground">
-                {ok ? <CheckIcon className="mt-0.5 size-4 shrink-0 text-success" /> : <XIcon className="mt-0.5 size-4 shrink-0 text-danger" />}
-                {t}
-              </li>
-            ))}
-          </ul>
+          <SkillLines mindId={mindId} lines={rules} size="md" />
           {copy.needsWallet && (
             <Link href={mindHref(mindId, "wallet")} className="flex w-fit items-center gap-1 rounded-sm text-[13px] font-medium text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-focus">
               Change these limits in Wallet

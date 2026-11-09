@@ -1,9 +1,9 @@
 "use client"
 
-import { CalendarDaysIcon, CheckIcon, ExternalLinkIcon, KeyRoundIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon, TriangleAlertIcon } from "lucide-react"
+import { CheckIcon, ExternalLinkIcon, KeyRoundIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon, TriangleAlertIcon } from "lucide-react"
 import { useState, type ReactNode } from "react"
 import { cn } from "cn"
-import { GmailLogo } from "@/components/elements/AppLogos"
+import { GmailLogo, GoogleCalendarLogo } from "@/components/elements/AppLogos"
 import { PageTitle } from "@/components/elements/PageTitle"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -19,10 +19,10 @@ import { TOOLKIT_NAME } from "@/modules/skills/data/skills"
 import { connectionStatus, useConnect, useConnections } from "@/modules/skills/hooks/useSkills"
 
 const APPS: { toolkit: ApiConnection["toolkit"]; logo: ReactNode; uses: string; needs: string }[] = [
-  { toolkit: "gmail", logo: <GmailLogo className="w-5" />, uses: "Used by Email helper to read mail and save drafts.", needs: "Email helper needs it to read your mail and save drafts." },
+  { toolkit: "gmail", logo: <GmailLogo />, uses: "Used by Email helper to read mail and save drafts.", needs: "Email helper needs it to read your mail and save drafts." },
   {
     toolkit: "googlecalendar",
-    logo: <CalendarDaysIcon className="size-5 text-foreground" />,
+    logo: <GoogleCalendarLogo />,
     uses: "Used by Daily planner to read your events and add new ones.",
     needs: "Daily planner uses it to read your events and add new ones.",
   },
