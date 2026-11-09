@@ -66,7 +66,10 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
 
   // A message sent here pins its turn to the top of the view while the reply grows below it.
   const last = shown.at(-1)
-  const pinKey = activeHere?.message && last?.key && last.view === activeHere.view ? `pin-${activeHere.id}` : null
+  // The last turn keeps room below it while it's the one sent from here (also while answering
+  // its approval), and the view glides it to the top only when a message is sent.
+  const pinned = Boolean(activeHere?.pinned && last && last.view === activeHere.view)
+  const pinKey = pinned && activeHere?.message ? `send-${activeHere.id}` : null
   const ready = !thread.isPending || !threadId || shown.length > 0
   const { ref: scrollRef, lastRef, onScroll, atBottom, toBottom, viewHeight } = useChatScroll(ready && shown.length > 0, pinKey)
 
@@ -135,7 +138,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
                       ref={i === shown.length - 1 ? lastRef : undefined}
                       className="flex flex-col gap-5"
                       // Room below the pinned turn so it can sit at the top (padding 16 above, 24 below).
-                      style={pinKey && i === shown.length - 1 && viewHeight ? { minHeight: viewHeight - 40 } : undefined}
+                      style={pinned && i === shown.length - 1 && viewHeight ? { minHeight: viewHeight - 40 } : undefined}
                     >
                     <TurnView
                       mindId={mindId}
@@ -443,9 +446,11 @@ function useChatScroll(ready: boolean, pinKey: string | null) {
   useLayoutEffect(() => {
     const el = ref.current
     if (!el || !ready || !viewHeight) return
-    const want = pinKey ?? "end"
-    if (placed.current === want) return
+    // Opening: go to the end (or to the turn just sent). After that, move only for a new message;
+    // an approval, a resume or new text never moves the view (Ancung, 9 Nov).
     const first = placed.current === null
+    if (!first && (!pinKey || placed.current === pinKey)) return
+    const want = pinKey ?? "end"
     placed.current = want
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
     if (pinKey && lastRef.current) {

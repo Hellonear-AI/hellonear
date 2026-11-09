@@ -23,6 +23,8 @@ export type ActiveRun = {
   resumeOf: string | null
   /** The approval being answered, so its card can say "Sending" wherever it is shown. */
   answer: Answer | null
+  /** The turn holds the top of the view: sent from here, or an answer to a turn that was. */
+  pinned: boolean
   events: RunEvent[]
   view: RunView
   streaming: boolean
@@ -58,15 +60,17 @@ export function ChatRunProvider({ mindId, children }: { mindId: string; children
   const run = useCallback(
     async (
       start: Omit<ActiveRun, "id" | "events" | "view" | "streaming" | "failed">,
-      open: (onEvent: (e: RunEvent) => void) => Promise<void>
+      open: (onEvent: (e: RunEvent) => void) => Promise<void>,
+      /** Events already known (a resumed run's earlier ones), so the turn never empties for a moment. */
+      known: RunEvent[] = []
     ): Promise<{ view: RunView; failed: unknown }> => {
       const id = nextId.current++
-      const events: RunEvent[] = []
+      const events: RunEvent[] = [...known]
       let failed: unknown = null
       let threadId = start.threadId
       const update = (patch: Partial<ActiveRun>) =>
         setActive((cur) => (cur?.id === id ? { ...cur, ...patch, events: [...events], view: foldRun(events) } : cur))
-      setActive({ ...start, id, events: [], view: foldRun([]), streaming: true, failed: null })
+      setActive({ ...start, id, events: [...events], view: foldRun(events), streaming: true, failed: null })
 
       try {
         await open((e) => {
@@ -102,20 +106,27 @@ export function ChatRunProvider({ mindId, children }: { mindId: string; children
     () => ({
       active,
       send: (message, threadId) =>
-        void run({ threadId, message, resumeOf: null, answer: null }, (onEvent) =>
+        void run({ threadId, message, resumeOf: null, answer: null, pinned: true }, (onEvent) =>
           chatApi.send(mindId, threadId ? { message, threadId } : { message }, onEvent)
         ),
       resume: ({ threadId, ...answer }) => {
         const { runId, toolCallId, action } = answer
         const toastId = `answer-${toolCallId}`
         showOutcome(toastId, answerOutcome(answer, { view: foldRun([]), streaming: true, failed: null }))
-        void run({ threadId, message: null, resumeOf: runId, answer }, async (onEvent) => {
-          // The resumed stream only carries new events; start from the stored ones so the run reads whole.
-          const earlier = await queryClient.fetchQuery({ queryKey: chatKeys.run(runId), queryFn: () => chatApi.runEvents(runId) })
-          earlier.forEach(onEvent)
-          await chatApi.resume(runId, action, { toolCallId }, onEvent)
-          await queryClient.invalidateQueries({ queryKey: chatKeys.run(runId) })
-        }).then((end) => showOutcome(toastId, answerOutcome(answer, { ...end, streaming: false })))
+        // The resumed stream only carries new events. Start from the ones already on screen (this
+        // run in progress, or the thread's cache) so the turn doesn't empty and jump the view (Ancung).
+        const same = active?.view.runId === runId ? active : null
+        const known = same?.events ?? queryClient.getQueryData<RunEvent[]>(chatKeys.run(runId)) ?? []
+        const pinned = Boolean(same?.pinned)
+        void run(
+          { threadId, message: null, resumeOf: runId, answer, pinned },
+          async (onEvent) => {
+            if (known.length === 0) (await queryClient.fetchQuery({ queryKey: chatKeys.run(runId), queryFn: () => chatApi.runEvents(runId) })).forEach(onEvent)
+            await chatApi.resume(runId, action, { toolCallId }, onEvent)
+            await queryClient.invalidateQueries({ queryKey: chatKeys.run(runId) })
+          },
+          known
+        ).then((end) => showOutcome(toastId, answerOutcome(answer, { ...end, streaming: false })))
       },
     }),
     [active, mindId, queryClient, run]
