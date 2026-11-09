@@ -48,8 +48,17 @@ function summary(step: ToolStep): string | null {
       return count(r.payments, "payment", "payments")
     case "near_view_account":
       return text(r.accountId) ?? text(a.accountId)
-    case "http_request":
-      return typeof r.status === "number" ? (r.status < 400 ? "it answered" : "it returned an error") : null
+    case "http_request": {
+      // Which site, the useful part (Ancung, 9 Nov: "it answered" said nothing).
+      let host: string | null = null
+      try {
+        host = typeof a.url === "string" ? new URL(a.url).hostname : null
+      } catch {
+        host = null
+      }
+      if (typeof r.status === "number" && r.status >= 400) return host ? `${host} returned an error` : "it returned an error"
+      return host
+    }
     case "gmail_list_emails":
       return count(r.emails, "email", "emails")
     case "gmail_read_email":

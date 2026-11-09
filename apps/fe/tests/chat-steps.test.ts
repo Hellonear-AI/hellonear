@@ -11,7 +11,8 @@ describe("stepText", () => {
     expect(stepText(step("get_balance", "running"))).toEqual({ label: "Checking the balance...", detail: null, tone: "doing" })
     expect(stepText(step("get_balance", "ok", { address: "a", balanceNear: "4.791" }))).toEqual({ label: "Checked the balance", detail: "4.79 NEAR", tone: "done" })
     expect(stepText(step("gmail_list_emails", "ok", { emails: [{}, {}] })).detail).toBe("2 emails")
-    expect(stepText(step("http_request", "ok", { status: 404 })).detail).toBe("it returned an error")
+    expect(stepText(step("http_request", "ok", { status: 200 }, { url: "https://httpbin.org/headers" })).detail).toBe("httpbin.org")
+    expect(stepText(step("http_request", "ok", { status: 404 }, { url: "https://httpbin.org/nope" })).detail).toBe("httpbin.org returned an error")
   })
   it("says when a step didn't work, and never uses a dot separator", () => {
     expect(stepText(step("get_balance", "error"))).toMatchObject({ detail: "didn't work", tone: "failed" })
