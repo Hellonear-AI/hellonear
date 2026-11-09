@@ -356,6 +356,23 @@ describe('chat and runs (#14, #17)', () => {
     assert.equal((await stored())[0].n, 27)
   })
 
+  test("the owner's time zone goes to the engine with a run, and an unknown one is refused (#112)", async () => {
+    const alice = await signIn()
+    const { mind } = await (await alice.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'TZ' })).json()
+    const chatOf = () => fake.requests.findLast((r) => r.path === `/v1/minds/${mind.id}/chat`)!
+    await events(await alice.call('POST', `/v1/minds/${mind.id}/chat`, { message: 'what day is it?', timeZone: 'Asia/Jakarta' }))
+    assert.equal(chatOf().body.timeZone, 'Asia/Jakarta')
+    // Without one, nothing is sent: the engine falls back to UTC.
+    await events(await alice.call('POST', `/v1/minds/${mind.id}/chat`, { message: 'and now?' }))
+    assert.equal('timeZone' in chatOf().body, false)
+    const before = fake.requests.length
+    for (const timeZone of ['Mars/Olympus', 'Asia/Jakarta; drop', '', 'x'.repeat(65), 7]) {
+      const res = await alice.call('POST', `/v1/minds/${mind.id}/chat`, { message: 'hi', timeZone })
+      assert.equal(res.status, 400, `${JSON.stringify(timeZone)} → ${res.status}`)
+    }
+    assert.equal(fake.requests.length, before, 'a refused time zone never reaches the engine')
+  })
+
   test('approval inbox: a paused wallet action waits; approve continues the run with continuous seq', async () => {
     const alice = await signIn()
     const { mind } = await (await alice.call('POST', '/v1/minds', { templateId: 'payments-mind', name: 'P' })).json()
@@ -369,9 +386,10 @@ describe('chat and runs (#14, #17)', () => {
     const bob = await signIn()
     assert.equal((await bob.call('POST', `/v1/runs/${runId}/approve`, { toolCallId: 'call_1' })).status, 404)
 
-    const resumed = await events(await alice.call('POST', `/v1/runs/${runId}/approve`, { toolCallId: 'call_1' }))
+    const resumed = await events(await alice.call('POST', `/v1/runs/${runId}/approve`, { toolCallId: 'call_1', timeZone: 'Asia/Jakarta' }))
     assert.equal(resumed[0].seq, paused.length)
     const resumeReq = fake.requests.findLast((r) => r.path.startsWith(`/v1/runs/${runId}/approve`))!
+    assert.equal(resumeReq.body.timeZone, 'Asia/Jakarta')
     assert.equal(resumeReq.path, `/v1/runs/${runId}/approve?mindId=${mind.id}`)
     assert.equal(resumeReq.body.threadId, paused[0].threadId)
     const { run, events: all } = await (await alice.call('GET', `/v1/runs/${runId}`)).json()
