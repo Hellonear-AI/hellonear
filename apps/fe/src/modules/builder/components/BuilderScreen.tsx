@@ -1066,19 +1066,21 @@ function BlockCard({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "flex w-[280px] max-w-full flex-col gap-1 rounded-lg border bg-surface px-4 py-3 text-left shadow-xs outline-none transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-focus",
+        "flex w-[280px] max-w-full flex-col gap-1 rounded-lg border bg-surface px-4 py-3 text-left shadow-xs outline-none transition-[background-color,border-color,box-shadow] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-focus",
         dashed && "border-dashed bg-surface/60",
+        // The edge says the state (Test run, or amber when something is missing)...
         run?.status === "running"
-          ? "border-info ring-2 ring-info/30"
+          ? "border-info"
           : run?.status === "ok"
             ? "border-success"
             : run?.status === "error"
               ? "border-danger"
-              : active
-                ? "border-foreground"
-                : warn
-                  ? "border-warning"
-                  : "border-border hover:bg-surface-hover"
+              : warn
+                ? "border-warning"
+                : "border-border",
+        // ...and the picked block gets its own outline, a gap away, lifted (Ancung, 9 Nov: a 1 px
+        // edge didn't show which block was picked, and the amber ones drew the eye instead).
+        active ? "shadow-md ring-2 ring-foreground ring-offset-2 ring-offset-background" : run?.status === "running" ? "ring-2 ring-info/30" : "hover:bg-surface-hover"
       )}
     >
       <span className="flex items-center gap-2 text-xs text-muted-foreground">
