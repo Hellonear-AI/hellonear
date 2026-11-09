@@ -10,6 +10,11 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, "")}/v1`
   : "/api/v1"
 
+/** The full URL of a backend path, for calls that can't go through `api()` (streams). */
+export function apiUrl(path: string): string {
+  return `${API_BASE}${path}`
+}
+
 /** A backend error: `{ error, ...details }` with an HTTP status. */
 export class ApiError extends Error {
   readonly status: number
@@ -26,7 +31,7 @@ export class ApiError extends Error {
 }
 
 export async function api<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(apiUrl(path), {
     method: init.method ?? (init.body === undefined ? "GET" : "POST"),
     credentials: "include",
     headers: init.body === undefined ? undefined : { "content-type": "application/json" },
@@ -35,9 +40,12 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
   if (res.status === 204) return undefined as T
 
   const data: unknown = await res.json().catch(() => null)
-  if (!res.ok) {
-    const { error, ...details } = (data ?? {}) as { error?: unknown } & Record<string, unknown>
-    throw new ApiError(res.status, typeof error === "string" ? error : "request_failed", details)
-  }
+  if (!res.ok) throw toApiError(res.status, data)
   return data as T
+}
+
+/** Turn a failed response's JSON body (`{ error, ...details }`) into an `ApiError`. */
+export function toApiError(status: number, data: unknown): ApiError {
+  const { error, ...details } = (data ?? {}) as { error?: unknown } & Record<string, unknown>
+  return new ApiError(status, typeof error === "string" ? error : "request_failed", details)
 }
