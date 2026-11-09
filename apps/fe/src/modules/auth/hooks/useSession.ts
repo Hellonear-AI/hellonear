@@ -1,10 +1,11 @@
 "use client"
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 import { useNearWallet } from "near-connect-hooks"
 import { ApiError } from "@/lib/api"
 import { authApi, nonceBytes, type SessionUser } from "@/modules/auth/api"
+import { rememberLeftMinds } from "@/modules/auth/data/leftMinds"
 
 export const sessionKey = ["session"] as const
 
@@ -108,8 +109,21 @@ export function useLeaveTryOut() {
  */
 export function useSwitchToWallet() {
   const signIn = useSignIn()
+  const queryClient = useQueryClient()
   return {
-    start: () => signIn.mutate({ walletId: "meteor-wallet" }, { onSuccess: () => window.location.replace("/") }),
+    start: () => {
+      // Read before the login: the cache still holds the try-out's Minds.
+      const ids = cachedMindIds(queryClient)
+      signIn.mutate(
+        { walletId: "meteor-wallet" },
+        {
+          onSuccess: () => {
+            rememberLeftMinds(ids)
+            window.location.replace("/")
+          },
+        }
+      )
+    },
     // Stays pending through the reload, so the button keeps saying "Waiting for Meteor".
     isPending: signIn.isPending || signIn.isSuccess,
     error: signIn.error,
@@ -128,6 +142,7 @@ export function useSignOut() {
       await signOut().catch(() => undefined)
     },
     onSettled: () => {
+      rememberLeftMinds(cachedMindIds(queryClient))
       queryClient.clear()
       queryClient.setQueryData(sessionKey, null)
     },
@@ -143,4 +158,9 @@ export function signInErrorMessage(err: unknown): string {
     return "Couldn't reach HelloNear. Please try again."
   }
   return "The wallet didn't sign the request."
+}
+
+/** The Mind ids the cache holds for the session that is ending (`["minds"]`, see `mindKeys.all`). */
+function cachedMindIds(queryClient: QueryClient): string[] {
+  return (queryClient.getQueryData<{ mindId: string }[]>(["minds"]) ?? []).map((m) => m.mindId)
 }

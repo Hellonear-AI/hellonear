@@ -43,3 +43,21 @@ describe("try-out owner actions (T1.4)", () => {
     expect(lockedReason("keys", "Penny")).toContain("can't keep them")
   })
 })
+
+describe("Minds of a session that ended (Back after switching accounts)", () => {
+  it("keeps the ids per tab, without repeats, and survives blocked storage", async () => {
+    const store = new Map<string, string>()
+    vi.stubGlobal("window", {
+      sessionStorage: { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v) },
+    })
+    const { leftMinds, rememberLeftMinds } = await import("@/modules/auth/data/leftMinds")
+    expect(leftMinds()).toEqual([])
+    rememberLeftMinds(["mnd_a", "mnd_b"])
+    rememberLeftMinds(["mnd_b", "mnd_c"])
+    expect(leftMinds()).toEqual(["mnd_a", "mnd_b", "mnd_c"])
+
+    vi.stubGlobal("window", { sessionStorage: { getItem: () => { throw new Error("blocked") }, setItem: () => { throw new Error("blocked") } } })
+    expect(leftMinds()).toEqual([])
+    expect(() => rememberLeftMinds(["mnd_d"])).not.toThrow()
+  })
+})
