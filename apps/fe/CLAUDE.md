@@ -96,7 +96,7 @@ Wallet (`/minds/[mindId]/wallet`, `src/modules/wallet`, design "5 · Money" W1, 
 - Money coming in isn't in the payments list (it records what the Mind tried to send), so the design's "Added by you" rows don't show; W5 (all activity, payment detail) isn't built yet.
 - `LimitsDialog` (W2): per-payment limit and addresses with the rules from `minds/data/limits.ts`, "Was 2" on a changed limit, "New" on added addresses, a summary of what the Mind may do after saving, then `useSaveLimits`: create the wallet if there is none (409 is fine), `POST …/wallet/policy`, the owner signs `store_wallet_policy` in Meteor (it costs a small deposit), and the wallet is read back until the new limits show.
 - `AddFundsDialog` (W4): the owner's Meteor wallet sends a plain `Transfer` to the Mind's address (no backend call), then the balance is read back until it grew. The owner's sendable balance comes from the testnet RPC (`view_account`, `NEAR_RPC_URL` in `src/lib/config.ts`): the balance minus storage at 10^19 yoctoNEAR per byte over the free 770 bytes (docs.near.org, checked 9 Nov). Quick picks are 1, 2, 5 NEAR, not the design's 5, 10, 20, because the faucet gives 5.
-- "Your limits" has one "Change limits" button, not the design's Edit and Manage: both opened the same dialog (Ancung, 9 Nov). The card stays in view on desktop.
+- "Your limits" keeps Edit beside the per-payment row and drops the design's Manage, which opened the same dialog; no divider lines between the rows (Ancung, 9 Nov). The card stays in view on desktop.
 - The dialogs get a new `key` each time they open, so they start from what is saved.
 
 Imports: `@/*` → `src/*`, `@app/*` → `app/*`. Keep route files in `app/` thin; put screens in `src/modules/<feature>/components`.

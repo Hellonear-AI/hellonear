@@ -253,7 +253,7 @@ function LimitsCard({ name, wallet, readOnly, noLimits, onEdit }: { name: string
   const limit = wallet.policy?.perTransactionNear
   const count = wallet.policy?.whitelist?.length ?? 0
   return (
-    <Card className="gap-3">
+    <Card className="gap-4">
       <h2 className="text-[15px] font-semibold text-foreground">Your limits</h2>
       {noLimits ? (
         <>
@@ -268,14 +268,16 @@ function LimitsCard({ name, wallet, readOnly, noLimits, onEdit }: { name: string
         </>
       ) : (
         <>
-          {/* One button: Edit and Manage opened the same dialog (Ancung, 9 Nov). */}
-          <Row label="Per payment" value={`Up to ${limit} NEAR`} />
+          {/* One Edit for both: the design's Manage opened the same dialog (Ancung, 9 Nov). No divider lines. */}
+          <div className="flex items-center justify-between gap-3">
+            <Row label="Per payment" value={`Up to ${limit} NEAR`} />
+            {!readOnly && (
+              <Button variant="outline" size="sm" onClick={onEdit}>
+                Edit
+              </Button>
+            )}
+          </div>
           <Row label={`Who ${name} can pay`} value={count === 1 ? "1 address you added" : `${count} addresses you added`} />
-          {!readOnly && (
-            <Button variant="outline" className="w-fit" onClick={onEdit}>
-              Change limits
-            </Button>
-          )}
           <p className="text-xs text-muted-foreground">
             {readOnly ? "This try-out pays from a shared test wallet. Connect a wallet to set your own limits." : `Saved where ${name} can't change them. Changes need your signature.`}
           </p>
@@ -287,7 +289,7 @@ function LimitsCard({ name, wallet, readOnly, noLimits, onEdit }: { name: string
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex min-w-0 flex-col border-b border-border pb-3">
+    <div className="flex min-w-0 flex-col">
       <span className="text-xs text-muted-foreground">{label}</span>
       <span className="truncate text-sm font-semibold text-foreground">{value}</span>
     </div>
