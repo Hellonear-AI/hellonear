@@ -67,7 +67,8 @@ export function ApprovalsScreen({ mindId }: { mindId: string }) {
 
       <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
         <section aria-labelledby="waiting" className="flex min-w-0 flex-1 flex-col gap-4">
-          <div className="flex items-center gap-2">
+          {/* The heading only helps when there is something under it; empty says so itself (A1.4). */}
+          <div className={waiting.length > 0 ? "flex items-center gap-2" : "sr-only"}>
             <h2 id="waiting" className="text-[15px] font-semibold text-foreground">
               Waiting for you
             </h2>
@@ -296,7 +297,7 @@ function Line({ tone, icon, children }: { tone: "success" | "danger" | "neutral"
 /** A1.4: empty is good news. Says when things show up and keeps the limits close. */
 function NothingWaiting({ mindId, name }: { mindId: string; name: string }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border-strong px-6 py-12 text-center">
+    <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-surface px-6 py-12 text-center">
       <span className="flex size-12 items-center justify-center rounded-full bg-muted">
         <InboxIcon className="size-5 text-muted-foreground" />
       </span>
