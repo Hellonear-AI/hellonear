@@ -207,6 +207,9 @@ const STEP_ICON: Record<JobStep["kind"], typeof BotIcon> = {
 function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string; workflowId: string }) {
   const detail = useWorkflow(mindId, workflowId)
   const [running, setRunning] = useState(false)
+  // The id of the run Run now started (from its first event): once the list has it, its own row
+  // takes the place of the "Now" row, so the run never shows twice (Ancung, 10 Nov).
+  const [myRun, setMyRun] = useState<string | null>(null)
   const [runError, setRunError] = useState<string | null>(null)
   const runs = useWorkflowRuns(mindId, workflowId, running)
   const remove = useRemoveJob(mindId)
@@ -219,9 +222,10 @@ function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string;
     abort.current = controller
     setRunning(true)
     setRunError(null)
+    setMyRun(null)
     try {
       // The run's own record (GET …/runs) is what the list shows; the stream only says when it ends.
-      await autopilotApi.runNow(mindId, workflowId, () => undefined, controller.signal)
+      await autopilotApi.runNow(mindId, workflowId, (e) => e.runId && setMyRun((id) => id ?? e.runId), controller.signal)
     } catch (err) {
       if (!controller.signal.aborted) {
         setRunError(
@@ -319,7 +323,7 @@ function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string;
               <p className="text-[13px] text-muted-foreground">No runs yet. Press Run now to try it.</p>
             ) : (
               <ul className="flex flex-col">
-                {running && !runs.data?.some((r) => r.status === "running") && (
+                {running && !runs.data?.some((r) => (myRun ? r.runId === myRun : r.status === "running")) && (
                   <RunRow run={null} name={name} />
                 )}
                 {runs.data?.map((r) => (
