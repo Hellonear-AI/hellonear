@@ -32,12 +32,17 @@ export type ToolStep = {
   error?: string
 }
 
+/** One piece of the reply in the order it happened: some text, or a tool (by its call id). */
+export type ReplyPart = { kind: "text"; text: string } | { kind: "tool"; toolCallId: string }
+
 export type RunStatus = "running" | "awaiting_approval" | "finished" | "error"
 
 export type RunView = {
   runId: string | null
   threadId: string | null
   text: string
+  /** Text and tools interleaved as they happened, so a card sits between what was said before and after it. */
+  parts: ReplyPart[]
   tools: ToolStep[]
   status: RunStatus
   /** "gateway_tee" or "model_tee" when every model step was verified; null for no badge (§3). */
@@ -58,11 +63,12 @@ const ERROR_STATUSES: ToolStatus[] = ["error", "policy_denied", "wallet_frozen"]
 const RESUMED = new Set(["step.started", "reasoning.delta", "text.delta", "tool.called", "tool.result", "tool.error", "run.error"])
 
 export function foldRun(events: RunEvent[]): RunView {
-  const view: RunView = { runId: null, threadId: null, text: "", tools: [], status: "running", verified: null, error: null, thinking: false, at: null }
+  const view: RunView = { runId: null, threadId: null, text: "", parts: [], tools: [], status: "running", verified: null, error: null, thinking: false, at: null }
   const byCall = new Map<string, ToolStep>()
   const sorted = [...events].sort((a, b) => a.seq - b.seq)
   let paused = false
   let resumed = false
+  let joined = false
 
   for (const e of sorted) {
     view.runId ??= e.runId ?? null
@@ -75,7 +81,17 @@ export function foldRun(events: RunEvent[]): RunView {
         view.threadId = e.threadId ?? view.threadId
         break
       case "text.delta":
+        // The reply after an approval is a new paragraph, not glued to the text before the pause.
+        if (resumed && !joined) {
+          joined = true
+          if (view.text && !/\s$/.test(view.text)) view.text += "\n\n"
+        }
         view.text += e.text ?? ""
+        if (e.text) {
+          const last = view.parts.at(-1)
+          if (last?.kind === "text") last.text += e.text
+          else view.parts.push({ kind: "text", text: e.text })
+        }
         break
       case "tool.called":
       case "tool.approval_required": {
@@ -88,6 +104,7 @@ export function foldRun(events: RunEvent[]): RunView {
         if (!byCall.has(e.toolCallId)) {
           byCall.set(e.toolCallId, step)
           view.tools.push(step)
+          view.parts.push({ kind: "tool", toolCallId: e.toolCallId })
         }
         break
       }
@@ -121,11 +138,12 @@ export function foldRun(events: RunEvent[]): RunView {
   if (waiting.length > 0 && !resumed) {
     if (view.status !== "error") view.status = "awaiting_approval"
   } else if (resumed) {
-    // The run went on without the tool ever running: the owner declined it.
-    for (const step of waiting) step.status = "declined"
-    // A resumed stream that hasn't finished yet is still running.
     const last = sorted.at(-1)?.type
-    if (view.status !== "error" && last !== "run.finished" && last !== "run.verified") view.status = "running"
+    const ended = view.status === "error" || last === "run.finished" || last === "run.verified"
+    // A resumed run that ended without the tool ever running was declined. While it still runs,
+    // the tool may be about to: keep it waiting so its card can say "Sending".
+    if (ended) for (const step of waiting) step.status = "declined"
+    else view.status = "running"
   }
   return view
 }

@@ -15,6 +15,7 @@ export const mindKeys = {
   templates: ["templates"] as const,
   approvals: (mindId: string) => ["minds", mindId, "approvals"] as const,
   wallet: (mindId: string) => ["minds", mindId, "wallet"] as const,
+  payments: (mindId: string) => ["minds", mindId, "wallet", "payments"] as const,
   recentChats: (mindId: string) => ["minds", mindId, "threads", "recent"] as const,
 }
 
@@ -48,6 +49,26 @@ export function useMinds() {
 export function useMind(mindId: string) {
   const query = useMinds()
   return { ...query, data: query.data?.find((m) => m.mindId === mindId) }
+}
+
+/** The approvals themselves, oldest request first (Approvals screen, A1). */
+export function useApprovals(mindId: string) {
+  return useQuery({
+    queryKey: mindKeys.approvals(mindId),
+    enabled: useSignedIn(),
+    queryFn: () => mindsApi.approvals(mindId),
+    select: (approvals) => [...approvals].sort((a, b) => a.requestedAt.localeCompare(b.requestedAt)),
+    refetchInterval: 30_000,
+  })
+}
+
+/** The wallet's latest payments ("Recent decisions" in A1). */
+export function usePayments(mindId: string, limit = 5) {
+  return useQuery({
+    queryKey: [...mindKeys.payments(mindId), limit],
+    enabled: useSignedIn(),
+    queryFn: () => mindsApi.payments(mindId, limit),
+  })
 }
 
 /** Runs paused on an approval (`GET …/approvals`); refreshed every 30 s while open. */

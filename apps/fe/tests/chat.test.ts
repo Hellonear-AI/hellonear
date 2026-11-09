@@ -151,3 +151,47 @@ describe("thinking", () => {
     expect(foldRun([ev("reasoning.delta", { text: "hmm" }), ev("tool.called", { toolCallId: "c", tool: "get_balance" })]).thinking).toBe(false)
   })
 })
+
+describe("text around an approval", () => {
+  it("starts the reply after the pause on a new paragraph", () => {
+    seq = 0
+    const v = foldRun([
+      ev("text.delta", { text: "Waiting for your OK." }),
+      ev("tool.approval_required", { toolCallId: "c1", tool: "send_payment" }),
+      ev("run.finished"),
+      ev("text.delta", { text: "Done!" }),
+    ])
+    expect(v.text).toBe("Waiting for your OK.\n\nDone!")
+  })
+})
+
+describe("while an approval is being answered", () => {
+  it("keeps the tool waiting until the resumed run ends, so its card can say Sending", () => {
+    seq = 0
+    const paused = [ev("tool.approval_required", { toolCallId: "c1", tool: "send_payment" }), ev("run.finished")]
+    const going = foldRun([...paused, ev("step.started")])
+    expect(going.status).toBe("running")
+    expect(going.tools[0].status).toBe("awaiting_approval")
+    expect(foldRun([...paused, ev("step.started"), ev("run.finished")]).tools[0].status).toBe("declined")
+  })
+})
+
+describe("reply parts", () => {
+  it("keeps text and tools in the order they happened", () => {
+    seq = 0
+    const v = foldRun([
+      ev("text.delta", { text: "On it. " }),
+      ev("text.delta", { text: "Waiting for your OK." }),
+      ev("tool.called", { toolCallId: "c1", tool: "send_payment" }),
+      ev("tool.approval_required", { toolCallId: "c1", tool: "send_payment" }),
+      ev("run.finished"),
+      ev("tool.result", { toolCallId: "c1", tool: "send_payment", status: "ok", result: { status: "sent" } }),
+      ev("text.delta", { text: "Sent!" }),
+    ])
+    expect(v.parts).toEqual([
+      { kind: "text", text: "On it. Waiting for your OK." },
+      { kind: "tool", toolCallId: "c1" },
+      { kind: "text", text: "Sent!" },
+    ])
+  })
+})

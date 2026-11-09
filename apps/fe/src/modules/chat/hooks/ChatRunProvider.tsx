@@ -4,7 +4,11 @@ import { useQueryClient } from "@tanstack/react-query"
 import { usePathname, useRouter } from "next/navigation"
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { mindHref } from "@/components/layout/nav"
+import { ArrowUpRightIcon } from "lucide-react"
+import { toast } from "sonner"
+import { explorerTxUrl } from "@/lib/format"
 import { chatApi } from "@/modules/chat/api"
+import { answerOutcome, type Answer, type Outcome } from "@/modules/chat/data/answer"
 import { foldRun, type RunEvent, type RunView } from "@/modules/chat/data/events"
 import { chatKeys } from "@/modules/chat/hooks/useThread"
 import { mindKeys } from "@/modules/minds/hooks/useMinds"
@@ -17,6 +21,8 @@ export type ActiveRun = {
   message: string | null
   /** The run that was resumed, so the thread shows the new events in its place. */
   resumeOf: string | null
+  /** The approval being answered, so its card can say "Sending" wherever it is shown. */
+  answer: Answer | null
   events: RunEvent[]
   view: RunView
   streaming: boolean
@@ -27,7 +33,8 @@ export type ActiveRun = {
 type ChatRun = {
   active: ActiveRun | null
   send: (message: string, threadId: string | null) => void
-  resume: (input: { runId: string; threadId: string | null; toolCallId: string; action: "approve" | "decline" }) => void
+  /** Approve or decline a paused run. Progress and result show as one toast, on any screen. */
+  resume: (answer: Answer & { threadId: string | null }) => void
 }
 
 const ChatRunContext = createContext<ChatRun | null>(null)
@@ -49,9 +56,13 @@ export function ChatRunProvider({ mindId, children }: { mindId: string; children
   }, [pathname])
 
   const run = useCallback(
-    async (start: Omit<ActiveRun, "id" | "events" | "view" | "streaming" | "failed">, open: (onEvent: (e: RunEvent) => void) => Promise<void>) => {
+    async (
+      start: Omit<ActiveRun, "id" | "events" | "view" | "streaming" | "failed">,
+      open: (onEvent: (e: RunEvent) => void) => Promise<void>
+    ): Promise<{ view: RunView; failed: unknown }> => {
       const id = nextId.current++
       const events: RunEvent[] = []
+      let failed: unknown = null
       let threadId = start.threadId
       const update = (patch: Partial<ActiveRun>) =>
         setActive((cur) => (cur?.id === id ? { ...cur, ...patch, events: [...events], view: foldRun(events) } : cur))
@@ -71,6 +82,7 @@ export function ChatRunProvider({ mindId, children }: { mindId: string; children
         })
         update({ streaming: false, threadId })
       } catch (err) {
+        failed = err
         update({ streaming: false, failed: err, threadId })
       }
 
@@ -81,6 +93,7 @@ export function ChatRunProvider({ mindId, children }: { mindId: string; children
         queryClient.invalidateQueries({ queryKey: mindKeys.approvals(mindId) }),
         queryClient.invalidateQueries({ queryKey: mindKeys.all }),
       ])
+      return { view: foldRun(events), failed }
     },
     [mindId, queryClient, router]
   )
@@ -89,22 +102,51 @@ export function ChatRunProvider({ mindId, children }: { mindId: string; children
     () => ({
       active,
       send: (message, threadId) =>
-        void run({ threadId, message, resumeOf: null }, (onEvent) =>
+        void run({ threadId, message, resumeOf: null, answer: null }, (onEvent) =>
           chatApi.send(mindId, threadId ? { message, threadId } : { message }, onEvent)
         ),
-      resume: ({ runId, threadId, toolCallId, action }) =>
-        void run({ threadId, message: null, resumeOf: runId }, async (onEvent) => {
+      resume: ({ threadId, ...answer }) => {
+        const { runId, toolCallId, action } = answer
+        const toastId = `answer-${toolCallId}`
+        showOutcome(toastId, answerOutcome(answer, { view: foldRun([]), streaming: true, failed: null }))
+        void run({ threadId, message: null, resumeOf: runId, answer }, async (onEvent) => {
           // The resumed stream only carries new events; start from the stored ones so the run reads whole.
           const earlier = await queryClient.fetchQuery({ queryKey: chatKeys.run(runId), queryFn: () => chatApi.runEvents(runId) })
           earlier.forEach(onEvent)
           await chatApi.resume(runId, action, { toolCallId }, onEvent)
           await queryClient.invalidateQueries({ queryKey: chatKeys.run(runId) })
-        }),
+        }).then((end) => showOutcome(toastId, answerOutcome(answer, { ...end, streaming: false })))
+      },
     }),
     [active, mindId, queryClient, run]
   )
 
   return <ChatRunContext.Provider value={value}>{children}</ChatRunContext.Provider>
+}
+
+/** One toast per answer (Ancung, 9 Nov): "Sending …", then sent with a NearBlocks button, or why not. */
+function showOutcome(id: string, outcome: Outcome) {
+  const opts = {
+    id,
+    description: outcome.detail,
+    action: outcome.txHash
+      ? { label: <ExternalLabel>NearBlocks</ExternalLabel>, onClick: () => window.open(explorerTxUrl(outcome.txHash!), "_blank", "noopener,noreferrer") }
+      : undefined,
+  }
+  if (outcome.kind === "sending") toast.loading(outcome.title, opts)
+  else if (outcome.kind === "sent") toast.success(outcome.title, { ...opts, duration: 10_000 })
+  else if (outcome.kind === "declined") toast(outcome.title, opts)
+  else toast.error(outcome.title, { ...opts, duration: 10_000 })
+}
+
+// A drawn arrow, not "↗": Windows renders that character as a blue emoji (Ancung, 9 Nov).
+function ExternalLabel({ children }: { children: ReactNode }) {
+  return (
+    <span className="flex items-center gap-1">
+      {children}
+      <ArrowUpRightIcon className="size-3.5" />
+    </span>
+  )
 }
 
 export function useChatRun(): ChatRun {
