@@ -6,6 +6,10 @@ import { approvalChecks } from "@/modules/wallet/data/checks"
 import { freezeErrorText } from "@/modules/wallet/components/FreezeDialog"
 import { FreezeError } from "@/modules/wallet/hooks/useFreeze"
 import { WrongAccountError } from "@/modules/wallet/hooks/useOwnerTransaction"
+import { answerOutcome } from "@/modules/wallet/components/ApprovalsScreen"
+import { ApiError } from "@/lib/api"
+import type { ToolStep } from "@/modules/chat/data/events"
+import type { ActiveRun } from "@/modules/chat/hooks/ChatRunProvider"
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -79,5 +83,28 @@ describe("freeze", () => {
   it("says what happened when it fails", () => {
     expect(freezeErrorText(new FreezeError("sign", new Error("User rejected")), true)).toBe("Meteor didn't sign, so the wallet wasn't frozen.")
     expect(freezeErrorText(new FreezeError("sign", new WrongAccountError("me.testnet", ["you.testnet"])), true)).toContain("Switch it to me.testnet")
+  })
+})
+
+describe("answerOutcome (A1.3 toast)", () => {
+  const approval = { runId: "r1", threadId: "t1", toolCallId: "c1", tool: "send_payment", args: { to: "shop.testnet", amountNear: "0.1" }, requestedAt: "2026-11-09T10:00:00Z" }
+  const answer = { runId: "r1", toolCallId: "c1", action: "approve" as const, approval }
+  const view = (tools: ToolStep[]) => ({ runId: "r1", threadId: "t1", text: "", tools, status: "finished" as const, verified: null, error: null, thinking: false, at: null })
+  const run = (over: Partial<ActiveRun>): ActiveRun => ({ id: 1, threadId: "t1", message: null, resumeOf: "r1", events: [], view: view([]), streaming: false, failed: null, ...over })
+  const step = (status: ToolStep["status"], result?: unknown): ToolStep => ({ toolCallId: "c1", tool: "send_payment", status, args: approval.args, result })
+
+  it("says sending, then sent with the transaction", () => {
+    expect(answerOutcome(answer, run({ streaming: true }))).toMatchObject({ kind: "sending", title: "Sending 0.1 NEAR to shop.testnet" })
+    const sent = answerOutcome(answer, run({ view: view([step("ok", { to: "shop.testnet", amountNear: "0.1", status: "sent", txHash: "tx9" })]) }))
+    expect(sent).toMatchObject({ kind: "sent", title: "Sent 0.1 NEAR to shop.testnet", txHash: "tx9" })
+  })
+  it("says when the limits stopped it, with no transaction", () => {
+    const blocked = answerOutcome(answer, run({ view: view([step("policy_denied")]) }))
+    expect(blocked).toMatchObject({ kind: "blocked", detail: "Your limits stopped it before signing." })
+    expect(blocked.txHash).toBeUndefined()
+  })
+  it("says when the answer never arrived", () => {
+    expect(answerOutcome(answer, run({ failed: new ApiError(503, "engine_error") })).title).toBe("Couldn't send your answer")
+    expect(answerOutcome(answer, run({ failed: new ApiError(409, "not_awaiting_approval") })).title).toContain("already answered")
   })
 })

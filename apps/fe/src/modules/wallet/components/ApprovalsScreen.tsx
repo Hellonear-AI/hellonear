@@ -3,16 +3,15 @@
 import Link from "next/link"
 import { useQuery } from "@tanstack/react-query"
 import {
-  ArrowUpRightIcon,
   CheckIcon,
   CircleSlashIcon,
   InboxIcon,
   Loader2Icon,
-  OctagonAlertIcon,
   SnowflakeIcon,
   XIcon,
 } from "lucide-react"
-import { useState, type ReactNode } from "react"
+import { useEffect, useState } from "react"
+import { toast } from "sonner"
 import { CountBadge } from "@/components/elements/CountBadge"
 import { MindAvatar } from "@/components/elements/MindAvatar"
 import { PageTitle } from "@/components/elements/PageTitle"
@@ -54,8 +53,32 @@ export function ApprovalsScreen({ mindId }: { mindId: string }) {
   const sending = Boolean(run?.streaming)
   // The answered card leaves the list, unless the answer never got through (then it can be tried again).
   const lost = Boolean(run?.failed) && !(run?.failed instanceof ApiError && run.failed.code === "not_awaiting_approval")
-  const waiting = (approvals.data ?? []).filter((a) => !(answer && !lost && a.toolCallId === answer.toolCallId))
+  // The card stays (saying "Sending") until the answer is through; it comes back if it never arrived.
+  const done = Boolean(run && !run.streaming && !lost)
+  const waiting = (approvals.data ?? []).filter((a) => !(answer && done && a.toolCallId === answer.toolCallId))
   const empty = !approvals.isPending && !approvals.isError && waiting.length === 0
+
+  // The answer's progress and result as one toast (Ancung, 9 Nov): sending, then sent with a
+  // NearBlocks button, blocked, declined, or not delivered. It follows the user to other screens.
+  const outcome = answer && run ? answerOutcome(answer, run) : null
+  const outcomeKey = outcome ? `${answer?.toolCallId}:${outcome.kind}` : null
+  useEffect(() => {
+    if (!outcome || !answer) return
+    const id = `answer-${answer.toolCallId}`
+    const opts = {
+      id,
+      description: outcome.detail,
+      action: outcome.txHash
+        ? { label: "NearBlocks ↗", onClick: () => window.open(explorerTxUrl(outcome.txHash!), "_blank", "noopener,noreferrer") }
+        : undefined,
+    }
+    if (outcome.kind === "sending") toast.loading(outcome.title, opts)
+    else if (outcome.kind === "sent") toast.success(outcome.title, { ...opts, duration: 10_000 })
+    else if (outcome.kind === "declined") toast(outcome.title, opts)
+    else toast.error(outcome.title, { ...opts, duration: 10_000 })
+    // Only when the outcome changes, not on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outcomeKey])
 
   function respond(approval: ApiApproval, action: "approve" | "decline") {
     setAnswer({ runId: approval.runId, toolCallId: approval.toolCallId, action, approval })
@@ -76,8 +99,6 @@ export function ApprovalsScreen({ mindId }: { mindId: string }) {
             </h2>
             <CountBadge count={waiting.length} />
           </div>
-
-          {answer && run && <AnswerResult answer={answer} run={run} />}
 
           {approvals.isPending ? (
             <Skeleton className="h-64 w-full rounded-lg" />
@@ -225,75 +246,35 @@ function useAsked(mindId: string, approval: ApiApproval): string | null {
   return data ?? null
 }
 
-/** A1.3: the answer just given, in one line (sent with its link, blocked, declined, or failed). */
-function AnswerResult({ answer, run }: { answer: Answer; run: ActiveRun }) {
+type Outcome = { kind: "sending" | "sent" | "declined" | "blocked" | "failed"; title: string; detail?: string; txHash?: string }
+
+/** A1.3 as a toast: what happened to the answer just given. */
+export function answerOutcome(answer: Answer, run: ActiveRun): Outcome {
   const step = run.view.tools.find((t) => t.toolCallId === answer.toolCallId)
-  const payment = step ? paymentOf(step) : paymentOf({ ...stepOf(answer.approval) })
+  const payment = paymentOf(step ?? stepOf(answer.approval))
   const what = payment ? `${payment.amountNear} NEAR to ${payment.to}` : toolLabel(answer.approval.tool)
 
-  if (run.streaming) return null
+  if (run.streaming) return { kind: "sending", title: answer.action === "approve" ? `Sending ${what}` : `Declining ${what}` }
   if (run.failed) {
     const already = run.failed instanceof ApiError && run.failed.code === "not_awaiting_approval"
-    return (
-      <Line tone="danger" icon={<OctagonAlertIcon />}>
-        {already ? `${what} was already answered.` : `Couldn't send your answer for ${what}. Nothing changed; try again.`}
-      </Line>
-    )
+    return already
+      ? { kind: "failed", title: `${what} was already answered` }
+      : { kind: "failed", title: `Couldn't send your answer`, detail: `Nothing changed for ${what}. Try again.` }
   }
-  if (answer.action === "decline" || step?.status === "declined") {
-    return (
-      <Line tone="neutral" icon={<XIcon />}>
-        You declined {what}. Nothing was sent.
-      </Line>
-    )
-  }
-  if (step?.status === "ok") {
-    return (
-      <Line tone="success" icon={<CheckIcon />}>
-        Sent {what}
-        {payment?.txHash && (
-          <a
-            href={explorerTxUrl(payment.txHash)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ml-auto flex shrink-0 items-center gap-1 rounded-sm font-medium outline-none hover:underline focus-visible:ring-2 focus-visible:ring-focus"
-          >
-            See on NEAR Explorer
-            <ArrowUpRightIcon className="size-3.5" />
-          </a>
-        )}
-      </Line>
-    )
-  }
+  if (answer.action === "decline" || step?.status === "declined") return { kind: "declined", title: `Declined ${what}`, detail: "Nothing was sent." }
+  if (step?.status === "ok") return { kind: "sent", title: `Sent ${what}`, txHash: payment?.txHash }
   if (step?.status === "policy_denied" || step?.status === "wallet_frozen") {
-    return (
-      <Line tone="danger" icon={<CircleSlashIcon />}>
-        {what} wasn&apos;t sent: {step.status === "wallet_frozen" ? "the wallet is frozen" : "your limits stopped it before signing"}.
-      </Line>
-    )
+    return {
+      kind: "blocked",
+      title: `${what} wasn't sent`,
+      detail: step.status === "wallet_frozen" ? "The wallet is frozen." : "Your limits stopped it before signing.",
+    }
   }
-  return (
-    <Line tone="neutral" icon={<OctagonAlertIcon />}>
-      {what} didn&apos;t go through. Nothing was sent.
-    </Line>
-  )
+  return { kind: "failed", title: `${what} didn't go through`, detail: "Nothing was sent." }
 }
 
 function stepOf(a: ApiApproval): ToolStep {
   return { toolCallId: a.toolCallId, tool: a.tool, status: "awaiting_approval", args: a.args, result: undefined }
-}
-
-function Line({ tone, icon, children }: { tone: "success" | "danger" | "neutral"; icon: ReactNode; children: ReactNode }) {
-  const tones = { success: "bg-success-soft text-success", danger: "bg-danger-soft text-danger", neutral: "bg-muted text-muted-foreground" }
-  return (
-    <p
-      role="status"
-      className={`flex items-center gap-2.5 rounded-lg px-4 py-3 text-sm animate-in fade-in-0 duration-200 ease-out motion-reduce:animate-none [&>svg]:size-4 [&>svg]:shrink-0 ${tones[tone]}`}
-    >
-      {icon}
-      <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-foreground">{children}</span>
-    </p>
-  )
 }
 
 /** A1.4: empty is good news. Says when things show up and keeps the limits close. */
