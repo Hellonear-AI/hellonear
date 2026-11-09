@@ -28,10 +28,11 @@ export type ApiWallet = {
   shared: boolean
   balanceNear: string
   frozen: boolean
+  /** Fields are null when the policy was set elsewhere (e.g. the OutLayer dashboard) without them. */
   policy: null | {
-    perTransactionNear: string
-    whitelist: string[]
-    transactionTypes: string[]
+    perTransactionNear: string | null
+    whitelist: string[] | null
+    transactionTypes: string[] | null
     boundToThisWallet: boolean
   }
 }

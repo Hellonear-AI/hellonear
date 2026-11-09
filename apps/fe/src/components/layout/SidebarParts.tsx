@@ -104,6 +104,7 @@ export function RecentChats({ mindId, onNavigate }: { mindId: string; onNavigate
           variant="ghost"
           size="icon-sm"
           aria-label="New chat"
+          nativeButton={false}
           render={<Link href={mindHref(mindId, "chat")} onClick={onNavigate} />}
         >
           <SquarePenIcon />

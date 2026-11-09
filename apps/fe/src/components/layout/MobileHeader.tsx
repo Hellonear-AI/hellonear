@@ -47,6 +47,7 @@ export function MobileHeader({ mindId }: { mindId: string }) {
         size="icon"
         className="relative"
         aria-label={approvals > 0 ? `Approvals, ${approvals} waiting` : "Approvals"}
+        nativeButton={false}
         render={<Link href={mindHref(mindId, "approvals")} />}
       >
         <InboxIcon />
