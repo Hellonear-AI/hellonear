@@ -79,7 +79,8 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
 
   return (
     <div className="flex h-[calc(100dvh-3.5rem)] min-h-0 flex-col md:h-dvh">
-      <header className="hidden items-center gap-3 border-b border-border px-8 py-4 md:flex">
+      {/* No divider: the chat fades out under the header instead (Ancung, 9 Nov). */}
+      <header className="hidden items-center gap-3 px-8 py-4 md:flex">
         <div className="flex min-w-0 flex-1 flex-col">
           <h1 className="truncate text-[17px] font-semibold text-foreground">{name}</h1>
           <p className="truncate text-xs text-muted-foreground">
@@ -100,13 +101,13 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
       )}
 
       <div className="relative min-h-0 flex-1">
-        {/* The text fades out over the last 48 px before the composer instead of being cut at a hard
-            line (Ancung, 9 Nov, like Gemini). A mask, so it works on any background; the content has
-            the same room at the bottom so the last line is clear once scrolled to the end. */}
+        {/* The text fades out over 24 px under the header and 48 px above the composer instead of
+            being cut at a hard line (Ancung, 9 Nov, like Gemini). A mask, so it works on any background;
+            the content has the same room at both ends so nothing is faded at the start or the end. */}
         <div
           ref={scrollRef}
           onScroll={onScroll}
-          className="relative h-full overflow-y-auto overscroll-contain [mask-image:linear-gradient(to_bottom,black_calc(100%-48px),transparent)]"
+          className="relative h-full overflow-y-auto overscroll-contain [mask-image:linear-gradient(to_bottom,transparent,black_24px,black_calc(100%-48px),transparent)]"
         >
           <div className="mx-auto flex min-h-full w-full max-w-[804px] flex-col gap-5 px-4 pt-6 pb-12 md:px-10">
             {notFound ? (
