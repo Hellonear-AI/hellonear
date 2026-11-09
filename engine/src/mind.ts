@@ -5,6 +5,10 @@ import { walletTokenSchema } from './wallet.ts'
 import { mailTokenSchema } from './mail.ts'
 import { skillCatalog } from './skills.ts'
 
+export const timeZoneSchema = z.string().max(64).refine((tz) => {
+  try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return true } catch { return false }
+}, { message: 'unknown time zone' })
+
 export const mindSchema = z.object({
   templateId: z.string(),
   name: z.string().min(1),
@@ -31,6 +35,8 @@ export const runRequestSchema = z.object({
   mailToken: mailTokenSchema.optional(),
   // A judge try-out user (#43): email tools read the sample inbox, never Gmail.
   demo: z.boolean().optional(),
+  // The owner's IANA time zone (#112), already validated by the backend; checked again here. Absent: UTC.
+  timeZone: timeZoneSchema.optional(),
 })
 
 // House style for every Mind (Axel, 9 Nov): replies read as plain human writing, without the em dashes models

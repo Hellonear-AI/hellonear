@@ -12,12 +12,27 @@ import {
   meetLinkOf, rangeOf, withMeetLink,
 } from './calendar.ts'
 
+// The weekday and the owner's local time are computed here, never left to the model: it once called Monday 9 Nov
+// 2026 a Sunday (#112). The owner's IANA time zone comes with the run (TIME_ZONE_KEY); without it, UTC.
+export const TIME_ZONE_KEY = 'timeZone'
+export function localTime(now: Date, timeZone = 'UTC') {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+    timeZone, weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZoneName: 'longOffset',
+  }).formatToParts(now).map((p) => [p.type, p.value]))
+  const offset = parts.timeZoneName === 'GMT' ? '+00:00' : String(parts.timeZoneName).replace('GMT', '')
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}`, weekday: String(parts.weekday), utcOffset: offset }
+}
+
 const getTime = createTool({
   id: 'get_time',
-  description: 'Get the current time in UTC as an ISO 8601 string.',
+  description: 'Get the current date and time: UTC, and the owner\'s local date, time and weekday in their time zone. Use the local values when talking to the owner about today, tomorrow or a weekday.',
   inputSchema: z.object({}),
-  outputSchema: z.object({ utc: z.string() }),
-  execute: async () => ({ utc: new Date().toISOString() }),
+  outputSchema: z.object({ utc: z.string(), timeZone: z.string(), date: z.string(), time: z.string(), weekday: z.string(), utcOffset: z.string() }),
+  execute: async (_input, context) => {
+    const timeZone = (context?.requestContext?.get(TIME_ZONE_KEY) as string | undefined) ?? 'UTC'
+    const now = new Date()
+    return { utc: now.toISOString(), timeZone, ...localTime(now, timeZone) }
+  },
 })
 
 const addNumbers = createTool({

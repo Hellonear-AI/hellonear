@@ -20,3 +20,9 @@ test('empty answers give no title, long ones are cut', () => {
   const long = cleanTitle('word '.repeat(30))!
   assert.ok(long.length <= 61 && long.endsWith('…'))
 })
+
+test('a stray </think> keeps only what follows it (#115)', () => {
+  assert.equal(cleanTitle('Casual Greeting</think>Casual greeting opener'), 'Casual greeting opener')
+  assert.equal(cleanTitle('Weekend plan</think>  '), 'Weekend plan')
+  assert.equal(cleanTitle('<think>Plan a trip'), 'Plan a trip')
+})

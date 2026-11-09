@@ -38,7 +38,13 @@ export async function isNewThread(threadId: string): Promise<boolean> {
 
 // One line, no wrapping quotes or final period, at most MAX_TITLE_CHARS. Empty means no title.
 export function cleanTitle(raw: string): string | null {
-  let t = raw.replace(/<think>[\s\S]*?<\/think>/g, '').split('\n').map((l) => l.trim()).find(Boolean) ?? ''
+  // GLM sometimes closes its reasoning without opening it ("Casual Greeting</think>Casual greeting opener", #115):
+  // keep what follows the last </think>, then drop any tag left over.
+  let text = raw.replace(/<think>[\s\S]*?<\/think>/g, '')
+  const close = text.lastIndexOf('</think>')
+  if (close >= 0 && text.slice(close + 8).trim()) text = text.slice(close + 8)
+  text = text.replace(/<\/?think>/g, ' ')
+  let t = text.split('\n').map((l) => l.trim()).find(Boolean) ?? ''
   t = t.replace(/^(title|judul)\s*:\s*/i, '').replace(/^["'“”‘’*`]+|["'“”‘’*`]+$/g, '').replace(/[.。]+$/, '').replace(/\s+/g, ' ').trim()
   if (!t) return null
   return t.length <= MAX_TITLE_CHARS ? t : `${t.slice(0, MAX_TITLE_CHARS).trimEnd()}…`
