@@ -25,6 +25,8 @@ export type ActiveRun = {
   answer: Answer | null
   /** The turn holds the top of the view: sent from here, or an answer to a turn that was. */
   pinned: boolean
+  /** Started from a new chat (`/chat`), before the thread had an id. */
+  newThread: boolean
   events: RunEvent[]
   view: RunView
   streaming: boolean
@@ -106,7 +108,7 @@ export function ChatRunProvider({ mindId, children }: { mindId: string; children
     () => ({
       active,
       send: (message, threadId) =>
-        void run({ threadId, message, resumeOf: null, answer: null, pinned: true }, (onEvent) =>
+        void run({ threadId, message, resumeOf: null, answer: null, pinned: true, newThread: threadId === null }, (onEvent) =>
           chatApi.send(mindId, threadId ? { message, threadId } : { message }, onEvent)
         ),
       resume: ({ threadId, ...answer }) => {
@@ -119,7 +121,7 @@ export function ChatRunProvider({ mindId, children }: { mindId: string; children
         const known = same?.events ?? queryClient.getQueryData<RunEvent[]>(chatKeys.run(runId)) ?? []
         const pinned = Boolean(same?.pinned)
         void run(
-          { threadId, message: null, resumeOf: runId, answer, pinned },
+          { threadId, message: null, resumeOf: runId, answer, pinned, newThread: false },
           async (onEvent) => {
             if (known.length === 0) (await queryClient.fetchQuery({ queryKey: chatKeys.run(runId), queryFn: () => chatApi.runEvents(runId) })).forEach(onEvent)
             await chatApi.resume(runId, action, { toolCallId }, onEvent)

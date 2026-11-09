@@ -51,7 +51,13 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   const limit = wallet?.policy?.perTransactionNear ?? null
 
   // The run in progress belongs here if it's this thread's, or a new chat still waiting for its id.
-  const activeHere = active && (threadId ? active.threadId === threadId : active.threadId === null || active.streaming) ? active : null
+  // On a new chat (`/chat`), the run started from this page stays on it until the move to
+  // `/chat/{threadId}` lands. Before, it only stayed while streaming, so a reply that finished
+  // before that move (slow in dev) dropped the page back to the empty "Hi, I'm …" for a moment
+  // (Ancung, 9 Nov). A run from before this page opened (a later "New chat") isn't shown.
+  const [openedAfter] = useState(() => active?.id ?? 0)
+  const activeHere =
+    active && (threadId ? active.threadId === threadId : active.newThread && active.id > openedAfter) ? active : null
   const activeRunId = activeHere ? (activeHere.resumeOf ?? activeHere.view.runId) : null
   const busy = Boolean(active?.streaming)
 
