@@ -30,7 +30,8 @@ const fake = createServer(async (req, res) => {
   }
   if (body.tool_slug === 'GOOGLECALENDAR_EVENTS_LIST') {
     return send(200, { result_type: 'completed', error: null, data: { kind: 'calendar#events', items: [
-      { id: 'ev1', summary: 'Standup', status: 'confirmed', start: { dateTime: '2026-11-08T10:00:00+07:00' }, end: { dateTime: '2026-11-08T10:15:00+07:00' }, location: 'Video call', htmlLink: 'https://calendar.example/ev1' },
+      { id: 'ev1', summary: 'Standup', status: 'confirmed', start: { dateTime: '2026-11-08T10:00:00+07:00' }, end: { dateTime: '2026-11-08T10:15:00+07:00' }, location: 'Video call', htmlLink: 'https://calendar.example/ev1',
+        attendees: [{ email: 'me@example.com', self: true }, { email: 'rina@acme.example', displayName: 'Rina' }, { email: 'dimas@kopikita.example' }, { email: 'room-1@resource.calendar.google.com', resource: true }] },
       { id: 'ev2', summary: 'Holiday', status: 'confirmed', start: { date: '2026-11-10' }, end: { date: '2026-11-11' } },
       { id: 'ev3', summary: 'Cancelled thing', status: 'cancelled', start: { dateTime: '2026-11-09T09:00:00Z' }, end: { dateTime: '2026-11-09T10:00:00Z' } },
     ] } })
@@ -69,6 +70,9 @@ test('list: the primary calendar, single events by start time, mapped to our sha
   assert.equal(out.source, 'googlecalendar')
   assert.deepEqual(out.events.map((e: any) => [e.id, e.start, e.allDay]), [['ev1', '2026-11-08T10:00:00+07:00', false], ['ev2', '2026-11-10', true]])
   assert.equal(out.events[0].link, 'https://calendar.example/ev1')
+  // Who else is on it (#107): not the owner, not the room; names as the invite gives them.
+  assert.deepEqual(out.events[0].attendees, ['Rina <rina@acme.example>', 'dimas@kopikita.example'])
+  assert.deepEqual(out.events[1].attendees, [])
 })
 
 test('create: only the owner\'s calendar, no guests notified, no Meet link, and it needs approval', async () => {
@@ -138,7 +142,10 @@ test('the sample calendar is relative to now and honours the range and search', 
   assert.equal(week.events.length, SAMPLE_CALENDAR.length)
   assert.equal(week.events[0].start, '2026-11-08T10:00:00.000Z')
   assert.deepEqual(listSampleCalendar({ from: '2026-11-08T00:00:00Z', to: '2026-11-09T00:00:00Z' }, now).events.map((e) => e.id), ['demo-cal-1', 'demo-cal-2'])
-  assert.deepEqual(listSampleCalendar({ query: 'rina' }, now).events.map((e) => e.id), ['demo-cal-4'])
+  // Like Google's q, the search also matches attendees' names and emails (#107).
+  assert.deepEqual(listSampleCalendar({ query: 'rina' }, now).events.map((e) => e.id), ['demo-cal-1', 'demo-cal-4'])
+  assert.deepEqual(listSampleCalendar({ query: 'dimas@kopikita.example' }, now).events.map((e) => e.id), ['demo-cal-2'])
+  assert.deepEqual(listSampleCalendar({}, now).events.find((e) => e.id === 'demo-cal-2')?.attendees, ['Dimas Pratama <dimas@kopikita.example>'])
 })
 
 test('ranges: default one week from now, at most 62 days, end after start', () => {

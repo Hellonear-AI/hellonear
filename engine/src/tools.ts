@@ -164,9 +164,10 @@ const gmailCreateDraft = createTool({
 })
 
 // Calendar (#57). Try-out runs read the sample calendar; owners use their own Google Calendar through Composio.
-// List and create only: no edits, no deletes, no attendees (inviting people would email them on the owner's behalf).
+// List and create only: no edits, no deletes. Listing shows who else is on an event (#107); creating an event invites
+// nobody (inviting people would email them on the owner's behalf); meetings with guests are the separate tool below.
 const isoTime = z.string().regex(ISO_WITH_OFFSET, 'date and time with an offset, e.g. "2026-11-08T10:00:00+07:00"')
-const eventSchema = z.object({ id: z.string(), title: z.string(), start: z.string(), end: z.string(), allDay: z.boolean(), location: z.string(), description: z.string(), link: z.string() })
+const eventSchema = z.object({ id: z.string(), title: z.string(), start: z.string(), end: z.string(), allDay: z.boolean(), location: z.string(), description: z.string(), link: z.string(), attendees: z.array(z.string()) })
 
 const calendarListEvents = createTool({
   id: 'googlecalendar_list_events',
