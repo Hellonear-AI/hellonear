@@ -29,7 +29,7 @@ describe("wallet sign-in errors (L1.3)", () => {
 })
 
 describe("try-out owner actions (T1.4)", () => {
-  const actions: LockedAction[] = ["add-funds", "freeze", "limits", "wallet", "keys"]
+  const actions: LockedAction[] = ["add-funds", "freeze", "limits", "wallet", "keys", "autopilot"]
 
   it("says why each action needs a wallet, in plain words", () => {
     for (const a of actions) {
