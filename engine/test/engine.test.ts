@@ -131,6 +131,17 @@ describe('engine HTTP API', () => {
     assert.ok((fin?.usage?.reasoningTokens ?? 0) < 150, `reasoning tokens ${fin?.usage?.reasoningTokens}`)
   })
 
+  test('get_time answers in the owner\'s time zone; an unknown zone is refused (#112)', async () => {
+    const evs = await events(await post('/v1/minds/tz/chat', { userId, threadId: randomUUID(), timeZone: 'Asia/Jakarta', message: 'Use get_time: what weekday and local time is it for me?', mind: mind('Tz', { skills: [{ skillId: 'daily-planner' }] }) }))
+    const t = evs.find((e) => e.type === 'tool.result' && e.tool === 'get_time')
+    assert.ok(t, JSON.stringify(evs.filter((e) => e.tool).map((e) => e.tool)))
+    assert.equal(t.result.timeZone, 'Asia/Jakarta')
+    assert.equal(t.result.utcOffset, '+07:00')
+    assert.equal(t.result.weekday, new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jakarta', weekday: 'long' }).format(new Date()))
+    const bad = await post('/v1/minds/tz/chat', { userId, threadId: randomUUID(), timeZone: 'Mars/Olympus', message: 'hi', mind: mind('Tz') })
+    assert.equal(bad.status, 400)
+  })
+
   test('tool calls become normalized events with usage, cost and contiguous seq', async () => {
     const evs = await events(await post('/v1/minds/tools/chat', {
       userId, threadId: randomUUID(), message: 'Use your tool: what is 17 + 25?',
