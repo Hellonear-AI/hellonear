@@ -35,6 +35,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
+import { toast } from "sonner"
 import { ApiError } from "@/lib/api"
 import { autopilotApi } from "@/modules/autopilot/api"
 import { nodeSummary, type NodeRun } from "@/modules/builder/data/testRun"
@@ -244,6 +245,8 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   // Unsaved changes ask before you leave: the back arrow, the browser's Back, closing the tab.
   const guard = useLeaveGuard(dirty, mindHref(mindId, "autopilot"))
   const [savedTry, setSavedTry] = useState<string | null>(null)
+  // Unfinished blocks turn amber only once Save was pressed; a new empty block isn't a mistake yet.
+  const [tried, setTried] = useState(false)
   const dirtySinceSave = savedTry !== null && savedTry !== JSON.stringify(draft)
   const [test, setTest] = useState<{ running: boolean; nodes: Record<string, NodeRun>; status: string | null; failed: boolean } | null>(null)
   const abort = useRef<AbortController | null>(null)
@@ -279,9 +282,8 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
     void queryClient.invalidateQueries({ queryKey: autopilotKeys.runs(mindId, workflowId) })
   }
   const problems = draftProblems(draft)
-  const saveBlockedBy = problems[0]?.text
   // Engine issues pinned to a block mark it too, until the draft changes again.
-  const flagged = (id: string) => problems.some((p) => p.where === id) || (!dirtySinceSave && engineIssues.some((i) => i.node === id))
+  const flagged = (id: string) => (tried && problems.some((p) => p.where === id)) || (!dirtySinceSave && engineIssues.some((i) => i.node === id))
 
   // A job may only use its Mind's tools: the skills it needs and doesn't have are added on Save.
   const usedTools = draft.steps.flatMap((s) => (s.kind === "tool" ? [s.tool] : s.kind === "http" ? ["http_request"] : []))
@@ -369,6 +371,14 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   }
 
   async function save() {
+    // Checked when you press Save, not shown all along (Ancung, 10 Nov: the standing warnings were
+    // too much): jump to the first thing missing and say it once.
+    if (problems.length > 0) {
+      setTried(true)
+      fix(problems[0].where)
+      toast(problems[0].text)
+      return
+    }
     setSaving(true)
     setEngineIssues([])
     setSavedTry(JSON.stringify(draft))
@@ -480,7 +490,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       const k = e.key.toLowerCase()
       if (mod && k === "s") {
         e.preventDefault()
-        if (!saving && problems.length === 0 && (!workflowId || dirty)) void save()
+        if (!saving && (!workflowId || dirty)) void save()
         return
       }
       if (mod && e.key === "Enter") {
@@ -536,17 +546,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             onChange={(e) => set({ name: e.target.value })}
             className="-mx-1.5 w-full max-w-md truncate rounded-sm bg-transparent px-1.5 text-[15px] font-semibold text-foreground outline-none placeholder:text-foreground hover:bg-muted focus:bg-muted focus:placeholder:text-tertiary-foreground"
           />
-          {problems.length > 0 && dirty ? (
-            <button
-              type="button"
-              onClick={() => fix(problems[0].where)}
-              className="w-fit text-left text-xs font-medium text-warning underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-focus"
-            >
-              {problems.length === 1 ? `To save: ${problems[0].text.replace(/\.$/, "").toLowerCase()}` : `${problems.length} things to fix before saving`}
-            </button>
-          ) : (
-            <span className="text-xs text-muted-foreground">{dirty ? "Unsaved changes" : !workflowId ? "Not saved yet" : "All changes saved"}</span>
-          )}
+          <span className="text-xs text-muted-foreground">{dirty ? "Unsaved changes" : !workflowId ? "Not saved yet" : "All changes saved"}</span>
         </div>
         {workflowId && (
           <Button
@@ -560,7 +560,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             {test?.running ? "Testing" : "Test run"}
           </Button>
         )}
-        <Button className="hidden lg:inline-flex" onClick={() => void save()} disabled={saving || problems.length > 0 || (Boolean(workflowId) && !dirty)} title={saveBlockedBy ?? undefined}>
+        <Button className="hidden lg:inline-flex" onClick={() => void save()} disabled={saving || (Boolean(workflowId) && !dirty)}>
           {saving && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
           Save
         </Button>
@@ -858,24 +858,6 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
               Saving adds {missingSkills.map((s) => skillCopy(s).title).join(" and ")} to {name}: a job can only use its Mind&apos;s skills.
             </p>
           )}
-          {problems.length > 0 && (
-            <div className="flex flex-col gap-1.5 rounded-md bg-warning-soft p-3">
-              <p className="text-xs font-medium text-foreground">Before you can save</p>
-              <ul className="flex flex-col gap-1">
-                {problems.map((p) => (
-                  <li key={`${p.where}${p.text}`}>
-                    <button
-                      type="button"
-                      onClick={() => fix(p.where)}
-                      className="text-left text-xs text-foreground underline decoration-warning/60 underline-offset-2 outline-none hover:decoration-warning focus-visible:ring-2 focus-visible:ring-focus"
-                    >
-                      {p.text}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
         </SettingsFrame>
         )}
       </div>
@@ -888,7 +870,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             {test?.running ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <FlaskConicalIcon />}
             {test?.running ? "Testing" : "Test run"}
           </Button>
-          <Button onClick={() => void save()} disabled={saving || problems.length > 0 || (Boolean(workflowId) && !dirty)} title={saveBlockedBy ?? undefined}>
+          <Button onClick={() => void save()} disabled={saving || (Boolean(workflowId) && !dirty)}>
             {saving ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <CheckIcon />}
             Save
           </Button>
