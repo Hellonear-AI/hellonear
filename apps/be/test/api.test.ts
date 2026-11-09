@@ -971,6 +971,25 @@ describe('chat threads (#54)', () => {
     assert.equal(p2.nextBefore, null)
   })
 
+  test('a thread.titled event from the engine replaces the first-message title (#86)', async () => {
+    const a = await signIn()
+    const mindId = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Titles' }, origin)).json()).mind.id
+    const threadId = (await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { message: 'tes' }, origin)))[0].threadId
+    const title = async () => (await (await a.call('GET', `/v1/minds/${mindId}/threads`)).json()).threads[0].title
+    assert.equal(await title(), 'tes')
+    const runId = (await query<{ id: string }>('select id from runs where thread_id = $1', [threadId]))[0].id
+    const titled = async (t: unknown, seq: number) =>
+      query(`insert into run_events (run_id, seq, type, payload, ts) values ($1, $2, 'thread.titled', $3, now())`, [runId, seq, JSON.stringify({ type: 'thread.titled', runId, threadId, title: t })])
+    // Empty or missing titles keep the first-message cut.
+    await titled('   ', 1000)
+    assert.equal(await title(), 'tes')
+    await titled('Testing   the\nchat', 1001)
+    assert.equal(await title(), 'Testing the chat')
+    // The newest title wins, and a long one is cut like a first message.
+    await titled('x'.repeat(100), 1002)
+    assert.equal(await title(), `${'x'.repeat(60)}…`)
+  })
+
   test('paging keeps runs that started in the same millisecond', async () => {
     const a = await signIn()
     const mindId = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Same time' }, origin)).json()).mind.id
