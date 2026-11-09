@@ -78,3 +78,14 @@ describe("Builder stage 1 (#20)", () => {
     expect(draftProblems(draft)).toEqual([])
   })
 })
+
+describe("Builder Test run (B1.2)", () => {
+  it("says in a few words what each block did", async () => {
+    const { nodeSummary } = await import("@/modules/builder/data/testRun")
+    expect(nodeSummary({ accountId: "x", balanceNear: 0.7488 })).toBe("Balance 0.7488 NEAR")
+    expect(nodeSummary({ text: "Top it up." })).toBe("Top it up.")
+    expect(nodeSummary({ weekday: "Monday", time: "21:15" })).toBe("Monday, 21:15")
+    expect(nodeSummary({ events: [{}, {}] })).toBe("2 events")
+    expect(nodeSummary(null)).toBe("Done")
+  })
+})

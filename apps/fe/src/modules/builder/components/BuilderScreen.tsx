@@ -1,10 +1,10 @@
 "use client"
 
 import { useQueryClient } from "@tanstack/react-query"
-import { ArrowLeftIcon, BotIcon, CalendarClockIcon, CircleXIcon, GitBranchIcon, Loader2Icon, PlusIcon, SearchIcon, SquareIcon, Trash2Icon } from "lucide-react"
+import { ArrowLeftIcon, BotIcon, CalendarClockIcon, CheckIcon, CircleXIcon, FlaskConicalIcon, GitBranchIcon, Loader2Icon, PlusIcon, SearchIcon, SquareIcon, Trash2Icon, XIcon } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react"
 import { cn } from "cn"
 import { mindHref } from "@/components/layout/nav"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import { ApiError } from "@/lib/api"
 import { autopilotApi } from "@/modules/autopilot/api"
+import { nodeSummary, type NodeRun } from "@/modules/builder/data/testRun"
 import { scheduleText, zoneName } from "@/modules/autopilot/data/schedule"
 import { autopilotKeys, useWorkflow, useWorkflows } from "@/modules/autopilot/hooks/useAutopilot"
 import {
@@ -78,6 +79,9 @@ function Gone({ mindId, text }: { mindId: string; text: string }) {
   )
 }
 
+/** Test run state per canvas node id, read by every block card (B1.2). */
+const TestRun = createContext<Record<string, NodeRun>>({})
+
 let counter = 0
 const newId = (kind: string) => `${kind}-${Date.now().toString(36)}${counter++}`
 
@@ -96,6 +100,39 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const [engineIssues, setEngineIssues] = useState<string[]>([])
   const [saveError, setSaveError] = useState<string | null>(null)
   const dirty = JSON.stringify(draft) !== JSON.stringify(initial)
+  const [test, setTest] = useState<{ running: boolean; nodes: Record<string, NodeRun>; status: string | null; failed: boolean } | null>(null)
+  const abort = useRef<AbortController | null>(null)
+  useEffect(() => () => abort.current?.abort(), [])
+
+  // Test run (B1.2): the saved job runs once and each block lights up from node.started and
+  // node.finished. The API only runs a saved job, so changes must be saved first.
+  async function runTest() {
+    if (!workflowId) return
+    abort.current?.abort()
+    const controller = new AbortController()
+    abort.current = controller
+    setTest({ running: true, nodes: {}, status: null, failed: false })
+    const put = (node: string, run: NodeRun) => setTest((t) => (t ? { ...t, nodes: { ...t.nodes, [node]: run } } : t))
+    try {
+      await autopilotApi.runNow(
+        mindId,
+        workflowId,
+        (e) => {
+          const ev = e as unknown as { type: string; node?: string; status?: string; output?: unknown; error?: unknown }
+          if (ev.type === "node.started" && ev.node) put(ev.node, { status: "running" })
+          if (ev.type === "node.finished" && ev.node) {
+            put(ev.node, ev.status === "ok" ? { status: "ok", note: nodeSummary(ev.output) } : { status: "error", note: String(ev.error ?? "It didn't work").replace(/^\w*Error:\s*/, "") })
+          }
+          if (ev.type === "workflow.finished") setTest((t) => (t ? { ...t, status: ev.status ?? null } : t))
+        },
+        controller.signal
+      )
+      if (!controller.signal.aborted) setTest((t) => (t ? { ...t, running: false } : t))
+    } catch {
+      if (!controller.signal.aborted) setTest((t) => (t ? { ...t, running: false, failed: true } : t))
+    }
+    void queryClient.invalidateQueries({ queryKey: autopilotKeys.runs(mindId, workflowId) })
+  }
   const problems = draftProblems(draft)
 
   // A job may only use its Mind's tools: the skills it needs and doesn't have are added on Save.
@@ -170,6 +207,17 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
           <span className="truncate text-[15px] font-semibold text-foreground">{draft.name.trim() || "Untitled job"}</span>
           <span className="text-xs text-muted-foreground">{!workflowId ? "Not saved yet" : dirty ? "Changes not saved" : "All changes saved"}</span>
         </div>
+        {workflowId && (
+          <Button
+            variant="outline"
+            onClick={() => void runTest()}
+            disabled={Boolean(test?.running) || dirty || saving}
+            title={dirty ? "Save your changes to test them" : "Runs the saved job once"}
+          >
+            {test?.running ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <FlaskConicalIcon />}
+            {test?.running ? "Testing" : "Test run"}
+          </Button>
+        )}
         <Button onClick={() => void save()} disabled={saving || problems.length > 0 || (Boolean(workflowId) && !dirty)}>
           {saving && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
           Save
@@ -192,6 +240,30 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
         </div>
       )}
 
+      {test && !test.running && (
+        <div
+          role="status"
+          className={cn(
+            "mx-4 mt-4 flex items-center gap-2.5 rounded-md px-3.5 py-2.5 text-sm text-foreground md:mx-6",
+            test.failed || test.status === "failed" ? "bg-danger-soft" : "bg-success-soft"
+          )}
+        >
+          {test.failed || test.status === "failed" ? <XIcon className="size-4 shrink-0 text-danger" /> : <CheckIcon className="size-4 shrink-0 text-success" />}
+          <span className="min-w-0 flex-1">
+            {test.failed
+              ? "The test run didn't start. Try again in a moment."
+              : test.status === "failed"
+                ? "Test run finished: a block didn't work. It's marked in red."
+                : "Test run finished. Each block shows what it did."}
+          </span>
+          <button type="button" className="shrink-0 text-xs font-medium underline underline-offset-2" onClick={() => setTest(null)}>
+            Clear
+          </button>
+        </div>
+      )}
+      {dirty && workflowId && <p className="mx-4 mt-3 text-xs text-muted-foreground md:mx-6">Save your changes to test them.</p>}
+
+      <TestRun.Provider value={withIf(test?.nodes ?? {}, draft.branch)}>
       <div className="flex min-w-0 flex-1 flex-col lg:flex-row">
         <aside className="flex flex-col gap-2 border-border p-4 lg:w-60 lg:shrink-0 lg:border-r">
           <h2 className="text-[13px] font-semibold text-foreground">Blocks</h2>
@@ -236,6 +308,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                 <BlockCard
                   icon={<GitBranchIcon />}
                   kind="If or else"
+                  nodeId={b.id}
                   title={ifTitle(b, draft.steps)}
                   active={selected === b.id}
                   warn={problems.some((p) => p.where === b.id)}
@@ -314,8 +387,17 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
           )}
         </aside>
       </div>
+      </TestRun.Provider>
     </div>
   )
+}
+
+/** Conditions send no events (§3): the If lights up when either of its endings ran. */
+function withIf(nodes: Record<string, NodeRun>, b: Branch | null): Record<string, NodeRun> {
+  if (!b) return nodes
+  const took = [b.then, b.else].find((x) => x && nodes[x.id])
+  if (took) return { ...nodes, [b.id]: { status: "ok", note: took === b.then ? "Yes" : "No" } }
+  return nodes
 }
 
 function ifTitle(b: Branch, steps: Step[]): string {
@@ -344,6 +426,7 @@ function StepCard({ step, name, active, problem, onClick }: { step: Step; name: 
       <BlockCard
         icon={<BotIcon />}
         kind={`Ask ${name}`}
+        nodeId={step.id}
         title={step.prompt.trim() ? short(step.prompt.replace(/\{\{[^}]*\}\}/g, "...")) : "Say what to do"}
         line={step.prompt.trim() ? undefined : "Not set yet"}
         active={active}
@@ -358,6 +441,7 @@ function StepCard({ step, name, active, problem, onClick }: { step: Step; name: 
     <BlockCard
       icon={<SearchIcon />}
       kind="Use a tool"
+      nodeId={step.id}
       title={info?.title ?? "A tool"}
       line={account ? shortAddress(account) : info?.line}
       mono={Boolean(account)}
@@ -379,6 +463,7 @@ function BlockCard({
   active,
   warn,
   dashed,
+  nodeId,
   onClick,
 }: {
   icon: ReactNode
@@ -389,8 +474,11 @@ function BlockCard({
   active: boolean
   warn?: boolean
   dashed?: boolean
+  /** The canvas node id, to show its Test run state. */
+  nodeId?: string
   onClick: () => void
 }) {
+  const run = useContext(TestRun)[nodeId ?? ""]
   return (
     <button
       type="button"
@@ -399,7 +487,17 @@ function BlockCard({
       className={cn(
         "flex w-[280px] max-w-full flex-col gap-1 rounded-lg border bg-surface px-4 py-3 text-left shadow-xs outline-none transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-focus",
         dashed && "border-dashed bg-surface/60",
-        active ? "border-foreground" : warn ? "border-warning" : "border-border hover:bg-surface-hover"
+        run?.status === "running"
+          ? "border-info ring-2 ring-info/30"
+          : run?.status === "ok"
+            ? "border-success"
+            : run?.status === "error"
+              ? "border-danger"
+              : active
+                ? "border-foreground"
+                : warn
+                  ? "border-warning"
+                  : "border-border hover:bg-surface-hover"
       )}
     >
       <span className="flex items-center gap-2 text-xs text-muted-foreground [&>svg]:size-3.5">
@@ -408,6 +506,17 @@ function BlockCard({
       </span>
       <span className="text-sm font-semibold break-words text-foreground">{title}</span>
       {line && <span className={cn("text-xs text-muted-foreground", mono && "font-mono")}>{line}</span>}
+      {run && (
+        <span
+          className={cn(
+            "flex items-start gap-1.5 pt-1 text-xs [&>svg]:mt-px [&>svg]:size-3.5 [&>svg]:shrink-0",
+            run.status === "error" ? "text-danger" : run.status === "ok" ? "text-success" : "text-info"
+          )}
+        >
+          {run.status === "running" ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : run.status === "ok" ? <CheckIcon /> : <XIcon />}
+          <span className="min-w-0 break-words text-foreground">{run.status === "running" ? "Working..." : (run.note ?? "Done")}</span>
+        </span>
+      )}
     </button>
   )
 }
