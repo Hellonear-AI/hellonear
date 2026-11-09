@@ -22,6 +22,9 @@ const frontmatterSchema = z.object({
       blurb: z.string().optional(),
       // Built in: every Mind has it, it is not offered in GET /v1/skills and cannot be equipped or removed (#114).
       builtin: z.boolean().optional(),
+      // Shared docs from engine/references/ the Mind can open with skill_read when it needs them,
+      // so several skills reuse one verified text without loading it into every prompt.
+      references: z.array(z.string().regex(/^[a-z0-9-]+\.md$/)).optional(),
     }),
   }),
 })
@@ -36,10 +39,13 @@ export type SkillEntry = {
   title?: string
   blurb?: string
   builtin?: boolean
+  references?: string[]
   skill: ReturnType<typeof createSkill>
 }
 
-export function parseSkillMd(text: string, folder: string): SkillEntry {
+const referencesDir = new URL('../references', import.meta.url).pathname
+
+export function parseSkillMd(text: string, folder: string, readReference = (file: string) => readFileSync(join(referencesDir, file), 'utf8')): SkillEntry {
   const match = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/)
   if (!match) throw new Error(`skills/${folder}/SKILL.md: missing YAML frontmatter`)
   const fm = frontmatterSchema.parse(parse(match[1]))
@@ -47,11 +53,12 @@ export function parseSkillMd(text: string, folder: string): SkillEntry {
   const unknown = fm.metadata.hellonear.tools.filter((t) => !(t in toolRegistry))
   if (unknown.length) throw new Error(`skills/${folder}/SKILL.md: unknown tools ${unknown.join(', ')}`)
   const instructions = match[2].trim()
+  const references = Object.fromEntries((fm.metadata.hellonear.references ?? []).map((file) => [file, readReference(file)]))
   return {
     name: fm.name,
     description: fm.description,
     ...fm.metadata.hellonear,
-    skill: createSkill({ name: fm.name, description: fm.description, instructions, metadata: fm.metadata }),
+    skill: createSkill({ name: fm.name, description: fm.description, instructions, references, metadata: fm.metadata }),
   }
 }
 

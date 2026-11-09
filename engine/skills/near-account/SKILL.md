@@ -8,6 +8,7 @@ metadata:
     status: available
     title: NEAR account lookup
     blurb: looks up NEAR testnet accounts, cannot spend
+    references: [near-recipients.md]
 ---
 
 # NEAR account
@@ -16,3 +17,4 @@ metadata:
 2. Report `balanceNear` with the account id, and say it is testnet NEAR.
 3. If the account does not exist, say so plainly (the error says `UNKNOWN_ACCOUNT`).
 4. This is read-only. It cannot send, stake or sign anything.
+5. When the owner asks what kind of account an id is (a 64-character hex id, `0x…`, `0s…`, `0u…`, `.near`) or whether it is safe to send to, read `references/near-recipients.md` with `skill_read` (skill `near-account`).
