@@ -108,6 +108,8 @@ async function pipeRun(res: ServerResponse, stream: { fullStream: AsyncIterable<
         res.write(`data: ${JSON.stringify(event)}\n\n`)
       }
     }
+    // Stopped (#121): the client is gone, so skip the title, the verdict and the verification.
+    if (res.destroyed) return
     // A thread's first run gets a short title (#86), made while the run streamed; no title is fine.
     if (runId && opts.title) {
       const title = await opts.title
@@ -168,6 +170,15 @@ async function pipeWorkflow(res: ServerResponse, run: { stream: (args: any) => {
 
 const loadedSkills = (mind: Mind) => usableSkills(mind.skills.map((s) => s.skillId)).map((s) => s.name)
 
+// Stop (#121): when the backend drops the request (the owner pressed Stop, or the browser left and the backend
+// cancelled), abort the agent so no more model calls are made. A tool already running finishes on its own terms:
+// the wallet and mail tools call the backend without this signal, so a payment is never left half-done.
+function abortOnClose(res: ServerResponse): AbortSignal {
+  const controller = new AbortController()
+  res.on('close', () => { if (!res.writableEnded) controller.abort(new Error('client closed the stream')) })
+  return controller.signal
+}
+
 const agentOptions = (mind: Mind, secrets: Secret[], userId: string, mindId: string, threadId: string, tokens: { walletToken?: string; mailToken?: string; timeZone?: string }, demo?: boolean) => ({
   requestContext: contextFor(mind, secrets, { ...tokens, demo, userId }),
   memory: { resource: resourceId(userId, mindId, mind.personaVersion), thread: threadId },
@@ -197,7 +208,7 @@ export const server = createServer(async (req, res) => {
       const attack = attackId ? { id: attackId, skills: mind.skills.map((s) => s.skillId) } : undefined
       // Started before the run so it is usually ready when the run ends; it never throws.
       const title = (await isNewThread(threadId)) ? makeTitle(message) : undefined
-      const stream = await agent.stream(message, agentOptions(mind, secrets, userId, mindId, threadId, { walletToken, mailToken, timeZone }, demo))
+      const stream = await agent.stream(message, { ...agentOptions(mind, secrets, userId, mindId, threadId, { walletToken, mailToken, timeZone }, demo), abortSignal: abortOnClose(res) })
       return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secretValues: hiddenValues(secrets, walletToken, mailToken), title, attack })
     }
 
@@ -209,7 +220,7 @@ export const server = createServer(async (req, res) => {
       const runId = decodeURIComponent(resume[1])
       const mindId = String(url.searchParams.get('mindId') ?? '')
       if (!mindId) return sendJson(res, 400, { error: 'mindId query parameter is required' })
-      const options = { ...agentOptions(mind, secrets, userId, mindId, threadId, { walletToken, mailToken, timeZone }, demo), runId, toolCallId }
+      const options = { ...agentOptions(mind, secrets, userId, mindId, threadId, { walletToken, mailToken, timeZone }, demo), runId, toolCallId, abortSignal: abortOnClose(res) }
       const stream = resume[2] === 'approve' ? await agent.approveToolCall(options) : await agent.declineToolCall({ ...options, reason })
       return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secretValues: hiddenValues(secrets, walletToken, mailToken), runId, attack: attackId ? { id: attackId, skills: mind.skills.map((s) => s.skillId) } : undefined })
     }
