@@ -122,7 +122,7 @@ export function AddFundsDialog({
                 />
                 <span className="text-sm font-medium text-muted-foreground">NEAR</span>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="mt-1.5 flex flex-wrap gap-2">
                 {QUICK.map((q) => (
                   <Button key={q} type="button" size="xs" variant={value === q ? "default" : "outline"} onClick={() => setAmount(q)}>
                     {q} NEAR

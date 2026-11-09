@@ -268,13 +268,14 @@ function LimitsCard({ name, wallet, readOnly, noLimits, onEdit }: { name: string
         </>
       ) : (
         <>
-          <Row label="Per payment" value={`Up to ${limit} NEAR`} action={readOnly ? null : "Edit"} onAction={onEdit} />
-          <Row
-            label={`Who ${name} can pay`}
-            value={count === 1 ? "1 address you added" : `${count} addresses you added`}
-            action={readOnly ? null : "Manage"}
-            onAction={onEdit}
-          />
+          {/* One button: Edit and Manage opened the same dialog (Ancung, 9 Nov). */}
+          <Row label="Per payment" value={`Up to ${limit} NEAR`} />
+          <Row label={`Who ${name} can pay`} value={count === 1 ? "1 address you added" : `${count} addresses you added`} />
+          {!readOnly && (
+            <Button variant="outline" className="w-fit" onClick={onEdit}>
+              Change limits
+            </Button>
+          )}
           <p className="text-xs text-muted-foreground">
             {readOnly ? "This try-out pays from a shared test wallet. Connect a wallet to set your own limits." : `Saved where ${name} can't change them. Changes need your signature.`}
           </p>
@@ -284,18 +285,11 @@ function LimitsCard({ name, wallet, readOnly, noLimits, onEdit }: { name: string
   )
 }
 
-function Row({ label, value, action, onAction }: { label: string; value: string; action: string | null; onAction: () => void }) {
+function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
-      <div className="flex min-w-0 flex-col">
-        <span className="text-xs text-muted-foreground">{label}</span>
-        <span className="truncate text-sm font-semibold text-foreground">{value}</span>
-      </div>
-      {action && (
-        <Button variant="outline" size="sm" onClick={onAction}>
-          {action}
-        </Button>
-      )}
+    <div className="flex min-w-0 flex-col border-b border-border pb-3">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="truncate text-sm font-semibold text-foreground">{value}</span>
     </div>
   )
 }
