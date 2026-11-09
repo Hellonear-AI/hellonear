@@ -26,3 +26,9 @@ test('get_time gives the weekday and the owner\'s local time, computed, not gues
   assert.equal(localTime(evening, 'Asia/Jakarta').weekday, 'Tuesday')
   assert.equal(localTime(now, 'America/New_York').utcOffset, '-05:00')
 })
+
+test('reply text never carries an em or en dash (#124)', async () => {
+  const { plainDashes } = await import('../src/mind.ts')
+  assert.equal(plainDashes('Sabtu 08:00 — berangkat; 09:00–10:00'), 'Sabtu 08:00 - berangkat; 09:00-10:00')
+  assert.equal(plainDashes('no dashes here'), 'no dashes here')
+})
