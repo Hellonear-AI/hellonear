@@ -95,3 +95,40 @@ export function createSampleEvent(input: { title: string; start: string; end: st
   checkNewEvent(input.start, input.end)
   return { source: 'sample_calendar' as const, eventId: 'demo-cal-new', title: input.title, start: input.start, end: input.end, link: '', status: 'created' as const }
 }
+
+// Meetings with guests and a Google Meet link (#97). Guests are emailed an invite by Google in the owner's name, so the
+// list only ever comes from the owner, is checked here again, and is capped.
+export const MAX_ATTENDEES = 20
+const EMAIL = /^[^\s@<>(),;:"[\]]+@[^\s@<>(),;:"[\]]+\.[^\s@<>(),;:"[\]]+$/
+export function checkAttendees(attendees: string[]): string[] {
+  const unique = [...new Set(attendees.map((a) => a.trim().toLowerCase()))]
+  for (const a of unique) if (!EMAIL.test(a)) throw new Error(`not an email address: ${a}`)
+  if (unique.length > MAX_ATTENDEES) throw new Error(`at most ${MAX_ATTENDEES} guests`)
+  return unique
+}
+
+// GOOGLEMEET_CREATE_MEET returns Google's Space resource in `data.response_data` (`meetingUri`, `meetingCode`, `name`).
+// Its output schema only says "the full JSON response"; the field names are from Google's Meet REST API, not seen live.
+export function meetLinkOf(data: any): string {
+  const uri = data?.response_data?.meetingUri
+  if (typeof uri !== 'string' || !uri.startsWith('https://meet.google.com/')) throw new Error('Google Meet did not return a meeting link')
+  return uri
+}
+
+// Where the Meet link goes in the event: the location when the owner gave none, and always the description, so guests
+// see it in the invite whatever their calendar app shows.
+export function withMeetLink(meetLink: string, location?: string, description?: string) {
+  const join = `Join with Google Meet: ${meetLink}`
+  return { location: location || meetLink, description: description ? `${description}\n\n${join}` : join }
+}
+
+// Try-out runs: a fake link on a reserved domain (never a real meet.google.com code), and nobody is emailed.
+export const SAMPLE_MEET_LINK = 'https://meet.example/sample-meeting'
+export function createSampleMeeting(input: { title: string; start: string; end: string; attendees: string[]; meet: boolean }) {
+  checkNewEvent(input.start, input.end)
+  const attendees = checkAttendees(input.attendees)
+  return {
+    source: 'sample_calendar' as const, eventId: 'demo-cal-meeting', title: input.title, start: input.start, end: input.end, link: '',
+    meetLink: input.meet ? SAMPLE_MEET_LINK : '', attendees, invitesSent: false, status: 'created' as const,
+  }
+}
