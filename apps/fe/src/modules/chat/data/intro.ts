@@ -1,6 +1,7 @@
 // First chat (design C1.2): the Mind introduces itself and offers three things to try.
-// The design only has the Payments Mind's copy; the other two follow its pattern and still need
-// Nabil's review. Unknown templates fall back to the template's own quote and no suggestions.
+// The design only has the Payments Mind's copy; the other two follow its pattern. Nabil reviewed them on 9 Nov (#10):
+// a General Assistant starts with Daily planner only (no balance tool), and an Email Manager may send from its
+// own address (email-address skill), only never from the owner's Gmail. Unknown templates fall back to the template's own quote and no suggestions.
 
 type Intro = { intro: (limit: string | null) => string; suggestions: string[] }
 
@@ -11,12 +12,12 @@ const INTROS: Record<string, Intro> = {
     suggestions: ["Pay my internet bill", "Who can you pay?", "What's my balance?"],
   },
   "email-manager": {
-    intro: () => "I read your inbox, sum it up and save draft replies in Gmail. I never send email myself. What should I look at?",
+    intro: () => "I read your inbox, sum it up and save draft replies in Gmail. I never send from your Gmail. What should I look at?",
     suggestions: ["Anything important in my inbox today?", "Draft a reply to my last email", "What's on my calendar?"],
   },
   "general-assistant": {
-    intro: () => "I can plan your day, look things up and help with your wallet, and I ask before I spend anything. What's first?",
-    suggestions: ["Plan my day", "What can you do?", "What's my balance?"],
+    intro: () => "I can plan your day and look things up, and I ask before I spend anything. What's first?",
+    suggestions: ["Plan my day", "What can you do?", "What's on my calendar this week?"],
   },
 }
 
