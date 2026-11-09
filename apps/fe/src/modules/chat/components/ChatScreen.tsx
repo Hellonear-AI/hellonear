@@ -91,7 +91,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
 
       <div className="relative min-h-0 flex-1">
         <div ref={scrollRef} onScroll={onScroll} className="h-full overflow-y-auto overscroll-contain">
-          <div className="mx-auto flex min-h-full w-full max-w-[804px] flex-col justify-end gap-5 px-4 py-6 md:px-10">
+          <div className="mx-auto flex min-h-full w-full max-w-[804px] flex-col gap-5 px-4 py-6 md:px-10">
             {notFound ? (
               <Centered>
                 <p className="text-sm text-muted-foreground">This chat isn&apos;t here any more.</p>
@@ -125,8 +125,8 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
                 )}
                 {shown.map((s, i) => (
                   <Fragment key={s.key}>
-                    {shortWhen(s.createdAt) !== (i > 0 ? shortWhen(shown[i - 1].createdAt) : null) && (
-                      <p className="text-xs font-medium text-muted-foreground">{shortWhen(s.createdAt)}</p>
+                    {dayLabel(s.createdAt, i > 0 ? shown[i - 1].createdAt : null) && (
+                      <p className="text-xs font-medium text-muted-foreground">{dayLabel(s.createdAt, i > 0 ? shown[i - 1].createdAt : null)}</p>
                     )}
                     <TurnView
                       mindId={mindId}
@@ -269,6 +269,16 @@ function FailedReply({ name, error, canRetry, onRetry }: { name: string; error: 
       )}
     </div>
   )
+}
+
+/**
+ * A day label before a turn, only where it tells something: when the day changes inside the
+ * thread, or at the top of a thread from another day. A chat from today has none.
+ */
+export function dayLabel(at: string, previous: string | null, now: Date = new Date()): string | null {
+  const day = shortWhen(at, now)
+  if (previous === null) return day === "Today" ? null : day
+  return day === shortWhen(previous, now) ? null : day
 }
 
 export function failureText(name: string, error: unknown): string {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { ApiError } from "@/lib/api"
-import { failureText } from "@/modules/chat/components/ChatScreen"
+import { dayLabel, failureText } from "@/modules/chat/components/ChatScreen"
 import { refusalReasons } from "@/modules/chat/components/RunCards"
 
 describe("refusalReasons", () => {
@@ -20,5 +20,17 @@ describe("failureText (C1.6)", () => {
     expect(failureText("Penny", "engine_stream_interrupted")).toContain("Your message is saved")
     expect(failureText("Penny", new ApiError(503, "engine_error"))).not.toContain("saved")
     expect(failureText("Penny", new ApiError(429, "demo_run_limit"))).toContain("Connect a wallet")
+  })
+})
+
+describe("dayLabel", () => {
+  const now = new Date("2026-11-09T15:00:00")
+  it("shows nothing for a chat from today", () => {
+    expect(dayLabel("2026-11-09T10:00:00", null, now)).toBeNull()
+    expect(dayLabel("2026-11-09T11:00:00", "2026-11-09T10:00:00", now)).toBeNull()
+  })
+  it("names the day at the top of an older thread and where the day changes", () => {
+    expect(dayLabel("2026-11-08T10:00:00", null, now)).toBe("Yesterday")
+    expect(dayLabel("2026-11-09T09:00:00", "2026-11-08T10:00:00", now)).toBe("Today")
   })
 })
