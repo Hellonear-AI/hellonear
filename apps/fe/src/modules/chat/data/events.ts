@@ -43,6 +43,8 @@ export type RunView = {
   /** "gateway_tee" or "model_tee" when every model step was verified; null for no badge (§3). */
   verified: "gateway_tee" | "model_tee" | null
   error: string | null
+  /** The model is reasoning right now (its last output was reasoning, not text or a tool). */
+  thinking: boolean
   /** When the run's last event was written. */
   at: string | null
 }
@@ -56,7 +58,7 @@ const ERROR_STATUSES: ToolStatus[] = ["error", "policy_denied", "wallet_frozen"]
 const RESUMED = new Set(["step.started", "reasoning.delta", "text.delta", "tool.called", "tool.result", "tool.error", "run.error"])
 
 export function foldRun(events: RunEvent[]): RunView {
-  const view: RunView = { runId: null, threadId: null, text: "", tools: [], status: "running", verified: null, error: null, at: null }
+  const view: RunView = { runId: null, threadId: null, text: "", tools: [], status: "running", verified: null, error: null, thinking: false, at: null }
   const byCall = new Map<string, ToolStep>()
   const sorted = [...events].sort((a, b) => a.seq - b.seq)
   let paused = false
@@ -66,6 +68,8 @@ export function foldRun(events: RunEvent[]): RunView {
     view.runId ??= e.runId ?? null
     view.at = e.ts
     if (paused && RESUMED.has(e.type) && !(e.type === "tool.called" && e.toolCallId && byCall.has(e.toolCallId))) resumed = true
+    if (e.type === "reasoning.delta") view.thinking = true
+    else if (e.type === "text.delta" || e.type.startsWith("tool.") || e.type.startsWith("run.")) view.thinking = false
     switch (e.type) {
       case "run.started":
         view.threadId = e.threadId ?? view.threadId

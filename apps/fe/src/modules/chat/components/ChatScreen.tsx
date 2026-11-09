@@ -188,6 +188,9 @@ function TurnView({
   const { view, live } = turn
   const failed = Boolean(turn.failed) || view.status === "error"
   const working = live && !view.text
+  // While there's no text yet: "Thinking" while the model reasons. A running tool already has
+  // its own shimmering pill above (C1.3), so the bubble keeps to the dots then.
+  const activity = view.thinking ? "Thinking" : null
   const pills = view.tools.filter((t) => !paymentOf(t) || t.status === "ok" || t.status === "declined" || t.status === "running")
 
   return (
@@ -214,15 +217,7 @@ function TurnView({
             {view.text ? (
               <ReplyText key={live ? "live" : "done"} text={view.text} live={live} />
             ) : (
-              <span role="status" aria-label={`${name} is working`} className="flex h-[22px] items-center gap-1">
-                {[0, 1, 2].map((i) => (
-                  <span
-                    key={i}
-                    className="size-1.5 rounded-full bg-tertiary-foreground animate-pulse motion-reduce:animate-none"
-                    style={{ animationDelay: `${i * 150}ms` }}
-                  />
-                ))}
-              </span>
+              <Working activity={activity} name={name} />
             )}
           </div>
           {!live && view.text && (
@@ -250,6 +245,24 @@ function TurnView({
 
       {failed && !live && <FailedReply name={name} error={turn.failed ?? view.error} canRetry={Boolean(turn.message) && !busy} onRetry={onRetry} />}
     </>
+  )
+}
+
+/** The Mind is at work: typing dots, plus what it is doing when we know (design C1.3). */
+function Working({ activity, name }: { activity: string | null; name: string }) {
+  return (
+    <span role="status" aria-label={activity ? `${name}: ${activity}` : `${name} is working`} className="flex h-[22px] items-center gap-2.5">
+      <span aria-hidden className="flex items-center gap-1">
+        {[0, 1, 2].map((i) => (
+          <span key={i} className="typing-dot size-1.5 rounded-full bg-muted-foreground" style={{ animationDelay: `${i * 160}ms` }} />
+        ))}
+      </span>
+      {activity && (
+        <span key={activity} aria-hidden className="text-shimmer text-sm font-medium animate-in fade-in-0 duration-150 ease-out">
+          {activity}
+        </span>
+      )}
+    </span>
   )
 }
 

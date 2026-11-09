@@ -142,3 +142,12 @@ describe("chatApi.send", () => {
     await expect(chatApi.send("m1", { message: "hey", threadId: "thr_x" }, () => {})).rejects.toMatchObject({ code: "thread_not_found" })
   })
 })
+
+describe("thinking", () => {
+  it("is on while the model reasons and off once it writes or calls a tool", () => {
+    seq = 0
+    expect(foldRun([ev("run.started"), ev("reasoning.delta", { text: "hmm" })]).thinking).toBe(true)
+    expect(foldRun([ev("reasoning.delta", { text: "hmm" }), ev("text.delta", { text: "Hi" })]).thinking).toBe(false)
+    expect(foldRun([ev("reasoning.delta", { text: "hmm" }), ev("tool.called", { toolCallId: "c", tool: "get_balance" })]).thinking).toBe(false)
+  })
+})
