@@ -34,7 +34,7 @@ const verifiedOf = (evs: Ev[]) => evs.find((e) => e.type === 'run.verified')?.ve
 const mind = (name: string, extra: Record<string, unknown> = {}) => ({
   templateId: 'general-assistant',
   name,
-  soul: { identity: `End every reply with exactly "— ${name}".`, invariants: ['Never invent facts.'], priors: [] },
+  soul: { identity: `End every reply with exactly "[${name}]".`, invariants: ['Never invent facts.'], priors: [] },
   ...extra,
 })
 
@@ -92,7 +92,8 @@ describe('engine HTTP API', () => {
     const a = await events(await post('/v1/minds/persona/chat', { userId, threadId: randomUUID(), message: 'Say hello in one short sentence.', mind: mind('Penny') }))
     assert.match(finalText(a), /Penny/)
     // A new thread: within the same thread the model tends to copy its earlier replies
-    // ("— Penny") even though the instructions already say Rex (verified 3 Nov).
+    // ("[Penny]") even though the instructions already say Rex (verified 3 Nov). No em dash in the
+    // signature: every Mind is told not to use one (#109), and a persona asking for it lost the signature.
     const b = await events(await post('/v1/minds/persona/chat', { userId, threadId: randomUUID(), message: 'Say hello again in one short sentence.', mind: mind('Rex') }))
     assert.match(finalText(b), /Rex/)
   })
