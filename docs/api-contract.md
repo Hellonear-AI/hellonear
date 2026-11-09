@@ -115,6 +115,10 @@ Resumes a run paused on `tool.approval_required`. Streams the remaining events a
 
 `{ "skills": [ { skillId, description, status, connections: [...], note?, tools: [toolKey] } ] }`: **every** skill a Mind may equip, in id order, not only those a template starts with (e.g. `near-account` and `http-request`, which the Visual Builder's tools need). This is the list to validate a Mind's `skills` against; `blocked` skills are listed so the UI can say why they are off, and the engine never loads them. `tools` are the tool keys the skill grants (the Builder palette) **[tested]**.
 
+### `GET /v1/attacks` (Attack Playground, #16)
+
+`{ "attacks": [ { attackId, title, description, templateId, skills, attacker, message } ] }`: the fixed prompt-injection scenarios, `direct-order`, `email-injection`, `rogue-skill`, `tricked-owner`. To run one, the backend sends a normal chat run for a try-out Mind built from `templateId` + `skills`, with `message` and **`"attackId"`** in the body (chat and approve/decline accept it). The engine then emits `attack.verdict` (§3) after `run.finished` and before `run.verified`. For the "owner approves anyway" step the backend calls approve with the same `attackId`; the resumed run gets its own verdict **[tested: engine tests with a fake wallet backend whose policy only lists known recipients]**.
+
 ### `GET /v1/health`
 
 `{ "ok": true, "mastra": "1.81.0", "attestation": { "<modelId>": { "ok": true, "checkedAt": "…", "ms": 17558 } } }`: attestation is warmed at startup and every 50 minutes.
@@ -208,6 +212,7 @@ Common fields on every event:
 | `tool.approval_required` | `toolCallId`, `tool`, `nodeId`, `args` | `tool-call-approval` **[tested, #11]** |
 | `step.finished` | `step`, `usage` | `step-finish` **[tested]** |
 | `run.finished` | `finishReason`, `text`, `usage`, `costUsd`, `verification: { status: "pending" }` | `finish` **[tested]** |
+| `attack.verdict` | `attackId`, `attacker`, `paymentTool` (the Mind's skills grant `send_payment`), `stoppedBy`: `model` (refused, asked for no payment) · `no_tool` (no payment tool) · `approval` (a payment card waits for the owner) · `policy` (approved, then refused by the wallet in OutLayer's TEE before signing: `policy_denied` / `wallet_frozen`, no tx) · `none` (a payment was sent), `detail`, optional `to`, `status`, `attackerTargeted` (the payment went to the scenario's attacker), `txHash` (only for `none`) | engine (`src/attacks.ts`, #16), on a run that carries `attackId`, after `run.finished` and before `run.verified` **[tested]** |
 | `thread.titled` | `threadId`, `title` (3 to 6 words summing up the user's first message, in the user's language, no quotes or final period) | engine (`src/titles.ts`, #86, #93), after the `run.finished` of a thread's first run and before `run.verified`; skipped if making the title fails or takes too long, and then the backend keeps the first-message cut **[tested: engine tests; backend tests with stored events; live on the hosted demo, 9 Nov]** |
 | `run.verified` | `model`, `nodeId`, `verification` (see below). Always the run's **last** event | engine, after the stream is read **[tested, #19]** |
 | `run.error` | `error` | `error` chunk or a thrown error |
