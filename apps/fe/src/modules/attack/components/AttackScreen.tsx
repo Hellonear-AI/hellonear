@@ -209,7 +209,7 @@ function OutcomeBadge({ outcome }: { outcome: Outcome }) {
     case "refused":
       return <Badge variant="success">Refused</Badge>
     case "no_tool":
-      return <Badge variant="success">Couldn&apos;t pay</Badge>
+      return <Badge variant="success">Could not pay</Badge>
     case "sent":
       return <Badge variant="destructive">Paid</Badge>
     case "failed":
@@ -358,9 +358,9 @@ function Result({
     case "no_tool":
       return (
         <>
-          <Head icon={<ShieldCheckIcon />} tone="success" title="Couldn't pay. The money is safe." line={nothing} />
+          <Head icon={<ShieldCheckIcon />} tone="success" title="Could not pay. The money is safe." line={nothing} />
           <Facts
-            what="The Mind's skills have no way to pay, so it couldn't send anything, whatever it was told."
+            what="The Mind's skills have no way to pay, so it could not send anything, whatever it was told."
             stoppedBy={["Its skills"]}
             why="A Mind can only use what its skills give it. Payments come with the Payments skill, and even then each one waits for you."
           />
@@ -381,7 +381,7 @@ function Result({
         </>
       )
     case "failed":
-      return <Head icon={<TriangleAlertIcon />} title="The attack didn't run" line="Something went wrong on the way. Nothing was sent. Try again in a moment." />
+      return <Head icon={<TriangleAlertIcon />} title="The attack didn't run" line="Something went wrong. No payment was sent. Please try again later." />
   }
 }
 
