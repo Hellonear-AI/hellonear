@@ -8,8 +8,9 @@ import { ApprovalVisual, Icon, Point } from "./Sections";
 gsap.registerPlugin(ScrollTrigger);
 
 // "Every payment asks you first", told with the scroll (desktop):
-// 1. While the section comes up, the title flies in letter by letter from the right, each letter small
-//    at first and full size when it lands. The title is one huge line across the screen.
+// 1. The title comes up right under the cards and then holds in the middle of the screen, while it runs
+//    in from the right edge like running text: each letter is small as it enters and full size once
+//    inside. The title is one huge line across the screen.
 // 2. The section pins. Scrolling on, the title shrinks into its place in the left column, breaking into
 //    two lines ("Every payment" / "asks you first"), while the approval card pops in from the right.
 // 3. Then the subtitle and the three points slide up one by one. The card keeps floating gently.
@@ -46,33 +47,39 @@ export function ApprovalsScroll() {
 
     mm.add("(min-width: 768px) and (prefers-reduced-motion: no-preference)", () => {
       const title = q(".ap-title")[0] as HTMLElement;
+      const run = q(".ap-run")[0] as HTMLElement;
+      const lift = q(".ap-lift")[0] as HTMLElement;
       const line2 = q(".ap-line2")[0] as HTMLElement;
       const line1 = q(".ap-line1")[0] as HTMLElement;
       const pin = q(".ap-pin")[0] as HTMLElement;
+      const chars = q(".ap-char") as HTMLElement[];
+      const vw = () => window.innerWidth;
+      const vh = () => window.innerHeight;
 
-      // The "big" state, measured from the final layout: both lines on one row, scaled to fill the
-      // width, centred in the pinned screen. Recomputed on resize.
+      // The "big" state, measured from the final layout: both lines on one row, 80% of the screen
+      // wide, centred in the pinned screen. Recomputed on resize.
       const big = () => {
-        gsap.set([title, line2], { clearProps: "transform" });
+        gsap.set([title, line2, run, lift], { clearProps: "transform" });
         const t = title.getBoundingClientRect();
         const p = pin.getBoundingClientRect();
         const l1 = line1.getBoundingClientRect();
         const l2 = line2.getBoundingClientRect();
         const gap = parseFloat(getComputedStyle(title).fontSize) * 0.28;
         const total = l1.width + gap + l2.width;
-        const scale = Math.min((window.innerWidth * 0.9) / total, 2.6);
+        const scale = Math.min((vw() * 0.8) / total, 2.6);
+        const left = (vw() - total * scale) / 2;
         return {
           scale,
-          x: (window.innerWidth - total * scale) / 2 - t.left,
-          y: window.innerHeight * 0.16 - (t.top - p.top),
+          left,
+          h: l1.height * scale,
+          x: left - t.left,
+          y: (vh() - l1.height * scale) / 2 - (t.top - p.top),
           l2x: l1.width + gap - (l2.left - l1.left),
           l2y: -(l2.top - l1.top),
+          // Running-text start: the whole line just past the right edge (in the title's units).
+          runFrom: (vw() + 20 - left) / scale,
         };
       };
-      // Each flying letter's x inside the unscaled title, measured once before anything moves.
-      const chars = q(".ap-char") as HTMLElement[];
-      const t0 = title.getBoundingClientRect();
-      const localX = chars.map((c) => c.getBoundingClientRect().left - t0.left);
       let b = big();
       const setBig = () => {
         b = big();
@@ -80,36 +87,46 @@ export function ApprovalsScroll() {
         gsap.set(line2, { x: b.l2x, y: b.l2y });
       };
       setBig();
+      gsap.set(chars, { transformOrigin: "50% 80%" });
 
-      // Scroll budget while pinned (px): letters land, then the title moves, then the card.
-      const LETTERS = 1000; // letters keep landing for this long after the pin starts
+      // Each letter is small while it is still entering at the right edge and full size once it is
+      // well inside the screen; at the end every letter is inside, so all are full size.
+      const sizeLetters = () => {
+        const edge = vw() * 0.97;
+        const zone = vw() * 0.07;
+        for (const c of chars) {
+          const r = c.getBoundingClientRect();
+          const cx = r.left + r.width / 2;
+          const k = gsap.utils.clamp(0, 1, (edge - cx) / zone);
+          gsap.set(c, { scale: 0.25 + 0.75 * k, opacity: gsap.utils.clamp(0, 1, (vw() - cx) / (vw() * 0.03)) });
+        }
+      };
+
+      // Before the pin: the title comes up right under the cards, then stays in the middle of the
+      // screen (it rises with the page until it reaches the centre, then holds there).
+      const placeLift = () => {
+        const top = el.getBoundingClientRect().top;
+        const y = Math.max(-top, 120 + b.h / 2 - vh() / 2);
+        gsap.set(lift, { y: Math.min(0, y) });
+      };
+      ScrollTrigger.create({ trigger: el, start: "top bottom", end: "top top", onUpdate: placeLift, onRefresh: placeLift });
+
+      // 1. Running text: the line slides in from the right edge, at the scroll speed, until it is in
+      //    place 900 px into the pin.
+      const LETTERS = 900;
       const MOVE = 900;
       const CARD = 500;
-
-      // 1. Letters fly in from the right, small at first and full size when they land. They start a
-      //    little before the pin, so on arrival only the first few ("Ever...") are in.
-      // Start state set on every letter up front (a staggered fromTo with a scrubbed trigger only
-      // applies it to the first letter until the scroll reaches the others).
-      gsap.set(chars, {
-        // From just past the right edge of the screen. The title is scaled by b.scale, so the
-        // screen distance is divided by it.
-        x: (i: number) => {
-          const titleLeft = title.getBoundingClientRect().left - (gsap.getProperty(title, "x") as number) + b.x;
-          return (window.innerWidth + 40 - (titleLeft + localX[i] * b.scale)) / b.scale;
+      gsap.fromTo(
+        run,
+        { x: () => b.runFrom },
+        {
+          x: 0,
+          ease: "none",
+          onUpdate: sizeLetters,
+          scrollTrigger: { trigger: el, start: "top bottom", end: `top -${LETTERS}px`, scrub: 0.5, invalidateOnRefresh: true },
         },
-        scale: 0.25,
-        opacity: 0,
-        transformOrigin: "100% 80%",
-      });
-      gsap.to(chars, {
-        x: 0,
-        scale: 1,
-        opacity: 1,
-        ease: "power2.out",
-        duration: 0.45,
-        stagger: 0.16, // one after another, left to right, like a train coming in
-        scrollTrigger: { trigger: el, start: "top 70%", end: `top -${LETTERS}px`, scrub: 0.6 },
-      });
+      );
+      sizeLetters();
 
       // Subtitle and points: not tied to the scroll. They play once the title is in place, and go
       // back when the user scrolls up past that point.
@@ -150,7 +167,7 @@ export function ApprovalsScroll() {
         );
       reveal.reverse(); // start "reversed" so the first play() runs it forward
 
-      return () => gsap.set([title, line2], { clearProps: "transform" });
+      return () => gsap.set([title, line2, run, lift, ...chars], { clearProps: "transform,opacity" });
     });
 
     // Phones: no pin; things slide up as they come into view.
@@ -168,14 +185,18 @@ export function ApprovalsScroll() {
       <div className="ap-pin flex min-h-screen items-center overflow-hidden">
         <div className="mx-auto grid w-full max-w-[1200px] items-center gap-14 px-5 py-24 md:grid-cols-[480px_1fr]">
           <div className="flex flex-col gap-5">
+            <div className="ap-lift">
             <h2 className="ap-title text-[40px] font-medium leading-[1.04] tracking-[-1.6px] md:text-[60px]" aria-label={LINES.join(" ")}>
-              <span className="ap-line1 block w-fit" aria-hidden="true">
-                <Chars text={LINES[0]} still={1} />
-              </span>
-              <span className="ap-line2 block w-fit" aria-hidden="true">
-                <Chars text={LINES[1]} />
+              <span className="ap-run block w-fit">
+                <span className="ap-line1 block w-fit" aria-hidden="true">
+                  <Chars text={LINES[0]} />
+                </span>
+                <span className="ap-line2 block w-fit" aria-hidden="true">
+                  <Chars text={LINES[1]} />
+                </span>
               </span>
             </h2>
+            </div>
             <p className="ap-reveal text-[17px] leading-[1.5] text-[var(--color-text-2)]">
               Penny finds the bill and gets it ready. Nothing leaves the wallet until you tap Approve.
             </p>
