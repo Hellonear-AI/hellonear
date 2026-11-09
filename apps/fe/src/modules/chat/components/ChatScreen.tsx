@@ -298,11 +298,11 @@ function TurnView({
 
 /**
  * The Mind is at work and nothing else shows it yet (design C1.3): typing dots and a word for
- * what is happening, "Sending..." until the engine has the message, then "Thinking..." until the
+ * what is happening, "Starting..." until the engine has the message, then "Thinking..." until the
  * first text, thought or step arrives (Ancung, 9 Nov: dots alone said nothing).
  */
 function Working({ name, started }: { name: string; started: boolean }) {
-  const label = started ? "Thinking..." : "Sending..."
+  const label = started ? "Thinking..." : "Starting..."
   return (
     <span role="status" aria-label={`${name}: ${label}`} className="flex h-[22px] items-center gap-2.5">
       <span aria-hidden className="flex items-center gap-1">
