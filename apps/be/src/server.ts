@@ -9,7 +9,7 @@ import { engineFetch, engineJson, skills, templates } from './engine.ts'
 import { HttpError, assertSameOrigin, cors, logServerError, readBody, sendJson, setCookie, isLoopback } from './http.ts'
 import { TOOLKITS, connect, disconnect, listConnections, toolkitSchema } from './connections.ts'
 import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, requireMind, updateMind, updateMindSchema, type Mind } from './minds.ts'
-import { getRun, listRuns, mindEvents, pendingApprovals, relayRun, runEvents } from './runs.ts'
+import { cancelRun, getRun, listRuns, mindEvents, pendingApprovals, relayRun, runEvents } from './runs.ts'
 import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema, secretsForRun } from './secrets.ts'
 import { createWallet, freezeTransaction, getWallet, hasWallet, policySchema, policyTransaction } from './wallets.ts'
 import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
@@ -178,11 +178,18 @@ export const server = createServer(async (req, res) => {
     if (route('POST', /^\/v1\/minds$/)) return sendJson(res, 201, await withInbox(user, await createMind(user.id, await readBody(req, createMindSchema))))
 
     // Runs (#14, #17)
-    const run = path.match(/^\/v1\/runs\/([^/]+)(\/approve|\/decline)?$/)
+    const run = path.match(/^\/v1\/runs\/([^/]+)(\/approve|\/decline|\/cancel)?$/)
     if (run) {
       const found = await getRun(user.id, decodeURIComponent(run[1]))
       if (!found) throw new HttpError(404, 'run_not_found')
       if (!run[2] && req.method === 'GET') return sendJson(res, 200, { run: found, events: await runEvents(found.runId) })
+      // Stop a run that is still streaming (#121). A run paused for approval has no stream: decline it instead.
+      if (run[2] === '/cancel' && req.method === 'POST') {
+        const stopped = cancelRun(found.runId)
+        if (!stopped) throw new HttpError(409, 'not_running', { status: found.status })
+        await stopped
+        return sendJson(res, 200, { run: await getRun(user.id, found.runId) })
+      }
       if (run[2] && req.method === 'POST') {
         const body = await readBody(req, resumeSchema)
         // Only an action the run is actually waiting for can be approved or declined.
@@ -191,11 +198,12 @@ export const server = createServer(async (req, res) => {
         if (found.status !== 'awaiting_approval' || !waiting) throw new HttpError(409, 'not_awaiting_approval')
         const mind = await requireMind(user.id, found.mindId)
         await assertDemoRunAllowed(user, req)
+        const controller = new AbortController()
         const engineRes = await engineFetch(`/v1/runs/${encodeURIComponent(found.runId)}${run[2]}?mindId=${encodeURIComponent(mind.id)}`, {
-          method: 'POST',
+          method: 'POST', signal: controller.signal,
           body: { userId: user.id, threadId: found.threadId, mind: mindConfig(mind), secrets: await secretsForRun(user.id), toolCallId: body.toolCallId, reason: body.reason, ...timeZoneOf(body), ...(await runExtras(user, mind.id)) },
         })
-        return relayRun(req, res, engineRes, { mindId: mind.id, threadId: found.threadId ?? undefined, resumeOf: found.runId })
+        return relayRun(req, res, engineRes, { mindId: mind.id, threadId: found.threadId ?? undefined, resumeOf: found.runId, controller })
       }
       throw new HttpError(405, 'method_not_allowed')
     }
@@ -249,11 +257,12 @@ export const server = createServer(async (req, res) => {
         }
         const threadId = body.threadId ?? `thr_${newId('x').slice(2)}`
         await assertDemoRunAllowed(user, req)
+        const controller = new AbortController()
         const engineRes = await engineFetch(`/v1/minds/${encodeURIComponent(mind.id)}/chat`, {
-          method: 'POST',
+          method: 'POST', signal: controller.signal,
           body: { userId: user.id, threadId, message: body.message, mind: mindConfig(mind), secrets: await secretsForRun(user.id), ...timeZoneOf(body), ...(await runExtras(user, mind.id)) },
         })
-        return relayRun(req, res, engineRes, { mindId: mind.id, threadId, userMessage: body.message })
+        return relayRun(req, res, engineRes, { mindId: mind.id, threadId, userMessage: body.message, controller })
       }
       if (sub === '/runs' && req.method === 'GET') {
         return sendJson(res, 200, { runs: await listRuns(mind.id, limitOf(url, 20, 100), url.searchParams.get('threadId') ?? undefined) })
@@ -293,8 +302,9 @@ export const server = createServer(async (req, res) => {
         if (wf[2] === '/runs' && req.method === 'POST') {
           const body = await readBody(req, runSchema)
           await assertDemoRunAllowed(user, req)
-          const engineRes = await engineFetch(`${p}/runs`, { method: 'POST', body: { userId: user.id, mind: mindConfig(mind), secrets: await secretsForRun(user.id), input: body.input, ...timeZoneOf(body), ...(await runExtras(user, mind.id)) } })
-          return relayRun(req, res, engineRes, { mindId: mind.id, workflowId: id.data })
+          const controller = new AbortController()
+          const engineRes = await engineFetch(`${p}/runs`, { method: 'POST', signal: controller.signal, body: { userId: user.id, mind: mindConfig(mind), secrets: await secretsForRun(user.id), input: body.input, ...timeZoneOf(body), ...(await runExtras(user, mind.id)) } })
+          return relayRun(req, res, engineRes, { mindId: mind.id, workflowId: id.data, controller })
         }
         if (wf[2] === '/runs' && req.method === 'GET') return passthrough(res, await engineJson(`${p}/runs?limit=${limitOf(url, 20, 100)}`))
         if (wf[2] === '/autopilot' && req.method === 'GET') return passthrough(res, await engineJson(`${p}/autopilot`))
