@@ -185,6 +185,16 @@ export function fromCanvas(c: Canvas, fallbackZone: string): Draft | null {
   return { name: c.name, ...rep, timezone: trigger.data.schedule?.timezone ?? fallbackZone, steps, branch }
 }
 
+/** Moves a step so it lands at place `to` in the line as it was before the move (a drop spot's index). */
+export function moveStepIn<T extends { id: string }>(steps: T[], id: string, to: number): T[] {
+  const from = steps.findIndex((s) => s.id === id)
+  if (from < 0) return steps
+  const out = [...steps]
+  const [moved] = out.splice(from, 1)
+  out.splice(to > from ? to - 1 : to, 0, moved)
+  return out
+}
+
 /** "Morning inbox!" -> "morning-inbox", unique among `taken` (engine rule: lowercase words and dashes, max 48). */
 export function workflowIdFor(name: string, taken: string[]): string {
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40).replace(/-+$/, "")

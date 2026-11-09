@@ -25,6 +25,7 @@ import {
   PROMPT_MAX,
   ref,
   comparable,
+  moveStepIn,
   resultsBefore,
   stepFields,
   toCanvas,
@@ -152,7 +153,37 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const setStep = (id: string, patch: Partial<Step>) => setDraft((d) => ({ ...d, steps: d.steps.map((s) => (s.id === id ? ({ ...s, ...patch } as Step) : s)) }))
   const setBranch = (patch: Partial<Branch>) => setDraft((d) => (d.branch ? { ...d, branch: { ...d.branch, ...patch } } : d))
 
-  function addStep(kind: "agent" | "tool" | "http") {
+  // Drag and drop (B1.7): a block from the palette, or a step to a new place. Taps still add at the end.
+  const [drag, setDrag] = useState<{ add: "agent" | "tool" | "http" | "if" } | { move: string } | null>(null)
+  const [over, setOver] = useState<string | null>(null)
+  const endDrag = () => {
+    setDrag(null)
+    setOver(null)
+  }
+  const moveStep = (id: string, to: number) => setDraft((d) => ({ ...d, steps: moveStepIn(d.steps, id, to) }))
+  function dropAt(at: number) {
+    if (!drag) return
+    if ("move" in drag) moveStep(drag.move, at)
+    else if (drag.add === "if") addIf()
+    else addStep(drag.add, at)
+    endDrag()
+  }
+  /** Where a dragged thing may land: any place in the line; an If only at the end (one per job). */
+  function accepts(at: number): boolean {
+    if (!drag) return false
+    if ("move" in drag) {
+      const from = draft.steps.findIndex((s) => s.id === drag.move)
+      return at !== from && at !== from + 1
+    }
+    if (drag.add === "if") return !draft.branch && resultsBefore(draft.steps).some(comparable) && at === draft.steps.length
+    return true
+  }
+  const spot = (at: number) =>
+    accepts(at) ? (
+      <DropSpot key={`spot-${at}`} id={`spot-${at}`} over={over} setOver={setOver} onDrop={() => dropAt(at)} label={drag && "add" in drag && drag.add === "if" ? "Drop the If here" : "Drop here"} />
+    ) : null
+
+  function addStep(kind: "agent" | "tool" | "http", at?: number) {
     const id = newId(kind === "agent" ? "ask" : kind)
     const step: Step =
       kind === "agent"
@@ -160,7 +191,11 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
         : kind === "http"
           ? { id, kind, method: "GET", url: "https://", key: "", body: "" }
           : { id, kind, tool: TOOLS[0].tool, args: { accountId: address } }
-    setDraft((d) => ({ ...d, steps: [...d.steps, step] }))
+    setDraft((d) => {
+      const steps = [...d.steps]
+      steps.splice(at ?? steps.length, 0, step)
+      return { ...d, steps }
+    })
     setSelected(id)
   }
   function addIf() {
@@ -289,18 +324,41 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       <div className="flex min-w-0 flex-1 flex-col lg:flex-row">
         <aside className="flex flex-col gap-2 border-border p-4 lg:w-60 lg:shrink-0 lg:border-r">
           <h2 className="text-[13px] font-semibold text-foreground">Blocks</h2>
-          <p className="text-xs text-muted-foreground">Tap one to add it.</p>
+          <p className="text-xs text-muted-foreground">Drag one onto the canvas, or tap to add it at the end.</p>
           <PaletteItem icon={<CalendarClockIcon />} title="Start" line="Every job has one" disabled />
-          <PaletteItem icon={<BotIcon />} title={`Ask ${name}`} line={`${name} writes or decides`} onClick={() => addStep("agent")} />
-          <PaletteItem icon={<SearchIcon />} title="Use a tool" line="An account, the time, the calendar, the inbox" onClick={() => addStep("tool")} />
+          <PaletteItem
+            icon={<BotIcon />}
+            title={`Ask ${name}`}
+            line={`${name} writes or decides`}
+            onClick={() => addStep("agent")}
+            onDragStart={() => setDrag({ add: "agent" })}
+            onDragEnd={endDrag}
+          />
+          <PaletteItem
+            icon={<SearchIcon />}
+            title="Use a tool"
+            line="An account, the time, the calendar, the inbox"
+            onClick={() => addStep("tool")}
+            onDragStart={() => setDrag({ add: "tool" })}
+            onDragEnd={endDrag}
+          />
           <PaletteItem
             icon={<GitBranchIcon />}
             title="If or else"
             line={b ? "A job can have only one" : canIf ? "Choose one of two ways" : "Add a check or a website first"}
             onClick={addIf}
             disabled={!canIf}
+            onDragStart={() => setDrag({ add: "if" })}
+            onDragEnd={endDrag}
           />
-          <PaletteItem icon={<GlobeIcon />} title="Call a website" line="Send to your own service" onClick={() => addStep("http")} />
+          <PaletteItem
+            icon={<GlobeIcon />}
+            title="Call a website"
+            line="Send to your own service"
+            onClick={() => addStep("http")}
+            onDragStart={() => setDrag({ add: "http" })}
+            onDragEnd={endDrag}
+          />
         </aside>
 
         <main
@@ -308,10 +366,25 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
           className="flex min-w-0 flex-1 flex-col items-center overflow-x-auto bg-[radial-gradient(var(--color-border)_1px,transparent_1px)] bg-size-[20px_20px] px-4 py-8"
         >
           <BlockCard icon={<CalendarClockIcon />} kind="Start" title={scheduleText(cronOf(draft))} line={`${zoneName(draft.timezone)} time`} active={selected === "start"} onClick={() => setSelected("start")} />
-          {draft.steps.map((s) => (
-            <Linked key={s.id}>
-              <StepCard step={s} name={name} active={selected === s.id} problem={flagged(s.id)} onClick={() => setSelected(s.id)} />
-            </Linked>
+          {spot(0)}
+          {draft.steps.map((s, i) => (
+            <div key={s.id} className="flex flex-col items-center">
+              <Linked>
+                <div
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.effectAllowed = "move"
+                    e.dataTransfer.setData("text/plain", s.id)
+                    setDrag({ move: s.id })
+                  }}
+                  onDragEnd={endDrag}
+                  className={cn("cursor-grab active:cursor-grabbing", drag && "move" in drag && drag.move === s.id && "opacity-40")}
+                >
+                  <StepCard step={s} name={name} active={selected === s.id} problem={flagged(s.id)} onClick={() => setSelected(s.id)} />
+                </div>
+              </Linked>
+              {spot(i + 1)}
+            </div>
           ))}
           <Linked>
             <button
@@ -455,6 +528,34 @@ function ifTitle(b: Branch, steps: Step[]): string {
   return `If ${what} ${verb} ${b.right.trim()}${field.name === "balanceNear" ? " NEAR" : ""}`
 }
 
+/** A place a dragged block may land (B1.7): + marks it, and it turns dark while hovered. */
+function DropSpot({ id, over, setOver, onDrop, label }: { id: string; over: string | null; setOver: (id: string | null) => void; onDrop: () => void; label: string }) {
+  const hot = over === id
+  return (
+    <div className="flex flex-col items-center">
+      <span aria-hidden className="h-3 w-px bg-border-strong" />
+      <div
+        onDragOver={(e) => {
+          e.preventDefault()
+          if (!hot) setOver(id)
+        }}
+        onDragLeave={() => setOver(null)}
+        onDrop={(e) => {
+          e.preventDefault()
+          onDrop()
+        }}
+        className={cn(
+          "flex h-10 w-[220px] max-w-full items-center justify-center gap-1.5 rounded-full border border-dashed text-xs transition-colors duration-100 ease-out",
+          hot ? "border-foreground bg-foreground text-background" : "border-border-strong bg-surface/80 text-muted-foreground"
+        )}
+      >
+        <PlusIcon className="size-3.5" />
+        {label}
+      </div>
+    </div>
+  )
+}
+
 function Linked({ children }: { children: ReactNode }) {
   return (
     <div className="flex flex-col items-center">
@@ -585,12 +686,35 @@ function BlockCard({
   )
 }
 
-function PaletteItem({ icon, title, line, onClick, disabled }: { icon: ReactNode; title: string; line: string; onClick?: () => void; disabled?: boolean }) {
+function PaletteItem({
+  icon,
+  title,
+  line,
+  onClick,
+  disabled,
+  onDragStart,
+  onDragEnd,
+}: {
+  icon: ReactNode
+  title: string
+  line: string
+  onClick?: () => void
+  disabled?: boolean
+  onDragStart?: () => void
+  onDragEnd?: () => void
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
+      draggable={Boolean(onDragStart) && !disabled}
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "copy"
+        e.dataTransfer.setData("text/plain", title)
+        onDragStart?.()
+      }}
+      onDragEnd={onDragEnd}
       className="flex items-center gap-3 rounded-md bg-muted px-3 py-2.5 text-left outline-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-60"
     >
       <span className="flex size-8 shrink-0 items-center justify-center rounded-sm bg-surface text-foreground [&>svg]:size-4">{icon}</span>

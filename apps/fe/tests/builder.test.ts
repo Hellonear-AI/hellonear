@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { IDEAS } from "@/modules/autopilot/data/ideas"
-import { cronOf, draftProblems, emptyDraft, fromCanvas, repeatOf, resultsBefore, toCanvas, workflowIdFor, type Draft } from "@/modules/builder/data/draft"
+import { cronOf, draftProblems, emptyDraft, fromCanvas, moveStepIn, repeatOf, resultsBefore, toCanvas, workflowIdFor, type Draft } from "@/modules/builder/data/draft"
 
 const draft: Draft = {
   name: "Evening wrap-up",
@@ -117,5 +117,16 @@ describe("Builder website block", () => {
     const http = odd.nodes.find((n) => n.type === "http")!
     if (http.type === "http") http.data.headers = { "X-Api-Key": "abc" }
     expect(fromCanvas(odd, "UTC")).toBeNull()
+  })
+})
+
+describe("Builder drag and drop (B1.7)", () => {
+  const ids = (xs: { id: string }[]) => xs.map((x) => x.id).join("")
+  const line = [{ id: "a" }, { id: "b" }, { id: "c" }]
+  it("moves a step to the spot it was dropped on", () => {
+    expect(ids(moveStepIn(line, "c", 0))).toBe("cab")
+    expect(ids(moveStepIn(line, "a", 3))).toBe("bca")
+    expect(ids(moveStepIn(line, "a", 2))).toBe("bac")
+    expect(ids(moveStepIn(line, "x", 0))).toBe("abc")
   })
 })
