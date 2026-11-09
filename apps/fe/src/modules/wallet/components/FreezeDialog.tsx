@@ -132,5 +132,5 @@ export function freezeErrorText(err: unknown, freeze: boolean): string {
     if (err.step === "check") return `Meteor signed, but the wallet doesn't show it yet. Check again in a moment.`
     if (err.cause instanceof ApiError && err.cause.code === "demo_not_allowed") return "Connect a wallet to do this."
   }
-  return `Couldn't reach the wallet service, so nothing changed. Try again in a moment.`
+  return `Could not reach the wallet service, so nothing changed. Please try again later.`
 }

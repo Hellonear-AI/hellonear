@@ -115,14 +115,14 @@ export function SkillsScreen({ mindId }: { mindId: string }) {
         </div>
       ) : catalog.isError ? (
         <div className="flex flex-col items-start gap-3 rounded-lg border border-border bg-surface p-5">
-          <p className="text-sm text-muted-foreground">Couldn&apos;t load the skill list. {name} keeps the skills it already has; only the list is missing.</p>
+          <p className="text-sm text-muted-foreground">Could not load the skill list. {name} keeps the skills it already has; only the list is missing.</p>
           <Button variant="outline" onClick={() => void catalog.refetch()}>
             Try again
           </Button>
         </div>
       ) : shown.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-lg border border-border bg-surface px-6 py-12 text-center">
-          <p className="text-[15px] font-semibold text-foreground">{query.trim() ? `No skills match "${query.trim()}"` : "Nothing here"}</p>
+          <p className="text-[15px] font-semibold text-foreground">{query.trim() ? `No skills match "${query.trim()}"` : "No skills found"}</p>
           <p className="text-sm text-muted-foreground">
             {query.trim() ? `Try another word. ${name} can learn: ${skills.map((s) => skillCopy(s.skillId).title).join(", ")}.` : "Try another filter."}
           </p>

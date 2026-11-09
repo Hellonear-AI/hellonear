@@ -178,7 +178,7 @@ export function LimitsDialog({
                   </div>
                   {draftError && (
                     <p className="text-xs text-danger">
-                      {draftError === "Already in the list." ? draftError : "That isn't a NEAR address. It looks like name.testnet, with no spaces."}
+                      {draftError === "Already in the list." ? draftError : "Enter a valid NEAR address, for example name.testnet."}
                     </p>
                   )}
                 </div>

@@ -22,7 +22,7 @@ import { useMind, useMinds } from "@/modules/minds/hooks/useMinds"
 
 function mindLine(mind: Mind) {
   const template = templateLabel(mind.templateId)
-  if (mind.balanceNear === undefined) return template // wallet couldn't be read
+  if (mind.balanceNear === undefined) return template // wallet could not be read
   // No "·" separators (Ancung, 9 Nov): a comma reads the same.
   return mind.balanceNear === null ? `${template}, no wallet yet` : `${template}, ${formatNear(mind.balanceNear)} NEAR`
 }

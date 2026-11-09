@@ -99,7 +99,7 @@ const OPS: { op: Op; label: string; number?: boolean }[] = [
 export function BuilderScreen({ mindId, workflowId }: { mindId: string; workflowId: string | null }) {
   const existing = useWorkflow(mindId, workflowId)
   if (workflowId && existing.isPending) return <Skeleton className="m-6 h-[480px] rounded-lg" />
-  if (workflowId && !existing.data) return <Gone mindId={mindId} text="This job couldn't be loaded." />
+  if (workflowId && !existing.data) return <Gone mindId={mindId} text="This job could not be loaded." />
   const draft = existing.data ? fromCanvas(existing.data.canvas, ZONE()) : emptyDraft(ZONE())
   if (!draft) return <Gone mindId={mindId} text="This job has blocks the Builder can't show yet (like a website call). It still runs; you can run it from Autopilot." />
   return <Editor key={workflowId ?? "new"} mindId={mindId} workflowId={workflowId} initial={draft} />
@@ -264,7 +264,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
           const ev = e as unknown as { type: string; node?: string; status?: string; output?: unknown; error?: unknown }
           if (ev.type === "node.started" && ev.node) put(ev.node, { status: "running" })
           if (ev.type === "node.finished" && ev.node) {
-            put(ev.node, ev.status === "ok" ? { status: "ok", note: nodeSummary(ev.output) } : { status: "error", note: String(ev.error ?? "It didn't work").replace(/^\w*Error:\s*/, "") })
+            put(ev.node, ev.status === "ok" ? { status: "ok", note: nodeSummary(ev.output) } : { status: "error", note: String(ev.error ?? "Failed").replace(/^\w*Error:\s*/, "") })
           }
           if (ev.type === "workflow.finished") setTest((t) => (t ? { ...t, status: ev.status ?? null } : t))
         },
@@ -413,11 +413,11 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             const byId = where.match(/node ([\w-]+)/)?.[1]
             const byIndex = where.match(/nodes\.(\d+)/)?.[1]
             const node = byId && ids.includes(byId) ? byId : byIndex !== undefined ? (ids[Number(byIndex)] ?? null) : null
-            return { node, text: (i.message ?? "Something in this job isn't allowed.").replace(/^node [\w-]+:\s*/, "") }
+            return { node, text: (i.message ?? "This job contains something that is not allowed.").replace(/^node [\w-]+:\s*/, "") }
           })
         )
       } else {
-        setSaveError("Couldn't save. Nothing changed; try again in a moment.")
+        setSaveError("Could not save. No changes were made. Please try again later.")
       }
     }
   }
@@ -581,7 +581,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
         <div role="alert" className="mx-4 mt-4 flex items-start gap-2.5 rounded-md bg-danger-soft px-3.5 py-3 text-sm text-foreground md:mx-6">
           <CircleXIcon className="mt-0.5 size-4 shrink-0 text-danger" />
           <div className="flex flex-col gap-1">
-            {saveError ?? "The job wasn't saved. Fix these first:"}
+            {saveError ?? "The job was not saved. Fix the following:"}
             {engineIssues.length > 0 && (
               <ul className="list-disc pl-4 text-[13px]">
                 {engineIssues.map((i) => (
@@ -604,9 +604,9 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
           {test.failed || test.status === "failed" ? <XIcon className="size-4 shrink-0 text-danger" /> : <CheckIcon className="size-4 shrink-0 text-success" />}
           <span className="min-w-0 flex-1">
             {test.failed
-              ? "The test run didn't start. Try again in a moment."
+              ? "The test run did not start. Please try again later."
               : test.status === "failed"
-                ? "Test run finished: a block didn't work. It's marked in red."
+                ? "Test run finished with an error. The failed block is marked in red."
                 : "Test run finished. Each block shows what it did."}
           </span>
           <button type="button" className="shrink-0 text-xs font-medium underline underline-offset-2" onClick={() => setTest(null)}>
@@ -925,8 +925,8 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             <DialogTitle>You have unsaved changes</DialogTitle>
             <DialogDescription>
               {problems.length > 0
-                ? "If you leave now, your changes to this job are lost. It can't be saved yet: fix what the panel lists first."
-                : "If you leave now, your changes to this job are lost. Save them first?"}
+                ? "If you leave now, your changes will be lost. The job cannot be saved until the missing details are filled in."
+                : "If you leave now, your changes will be lost."}
             </DialogDescription>
           </DialogHeader>
           {/* Two buttons (Ancung, 10 Nov: three were too many): X, Esc or a click outside keep editing.

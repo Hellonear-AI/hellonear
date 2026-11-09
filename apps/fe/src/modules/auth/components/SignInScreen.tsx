@@ -69,7 +69,7 @@ export function SignInScreen() {
   if (user && minds.isError) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-background p-6 text-center">
-        <p className="text-sm text-muted-foreground">You&apos;re signed in, but your Minds didn&apos;t load. Check your connection and try again.</p>
+        <p className="text-sm text-muted-foreground">Your Minds could not be loaded. Check your connection and try again.</p>
         <Button variant="outline" onClick={() => void minds.refetch()}>
           Try again
         </Button>
@@ -264,12 +264,12 @@ function AboutMind({ open, onOpenChange }: { open: boolean; onOpenChange: (open:
 /** L1.3: say what happened and that nothing changed; the same button works again. */
 export function walletError(err: unknown): string {
   if (err instanceof ApiError) return signInErrorMessage(err)
-  return "Sign-in was canceled in the wallet. Nothing changed."
+  return "Sign-in was canceled in the wallet."
 }
 
 /** T1.2 and a backend without try-out mode. */
 export function demoError(err: unknown): string {
-  if (err instanceof ApiError && err.code === "demo_rate_limited") return "Too many try-outs from this network in the last hour. Try again later, or connect a wallet."
-  if (err instanceof ApiError && err.status === 404) return "Try-out isn't available right now. Connect a wallet instead."
-  return "Couldn't start a try-out. Try again in a moment."
+  if (err instanceof ApiError && err.code === "demo_rate_limited") return "Too many try-outs from this network. Please try again later or connect a wallet."
+  if (err instanceof ApiError && err.status === 404) return "Try-out is not available at the moment. Please connect a wallet."
+  return "Could not start a try-out. Please try again later."
 }

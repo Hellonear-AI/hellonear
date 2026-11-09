@@ -78,7 +78,7 @@ export function WalletScreen({ mindId }: { mindId: string }) {
         <Loading />
       ) : walletQuery.isError ? (
         <Card className="items-start">
-          <p className="text-sm text-muted-foreground">Couldn&apos;t reach the wallet service. Try again in a moment.</p>
+          <p className="text-sm text-muted-foreground">Could not reach the wallet service. Please try again later.</p>
           <Button variant="outline" onClick={() => void walletQuery.refetch()}>
             Try again
           </Button>
@@ -204,10 +204,10 @@ function Activity({ mindId, name }: { mindId: string; name: string }) {
       {isPending ? (
         <Skeleton className="h-40 w-full" />
       ) : isError ? (
-        <p className="text-[13px] text-muted-foreground">Couldn&apos;t load the activity.</p>
+        <p className="text-[13px] text-muted-foreground">Could not load the activity.</p>
       ) : !payments?.length ? (
         <div className="flex flex-col items-center gap-2 py-6 text-center">
-          <p className="text-[15px] font-semibold text-foreground">No money moves yet</p>
+          <p className="text-[15px] font-semibold text-foreground">No transactions yet</p>
           <p className="max-w-sm text-sm text-muted-foreground">
             When {name} pays someone, or your limits stop a payment, it shows up here.
           </p>
@@ -223,7 +223,7 @@ function Activity({ mindId, name }: { mindId: string; name: string }) {
           </Tabs>
           {list.length === 0 ? (
             <p className="py-4 text-center text-[13px] text-muted-foreground">
-              {filter === "blocked" ? "Nothing blocked. When your limits stop a payment, it shows up here." : "Nothing sent yet."}
+              {filter === "blocked" ? "No blocked payments. Payments stopped by your limits appear here." : "No payments sent yet."}
             </p>
           ) : (
             <ul className="flex flex-col">

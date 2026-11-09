@@ -92,7 +92,7 @@ export function AutopilotScreen({ mindId }: { mindId: string }) {
         </div>
       ) : jobs.isError ? (
         <div className="flex flex-col items-start gap-3 rounded-lg border border-border bg-surface p-5">
-          <p className="text-sm text-muted-foreground">Couldn&apos;t load {name}&apos;s jobs. Try again in a moment.</p>
+          <p className="text-sm text-muted-foreground">Could not load {name}&apos;s jobs. Please try again later.</p>
           <Button variant="outline" onClick={() => void jobs.refetch()}>
             Try again
           </Button>
@@ -199,7 +199,7 @@ function JobCard({
         ) : !on ? (
           <p className="text-xs text-muted-foreground">Off. It only runs when you press Run now.</p>
         ) : null}
-        {set.error && !refused.length && <p className="text-xs text-danger">Couldn&apos;t change it. Try again in a moment.</p>}
+        {set.error && !refused.length && <p className="text-xs text-danger">Could not change it. Please try again later.</p>}
       </div>
     </li>
   )
@@ -244,7 +244,7 @@ function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string;
             ? `${name} doesn't have a skill this job uses. Add it in Skills first.`
             : err instanceof ApiError && err.code === "demo_run_limit"
               ? "That's all the messages this try-out has."
-              : "The job didn't start. Try again in a moment."
+              : "The job did not start. Please try again later."
         )
       }
     }
@@ -267,7 +267,7 @@ function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string;
       {detail.isPending ? (
         <Skeleton className="h-80 w-full" />
       ) : !detail.data ? (
-        <p className="text-sm text-muted-foreground">Couldn&apos;t load this job.</p>
+        <p className="text-sm text-muted-foreground">Could not load this job.</p>
       ) : (
         <>
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -323,7 +323,7 @@ function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string;
             {runs.isPending ? (
               <Skeleton className="h-24 w-full" />
             ) : !runs.data?.length && !running ? (
-              <p className="text-[13px] text-muted-foreground">No runs yet. Press Run now to try it.</p>
+              <p className="text-[13px] text-muted-foreground">No runs yet.</p>
             ) : (
               <ul className="flex flex-col divide-y divide-border">
                 {running && !runs.data?.some((r) => (myRun ? r.runId === myRun : r.status === "running")) && (
@@ -603,7 +603,7 @@ function IdeaCard({ mindId, name, demo, idea, onAdded, compact }: { mindId: stri
             Use this
           </Button>
           {demo && <span className="text-xs text-muted-foreground">In a try-out it stays off; you can run it with Run now.</span>}
-          {(add.error || setSkills.error) && <span className="text-xs text-danger">Couldn&apos;t add it. Try again in a moment.</span>}
+          {(add.error || setSkills.error) && <span className="text-xs text-danger">Could not add it. Please try again later.</span>}
         </>
       )}
     </li>

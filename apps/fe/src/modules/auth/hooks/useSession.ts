@@ -158,9 +158,9 @@ export function signInErrorMessage(err: unknown): string {
     if (err.code === "invalid_nonce") return "The sign-in request expired. Please try again."
     if (err.code === "invalid_signature") return "The wallet's signature was not accepted. Use a full-access key of this account."
     if (err.code === "bad_origin") return "This address is not allowed to sign in to the backend."
-    return "Couldn't reach HelloNear. Please try again."
+    return "Could not reach HelloNear. Please try again."
   }
-  return "The wallet didn't sign the request."
+  return "The wallet did not sign the request."
 }
 
 /** The Mind ids the cache holds for the session that is ending (`["minds"]`, see `mindKeys.all`). */

@@ -36,7 +36,7 @@ export function MindGate({ mindId, children }: { mindId: string; children: React
   if (session.isError || minds.isError) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-3 p-6 text-center">
-        <p className="text-sm text-muted-foreground">Couldn&apos;t reach HelloNear. Check your connection and try again.</p>
+        <p className="text-sm text-muted-foreground">Could not reach HelloNear. Check your connection and try again.</p>
         <Button variant="outline" onClick={() => void (session.isError ? session.refetch() : minds.refetch())}>
           Try again
         </Button>

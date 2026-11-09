@@ -16,7 +16,7 @@ import { StepHeader, type StepLeave } from "@/modules/minds/components/StepHeade
 // L2 Choose a Mind (design/hellonear.pen, "3 · Start"): pick a template, name it, Continue.
 // Nothing is created here (except for try-out users); the Mind is created in step 2.
 // States: nothing picked (L2.1), picked and named (L2.2), name not allowed (L2.3),
-// loading (L2.4), couldn't load (L2.5). Cards on desktop (xl), a list on tablet and phone.
+// loading (L2.4), could not load (L2.5). Cards on desktop (xl), a list on tablet and phone.
 // Desktop screens shorter than the design's 960 px (e.g. a 1920 x 1200 laptop at 150% scaling
 // is 1280 x ~680) get a smaller heading and card art, so the cards stay above the bottom bar.
 export function ChooseMindStep({
@@ -188,8 +188,8 @@ function LoadError({ onRetry, retrying }: { onRetry: () => void; retrying: boole
       <span className="flex size-11 items-center justify-center rounded-full bg-surface-muted text-muted-foreground">
         <CloudOffIcon className="size-[22px]" />
       </span>
-      <p className="text-base font-semibold text-foreground">Couldn&apos;t load the Minds</p>
-      <p className="text-sm text-muted-foreground">Check your internet and try again. Nothing was created yet.</p>
+      <p className="text-base font-semibold text-foreground">Could not load the Minds</p>
+      <p className="text-sm text-muted-foreground">Check your connection and try again. Nothing has been created.</p>
       <Button variant="secondary" size="sm" onClick={onRetry} disabled={retrying}>
         Try again
       </Button>

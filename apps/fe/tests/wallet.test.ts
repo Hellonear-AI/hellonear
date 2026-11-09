@@ -53,8 +53,8 @@ describe("wallet helpers", () => {
     expect(sameLimits(null, { perTransactionNear: "2", whitelist: [] })).toBe(false)
   })
   it("says what changed when an owner action fails", () => {
-    expect(walletActionText(new WalletActionError("sign", new Error("rejected")), "limits")).toBe("Meteor didn't sign, so the limits weren't saved.")
-    expect(walletActionText(new WalletActionError("sign", new Error("rejected")), "funds")).toBe("Meteor didn't sign, so nothing was sent.")
+    expect(walletActionText(new WalletActionError("sign", new Error("rejected")), "limits")).toBe("Meteor did not sign the transaction, so the limits were not saved.")
+    expect(walletActionText(new WalletActionError("sign", new Error("rejected")), "funds")).toBe("Meteor did not sign the transaction, so no funds were sent.")
   })
   it("reads what the owner can send: balance minus storage over the free 770 bytes", async () => {
     const rpc = (amount: string, storage_usage: number) => vi.fn(async () => Response.json({ result: { amount, storage_usage } }))

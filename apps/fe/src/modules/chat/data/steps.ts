@@ -35,7 +35,7 @@ export function stepText(step: ToolStep): StepText {
   if (step.status === "running" || step.status === "awaiting_approval") return { label: `${doing}...`, detail: null, tone: "doing" }
   if (step.status === "ok") return { label: done, detail: summary(step), tone: "done" }
   if (step.status === "declined") return { label: doing, detail: "you declined", tone: "failed" }
-  return { label: doing, detail: "didn't work", tone: "failed" }
+  return { label: doing, detail: "failed", tone: "failed" }
 }
 
 const count = (n: unknown, one: string, many: string) => (Array.isArray(n) ? `${n.length} ${n.length === 1 ? one : many}` : null)

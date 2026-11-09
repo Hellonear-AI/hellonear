@@ -15,7 +15,7 @@ describe("stepText", () => {
     expect(stepText(step("http_request", "ok", { status: 404 }, { url: "https://httpbin.org/nope" })).detail).toBe("httpbin.org returned an error")
   })
   it("says when a step didn't work, and never uses a dot separator", () => {
-    expect(stepText(step("get_balance", "error"))).toMatchObject({ detail: "didn't work", tone: "failed" })
+    expect(stepText(step("get_balance", "error"))).toMatchObject({ detail: "failed", tone: "failed" })
     expect(stepText(step("something_new", "ok")).label).toBe("Used a tool")
     for (const s of ["running", "ok", "error", "declined"] as const) expect(JSON.stringify(stepText(step("get_balance", s)))).not.toContain("·")
   })

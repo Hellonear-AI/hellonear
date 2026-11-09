@@ -96,7 +96,7 @@ export function AddSkillDialog({
             </div>
             {setSkills.error || connect.error ? (
               <p role="alert" className="text-[13px] text-danger">
-                {connect.error ? `Couldn't open ${app}. Nothing changed; try again in a moment.` : `Couldn't add ${copy.title}. Nothing changed; try again.`}
+                {connect.error ? `Could not open ${app}. No changes were made. Please try again later.` : `Could not add ${copy.title}. No changes were made. Please try again.`}
               </p>
             ) : (
               <p className="text-xs text-muted-foreground">
@@ -169,7 +169,7 @@ export function RemoveSkillDialog({
         </p>
         {setSkills.error && (
           <p role="alert" className="text-[13px] text-danger">
-            Couldn&apos;t remove {copy.title}. Nothing changed; try again.
+            Could not remove {copy.title}. No changes were made. Please try again.
           </p>
         )}
         <DialogFooter>
