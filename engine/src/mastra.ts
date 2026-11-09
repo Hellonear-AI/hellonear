@@ -8,7 +8,7 @@ import { Memory } from '@mastra/memory'
 import { config } from './config.ts'
 import { buildInstructions, type Mind } from './mind.ts'
 import { chatModel, embedder } from './models.ts'
-import { usableSkills } from './skills.ts'
+import { mindSkills } from './skills.ts'
 import { toolRegistry, toolsFor } from './tools.ts'
 
 // Small pools: the local Postgres allows 40 connections.
@@ -41,7 +41,8 @@ const mindOf = ({ requestContext }: Ctx) => {
 }
 
 // Only skills that are not blocked; their tools and playbooks come from engine/skills.
-export const skillsOf = (ctx: Ctx) => usableSkills(mindOf(ctx).skills.map((s) => s.skillId))
+// Equipped skills plus the built-in HelloNear guide (#114).
+export const skillsOf = (ctx: Ctx) => mindSkills(mindOf(ctx).skills.map((s) => s.skillId))
 
 export const mindAgent = new Agent({
   id: 'mind',
