@@ -8,6 +8,8 @@ export type Mind = {
   mindId: string
   name: string
   templateId: string
+  /** Equipped skill ids (`GET /minds`). */
+  skills: string[]
   /**
    * The wallet balance in NEAR; `null` when the Mind has no wallet yet (404 `no_wallet`),
    * `undefined` when the wallet could not be read (e.g. OutLayer down).

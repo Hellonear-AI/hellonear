@@ -58,7 +58,7 @@ export function useSetUpMind() {
             const mind = await mindsApi.create({ templateId: input.templateId, name: input.name })
             p.mindId = mind.id
             setCreatedMindId(mind.id)
-            const created: Mind = { mindId: mind.id, name: mind.name, templateId: mind.templateId, balanceNear: null }
+            const created: Mind = { mindId: mind.id, name: mind.name, templateId: mind.templateId, skills: mind.skills, balanceNear: null }
             queryClient.setQueryData<Mind[]>(mindKeys.all, (old) => [created, ...(old ?? []).filter((m) => m.mindId !== mind.id)])
           }
           if (!p.walletReady) {

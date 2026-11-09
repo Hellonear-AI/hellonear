@@ -67,6 +67,19 @@ export type ApiPayment = {
   at: string
 }
 
+/** One skill a Mind may equip (`GET /skills`, engine §2). `description` is written for the model, not people. */
+export type ApiSkill = {
+  skillId: string
+  description: string
+  status: "available" | "simulated" | "blocked"
+  /** Composio toolkits (`gmail`, `googlecalendar`) or `near-wallet`. */
+  connections: string[]
+  note?: string
+  tools: string[]
+}
+
+export type ApiConnection = { toolkit: "gmail" | "googlecalendar"; status: "connected" | "pending" | "expired" | "not_connected"; since?: string }
+
 export type ApiThread = {
   threadId: string
   /** First user message cut to ~60 characters, or null for old threads. */
@@ -81,6 +94,14 @@ export const mindsApi = {
   create: async (body: { templateId: string; name: string }) =>
     (await api<{ mind: ApiMind }>("/minds", { method: "POST", body })).mind,
   list: async () => (await api<{ minds: ApiMind[] }>("/minds")).minds,
+  /** Change a Mind's name, persona, model or skills; the backend re-sends it to every Autopilot job. */
+  update: async (mindId: string, body: Partial<Pick<ApiMind, "name" | "model" | "skills">>) =>
+    (await api<{ mind: ApiMind }>(`/minds/${encodeURIComponent(mindId)}`, { method: "PATCH", body })).mind,
+  skills: async () => (await api<{ skills: ApiSkill[] }>("/skills")).skills,
+  connections: async () => (await api<{ connections: ApiConnection[] }>("/connections")).connections,
+  /** A Composio Connect Link to open in a new window (`409 already_connected` if it already is). */
+  connect: async (toolkit: ApiConnection["toolkit"]) =>
+    (await api<{ redirectUrl: string }>(`/connections/${toolkit}`, { method: "POST", body: {} })).redirectUrl,
   /** The Mind's wallet, or `null` when it has none yet (404 `no_wallet`). */
   wallet: async (mindId: string) => {
     try {
