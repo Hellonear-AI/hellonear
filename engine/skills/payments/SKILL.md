@@ -6,6 +6,8 @@ metadata:
     tools: [send_payment, get_balance, list_payments, get_time]
     connections: [near-wallet]
     status: available
+    title: Payments
+    blurb: sends testnet NEAR and pays bills after the owner approves
 ---
 
 # Payments

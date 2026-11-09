@@ -115,7 +115,7 @@ Resumes a run paused on `tool.approval_required`. Streams the remaining events a
 
 ### `GET /v1/skills`
 
-`{ "skills": [ { skillId, description, status, connections: [...], note?, tools: [toolKey] } ] }`: **every** skill a Mind may equip, in id order, not only those a template starts with (e.g. `near-account` and `http-request`, which the Visual Builder's tools need). This is the list to validate a Mind's `skills` against; `blocked` skills are listed so the UI can say why they are off, and the engine never loads them. `tools` are the tool keys the skill grants (the Builder palette) **[tested]**.
+`{ "skills": [ { skillId, description, status, connections: [...], note?, tools: [toolKey] } ] }`: **every** skill a Mind may equip, in id order, not only those a template starts with (e.g. `near-account` and `http-request`, which the Visual Builder's tools need). Built-in skills (`hellonear-guide`, #114) are not listed: every Mind has them and they cannot be equipped. This is the list to validate a Mind's `skills` against; `blocked` skills are listed so the UI can say why they are off, and the engine never loads them. `tools` are the tool keys the skill grants (the Builder palette) **[tested]**.
 
 ### `GET /v1/attacks` (Attack Playground, #16)
 

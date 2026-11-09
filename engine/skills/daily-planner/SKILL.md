@@ -6,6 +6,8 @@ metadata:
     tools: [get_time, add_numbers, googlecalendar_list_events, googlecalendar_create_event, googlecalendar_create_meeting]
     connections: [googlecalendar, googlemeet]
     status: available
+    title: Daily planner
+    blurb: time, quick math, Google Calendar events and meetings with a Google Meet link
     note: The owner's own Google Calendar, and Google Meet for meeting links, through Composio after connecting them under Connections (#57, #97). Try-out visitors get a fixed sample calendar and a fake Meet link instead, and nobody is invited (#43). Adding an event or a meeting always waits for the owner's approval.
 ---
 

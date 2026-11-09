@@ -6,6 +6,8 @@ metadata:
     tools: [http_request]
     connections: []
     status: available
+    title: Other apps
+    blurb: calls the owner's own services with keys saved in Connections
 ---
 
 # HTTP request

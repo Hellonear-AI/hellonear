@@ -6,6 +6,8 @@ metadata:
     tools: [mail_send, mail_list, mail_read, get_time]
     connections: [agentmail]
     status: available
+    title: Email address
+    blurb: gives this Mind its own email address and sends email after the owner approves
     note: The Mind's own AgentMail address, created when the owner turns this skill on (#96). Try-out visitors share one demo address and can only email that address itself.
 ---
 
