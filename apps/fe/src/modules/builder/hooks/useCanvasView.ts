@@ -40,6 +40,15 @@ export function wheelPixels(e: { deltaX: number; deltaY: number; deltaMode: numb
   return { dx: e.deltaX * unit, dy: e.deltaY * unit }
 }
 
+/**
+ * How far one wheel event pans. Shift + scroll pans sideways (Ancung, 9 Nov): some browsers
+ * already turn it into deltaX, others leave it on deltaY, so either one moves the view across.
+ */
+export function wheelPan({ dx, dy, shift }: { dx: number; dy: number; shift: boolean }): { x: number; y: number } {
+  if (shift) return { x: dx !== 0 ? dx : dy, y: 0 }
+  return { x: dx, y: dy }
+}
+
 /** Zoom factor for one wheel event: capped so a fast wheel moves one notch at a time. */
 export function wheelZoomFactor(dy: number): number {
   return Math.exp(-Math.max(-120, Math.min(120, dy)) * ZOOM_PER_PX)
@@ -153,7 +162,8 @@ export function useCanvasView() {
         const box = f.getBoundingClientRect()
         go((v) => zoomAround(v, v.zoom * wheelZoomFactor(dy), e.clientX - box.left, e.clientY - box.top))
       } else {
-        go((v) => ({ ...v, x: v.x - dx, y: v.y - dy }))
+        const { x, y } = wheelPan({ dx, dy, shift: e.shiftKey })
+        go((v) => ({ ...v, x: v.x - x, y: v.y - y }))
       }
     }
     f.addEventListener("wheel", onWheel, { passive: false })

@@ -181,3 +181,12 @@ describe("Builder wheel feel (gentler, 9 Nov)", () => {
     expect(wheelZoomFactor(-4)).toBeCloseTo(1.008, 3)
   })
 })
+
+describe("Builder Shift + scroll", () => {
+  it("pans sideways whether the browser sends deltaX or deltaY", async () => {
+    const { wheelPan } = await import("@/modules/builder/hooks/useCanvasView")
+    expect(wheelPan({ dx: 0, dy: 100, shift: true })).toEqual({ x: 100, y: 0 })
+    expect(wheelPan({ dx: 100, dy: 0, shift: true })).toEqual({ x: 100, y: 0 })
+    expect(wheelPan({ dx: 3, dy: 40, shift: false })).toEqual({ x: 3, y: 40 })
+  })
+})

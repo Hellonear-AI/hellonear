@@ -1369,6 +1369,7 @@ function HttpPanel({
 
 const SHORTCUTS: [string, string][] = [
   ["Scroll, or drag empty canvas", "Move around"],
+  ["Shift + scroll", "Move sideways"],
   ["Space + drag, or the middle button", "Move around from anywhere"],
   ["Ctrl/Cmd + scroll, or pinch", "Zoom"],
   ["+ and -", "Zoom in and out"],
