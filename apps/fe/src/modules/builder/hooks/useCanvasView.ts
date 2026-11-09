@@ -54,6 +54,18 @@ export function wheelZoomFactor(dy: number): number {
   return Math.exp(-Math.max(-120, Math.min(120, dy)) * ZOOM_PER_PX)
 }
 
+/**
+ * The dotted grid on screen (Ancung, 9 Nov: zoomed far out, 20 px dots shrank to 5 px apart and
+ * shimmered). Like Figma and n8n, the grid doubles whenever its dots would sit closer than 14 px,
+ * so on screen they are never closer than 14 px (14 to 28 px when zoomed out), and they fade a
+ * little when zoomed out.
+ */
+export function gridOf(zoom: number): { spacing: number; opacity: number } {
+  let spacing = 20 * zoom
+  while (spacing < 14) spacing *= 2
+  return { spacing, opacity: zoom >= 0.75 ? 1 : 0.55 + (zoom / 0.75) * 0.45 }
+}
+
 /** Things inside the canvas that take the pointer themselves (cards, inputs, drag handles). */
 const OWN_POINTER = "button, a, input, textarea, [draggable='true'], [role='button']"
 
@@ -73,8 +85,10 @@ export function useCanvasView() {
     const v = current.current
     if (content.current) content.current.style.transform = `translate3d(${v.x}px, ${v.y}px, 0) scale(${v.zoom})`
     if (frame.current) {
+      const g = gridOf(v.zoom)
       frame.current.style.backgroundPosition = `${v.x}px ${v.y}px`
-      frame.current.style.backgroundSize = `${20 * v.zoom}px ${20 * v.zoom}px`
+      frame.current.style.backgroundSize = `${g.spacing}px ${g.spacing}px`
+      frame.current.style.setProperty("--dot-opacity", String(g.opacity))
     }
     if (zoomLabel.current) zoomLabel.current.textContent = `${Math.round(v.zoom * 100)}%`
   }, [])

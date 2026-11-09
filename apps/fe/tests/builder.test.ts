@@ -190,3 +190,18 @@ describe("Builder Shift + scroll", () => {
     expect(wheelPan({ dx: 3, dy: 40, shift: false })).toEqual({ x: 3, y: 40 })
   })
 })
+
+describe("Builder grid when zoomed out", () => {
+  it("never puts dots closer than 14 px on screen, and fades them a little zoomed out", async () => {
+    const { gridOf } = await import("@/modules/builder/hooks/useCanvasView")
+    expect(gridOf(1)).toEqual({ spacing: 20, opacity: 1 })
+    expect(gridOf(0.25).spacing).toBe(20)
+    expect(gridOf(0.5).spacing).toBe(20)
+    expect(gridOf(0.6).spacing).toBeCloseTo(24)
+    for (const z of [0.25, 0.3, 0.45, 0.7, 1, 1.5, 2]) {
+      expect(gridOf(z).spacing).toBeGreaterThanOrEqual(14)
+      expect(gridOf(z).spacing).toBeLessThan(41)
+    }
+    expect(gridOf(0.25).opacity).toBeLessThan(0.75)
+  })
+})

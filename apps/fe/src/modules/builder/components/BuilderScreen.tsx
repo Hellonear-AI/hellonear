@@ -598,8 +598,10 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             if (!moved && e.button === 0 && !spaceDown && e.target instanceof Element && !e.target.closest("button, a, input, textarea, [draggable='true']")) setSelected(null)
           }}
           onPointerCancel={endPan}
+          // Dots that fade a little when zoomed out (--dot-opacity, set with the grid in useCanvasView).
+          style={{ backgroundImage: "radial-gradient(color-mix(in oklab, var(--color-border) calc(var(--dot-opacity, 1) * 100%), transparent) 1px, transparent 1px)" }}
           className={cn(
-            "relative min-h-[60dvh] min-w-0 flex-1 touch-none overflow-hidden bg-[radial-gradient(var(--color-border)_1px,transparent_1px)] select-none lg:min-h-0",
+            "relative min-h-[60dvh] min-w-0 flex-1 touch-none overflow-hidden select-none lg:min-h-0",
             panning ? "cursor-grabbing" : spaceDown ? "cursor-grab" : "cursor-default"
           )}
         >
