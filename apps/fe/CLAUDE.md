@@ -106,6 +106,12 @@ Skills (`/minds/[mindId]/skills` and `/skills/[skillId]`, `src/modules/skills`, 
 - `/skills/[skillId]` (S3.1): what it uses and Remove (S2.5). Payments has no limits of its own; they are the wallet's, changed in Wallet (#55).
 - Proven 9 Nov (Ancung, Omaga, against the hosted API): adding and removing skills, NEAR account lookup used from the chat, Other apps calling a public API, and connecting Gmail (Composio sent the window back to `hellonear.jameshub.fun`, which has no DNS yet; the Skills page picked the connection up by itself). Not checked yet: phone and tablet layouts.
 
+Connections (`/minds/[mindId]/connections`, `src/modules/connections`, design "6 · Skills and apps" K1, K2; account level, not per Mind):
+- Apps: Gmail and Google Calendar (#57; the design shows Gmail only), from `GET /connections`. Connect opens the Composio Connect Link in a new window (no opener) and the page reads `GET /connections` every 3 s until it shows connected (K1.3, "Waiting for Google", Cancel = `DELETE /connections/{toolkit}`). Expired shows a banner and Reconnect (K1.4); Disconnect asks first (K2.3). Logos: `GmailLogo` is the design's `Logo/Gmail` (`src/components/elements/AppLogos.tsx`, don't redraw); the calendar uses a plain icon.
+- `/connections` (top level) is where Composio sends the sign-in window back (`{FE_ORIGIN}/connections?toolkit=…`). It tries to close itself and never claims success: the query string proves nothing, the opener reads `GET /connections`.
+- Keys (#18): `GET /secrets` (never values) shown as dots; Add and Replace (`PUT /secrets/{NAME}`, K1.5, K2.1) and Delete (K2.2) only. Rules in `data/keys.ts` match `apps/be/src/secrets.ts`: name `^[A-Z][A-Z0-9_]{0,63}$`, 1 to 10 host names without scheme or path, value 4 to 8192 characters. The value field is a password field. Try-out users can't save keys (`demo_not_allowed`).
+- "How your keys are kept" only states what api-contract.md marks [tested]: no values back, https and listed hosts only, the model sees placeholders, Autopilot gets no secrets.
+
 Imports: `@/*` → `src/*`, `@app/*` → `app/*`. Keep route files in `app/` thin; put screens in `src/modules/<feature>/components`.
 
 ## Backend and sign-in
