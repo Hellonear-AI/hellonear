@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { CheckIcon, CircleDashedIcon, XIcon } from "lucide-react"
+import { ArrowUpRightIcon, CheckIcon, CircleDashedIcon, XIcon } from "lucide-react"
 import { cn } from "cn"
 import { mindHref } from "@/components/layout/nav"
 import type { SkillLine } from "@/modules/skills/data/skills"
@@ -18,17 +18,17 @@ export function SkillLines({ mindId, lines, size = "sm" }: { mindId: string; lin
           ) : (
             <CircleDashedIcon className={cn("mt-0.5 shrink-0", icon)} />
           )}
-          <span>
-            {t}
-            {connect && (
-              <>
-                {" "}
-                <Link href={mindHref(mindId, "connections")} className="rounded-sm font-medium text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-focus">
-                  Connect
-                </Link>
-              </>
-            )}
-          </span>
+          <span className="min-w-0 flex-1">{t}</span>
+          {connect && (
+            // Its own spot at the end of the row, so it reads as an action, not part of the sentence (Ancung).
+            <Link
+              href={mindHref(mindId, "connections")}
+              className="ml-3 flex shrink-0 items-center gap-1 rounded-sm font-medium text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-focus"
+            >
+              Connect
+              <ArrowUpRightIcon className={icon} />
+            </Link>
+          )}
         </li>
       ))}
     </ul>
