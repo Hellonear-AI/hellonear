@@ -5,7 +5,12 @@
 
 import type { ApiConnection } from "@/modules/minds/api"
 
-type Ctx = { name: string; limit: string | null }
+type Ctx = {
+  name: string
+  limit: string | null
+  /** App connection status, so a line can say "connected" instead of "if you connect it". */
+  apps?: Partial<Record<ApiConnection["toolkit"], ApiConnection["status"]>>
+}
 
 export type SkillCopy = {
   title: string
@@ -60,7 +65,8 @@ export const SKILLS: Record<string, SkillCopy> = {
   "daily-planner": {
     title: "Daily planner",
     blurb: "Knows the time and date, plans your day, and does quick math.",
-    canUse: () => ["The time and date", "Simple math", "Your Google Calendar, if you connect it"],
+    // The calendar line comes from `uses` with its real status (skillLines).
+    canUse: () => ["The time and date", "Simple math"],
     cannot: [],
     uses: "googlecalendar",
     ask: {
@@ -120,6 +126,27 @@ export function skillCopy(skillId: string): SkillCopy {
 }
 
 export const TOOLKIT_NAME: Record<ApiConnection["toolkit"], string> = { gmail: "Gmail", googlecalendar: "Google Calendar" }
+
+/** One "Can use" line: allowed, not allowed, or an app that isn't connected yet (with a way to connect it). */
+export type SkillLine = { t: string; tone: "ok" | "no" | "off"; connect?: ApiConnection["toolkit"] }
+
+/**
+ * What a skill can use, as shown on its card and page. An optional app shows whether it is
+ * connected now, not "if you connect it" (Ancung, 9 Nov).
+ */
+export function skillLines(skillId: string, ctx: Ctx): SkillLine[] {
+  const copy = skillCopy(skillId)
+  const lines: SkillLine[] = copy.canUse(ctx).map((t) => ({ t, tone: "ok" }))
+  if (copy.uses) {
+    const app = TOOLKIT_NAME[copy.uses]
+    lines.push(
+      ctx.apps?.[copy.uses] === "connected"
+        ? { t: `Your ${app}, connected`, tone: "ok" }
+        : { t: `Your ${app}, not connected`, tone: "off", connect: copy.uses }
+    )
+  }
+  return [...lines, ...copy.cannot.map((t): SkillLine => ({ t, tone: "no" }))]
+}
 
 /** Search by the words people see, not the engine's ids. */
 export function matchesSearch(skillId: string, query: string): boolean {

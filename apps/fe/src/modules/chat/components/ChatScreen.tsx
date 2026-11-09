@@ -45,9 +45,12 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   const activeRunId = activeHere ? (activeHere.resumeOf ?? activeHere.view.runId) : null
   const busy = Boolean(active?.streaming)
 
+  // The run in progress keeps one key, `active-{id}`, whether it comes from the stream or from a
+  // refetched thread (window focus refetches it mid-stream). A key change remounted the turn and
+  // replayed its entrance, so the sent message and first thought seemed to appear twice (Ancung).
   const shown: Shown[] = thread.turns.map((t) =>
     activeHere && t.runId === activeRunId
-      ? { key: t.runId, message: t.message, createdAt: t.createdAt, view: activeHere.view, live: activeHere.streaming, failed: activeHere.failed }
+      ? { key: `active-${activeHere.id}`, message: t.message, createdAt: t.createdAt, view: activeHere.view, live: activeHere.streaming, failed: activeHere.failed }
       : { key: t.runId, message: t.message, createdAt: t.createdAt, view: t.view, live: false, failed: null }
   )
   if (activeHere && !thread.turns.some((t) => t.runId === activeRunId)) {
