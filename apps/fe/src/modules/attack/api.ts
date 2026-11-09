@@ -3,8 +3,8 @@ import { ownerTimeZone, stream } from "@/modules/chat/api"
 import type { RunEvent } from "@/modules/chat/data/events"
 
 // Attack Playground (#16). The engine side is docs/api-contract.md §2 (`GET /v1/attacks`, `attackId`
-// on a run, `attack.verdict` in §3). The backend routes are asked for in the issue linked from
-// apps/fe/CLAUDE.md: until they exist, `list` answers null and the screen says so.
+// on a run, `attack.verdict` in §3). The backend routes are asked for in #129: until they exist,
+// `list` answers null and the screen says so.
 
 export type ApiAttack = {
   attackId: string
