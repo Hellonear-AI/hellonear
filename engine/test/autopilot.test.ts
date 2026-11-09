@@ -29,7 +29,7 @@ type Ev = Record<string, any>
 const call = (method: string, path: string, body?: unknown) =>
   fetch(base + path, { method, headers: { 'content-type': 'application/json', 'x-engine-key': key }, body: body === undefined ? undefined : JSON.stringify(body) })
 const path = (id: string) => `/v1/minds/${mindId}/workflows/${id}`
-const penny = (skills = ['payments', 'near-account']) => ({ templateId: 'payments-mind', name: 'Penny', soul: { identity: 'Always end every reply with "— Penny".' }, skills: skills.map((skillId) => ({ skillId })) })
+const penny = (skills = ['payments', 'near-account']) => ({ templateId: 'payments-mind', name: 'Penny', soul: { identity: 'Always end every reply with "[Penny]".' }, skills: skills.map((skillId) => ({ skillId })) })
 const on = (body: Record<string, unknown> = {}) => ({ userId: 'u1', mind: penny(), input: { account }, ...body })
 const json = async (res: Response, status: number) => {
   const text = await res.text()
