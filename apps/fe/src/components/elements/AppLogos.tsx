@@ -1,11 +1,12 @@
 import { useId } from "react"
 import { cn } from "cn"
 
-// Google's 2026 Gmail and Google Calendar icons, shown where an app is connected or needed so
-// people recognise it at a glance (Ancung, 9 Nov; the design had a one-colour Gmail). Paths and
-// gradients copied as is from thesvg.org (`/icons/gmail-2026/default.svg`,
-// `/icons/google-calendar-2026/default.svg`, read 9 Nov: paths, gradients, masks and one blur,
-// nothing else). Gmail and Google Calendar are Google trademarks, used here to name the apps.
+// Google's 2026 Gmail, Google Calendar and Google Meet icons, shown where an app is connected or
+// needed so people recognise it at a glance (Ancung, 9 Nov; the design had a one-colour Gmail).
+// Paths and gradients copied as is from thesvg.org (`/icons/gmail-2026/default.svg`,
+// `/icons/google-calendar-2026/default.svg`, `/icons/google-meet-2026/default.svg`, read 9 Nov:
+// paths, gradients, masks and blurs, nothing else). Gmail, Google Calendar and Google Meet are
+// Google trademarks, used here to name the apps.
 // Ids get a per-use prefix so two logos on one page don't share gradients. Don't redraw or recolour.
 
 /** useId with only safe characters: React's ids have ":" or "«»", which break url(#…) references. */
@@ -96,6 +97,46 @@ export function GoogleCalendarLogo({ className }: { className?: string }) {
  * (Meteor-Wallet/meteor_wallet_sdk `assets/meteor-logo-svg.svg`, read 9 Nov: paths, rects, a
  * circle and gradients; its one href points at its own gradient). Copied as is.
  */
+export function GoogleMeetLogo({ className }: { className?: string }) {
+  const id = useSvgId()
+  const body = "M8 71c0-24.3 19.7-44 44-44h64c11.046 0 20 8.954 20 20v98c0 11.046-8.954 20-20 20H28c-11.046 0-20-8.954-20-20z"
+  return (
+    <svg viewBox="0 0 192 192" fill="none" role="img" aria-label="Google Meet" className={cn("size-5", className)}>
+      <path
+        fill={`url(#${id}a)`}
+        d="M110.015 108.88c-6.829-4.718-6.921-14.778-.179-19.62L165 49.643c7.94-5.701 19-.038 19 9.737v77.755c0 9.675-10.861 15.359-18.821 9.859z"
+      />
+      <path fill={`url(#${id}b)`} d={body} />
+      <mask id={`${id}e`} width="129" height="138" x="8" y="27" maskUnits="userSpaceOnUse" style={{ maskType: "luminance" }}>
+        <path fill="#fff" d={body} />
+      </mask>
+      <g filter={`url(#${id}c)`} mask={`url(#${id}e)`}>
+        <path fill={`url(#${id}f)`} d="m73.906 99.198 110-63.198v124z" />
+      </g>
+      <circle cx="38" cy="135" r="14" fill="#fff" />
+      <defs>
+        <linearGradient id={`${id}a`} x1="128.8" x2="227.2" y1="104.44" y2="104.44" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#f6a100" />
+          <stop offset="1" stopColor="#ffbe00" />
+        </linearGradient>
+        <linearGradient id={`${id}f`} x1="136.22" x2="78.5" y1="91.32" y2="91.19" gradientUnits="userSpaceOnUse">
+          <stop offset=".15" stopColor="#ffb5e8" />
+          <stop offset="1" stopColor="#ffdbf5" stopOpacity="0" />
+        </linearGradient>
+        <radialGradient id={`${id}b`} cx="0" cy="0" r="1" gradientTransform="matrix(-159.725 0 0 -135.852 160.325 96)" gradientUnits="userSpaceOnUse">
+          <stop offset=".15" stopColor="#ffe921" />
+          <stop offset="1" stopColor="#fec700" />
+        </radialGradient>
+        <filter id={`${id}c`} width="166" height="180" x="45.91" y="8" colorInterpolationFilters="sRGB" filterUnits="userSpaceOnUse">
+          <feFlood floodOpacity="0" result="BackgroundImageFix" />
+          <feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
+          <feGaussianBlur result="effect1_foregroundBlur_37584_9338" stdDeviation="14" />
+        </filter>
+      </defs>
+    </svg>
+  )
+}
+
 export function MeteorLogo({ className }: { className?: string }) {
   const id = useSvgId()
   return (

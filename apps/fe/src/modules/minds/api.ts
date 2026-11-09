@@ -72,13 +72,13 @@ export type ApiSkill = {
   skillId: string
   description: string
   status: "available" | "simulated" | "blocked"
-  /** Composio toolkits (`gmail`, `googlecalendar`) or `near-wallet`. */
+  /** Composio toolkits (`gmail`, `googlecalendar`, `googlemeet`) or `near-wallet`. */
   connections: string[]
   note?: string
   tools: string[]
 }
 
-export type ApiConnection = { toolkit: "gmail" | "googlecalendar"; status: "connected" | "pending" | "expired" | "not_connected"; since?: string }
+export type ApiConnection = { toolkit: "gmail" | "googlecalendar" | "googlemeet"; status: "connected" | "pending" | "expired" | "not_connected"; since?: string }
 
 export type ApiThread = {
   threadId: string

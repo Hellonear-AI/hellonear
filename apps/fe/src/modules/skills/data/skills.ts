@@ -69,18 +69,20 @@ export const SKILLS: Record<string, SkillCopy> = {
   },
   "daily-planner": {
     title: "Daily planner",
-    blurb: "Knows the time and date, plans your day, and does quick math.",
+    blurb: "Knows the time and date, plans your day, schedules meetings, and does quick math.",
     // The calendar line comes from `uses` with its real status (skillLines).
     canUse: () => ["The time and date", "Simple math"],
     cannot: [],
-    uses: "googlecalendar",
+    // Meet links come from Google Meet (#97); the meeting itself goes in Google Calendar.
+    uses: ["googlecalendar", "googlemeet"],
     ask: {
-      why: (c) => `${c.name} will help plan your day. With Google Calendar connected, it can read your events and add new ones.`,
-      does: () => ["Plan your day and do quick math", "Read your calendar and add events, if you connect it"],
-      never: (c) => [`Add an event without asking you`, `Change anything ${c.name} didn't add`],
-      note: "No signature needed. Every new event waits for your OK.",
+      why: (c) =>
+        `${c.name} will help plan your day. With Google Calendar connected, it can read your events, add new ones and invite guests; with Google Meet, it can add a video link.`,
+      does: () => ["Plan your day and do quick math", "Read your calendar and add events", "Schedule meetings with guests and a Meet link"],
+      never: (c) => ["Add an event or invite anyone without asking you", "Invite an address you didn't type in the chat", `Change anything ${c.name} didn't add`],
+      note: "No signature needed. Every new event waits for your OK, and Google emails each guest an invite in your name.",
     },
-    added: (c) => `${c.name} can plan your day. Connect Google Calendar in Connections to let it see your events.`,
+    added: (c) => `${c.name} can plan your day. Connect Google Calendar in Connections to let it see your events, and Google Meet for video links.`,
     removed: (c) => `${c.name} won't plan your day any more. Events it added stay in your calendar.`,
   },
   "near-account": {
@@ -179,7 +181,14 @@ export function skillCopy(skillId: string): SkillCopy {
   )
 }
 
-export const TOOLKIT_NAME: Record<ApiConnection["toolkit"], string> = { gmail: "Gmail", googlecalendar: "Google Calendar" }
+export const TOOLKIT_NAME: Record<ApiConnection["toolkit"], string> = { gmail: "Gmail", googlecalendar: "Google Calendar", googlemeet: "Google Meet" }
+
+/** What a try-out gets instead of each app (engine: sample data, a fake Meet link, nobody invited). */
+const TRY_OUT_SAMPLE: Record<ApiConnection["toolkit"], string> = {
+  gmail: "A sample inbox for the try-out",
+  googlecalendar: "A sample calendar for the try-out",
+  googlemeet: "A sample Meet link for the try-out",
+}
 
 /** One "Can use" line: allowed, not allowed, or an app that isn't connected yet (with a way to connect it). */
 export type SkillLine = { t: string; tone: "ok" | "no" | "off"; connect?: ApiConnection["toolkit"] }
@@ -194,7 +203,7 @@ export function skillLines(skillId: string, ctx: Ctx): SkillLine[] {
   for (const toolkit of copy.uses ? [copy.uses].flat() : []) {
     const app = TOOLKIT_NAME[toolkit]
     if (ctx.tryOut) {
-      lines.push({ t: `A sample ${toolkit === "gmail" ? "inbox" : "calendar"} for the try-out`, tone: "ok" })
+      lines.push({ t: TRY_OUT_SAMPLE[toolkit], tone: "ok" })
       continue
     }
     lines.push(
