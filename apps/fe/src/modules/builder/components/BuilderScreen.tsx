@@ -14,6 +14,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { ApiError } from "@/lib/api"
 import { autopilotApi } from "@/modules/autopilot/api"
 import { nodeSummary, type NodeRun } from "@/modules/builder/data/testRun"
+import { dropDraft, keepDraft, readDraft } from "@/modules/builder/data/autosave"
+import { timeAgo } from "@/lib/format"
 import { scheduleText, zoneName } from "@/modules/autopilot/data/schedule"
 import { autopilotKeys, useWorkflow, useWorkflows } from "@/modules/autopilot/hooks/useAutopilot"
 import {
@@ -99,11 +101,23 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const setSkills = useSetSkills(mindId)
   const jobs = useWorkflows(mindId)
   const [draft, setDraft] = useState<Draft>(initial)
+  // Changes kept on this device from an earlier visit (autosave), offered back once.
+  const [kept, setKept] = useState(() => {
+    const k = readDraft(mindId, workflowId)
+    return k && JSON.stringify(k.draft) !== JSON.stringify(initial) ? k : null
+  })
   const [selected, setSelected] = useState<string>("start")
   const [saving, setSaving] = useState(false)
   const [engineIssues, setEngineIssues] = useState<{ node: string | null; text: string }[]>([])
   const [saveError, setSaveError] = useState<string | null>(null)
   const dirty = JSON.stringify(draft) !== JSON.stringify(initial)
+  // Autosave: every change is kept on this device until Save, so leaving loses nothing. Not while
+  // an earlier draft waits for Restore or Discard, so it isn't overwritten first.
+  useEffect(() => {
+    if (kept) return
+    const t = setTimeout(() => (dirty ? keepDraft(mindId, workflowId, draft) : dropDraft(mindId, workflowId)), 400)
+    return () => clearTimeout(t)
+  }, [draft, dirty, kept, mindId, workflowId])
   const [savedTry, setSavedTry] = useState<string | null>(null)
   const dirtySinceSave = savedTry !== null && savedTry !== JSON.stringify(draft)
   const [test, setTest] = useState<{ running: boolean; nodes: Record<string, NodeRun>; status: string | null; failed: boolean } | null>(null)
@@ -227,6 +241,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       await autopilotApi.save(mindId, id, toCanvas(draft))
       await queryClient.invalidateQueries({ queryKey: autopilotKeys.list(mindId) })
       await queryClient.invalidateQueries({ queryKey: autopilotKeys.one(mindId, id) })
+      dropDraft(mindId, workflowId)
       router.push(`${mindHref(mindId, "autopilot")}?job=${encodeURIComponent(id)}`)
     } catch (err) {
       setSaving(false)
@@ -255,14 +270,16 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const canIf = !b && resultsBefore(draft.steps).some(comparable)
 
   return (
-    <div className="flex min-h-[calc(100dvh-64px)] min-w-0 flex-col md:min-h-dvh">
+    <div className="flex min-h-dvh min-w-0 flex-col bg-background">
       <header className="flex items-center gap-3 border-b border-border px-4 py-3 md:px-6">
         <Button variant="ghost" size="icon" aria-label="Back to Autopilot" nativeButton={false} render={<Link href={mindHref(mindId, "autopilot")} />}>
           <ArrowLeftIcon />
         </Button>
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="truncate text-[15px] font-semibold text-foreground">{draft.name.trim() || "Untitled job"}</span>
-          <span className="text-xs text-muted-foreground">{!workflowId ? "Not saved yet" : dirty ? "Changes not saved" : "All changes saved"}</span>
+          <span className="text-xs text-muted-foreground">
+            {dirty ? "Draft kept on this device, not saved yet" : !workflowId ? "Not saved yet" : "All changes saved"}
+          </span>
         </div>
         {workflowId && (
           <Button
@@ -281,6 +298,30 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
         </Button>
       </header>
 
+      {kept && (
+        <div role="status" className="mx-4 mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md bg-info-soft px-3.5 py-2.5 text-sm text-foreground md:mx-6">
+          <span className="min-w-0 flex-1">You have unsaved changes from {timeAgo(kept.at)} on this device.</span>
+          <Button
+            size="sm"
+            onClick={() => {
+              setDraft(kept.draft)
+              setKept(null)
+            }}
+          >
+            Restore
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              dropDraft(mindId, workflowId)
+              setKept(null)
+            }}
+          >
+            Discard
+          </Button>
+        </div>
+      )}
       {(engineIssues.length > 0 || saveError) && (
         <div role="alert" className="mx-4 mt-4 flex items-start gap-2.5 rounded-md bg-danger-soft px-3.5 py-3 text-sm text-foreground md:mx-6">
           <CircleXIcon className="mt-0.5 size-4 shrink-0 text-danger" />

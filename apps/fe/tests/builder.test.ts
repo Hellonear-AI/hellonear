@@ -130,3 +130,25 @@ describe("Builder drag and drop (B1.7)", () => {
     expect(ids(moveStepIn(line, "x", 0))).toBe("abc")
   })
 })
+
+describe("Builder autosave (on this device)", () => {
+  it("keeps, reads and drops a draft per Mind and job, and survives blocked storage", async () => {
+    const { vi } = await import("vitest")
+    const store = new Map<string, string>()
+    vi.stubGlobal("window", {
+      localStorage: { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v), removeItem: (k: string) => void store.delete(k) },
+    })
+    const { dropDraft, keepDraft, readDraft } = await import("@/modules/builder/data/autosave")
+    keepDraft("m1", null, draft, new Date("2026-11-09T14:00:00Z"))
+    expect(readDraft("m1", null)).toEqual({ draft, at: "2026-11-09T14:00:00.000Z" })
+    expect(readDraft("m1", "other-job")).toBeNull()
+    dropDraft("m1", null)
+    expect(readDraft("m1", null)).toBeNull()
+    store.set("hellonear.builder.m1.bad", "{not json")
+    expect(readDraft("m1", "bad")).toBeNull()
+    vi.stubGlobal("window", { localStorage: { getItem: () => { throw new Error("blocked") }, setItem: () => { throw new Error("blocked") }, removeItem: () => { throw new Error("blocked") } } })
+    expect(readDraft("m1", null)).toBeNull()
+    expect(() => keepDraft("m1", null, draft)).not.toThrow()
+    vi.unstubAllGlobals()
+  })
+})
