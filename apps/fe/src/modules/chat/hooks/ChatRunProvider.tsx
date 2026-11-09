@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { usePathname, useRouter } from "next/navigation"
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { mindHref } from "@/components/layout/nav"
+import { ArrowUpRightIcon } from "lucide-react"
 import { toast } from "sonner"
 import { explorerTxUrl } from "@/lib/format"
 import { chatApi } from "@/modules/chat/api"
@@ -129,13 +130,23 @@ function showOutcome(id: string, outcome: Outcome) {
     id,
     description: outcome.detail,
     action: outcome.txHash
-      ? { label: "NearBlocks ↗", onClick: () => window.open(explorerTxUrl(outcome.txHash!), "_blank", "noopener,noreferrer") }
+      ? { label: <ExternalLabel>NearBlocks</ExternalLabel>, onClick: () => window.open(explorerTxUrl(outcome.txHash!), "_blank", "noopener,noreferrer") }
       : undefined,
   }
   if (outcome.kind === "sending") toast.loading(outcome.title, opts)
   else if (outcome.kind === "sent") toast.success(outcome.title, { ...opts, duration: 10_000 })
   else if (outcome.kind === "declined") toast(outcome.title, opts)
   else toast.error(outcome.title, { ...opts, duration: 10_000 })
+}
+
+// A drawn arrow, not "↗": Windows renders that character as a blue emoji (Ancung, 9 Nov).
+function ExternalLabel({ children }: { children: ReactNode }) {
+  return (
+    <span className="flex items-center gap-1">
+      {children}
+      <ArrowUpRightIcon className="size-3.5" />
+    </span>
+  )
 }
 
 export function useChatRun(): ChatRun {

@@ -140,12 +140,15 @@ export function ApprovalCard({
   step,
   wallet,
   busy,
+  sending,
   onAnswer,
 }: {
   mindId: string
   step: ToolStep
   wallet: ApiWallet | null
   busy: boolean
+  /** The answer on its way, if this card's: its button spins until the result replaces the card. */
+  sending: "approve" | "decline" | null
   onAnswer: (action: "approve" | "decline") => void
 }) {
   const payment = paymentOf(step)
@@ -173,12 +176,13 @@ export function ApprovalCard({
       )}
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" size="sm" onClick={() => onAnswer("decline")} disabled={busy}>
-          Decline
+          {sending === "decline" && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+          {sending === "decline" ? "Declining" : "Decline"}
         </Button>
-        {next === "approve" ? (
-          <Button size="sm" onClick={() => onAnswer("approve")} disabled={busy}>
-            <CheckIcon />
-            Approve
+        {next === "approve" || sending === "approve" ? (
+          <Button size="sm" onClick={() => onAnswer("approve")} disabled={busy} aria-live="polite">
+            {sending === "approve" ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <CheckIcon />}
+            {sending === "approve" ? "Sending" : "Approve"}
           </Button>
         ) : (
           <Button size="sm" nativeButton={false} render={<Link href={mindHref(mindId, next === "unfreeze" ? "approvals" : "wallet")} />}>

@@ -145,6 +145,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
                       busy={busy}
                       onRetry={() => s.message && send(s.message, threadId ?? activeHere?.threadId ?? null)}
                       wallet={wallet}
+                      answering={activeHere?.answer ?? null}
                       onAnswer={(step, action) =>
                         s.view.runId &&
                         resume({ runId: s.view.runId, threadId: threadId ?? s.view.threadId, toolCallId: step.toolCallId, action, tool: step.tool, args: step.args })
@@ -186,6 +187,7 @@ function TurnView({
   busy,
   onRetry,
   wallet,
+  answering,
   onAnswer,
 }: {
   mindId: string
@@ -196,6 +198,8 @@ function TurnView({
   busy: boolean
   onRetry: () => void
   wallet: ApiWallet | null
+  /** The approval being answered right now, if any. */
+  answering: { toolCallId: string; action: "approve" | "decline" } | null
   onAnswer: (step: ToolStep, action: "approve" | "decline") => void
 }) {
   const { view, live } = turn
@@ -239,8 +243,20 @@ function TurnView({
 
       {view.tools.map((step) => {
         const payment = paymentOf(step)
-        if (step.status === "awaiting_approval" && view.status === "awaiting_approval" && !live) {
-          return <ApprovalCard key={step.toolCallId} mindId={mindId} step={step} wallet={wallet} busy={busy} onAnswer={(action) => onAnswer(step, action)} />
+        // Waiting, or being answered right now (then it says "Sending" until the result replaces it).
+        const answeringThis = answering?.toolCallId === step.toolCallId && live
+        if (step.status === "awaiting_approval" && ((view.status === "awaiting_approval" && !live) || answeringThis)) {
+          return (
+            <ApprovalCard
+              key={step.toolCallId}
+              mindId={mindId}
+              step={step}
+              wallet={wallet}
+              busy={busy}
+              sending={answeringThis ? answering.action : null}
+              onAnswer={(action) => onAnswer(step, action)}
+            />
+          )
         }
         if (!payment) return null
         if (step.status === "ok") return <PaymentReceipt key={step.toolCallId} payment={payment} policy={policy} />

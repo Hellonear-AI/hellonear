@@ -127,11 +127,12 @@ export function foldRun(events: RunEvent[]): RunView {
   if (waiting.length > 0 && !resumed) {
     if (view.status !== "error") view.status = "awaiting_approval"
   } else if (resumed) {
-    // The run went on without the tool ever running: the owner declined it.
-    for (const step of waiting) step.status = "declined"
-    // A resumed stream that hasn't finished yet is still running.
     const last = sorted.at(-1)?.type
-    if (view.status !== "error" && last !== "run.finished" && last !== "run.verified") view.status = "running"
+    const ended = view.status === "error" || last === "run.finished" || last === "run.verified"
+    // A resumed run that ended without the tool ever running was declined. While it still runs,
+    // the tool may be about to: keep it waiting so its card can say "Sending".
+    if (ended) for (const step of waiting) step.status = "declined"
+    else view.status = "running"
   }
   return view
 }

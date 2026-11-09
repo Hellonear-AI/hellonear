@@ -164,3 +164,14 @@ describe("text around an approval", () => {
     expect(v.text).toBe("Waiting for your OK.\n\nDone!")
   })
 })
+
+describe("while an approval is being answered", () => {
+  it("keeps the tool waiting until the resumed run ends, so its card can say Sending", () => {
+    seq = 0
+    const paused = [ev("tool.approval_required", { toolCallId: "c1", tool: "send_payment" }), ev("run.finished")]
+    const going = foldRun([...paused, ev("step.started")])
+    expect(going.status).toBe("running")
+    expect(going.tools[0].status).toBe("awaiting_approval")
+    expect(foldRun([...paused, ev("step.started"), ev("run.finished")]).tools[0].status).toBe("declined")
+  })
+})
