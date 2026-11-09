@@ -195,3 +195,18 @@ describe("reply parts", () => {
     ])
   })
 })
+
+describe("a reply never vanishes", () => {
+  it("uses the stored message when the events carry no text", () => {
+    const empty = { runId: "r1", threadId: null, text: "", parts: [], tools: [], status: "finished" as const, verified: null, error: null, thinking: false, at: null }
+    const turns = toTurns(
+      [
+        { id: "1", role: "user", text: "hi", createdAt: "2026-11-09T10:00:00Z", runId: "r1" },
+        { id: "2", role: "assistant", text: "Hello!", createdAt: "2026-11-09T10:00:05Z", runId: "r1" },
+      ],
+      new Map([["r1", empty]])
+    )
+    expect(turns[0].view.text).toBe("Hello!")
+    expect(turns[0].view.parts).toEqual([{ kind: "text", text: "Hello!" }])
+  })
+})

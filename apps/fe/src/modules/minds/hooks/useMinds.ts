@@ -35,6 +35,7 @@ export function useMinds() {
           mindId: m.id,
           name: m.name,
           templateId: m.templateId,
+          skills: m.skills,
           // A wallet that can't be read shouldn't hide the Mind: show it without a balance.
           balanceNear: await mindsApi.wallet(m.id).then(
             (w) => (w ? w.balanceNear : null),
@@ -125,7 +126,7 @@ export function useCreateMind() {
   return useMutation({
     mutationFn: mindsApi.create,
     onSuccess: (mind) => {
-      const created: Mind = { mindId: mind.id, name: mind.name, templateId: mind.templateId, balanceNear: null }
+      const created: Mind = { mindId: mind.id, name: mind.name, templateId: mind.templateId, skills: mind.skills, balanceNear: null }
       queryClient.setQueryData<Mind[]>(mindKeys.all, (old) => [created, ...(old ?? []).filter((m) => m.mindId !== mind.id)])
       void queryClient.invalidateQueries({ queryKey: mindKeys.all })
     },

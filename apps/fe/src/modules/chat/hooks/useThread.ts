@@ -64,8 +64,12 @@ export function toTurns(messages: ApiMessage[], views: Map<string, RunView | nul
       turns.push(turn)
     }
     if (m.role === "user") turn.message = m.text
-    // Only fill the text from the message when the events aren't read yet.
-    else if (!views.get(m.runId)) turn.view = { ...turn.view, text: turn.view.text + m.text, at: m.createdAt }
+    // Fill the text from the stored message when the events aren't read yet, or when they carry
+    // no text but the message does (a reply must never vanish because its deltas are missing).
+    else if (!views.get(m.runId) || !turn.view.text.trim()) {
+      const text = turn.view.text + m.text
+      turn.view = { ...turn.view, text, parts: [...turn.view.parts, { kind: "text", text: m.text }], at: m.createdAt }
+    }
   }
   return turns
 }
