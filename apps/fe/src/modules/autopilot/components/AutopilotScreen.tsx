@@ -350,7 +350,7 @@ function RunRow({ run, name }: { run: WorkflowRun | null; name: string }) {
       {status === "ok" ? (
         <Badge variant="success">
           <CheckIcon />
-          Worked
+          Completed
         </Badge>
       ) : status === "failed" ? (
         <Badge variant="destructive">
