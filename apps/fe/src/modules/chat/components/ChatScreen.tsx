@@ -60,7 +60,6 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
     })
   }
 
-  const verified = [...shown].reverse().find((s) => s.view.verified)?.view.verified ?? null
   const isNew = !threadId && shown.length === 0
   const notFound = thread.error instanceof ApiError && thread.error.code === "thread_not_found"
 
@@ -80,7 +79,6 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
             {limit ? ` · Asks before every payment, up to ${limit} NEAR each` : ""}
           </p>
         </div>
-        {verified && <VerifiedBadge level={verified} />}
       </header>
 
       {frozen && (
