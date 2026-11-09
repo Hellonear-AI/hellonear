@@ -14,6 +14,11 @@ export const authApi = {
   /** Sets the `hn_session` cookie (7 days). 401 `invalid_nonce` or `invalid_signature`. */
   login: (body: LoginBody) => api<{ user: SessionUser }>("/auth/login", { body }),
   logout: () => api<void>("/auth/logout", { method: "POST" }),
+  /**
+   * Try-out (#43): a fresh user with no wallet, and the same cookie. 404 when the backend runs
+   * without DEMO_MODE, 429 `demo_rate_limited` after 10 per network per hour.
+   */
+  demo: () => api<{ user: SessionUser }>("/auth/demo", { method: "POST", body: {} }),
   /** The signed-in user, or 401 without a session. */
   me: () => api<{ user: SessionUser }>("/me"),
 }

@@ -14,6 +14,8 @@ import { paymentOf, type ReplyPart, type RunView, type ToolStep } from "@/module
 import { composerNote, introFor } from "@/modules/chat/data/intro"
 import { useChatRun } from "@/modules/chat/hooks/ChatRunProvider"
 import { useThread } from "@/modules/chat/hooks/useThread"
+import { TRY_OUT_MESSAGES, useTryOutLeft } from "@/modules/chat/hooks/useTryOut"
+import { useLeaveTryOut, useSession } from "@/modules/auth/hooks/useSession"
 import { Composer } from "@/modules/chat/components/Composer"
 import { ReplyText } from "@/modules/chat/components/ReplyText"
 import { ApprovalCard, PaymentFailed, PaymentReceipt, PaymentRefused } from "@/modules/chat/components/RunCards"
@@ -33,16 +35,29 @@ type Shown = { key: string; message: string | null; createdAt: string; view: Run
 export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: string | null }) {
   const mind = useMind(mindId).data
   const wallet = useMindWallet(mindId).data ?? null
+  const session = useSession()
   const thread = useThread(mindId, threadId)
   const { active, send, resume } = useChatRun()
 
   const name = mind?.name ?? "Your Mind"
   const templateId = mind?.templateId ?? "general-assistant"
   const frozen = Boolean(wallet?.frozen)
+  // Try-out (T1.3 to T1.5): the shared test wallet, a message count, and a way to a real wallet.
+  const tryOut = Boolean(session.data?.demo)
+  const tryOutLeft = useTryOutLeft()
+  const leaveTryOut = useLeaveTryOut()
+  const outOfMessages =
+    tryOut && (tryOutLeft === 0 || (active?.failed instanceof ApiError && active.failed.code === "demo_run_limit"))
   const limit = wallet?.policy?.perTransactionNear ?? null
 
   // The run in progress belongs here if it's this thread's, or a new chat still waiting for its id.
-  const activeHere = active && (threadId ? active.threadId === threadId : active.threadId === null || active.streaming) ? active : null
+  // On a new chat (`/chat`), the run started from this page stays on it until the move to
+  // `/chat/{threadId}` lands. Before, it only stayed while streaming, so a reply that finished
+  // before that move (slow in dev) dropped the page back to the empty "Hi, I'm …" for a moment
+  // (Ancung, 9 Nov). A run from before this page opened (a later "New chat") isn't shown.
+  const [openedAfter] = useState(() => active?.id ?? 0)
+  const activeHere =
+    active && (threadId ? active.threadId === threadId : active.newThread && active.id > openedAfter) ? active : null
   const activeRunId = activeHere ? (activeHere.resumeOf ?? activeHere.view.runId) : null
   const busy = Boolean(active?.streaming)
 
@@ -85,10 +100,22 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
           <h1 className="truncate text-[17px] font-semibold text-foreground">{name}</h1>
           <p className="truncate text-xs text-muted-foreground">
             {templateLabel(templateId)}
-            {limit ? `, asks before every payment, up to ${limit} NEAR each` : ""}
+            {tryOut ? ", try-out with a shared test wallet" : limit ? `, asks before every payment, up to ${limit} NEAR each` : ""}
           </p>
         </div>
       </header>
+
+      {tryOut && (
+        <div role="status" className="mx-4 mt-3 flex flex-col gap-2 rounded-md bg-brand-soft px-4 py-2.5 text-sm text-foreground sm:flex-row sm:items-center md:mx-8">
+          <p className="min-w-0 flex-1">
+            Try-out{tryOutLeft !== null ? `: ${tryOutLeft} of ${TRY_OUT_MESSAGES} messages left` : ""}. Payments come from a shared test wallet
+            {limit ? `, up to ${limit} NEAR each,` : ""} to approved addresses only.
+          </p>
+          <Button size="sm" variant="outline" className="w-fit shrink-0" onClick={leaveTryOut}>
+            Connect a wallet
+          </Button>
+        </div>
+      )}
 
       {frozen && (
         <div role="status" className="mx-4 mt-3 flex items-center gap-3 rounded-md bg-danger-soft px-4 py-2.5 text-sm text-foreground md:mx-8">
@@ -188,7 +215,25 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
       </div>
 
       <div className="mx-auto w-full max-w-[804px] px-4 pt-3 pb-4 md:px-10 md:pb-5">
-        <Composer name={name} busy={busy} note={composerNote(name, frozen)} onSend={(text) => send(text, threadId)} />
+        {outOfMessages && (
+          // T1.5: one clear way forward once the try-out's messages are used up.
+          <div className="mb-3 flex flex-col items-start gap-2 rounded-lg border border-border bg-surface p-4">
+            <p className="text-[15px] font-semibold text-foreground">That&apos;s the end of the try-out</p>
+            <p className="text-sm text-muted-foreground">
+              You&apos;ve used all {TRY_OUT_MESSAGES} messages. Connect a wallet to keep going with your own Mind, wallet and limits. This try-out is deleted after 7 days.
+            </p>
+            <Button size="sm" onClick={leaveTryOut}>
+              Connect Meteor
+            </Button>
+          </div>
+        )}
+        <Composer
+          name={name}
+          busy={busy}
+          note={outOfMessages ? "Connect a wallet to send more messages." : tryOut ? `Try-out payments: ${limit ? `up to ${limit} NEAR, ` : ""}approved addresses only.` : composerNote(name, frozen)}
+          locked={outOfMessages ? "Try-out finished" : undefined}
+          onSend={(text) => send(text, threadId)}
+        />
       </div>
     </div>
   )

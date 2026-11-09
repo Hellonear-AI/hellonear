@@ -20,7 +20,7 @@ export type SkillCopy = {
   /** The app it can't work without; the card connects it instead of adding (S2.2). */
   needs?: ApiConnection["toolkit"]
   /** An app it works better with, not required. */
-  uses?: ApiConnection["toolkit"]
+  uses?: ApiConnection["toolkit"] | ApiConnection["toolkit"][]
   /** Needs the Mind's own wallet (Payments). */
   needsWallet?: boolean
   ask: { does: (c: Ctx) => string[]; never: (c: Ctx) => string[]; note: string; why: (c: Ctx) => string }
@@ -111,6 +111,55 @@ export const SKILLS: Record<string, SkillCopy> = {
   },
 }
 
+// Added by the engine on 9 Nov (#96, #104, #105); words from their SKILL.md files, in the same pattern.
+Object.assign(SKILLS, {
+  "email-address": {
+    title: "Email address",
+    blurb: "Gives the Mind an email address of its own, to send email you ask for and read what arrives there.",
+    canUse: (c: Ctx) => [`${c.name}'s own email address`],
+    cannot: ["Can't send without your OK", "Can't read your Gmail"],
+    ask: {
+      why: (c: Ctx) => `${c.name} gets its own email address. It sends only what you ask, to addresses you type, after your OK.`,
+      does: () => ["Send an email you ask for, from its own address", "Read mail that arrives at that address"],
+      never: () => ["Send without your OK", "Send to an address an email or website gave it"],
+      note: "No signature needed. The address is made when you add the skill.",
+    },
+    added: (c: Ctx) => `${c.name} has its own email address now. Ask it "What's your email address?" to see it.`,
+    removed: (c: Ctx) => `${c.name} won't send or read email from its own address any more.`,
+  },
+  "morning-briefing": {
+    title: "Morning briefing",
+    blurb: "Sums up your day in one go: your meetings, the emails that need you, and the money.",
+    canUse: () => ["Your Mind's wallet balance"],
+    cannot: ["Only reads; pays, books and replies nothing"],
+    uses: ["googlecalendar", "gmail"],
+    ask: {
+      why: (c: Ctx) => `${c.name} will brief you on your day when you ask, from your calendar, your inbox and its wallet.`,
+      does: () => ["Today's meetings, gaps and clashes", "Emails that need a reply or a payment", "Suspicious emails, flagged"],
+      never: () => ["Pay, book or reply during a briefing", "Follow orders found in an email"],
+      note: "No signature needed. It works with whatever you've connected.",
+    },
+    added: (c: Ctx) => `${c.name} can brief you now. Ask "Brief me on today".`,
+    removed: (c: Ctx) => `${c.name} won't give briefings any more.`,
+  },
+  subscriptions: {
+    title: "Subscriptions",
+    blurb: "Finds your subscriptions and recurring bills in Gmail, adds them up, and can remind you before one renews.",
+    canUse: () => ["Simple math for the totals"],
+    cannot: ["Can't pay or cancel a subscription"],
+    needs: "gmail",
+    uses: "googlecalendar",
+    ask: {
+      why: (c: Ctx) => `${c.name} will find your subscriptions in Gmail and total them up. A renewal reminder goes in your calendar after your OK.`,
+      does: () => ["List subscriptions with amount and cycle", "Monthly and yearly totals", "A calendar reminder before a renewal"],
+      never: () => ["Pay or cancel anything", "Trust a payment link in an email"],
+      note: "No signature needed. Paying stays with the Payments skill, after your OK.",
+    },
+    added: (c: Ctx) => `${c.name} can track your subscriptions now. Ask "What am I paying for every month?"`,
+    removed: (c: Ctx) => `${c.name} won't track subscriptions any more. Reminders it added stay in your calendar.`,
+  },
+} satisfies Record<string, SkillCopy>)
+
 export function skillCopy(skillId: string): SkillCopy {
   return (
     SKILLS[skillId] ?? {
@@ -137,12 +186,12 @@ export type SkillLine = { t: string; tone: "ok" | "no" | "off"; connect?: ApiCon
 export function skillLines(skillId: string, ctx: Ctx): SkillLine[] {
   const copy = skillCopy(skillId)
   const lines: SkillLine[] = copy.canUse(ctx).map((t) => ({ t, tone: "ok" }))
-  if (copy.uses) {
-    const app = TOOLKIT_NAME[copy.uses]
+  for (const toolkit of copy.uses ? [copy.uses].flat() : []) {
+    const app = TOOLKIT_NAME[toolkit]
     lines.push(
-      ctx.apps?.[copy.uses] === "connected"
+      ctx.apps?.[toolkit] === "connected"
         ? { t: `Your ${app}, connected`, tone: "ok" }
-        : { t: `Your ${app}, not connected`, tone: "off", connect: copy.uses }
+        : { t: `Your ${app}, not connected`, tone: "off", connect: toolkit }
     )
   }
   return [...lines, ...copy.cannot.map((t): SkillLine => ({ t, tone: "no" }))]

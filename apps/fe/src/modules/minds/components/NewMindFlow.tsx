@@ -6,9 +6,9 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { mindHref } from "@/components/layout/nav"
 import { ApiError } from "@/lib/api"
-import { useSession } from "@/modules/auth/hooks/useSession"
+import { useLeaveTryOut, useSession, useSignOut } from "@/modules/auth/hooks/useSession"
 import { checkLimits, DEFAULT_PER_PAYMENT } from "@/modules/minds/data/limits"
-import { useCreateMind } from "@/modules/minds/hooks/useMinds"
+import { useCreateMind, useMinds } from "@/modules/minds/hooks/useMinds"
 import { SetUpError, useSetUpMind } from "@/modules/minds/hooks/useSetUpMind"
 import { WrongAccountError } from "@/modules/wallet/hooks/useOwnerTransaction"
 import { ChooseMindStep } from "@/modules/minds/components/ChooseMindStep"
@@ -30,6 +30,9 @@ export function NewMindFlow() {
   const session = useSession()
   const createMind = useCreateMind()
   const setUp = useSetUpMind()
+  const minds = useMinds().data
+  const leaveTryOut = useLeaveTryOut()
+  const signOut = useSignOut()
 
   const [step, setStep] = useState<"choose" | "limits">("choose")
   const [templateId, setTemplateId] = useState<string | null>(null)
@@ -107,6 +110,16 @@ export function NewMindFlow() {
       name={name}
       onNameChange={setName}
       busy={createMind.isPending}
+      tryOut={Boolean(session.data?.demo)}
+      // Always a way out: a try-out goes back to the wallets, a first-time owner can sign out,
+      // and an owner making another Mind goes back to the one they have.
+      leave={
+        session.data?.demo
+          ? { label: "Use a wallet instead", onClick: leaveTryOut }
+          : minds?.[0]
+            ? { label: `Back to ${minds[0].name}`, href: mindHref(minds[0].mindId) }
+            : { label: "Sign out", onClick: () => signOut.mutate(undefined, { onSettled: () => router.replace("/") }) }
+      }
       onContinue={() => {
         if (!templateId) return
         if (!session.data?.demo) {

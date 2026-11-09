@@ -6,8 +6,17 @@ import { connectionStatus } from "@/modules/skills/hooks/useSkills"
 afterEach(() => vi.unstubAllGlobals())
 
 describe("skill words (S1)", () => {
-  it("has the engine's five skills, in plain words, with no dot separators", () => {
-    expect(Object.keys(SKILLS).sort()).toEqual(["daily-planner", "email-triage", "http-request", "near-account", "payments"])
+  it("has the engine's eight skills, in plain words, with no dot separators", () => {
+    expect(Object.keys(SKILLS).sort()).toEqual([
+      "daily-planner",
+      "email-address",
+      "email-triage",
+      "http-request",
+      "morning-briefing",
+      "near-account",
+      "payments",
+      "subscriptions",
+    ])
     for (const id of Object.keys(SKILLS)) expect(JSON.stringify(skillCopy(id).blurb)).not.toContain("·")
   })
   it("puts the wallet limit into Payments when there is one", () => {
@@ -61,5 +70,16 @@ describe("skillLines", () => {
   })
   it("keeps can't lines last", () => {
     expect(skillLines("near-account", { name: "Omaga", limit: null }).map((l) => l.tone)).toEqual(["ok", "no"])
+  })
+})
+
+describe("new skills (9 Nov)", () => {
+  it("show every app they work with, connected or not", () => {
+    const lines = skillLines("morning-briefing", { name: "Omaga", limit: null, apps: { gmail: "connected" } })
+    expect(lines.filter((l) => l.connect).map((l) => l.t)).toEqual(["Your Google Calendar, not connected"])
+    expect(lines.some((l) => l.t === "Your Gmail, connected")).toBe(true)
+  })
+  it("make Subscriptions wait for Gmail", () => {
+    expect(SKILLS.subscriptions.needs).toBe("gmail")
   })
 })

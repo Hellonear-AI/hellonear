@@ -206,6 +206,9 @@ const TOOL_LABEL: Record<string, string> = {
   gmail_create_draft: "Saving a draft in Gmail",
   googlecalendar_list_events: "Checking your calendar",
   googlecalendar_create_event: "Adding to your calendar",
+  mail_send: "Sending an email",
+  mail_list: "Checking its inbox",
+  mail_read: "Reading an email",
   skill: "Picking up a skill",
   skill_read: "Picking up a skill",
 }

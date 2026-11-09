@@ -131,6 +131,9 @@ export const mindsApi = {
   freezeTransaction: async (mindId: string, freeze: boolean) =>
     (await api<{ transaction: OwnerTransaction }>(`/minds/${encodeURIComponent(mindId)}/wallet/${freeze ? "freeze" : "unfreeze"}`, { method: "POST", body: {} }))
       .transaction,
+  /** A Mind's runs, newest first (chat runs, builder runs; a resumed run is the same run). */
+  runs: async (mindId: string, limit = 20) =>
+    (await api<{ runs: { runId: string }[] }>(`/minds/${encodeURIComponent(mindId)}/runs?limit=${limit}`)).runs,
   threads: async (mindId: string, limit = 20) =>
     (await api<{ threads: ApiThread[] }>(`/minds/${encodeURIComponent(mindId)}/threads?limit=${limit}`)).threads,
 }

@@ -10,15 +10,18 @@ export function Composer({
   busy,
   note,
   onSend,
+  locked,
 }: {
   name: string
   busy: boolean
   note: string
   onSend: (message: string) => void
+  /** Why nothing can be sent (a try-out with no messages left, T1.5): the box shows this and locks. */
+  locked?: string
 }) {
   const [value, setValue] = useState("")
   const message = value.trim()
-  const canSend = !busy && message.length > 0
+  const canSend = !busy && !locked && message.length > 0
 
   function send() {
     if (!canSend) return
@@ -52,7 +55,8 @@ export function Composer({
           onKeyDown={onKeyDown}
           rows={1}
           maxLength={4000}
-          placeholder={busy ? `${name} is replying` : `Message ${name}`}
+          placeholder={locked ?? (busy ? `${name} is replying` : `Message ${name}`)}
+          disabled={Boolean(locked)}
           className="field-sizing-content max-h-40 min-h-10 flex-1 resize-none bg-transparent py-2 text-base text-foreground outline-none placeholder:text-tertiary-foreground md:text-[15px]"
         />
         <Button type="submit" size="icon" disabled={!canSend} aria-label={busy ? `${name} is replying` : "Send"}>

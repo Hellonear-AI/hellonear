@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { cleanThreadTitle } from "@/modules/minds/data/minds"
 import { mindsApi, type ApiTemplate } from "@/modules/minds/api"
 import { isValidMindName, skillLabels, sortTemplates } from "@/modules/minds/data/templates"
 
@@ -40,5 +41,15 @@ describe("mindsApi.create", () => {
     expect(url).toBe("/api/v1/minds")
     expect(init.method).toBe("POST")
     expect(JSON.parse(init.body as string)).toEqual({ templateId: "payments-mind", name: "Penny" })
+  })
+})
+
+describe("cleanThreadTitle", () => {
+  it("drops a stray reasoning tag from an engine title", () => {
+    expect(cleanThreadTitle("Casual Greeting</think>")).toBe("Casual Greeting")
+    expect(cleanThreadTitle("some reasoning</think>Budget Trip to Bandung")).toBe("Budget Trip to Bandung")
+    expect(cleanThreadTitle("<think>x</think>")).toBe("x")
+    expect(cleanThreadTitle(null)).toBe("Earlier chat")
+    expect(cleanThreadTitle("Sapaan Awal Halo")).toBe("Sapaan Awal Halo")
   })
 })
