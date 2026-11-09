@@ -71,6 +71,28 @@ Tools for the engine (replacing `demo_transfer`):
 
 No `walletToken` in the body (Mind without a wallet): the tools should answer "this Mind has no wallet yet" without calling the backend.
 
+### Mail tools: `mailToken` and the backend's internal mail routes (#96, AgentMail)
+
+Same pattern as the payment tools. When the Mind equips the `email-address` skill **and** has an inbox, the backend adds **`mailToken`** (`mt_…`, same format and 15-minute life as `walletToken`, but its own HMAC key, so neither token works as the other) to the chat, approve/decline and builder-run bodies; never to Autopilot. The engine never gets the AgentMail key. Mail tools call the backend with `X-Engine-Key` and `X-Mail-Token: <mailToken>`:
+
+| Route | Body | Answer |
+|---|---|---|
+| `POST /internal/v1/mail/send` | `{ to: ["a@example.com"] (1–5), subject (≤ 200), text (≤ 10,000), idempotencyKey? }` | `{ sendId, status, from, to, subject, messageId?, threadId?, code?, message? }`, `status` = `sent` (with `messageId`) \| `rejected` \| `rate_limited` \| `failed`. `code` is AgentMail's error code (`message_rejected`, `limit_exceeded`, `rate_limit_exceeded`, …) or ours (`daily_mail_limit`, `demo_mail_limit`, `demo_recipient_not_allowed`); `message` is AgentMail's explanation. `idempotencyKey` (the tool call id) becomes AgentMail's `Idempotency-Key` header as `{mindId}.{key}`, so a repeated call sends once **[tested, fake AgentMail; live: sent to itself and to the account owner, 9 Nov]** |
+| `GET /internal/v1/mail/messages?limit=10` (≤ 25) | | `{ inbox, shared, messages: [{ messageId, threadId, from, to, subject, preview, at, direction: "sent" \| "received", labels, agentArmor, warnings }] }`, newest first **[tested; live 9 Nov]** |
+| `GET /internal/v1/mail/messages/{messageId}` (URL-encoded) | | `{ inbox, messageId, threadId, from, to, subject, at, direction, text (≤ 8,000 chars), truncated?, labels, agentArmor, warnings }`. A message of another inbox answers `404 mail_not_found` **[tested; live 9 Nov]** |
+
+`agentArmor` = `null` or `{ status: "pending" \| "complete" \| "unavailable", verdict?: "clear" \| "review", reason? }` (AgentMail's Agent Armor; `null` while it is off for the organization, as on 9 Nov). `warnings` lists, in plain words, the labels `spam` / `blocked` / `unauthenticated` / `agent-armor-held`, a `review` verdict and an `unavailable` scan. Same checks as the wallet routes (loopback, engine key, token, owned Mind): `401 invalid_mail_token` / `mail_token_expired`, `404`, `400 invalid_body`. List/read failures: `429 mail_rate_limited` (`agentmailCode`, `reason`, `retryAfter?`), `403 mail_rejected`, `404 mail_not_found \| no_inbox`, `503 agentmail_unreachable \| agentmail_error \| agentmail_not_configured`. Every send attempt is stored in `mail_sends`, refusals included.
+
+Try-out users' Minds share one demo inbox (`DEMO_AGENTMAIL_INBOX`): their sends may only go to that address itself (`rejected`, `demo_recipient_not_allowed` otherwise) and count against `demo.mailPerUser` (2, counted under a per-user lock). Owners' Minds: at most `mail.sendsPerMindPerDay` (20) sends a day.
+
+| Tool | Input | Output | Notes |
+|---|---|---|---|
+| `mail_send` | `{ to: [email], subject, text }` | the send answer | `requireApproval: true` (the card shows recipients, subject and text). `rejected` / `rate_limited` become `tool.error` with that `status` (no email went out) |
+| `mail_list` | `{ limit? }` | the list answer | content is third-party data |
+| `mail_read` | `{ messageId }` | the read answer | content is third-party data |
+
+No `mailToken` (no inbox, or the skill is off): the tools answer "this Mind has no email address yet" without calling the backend.
+
 ### `POST /v1/runs/{runId}/approve?mindId={mindId}` and `POST /v1/runs/{runId}/decline?mindId={mindId}`
 
 ```json
@@ -182,7 +204,7 @@ Common fields on every event:
 | `text.delta` | `text` | `text-delta` **[tested]** |
 | `tool.called` | `toolCallId`, `tool`, `nodeId`, `args` | `tool-call` **[tested]**: payload `{ toolCallId, toolName, args }` |
 | `tool.result` | `toolCallId`, `tool`, `nodeId`, `result`, `status: "ok"` | `tool-result` **[tested]**: payload `{ toolCallId, toolName, args, result }` |
-| `tool.error` | `toolCallId`, `tool`, `nodeId`, `status: "error" \| "policy_denied" \| "wallet_frozen"`, `error`, `result?` | `tool-error` **[tested]**; for `send_payment`, a `tool-result` whose `status` is `policy_denied` / `wallet_frozen` (the wallet refused before signing, #42): `error` is OutLayer's message, `result` the payment receipt without `txHash` **[tested, fake backend]** |
+| `tool.error` | `toolCallId`, `tool`, `nodeId`, `status: "error" \| "policy_denied" \| "wallet_frozen" \| "rejected" \| "rate_limited"`, `error`, `result?` | `tool-error` **[tested]**; for `send_payment`, a `tool-result` whose `status` is `policy_denied` / `wallet_frozen` (the wallet refused before signing, #42): `error` is OutLayer's message, `result` the payment receipt without `txHash` **[tested, fake backend]**; for `mail_send`, a `tool-result` whose `status` is `rejected` / `rate_limited` (#96): `error` is the refusal's `message`, `result` the send record without `messageId` **[tested, predicate only]** |
 | `tool.approval_required` | `toolCallId`, `tool`, `nodeId`, `args` | `tool-call-approval` **[tested, #11]** |
 | `step.finished` | `step`, `usage` | `step-finish` **[tested]** |
 | `run.finished` | `finishReason`, `text`, `usage`, `costUsd`, `verification: { status: "pending" }` | `finish` **[tested]** |
@@ -232,7 +254,7 @@ Each event with a `nodeId` lights up one node. Node ids are stable across runs s
 | Tool | `tool:{toolKey}` | `tool.*` events |
 | Skill | `skill:{skillId}` | when the agent loads a skill: Mastra tool `skill` (`args.name`) or `skill_read` (`args.skillName`) **[tested, #13]**; `skill_search` stays a tool node |
 | Wallet | `wallet:{mindId}` | wallet tools (`pay_invoice`, `get_balance`, …) |
-| App | `app:{appName}` | app tools named `<app>_<action>`: `gmail_*` → `app:gmail`, `googlecalendar_*` → `app:googlecalendar` (the backend's toolkit ids) **[tested]** |
+| App | `app:{appName}` | app tools named `<app>_<action>`: `gmail_*` → `app:gmail`, `googlecalendar_*` → `app:googlecalendar` (the backend's toolkit ids), `mail_*` → `app:mail` (the Mind's own AgentMail address, #96) **[tested]** |
 | Model | `model:{modelId}` | `run.started` |
 | Memory | `memory:{mindId}` | memory tools |
 | Other Mind | `mind:{otherMindId}` | subagent delegation |
@@ -257,6 +279,8 @@ Postgres + pgvector. Mastra keeps its own tables (memory, threads, workflow snap
 | `secrets` | `id`, `user_id`, `name`, `ciphertext`, `allowed_hosts` (text[]), `created_at`, `updated_at` | AES-256-GCM, AAD `user_id:name`; value never leaves the backend in clear except into the engine for a run (#18) |
 | `mind_wallets` | `mind_id` (pk, → `minds`), `wallet_id`, `near_account_id`, `key_ciphertext`, `created_at` | One OutLayer wallet per Mind (#14, #15). The agent key is AES-256-GCM, AAD `wallet:{mind_id}`; the `handoff_url` is never stored. `minds.outlayer_wallet_id` is unused |
 | `wallet_payments` | `id`, `mind_id` (→ `minds`), `to_account`, `amount_yocto`, `status` (`pending`/`sent`/`policy_denied`/`wallet_frozen`/`failed`), `tx_hash`, `outlayer_request_id`, `message`, `created_at`, `updated_at` | Receipts of the payment tools (#42); refusals have no `tx_hash` |
+| `mind_inboxes` | `mind_id` (pk, → `minds`), `inbox_id`, `email`, `key_slot`, `created_at` | One AgentMail inbox per Mind (#96), created when the owner equips `email-address`. AgentMail `client_id` = `mind_id`. `key_slot` = which AgentMail key holds it (0 = `AGENTMAIL_API_KEY`, 1 = `AGENTMAIL_API_KEY_2`) |
+| `mail_sends` | `id`, `mind_id` (→ `minds`), `inbox_id`, `to_addresses` (text[]), `subject`, `body_preview` (≤ 280 chars), `status` (`pending`/`sent`/`rejected`/`rate_limited`/`failed`), `message_id`, `thread_id`, `error_code`, `message`, `created_at`, `updated_at` | Every `mail_send` attempt (#96), refusals included |
 | `users.is_demo` | `boolean`, default `false` | Judge try-out users (#43), `near_account_id` = `demo:<random>`; deleted with their data after 7 days |
 | `auth_nonces` | `nonce`, `expires_at`, `used_at` | NEP-413 challenges, single use, 5 minutes |
 | `sessions` | `token_hash`, `user_id`, `created_at`, `expires_at` | only the SHA-256 of the cookie value |
@@ -298,12 +322,22 @@ The FE asks the wallet (NEAR Connect `signMessage`, Meteor first) to sign exactl
 | `GET /v1/templates` | | `{ templates }` (engine §2, cached 60 s) |
 | `GET /v1/skills` | | `{ skills }` (engine §2, cached 60 s): what the skill picker offers. `POST`/`PATCH /v1/minds` validate `skills` against this list, so skills no template starts with (`near-account`, `http-request`) can be equipped **[tested]** |
 | `GET /v1/minds` | | `{ minds: [Mind] }`, newest first |
-| `POST /v1/minds` | `{ templateId, name, soul?, model?, skills?: [skillId] }` | `201 { mind }`; omitted fields come from the template. `400 unknown_template \| unknown_skill \| duplicate_skill \| invalid_body` |
+| `POST /v1/minds` | `{ templateId, name, soul?, model?, skills?: [skillId] }` | `201 { mind, inboxError? }`; omitted fields come from the template. `400 unknown_template \| unknown_skill \| duplicate_skill \| invalid_body`. With `email-address` in `skills`, also creates the Mind's inbox (see "Mind email address") |
 | `GET /v1/minds/{mindId}` | | `{ mind }` |
-| `PATCH /v1/minds/{mindId}` | any of `{ name, soul, model, skills }` | `{ mind, autopilot: [{ workflowId, status, autopilot, issues? }] }`: the new config was sent to every Autopilot workflow; `status: 409` means the engine paused it (show `issues`) |
+| `PATCH /v1/minds/{mindId}` | any of `{ name, soul, model, skills }` | `{ mind, autopilot: [{ workflowId, status, autopilot, issues? }], inboxError? }`: the new config was sent to every Autopilot workflow; `status: 409` means the engine paused it (show `issues`). Turning on `email-address` creates the inbox; if that fails the skills are still saved and `inboxError` = `{ error, agentmailCode?, reason? }` (retry with `POST …/inbox`) |
 | `DELETE /v1/minds/{mindId}` | | `204`; also deletes its workflows and schedules in the engine |
 
-`Mind` = `{ id, templateId, name, soul: { identity, invariants, priors }, model, skills: [skillId], outlayerWalletId, createdAt, updatedAt }`.
+`Mind` = `{ id, templateId, name, soul: { identity, invariants, priors }, model, skills: [skillId], outlayerWalletId, email, createdAt, updatedAt }`. `email` is the Mind's address (#96) or `null`.
+
+### Mind email address (#96, AgentMail)
+
+An inbox is created **only when the owner turns on the `email-address` skill** (by `POST`/`PATCH /v1/minds`, or `POST …/inbox` to retry). Address: `{mind-name}-{last 6 of the Mind id}@agentmail.to` (12 if the name is taken; question 2 of #96 is still open). Removing the skill keeps the address but the Mind's mail tools stop. Try-out users' Minds that equip the skill show the shared demo address and never get their own.
+
+| Route | Body | Answer |
+|---|---|---|
+| `GET /v1/minds/{mindId}/inbox` | | `{ inbox: null \| { email, shared } }` **[tested]** |
+| `POST /v1/minds/{mindId}/inbox` | `{}` | `201 { inbox: { email, shared: false } }` when created, `200` when it already existed (idempotent; AgentMail `client_id` = Mind id). `409 email_skill_off`, `403 demo_not_allowed` (`action: "create_inbox"`), `403 mail_rejected` (`agentmailCode: "limit_exceeded"`: every AgentMail organization we have is full), `503 agentmail_not_configured \| agentmail_unreachable \| agentmail_error` **[tested; create live 9 Nov]** |
+| `GET /v1/minds/{mindId}/mail/sent?limit=20` | | `{ sends: [{ sendId, status, to, subject, preview, messageId?, threadId?, code?, message?, at }] }`, newest first, refusals included (sent-mail list) **[tested]** |
 
 ### Mind wallet (#14, #15)
 
