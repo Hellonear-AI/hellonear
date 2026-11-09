@@ -64,7 +64,11 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   const isNew = !threadId && shown.length === 0
   const notFound = thread.error instanceof ApiError && thread.error.code === "thread_not_found"
 
-  const { ref: scrollRef, onScroll, atBottom, toBottom } = useFollow(shown.length, activeHere?.events.length ?? 0)
+  // A message sent here pins its turn to the top of the view while the reply grows below it.
+  const last = shown.at(-1)
+  const pinKey = activeHere?.message && last?.key && last.view === activeHere.view ? `pin-${activeHere.id}` : null
+  const ready = !thread.isPending || !threadId || shown.length > 0
+  const { ref: scrollRef, lastRef, onScroll, atBottom, toBottom, viewHeight } = useChatScroll(ready && shown.length > 0, pinKey)
 
   return (
     <div className="flex h-[calc(100dvh-3.5rem)] min-h-0 flex-col md:h-dvh">
@@ -90,7 +94,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
       )}
 
       <div className="relative min-h-0 flex-1">
-        <div ref={scrollRef} onScroll={onScroll} className="h-full overflow-y-auto overscroll-contain">
+        <div ref={scrollRef} onScroll={onScroll} className="relative h-full overflow-y-auto overscroll-contain">
           <div className="mx-auto flex min-h-full w-full max-w-[804px] flex-col gap-5 px-4 py-6 md:px-10">
             {notFound ? (
               <Centered>
@@ -128,6 +132,12 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
                     {dayLabel(s.createdAt, i > 0 ? shown[i - 1].createdAt : null) && (
                       <p className="text-xs font-medium text-muted-foreground">{dayLabel(s.createdAt, i > 0 ? shown[i - 1].createdAt : null)}</p>
                     )}
+                    <div
+                      ref={i === shown.length - 1 ? lastRef : undefined}
+                      className="flex flex-col gap-5"
+                      // Room below the pinned turn so it can sit at the top (padding 16 above, 24 below).
+                      style={pinKey && i === shown.length - 1 && viewHeight ? { minHeight: viewHeight - 40 } : undefined}
+                    >
                     <TurnView
                       mindId={mindId}
                       name={name}
@@ -140,6 +150,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
                         s.view.runId && resume({ runId: s.view.runId, threadId: threadId ?? s.view.threadId, toolCallId: step.toolCallId, action: "decline" })
                       }
                     />
+                    </div>
                   </Fragment>
                 ))}
               </>
@@ -154,7 +165,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
             onClick={toBottom}
           >
             <ArrowDownIcon />
-            New message
+            Latest
           </Button>
         )}
       </div>
@@ -189,7 +200,7 @@ function TurnView({
   const failed = Boolean(turn.failed) || view.status === "error"
   const working = live && !view.text
   // While there's no text yet: "Thinking" while the model reasons. A running tool already has
-  // its own shimmering pill above (C1.3), so the bubble keeps to the dots then.
+  // its own shimmering pill above (C1.3), so only the dots show then.
   const activity = view.thinking ? "Thinking" : null
   const pills = view.tools.filter((t) => !paymentOf(t) || t.status === "ok" || t.status === "declined" || t.status === "running")
 
@@ -208,18 +219,13 @@ function TurnView({
       ))}
 
       {(view.text || working) && (
-        <div className="flex w-full flex-col gap-2 md:max-w-[480px]">
+        <div className="flex w-full flex-col gap-2">
           <div className="flex items-center gap-2">
             <MindAvatar templateId={templateId} size={24} />
             <span className="text-[13px] font-semibold text-foreground">{name}</span>
           </div>
-          <div className="rounded-[4px_18px_18px_18px] border border-border bg-surface px-4 py-3">
-            {view.text ? (
-              <ReplyText key={live ? "live" : "done"} text={view.text} live={live} />
-            ) : (
-              <Working activity={activity} name={name} />
-            )}
-          </div>
+          {/* Plain text, no bubble (decided 9 Nov with Ancung, like Claude and Gemini). */}
+          {view.text ? <ReplyText key={live ? "live" : "done"} text={view.text} live={live} /> : <Working activity={activity} name={name} />}
           {!live && view.text && (
             <div className="flex items-center gap-2">
               {view.verified && <VerifiedBadge level={view.verified} />}
@@ -364,60 +370,57 @@ function ThreadSkeleton() {
 }
 
 /**
- * Follow new content to the bottom unless the user scrolled up; then offer "New message"
- * (design/CLAUDE.md, Chat streaming). Old threads open at the bottom with no animation.
+ * Where the chat sits (Ancung, 9 Nov, like Claude): an old thread opens at its end; a message
+ * sent here glides its turn to the top, and the reply grows below without the view chasing it.
+ * "Latest" shows whenever there is more below.
  */
-function useFollow(turns: number, events: number) {
+function useChatScroll(ready: boolean, pinKey: string | null) {
   const ref = useRef<HTMLDivElement>(null)
-  const stuck = useRef(true)
+  const lastRef = useRef<HTMLDivElement>(null)
+  const [viewHeight, setViewHeight] = useState(0)
   const [atBottom, setAtBottom] = useState(true)
+  const placed = useRef<string | null>(null)
 
-  // True while "New message" glides down, so the scroll events on the way don't bring it back.
-  const gliding = useRef(false)
-
-  const toBottom = useCallback(() => {
+  const measure = useCallback(() => {
     const el = ref.current
-    if (!el) return
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    gliding.current = !reduce
-    stuck.current = true
-    setAtBottom(true)
-    el.scrollTo({ top: el.scrollHeight, behavior: reduce ? "auto" : "smooth" })
-    // If the user scrolls away mid-glide, stop ignoring their scrolling soon after.
-    window.setTimeout(() => {
-      gliding.current = false
-    }, 800)
+    if (el) setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 48)
   }, [])
 
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    if (stuck.current && !gliding.current) el.scrollTop = el.scrollHeight
-  }, [turns, events])
-
-  // Streamed text grows the content without new turns or events; keep following it.
+  // The view's height (for the pinned turn's room) and content growth (for "Latest").
   useEffect(() => {
     const el = ref.current
     const content = el?.firstElementChild
     if (!el || !content) return
     const observer = new ResizeObserver(() => {
-      if (stuck.current && !gliding.current) el.scrollTop = el.scrollHeight
+      setViewHeight(el.clientHeight)
+      measure()
     })
+    observer.observe(el)
     observer.observe(content)
     return () => observer.disconnect()
-  }, [])
+  }, [measure])
 
-  const onScroll = useCallback(() => {
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el || !ready || !viewHeight) return
+    const want = pinKey ?? "end"
+    if (placed.current === want) return
+    const first = placed.current === null
+    placed.current = want
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    if (pinKey && lastRef.current) {
+      el.scrollTo({ top: lastRef.current.offsetTop - 16, behavior: first || reduce ? "auto" : "smooth" })
+    } else {
+      el.scrollTop = el.scrollHeight
+    }
+  }, [ready, pinKey, viewHeight])
+
+  const toBottom = useCallback(() => {
     const el = ref.current
     if (!el) return
-    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 48
-    if (gliding.current) {
-      if (near) gliding.current = false
-      return
-    }
-    stuck.current = near
-    setAtBottom(near)
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    el.scrollTo({ top: el.scrollHeight, behavior: reduce ? "auto" : "smooth" })
   }, [])
 
-  return { ref, onScroll, atBottom, toBottom }
+  return { ref, lastRef, onScroll: measure, atBottom, toBottom, viewHeight }
 }
