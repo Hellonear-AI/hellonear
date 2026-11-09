@@ -170,7 +170,17 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   // Drag and drop (B1.7): a block from the palette, or a step to a new place. Taps still add at the end.
   const [drag, setDrag] = useState<{ add: "agent" | "tool" | "http" | "if" } | { move: string } | null>(null)
   const [over, setOver] = useState<string | null>(null)
+  // The drop spots show a frame after dragstart (a layout change during dragstart cancels the
+  // drag in Chrome), and not at all if the drag already ended by then.
+  const dragging = useRef(false)
+  const startDrag = (d: { add: "agent" | "tool" | "http" | "if" } | { move: string }) => {
+    dragging.current = true
+    requestAnimationFrame(() => {
+      if (dragging.current) setDrag(d)
+    })
+  }
   const endDrag = () => {
+    dragging.current = false
     setDrag(null)
     setOver(null)
   }
@@ -372,7 +382,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             title={`Ask ${name}`}
             line={`${name} writes or decides`}
             onClick={() => addStep("agent")}
-            onDragStart={() => setDrag({ add: "agent" })}
+            onDragStart={() => startDrag({ add: "agent" })}
             onDragEnd={endDrag}
           />
           <PaletteItem
@@ -380,7 +390,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             title="Use a tool"
             line="An account, the time, the calendar, the inbox"
             onClick={() => addStep("tool")}
-            onDragStart={() => setDrag({ add: "tool" })}
+            onDragStart={() => startDrag({ add: "tool" })}
             onDragEnd={endDrag}
           />
           <PaletteItem
@@ -389,7 +399,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             line={b ? "A job can have only one" : canIf ? "Choose one of two ways" : "Add a check or a website first"}
             onClick={addIf}
             disabled={!canIf}
-            onDragStart={() => setDrag({ add: "if" })}
+            onDragStart={() => startDrag({ add: "if" })}
             onDragEnd={endDrag}
           />
           <PaletteItem
@@ -397,13 +407,14 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             title="Call a website"
             line="Send to your own service"
             onClick={() => addStep("http")}
-            onDragStart={() => setDrag({ add: "http" })}
+            onDragStart={() => startDrag({ add: "http" })}
             onDragEnd={endDrag}
           />
         </aside>
 
         <main
           aria-label="Job steps"
+          onDragOver={(e) => drag && e.preventDefault()}
           className="flex min-w-0 flex-1 flex-col items-center overflow-x-auto bg-[radial-gradient(var(--color-border)_1px,transparent_1px)] bg-size-[20px_20px] px-4 py-8"
         >
           <BlockCard icon={<CalendarClockIcon />} kind="Start" title={scheduleText(cronOf(draft))} line={`${zoneName(draft.timezone)} time`} active={selected === "start"} onClick={() => setSelected("start")} />
@@ -416,7 +427,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                   onDragStart={(e) => {
                     e.dataTransfer.effectAllowed = "move"
                     e.dataTransfer.setData("text/plain", s.id)
-                    setDrag({ move: s.id })
+                    startDrag({ move: s.id })
                   }}
                   onDragEnd={endDrag}
                   className={cn("cursor-grab active:cursor-grabbing", drag && "move" in drag && drag.move === s.id && "opacity-40")}
@@ -580,7 +591,9 @@ function DropSpot({ id, over, setOver, onDrop, label }: { id: string; over: stri
           e.preventDefault()
           if (!hot) setOver(id)
         }}
-        onDragLeave={() => setOver(null)}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(null)
+        }}
         onDrop={(e) => {
           e.preventDefault()
           onDrop()
