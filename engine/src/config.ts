@@ -15,6 +15,10 @@ export const config = {
   defaultModel: 'z-ai/glm-5.3-flash',
   runTimeoutMs: 120_000,
   maxOutputTokens: 2048,
+  // Thread titles (#86): the cheapest Confidential TEE chat model, a short budget and a hard time limit.
+  titleModel: 'z-ai/glm-5.3-flash',
+  titleMaxOutputTokens: 512,
+  titleTimeoutMs: 30_000,
   // Workflow run snapshots and schedule fire history older than this are pruned (#21).
   runRetentionDays: Number(process.env.RUN_RETENTION_DAYS ?? 14),
 }

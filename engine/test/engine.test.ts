@@ -104,6 +104,21 @@ describe('engine HTTP API', () => {
     assert.match(finalText(r).toLowerCase(), /teal/)
   })
 
+  test('a thread\'s first run gets a short title between run.finished and run.verified; later runs do not (#86)', async () => {
+    const threadId = randomUUID()
+    const first = await events(await post('/v1/minds/titles/chat', { userId, threadId, message: 'Bantu aku rencanakan liburan tiga hari ke Bali. Cukup dua kalimat.', mind: mind('Tia') }))
+    const titled = first.filter((e) => e.type === 'thread.titled')
+    assert.equal(titled.length, 1, 'one title on the first run')
+    assert.equal(titled[0].threadId, threadId)
+    assert.ok(titled[0].title.length > 0 && titled[0].title.length <= 61 && !titled[0].title.includes('\n'), titled[0].title)
+    const types = first.map((e) => e.type)
+    assert.ok(types.indexOf('run.finished') < types.indexOf('thread.titled') && types.indexOf('thread.titled') === types.length - 2, types.join(','))
+    assert.equal(types.at(-1), 'run.verified')
+    assert.deepEqual(first.map((e) => e.seq), first.map((_, i) => i), 'seq stays contiguous')
+    const second = await events(await post('/v1/minds/titles/chat', { userId, threadId, message: 'Satu kalimat saja: hari pertama ke mana?', mind: mind('Tia') }))
+    assert.ok(!second.some((e) => e.type === 'thread.titled'), 'no title on a later run')
+  })
+
   test('tool calls become normalized events with usage, cost and contiguous seq', async () => {
     const evs = await events(await post('/v1/minds/tools/chat', {
       userId, threadId: randomUUID(), message: 'Use your tool: what is 17 + 25?',

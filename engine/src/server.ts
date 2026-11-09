@@ -15,6 +15,7 @@ import { missingTools, skillCatalogSummaries, usableSkills } from './skills.ts'
 import { attestationStatus, modelInfo, verifyCompletions, warmAttestation } from './models.ts'
 import { summarize } from './verify.ts'
 import { templateSummaries, templates } from './templates.ts'
+import { isNewThread, makeTitle } from './titles.ts'
 import { BuilderError, mastraWorkflowId, mindIdSchema, workflowIdSchema } from './builder.ts'
 import { mindSchema } from './mind.ts'
 import { secretSchema } from './secrets.ts'
@@ -84,7 +85,7 @@ function contextFor(mind: Mind, secrets: Secret[], opts: { unattended?: boolean;
 // Values no event may carry: the owner's secrets and the run's wallet token.
 const hiddenValues = (secrets: Secret[], walletToken?: string) => [...secrets.map((s) => s.value), ...(walletToken ? [walletToken] : [])]
 
-async function pipeRun(res: ServerResponse, stream: { fullStream: AsyncIterable<any> }, opts: { mindId: string; threadId: string; model: string; skills: string[]; secretValues: string[]; runId?: string }) {
+async function pipeRun(res: ServerResponse, stream: { fullStream: AsyncIterable<any> }, opts: { mindId: string; threadId: string; model: string; skills: string[]; secretValues: string[]; runId?: string; title?: Promise<string | null> }) {
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' })
   const normalize = createNormalizer({ ...opts, startSeq: opts.runId ? nextSeq.get(opts.runId) : 0 })
   let runId = opts.runId
@@ -92,6 +93,15 @@ async function pipeRun(res: ServerResponse, stream: { fullStream: AsyncIterable<
     for await (const chunk of stream.fullStream) {
       for (const event of await normalize(chunk)) {
         runId = event.runId
+        nextSeq.set(runId, event.seq + 1)
+        res.write(`data: ${JSON.stringify(event)}\n\n`)
+      }
+    }
+    // A thread's first run gets a short title (#86), made while the run streamed; no title is fine.
+    if (runId && opts.title) {
+      const title = await opts.title
+      if (title) {
+        const event = normalize.event(runId, 'thread.titled', { threadId: opts.threadId, title })
         nextSeq.set(runId, event.seq + 1)
         res.write(`data: ${JSON.stringify(event)}\n\n`)
       }
@@ -166,8 +176,10 @@ export const server = createServer(async (req, res) => {
       if (!parsed.success) return sendJson(res, 400, { error: 'invalid_body', issues: parsed.error.issues })
       const { userId, threadId, message, mind, secrets, walletToken, demo } = parsed.data
       const mindId = decodeURIComponent(chat[1])
+      // Started before the run so it is usually ready when the run ends; it never throws.
+      const title = (await isNewThread(threadId)) ? makeTitle(message) : undefined
       const stream = await agent.stream(message, agentOptions(mind, secrets, userId, mindId, threadId, walletToken, demo))
-      return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secretValues: hiddenValues(secrets, walletToken) })
+      return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secretValues: hiddenValues(secrets, walletToken), title })
     }
 
     const resume = url.pathname.match(/^\/v1\/runs\/([^/]+)\/(approve|decline)$/)
