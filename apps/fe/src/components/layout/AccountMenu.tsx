@@ -37,7 +37,8 @@ export function AccountMenu({ variant }: { variant: "row" | "avatar" | "icon" })
   const account = signedAccountId ?? "Not signed in"
 
   function handleSignOut() {
-    signOut.mutate(undefined, { onSettled: () => router.push("/") })
+    // replace, not push: the signed-out page shouldn't stay in Back's history.
+    signOut.mutate(undefined, { onSettled: () => router.replace("/") })
   }
 
   return (
