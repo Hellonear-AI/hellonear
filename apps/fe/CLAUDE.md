@@ -72,6 +72,17 @@ New Mind (`/minds/new`, `NewMindFlow`): needs a session (else back to `/`) and h
 - Try-out users can't sign (`demo_not_allowed`) and pay from the shared demo wallet, so Continue on step 1 creates the Mind and opens its chat.
 - Proven 8 Nov: the whole flow with Meteor (testnet) from `http://localhost:3000` against the hosted API, after #75 (the contract now wants `version`, `locked`, `valid_until`): tx `98ZP3dzZMNCVB1tfPDMnpNDVNr8NzR3GDaskdPHPaxvq`, and the policy read back from `GET …/wallet` before the ready screen. Not checked yet: canceling in Meteor, a wallet on another account, other wallets.
 
+Chat (`/minds/[mindId]/chat` and `/chat/[threadId]`, `src/modules/chat`, design "4 · Chat" C1):
+- `ChatRunProvider` (in the Mind layout) holds the one run in progress per Mind, so the stream survives the move from `/chat` to `/chat/{threadId}` once `run.started` gives the new thread its id (`router.replace`). Approve/decline resumes go through it too, so the live view and the Approvals badge can read the same run.
+- `api.ts` posts chat and approve/decline and reads the SSE answer with `eventsource-parser`; an error before the stream starts throws `ApiError` from the JSON body.
+- `data/events.ts` `foldRun` turns one run's §3 events into what the chat shows (text, tool steps, TEE badge, error); the same fold serves a live stream and `GET /runs/{runId}`. A paused run's stream still ends with `run.finished` and `run.verified` and the backend keeps it `awaiting_approval`, so only new work after the pause (step, text, another tool) counts as resumed; a resumed run with no result for the tool was declined (`engine/test/engine.test.ts`: decline never writes a `tool.result`). `send_payment` refusals come as `policy_denied` / `wallet_frozen`, as the event status or the result's own status.
+- `useThread` reads `…/messages` (pages of whole runs, "Show earlier messages") and each run's events, and pairs them per run.
+- Cards: a receipt for a sent payment (limit from the stored policy, NearBlocks testnet link `testnet.nearblocks.io/txns/{hash}`, the explorer docs.near.org lists for testnet), a red card for a refused one (which limit, read against the policy; never a tx link), an approval card whose "Review and approve" opens Approvals (A1, the reason and checks live there) and whose Decline resumes in place. Frozen wallets show a banner and a different composer note.
+- Streaming follows design/CLAUDE.md: steady reveal with a per-word fade (all at once with reduced motion), Markdown once finished, follow the bottom unless the user scrolled up ("New message").
+- No Stop yet: the backend has no cancel route and reads the engine to the end anyway, so Send waits while the Mind replies.
+- First-chat copy (C1.2) is from the design for the Payments Mind; the Email Manager and General Assistant lines in `data/intro.ts` follow its pattern and still need Nabil's review. The design's third Payments suggestion ("Add 10 NEAR to your wallet") was swapped for "What's my balance?": adding funds is an owner action the Mind can't do.
+- Not built yet: the live view beside the chat (C2) and the Email helper draft card (C1.7).
+
 Imports: `@/*` → `src/*`, `@app/*` → `app/*`. Keep route files in `app/` thin; put screens in `src/modules/<feature>/components`.
 
 ## Backend and sign-in
