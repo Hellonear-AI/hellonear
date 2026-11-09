@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react"
 import { cn } from "cn"
 import { mindHref } from "@/components/layout/nav"
+import { ChoiceSelect } from "@/components/elements/ChoiceSelect"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -782,7 +783,8 @@ function PaletteItem({
 
 const field = "flex flex-col gap-1.5"
 const label = "text-[13px] font-medium text-foreground"
-const selectCls = "h-11 w-full rounded-md border border-input bg-surface px-3 text-base text-foreground outline-none focus-visible:ring-2 focus-visible:ring-focus md:text-sm"
+/** "No key" in the key list (Base UI needs a non-empty value); saved as no header. */
+const NO_KEY = "__none__"
 
 function PanelHead({ icon, title }: { icon: ReactNode; title: string }) {
   return (
@@ -810,25 +812,29 @@ function StartPanel({ draft, set }: { draft: Draft; set: (p: Partial<Draft>) => 
         <span className={label}>Name</span>
         <Input value={draft.name} maxLength={NAME_MAX} placeholder="Morning inbox summary" onChange={(e) => set({ name: e.target.value })} />
       </label>
-      <label className={field}>
+      <div className={field}>
         <span className={label}>Runs</span>
-        <select className={selectCls} value={draft.repeat} onChange={(e) => set({ repeat: e.target.value as Repeat })}>
-          <option value="daily">Every day</option>
-          <option value="weekdays">Weekdays</option>
-          <option value="weekly">Once a week</option>
-        </select>
-      </label>
+        <ChoiceSelect<Repeat>
+          aria-label="Runs"
+          value={draft.repeat}
+          onChange={(repeat) => set({ repeat })}
+          options={[
+            { value: "daily", label: "Every day" },
+            { value: "weekdays", label: "Weekdays" },
+            { value: "weekly", label: "Once a week" },
+          ]}
+        />
+      </div>
       {draft.repeat === "weekly" && (
-        <label className={field}>
+        <div className={field}>
           <span className={label}>On</span>
-          <select className={selectCls} value={draft.day} onChange={(e) => set({ day: Number(e.target.value) })}>
-            {DAYS.map((d, i) => (
-              <option key={d} value={i}>
-                {d}
-              </option>
-            ))}
-          </select>
-        </label>
+          <ChoiceSelect
+            aria-label="On"
+            value={String(draft.day)}
+            onChange={(d) => set({ day: Number(d) })}
+            options={DAYS.map((d, i) => ({ value: String(i), label: d }))}
+          />
+        </div>
       )}
       <label className={field}>
         <span className={label}>At</span>
@@ -913,21 +919,16 @@ function ToolPanel({
   return (
     <>
       <PanelHead icon={<SearchIcon />} title="Use a tool" />
-      <label className={field}>
+      <div className={field}>
         <span className={label}>Tool</span>
-        <select
-          className={selectCls}
+        <ChoiceSelect
+          aria-label="Tool"
           value={step.tool}
-          onChange={(e) => onChange({ tool: e.target.value, args: e.target.value === "near_view_account" ? { accountId: address } : {} })}
-        >
-          {TOOLS.map((t) => (
-            <option key={t.tool} value={t.tool}>
-              {t.title}
-            </option>
-          ))}
-        </select>
+          onChange={(tool) => onChange({ tool, args: tool === "near_view_account" ? { accountId: address } : {} })}
+          options={TOOLS.map((t) => ({ value: t.tool, label: t.title }))}
+        />
         <span className="text-xs text-muted-foreground">{info?.line}</span>
-      </label>
+      </div>
       {info?.args.map((a) => (
         <label key={a.name} className={field}>
           <span className={label}>{a.label}</span>
@@ -959,36 +960,25 @@ function IfPanel({ branch, steps, onChange, onDelete }: { branch: Branch; steps:
   return (
     <>
       <PanelHead icon={<GitBranchIcon />} title="If or else" />
-      <label className={field}>
+      <div className={field}>
         <span className={label}>Look at</span>
-        <select
-          className={selectCls}
+        <ChoiceSelect
+          aria-label="Look at"
           value={current ? `${current.stepId}|${current.name}` : ""}
-          onChange={(e) => {
-            const [stepId, f] = e.target.value.split("|")
+          placeholder="Pick a result"
+          onChange={(v) => {
+            const [stepId, f] = v.split("|")
             const r = results.find((x) => x.stepId === stepId && x.name === f)
             onChange({ stepId, field: f, op: r?.kind === "number" ? "lt" : "eq", right: "" })
           }}
-        >
-          {!current && <option value="">Pick a result</option>}
-          {results.map((r) => (
-            <option key={`${r.stepId}|${r.name}`} value={`${r.stepId}|${r.name}`}>
-              {r.label}, from {r.step}
-            </option>
-          ))}
-        </select>
+          options={results.map((r) => ({ value: `${r.stepId}|${r.name}`, label: `${r.label}, from ${r.step}` }))}
+        />
         <span className="text-xs text-muted-foreground">Pick a result from an earlier block.</span>
-      </label>
-      <label className={field}>
+      </div>
+      <div className={field}>
         <span className={label}>Is</span>
-        <select className={selectCls} value={branch.op} onChange={(e) => onChange({ op: e.target.value as Op })}>
-          {ops.map((o) => (
-            <option key={o.op} value={o.op}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </label>
+        <ChoiceSelect<Op> aria-label="Is" value={branch.op} onChange={(op) => onChange({ op })} options={ops.map((o) => ({ value: o.op, label: o.label }))} />
+      </div>
       <label className={field}>
         <span className={label}>{current?.kind === "number" ? "This number" : "This text"}</span>
         <Input
@@ -1068,27 +1058,30 @@ function HttpPanel({
   return (
     <>
       <PanelHead icon={<GlobeIcon />} title="Call a website" />
-      <label className={field}>
+      <div className={field}>
         <span className={label}>Do</span>
-        <select className={selectCls} value={step.method} onChange={(e) => onChange({ method: e.target.value as HttpStep["method"] })}>
-          <option value="GET">Read from it (GET)</option>
-          <option value="POST">Send to it (POST)</option>
-        </select>
-      </label>
+        <ChoiceSelect<HttpStep["method"]>
+          aria-label="Do"
+          value={step.method}
+          onChange={(method) => onChange({ method })}
+          options={[
+            { value: "GET", label: "Read from it (GET)" },
+            { value: "POST", label: "Send to it (POST)" },
+          ]}
+        />
+      </div>
       <label className={field}>
         <span className={label}>Address</span>
         <Input value={step.url} placeholder="https://example.com/status" autoCapitalize="none" spellCheck={false} onChange={(e) => onChange({ url: e.target.value })} />
       </label>
-      <label className={field}>
+      <div className={field}>
         <span className={label}>Key</span>
-        <select className={selectCls} value={step.key} onChange={(e) => onChange({ key: e.target.value })}>
-          <option value="">No key</option>
-          {keys.map((k) => (
-            <option key={k.name} value={k.name}>
-              {k.name}
-            </option>
-          ))}
-        </select>
+        <ChoiceSelect
+          aria-label="Key"
+          value={step.key || NO_KEY}
+          onChange={(key) => onChange({ key: key === NO_KEY ? "" : key })}
+          options={[{ value: NO_KEY, label: "No key" }, ...keys.map((k) => ({ value: k.name, label: k.name }))]}
+        />
         <span className="text-xs text-muted-foreground">
           {step.key
             ? "Sent as Authorization: Bearer, only to the sites the key allows. A job with a key runs with Run now, but can't run on a schedule yet."
@@ -1096,7 +1089,7 @@ function HttpPanel({
               ? "Pick a key saved in Connections if the site needs one."
               : "Keys you save in Connections show up here."}
         </span>
-      </label>
+      </div>
       {step.method === "POST" && <PromptField name={name} value={step.body} results={results} onChange={(body) => onChange({ body })} labelText="What to send" placeholder="Balance is low: please top up." />}
       {missingSkill && <p className="text-xs text-muted-foreground">Websites come with {skillCopy(missingSkill).title}. Saving adds that skill to {name}.</p>}
       <DeleteBlock onClick={onDelete} />
