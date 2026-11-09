@@ -76,8 +76,13 @@ export function ApprovalsScroll() {
       };
       setBig();
 
-      // 1. Letters fly in from the right while the section comes up (starts before it reaches the top,
-      //    so it is already half there when the user arrives).
+      // Scroll budget while pinned (px): letters land, then the title moves, then the card.
+      const LETTERS = 1000; // letters keep landing for this long after the pin starts
+      const MOVE = 900;
+      const CARD = 500;
+
+      // 1. Letters fly in from the right, small at first and full size when they land. They start a
+      //    little before the pin, so on arrival only the first few ("Ever...") are in.
       gsap.fromTo(
         q(".ap-char"),
         { xPercent: 260, scale: 0.25, opacity: 0, transformOrigin: "100% 80%" },
@@ -86,34 +91,49 @@ export function ApprovalsScroll() {
           scale: 1,
           opacity: 1,
           ease: "power3.out",
-          stagger: 0.035,
-          scrollTrigger: { trigger: el, start: "top 95%", end: "top 5%", scrub: 0.6 },
+          stagger: 0.05,
+          scrollTrigger: { trigger: el, start: "top 12%", end: `top -${LETTERS}px`, scrub: 0.6 },
         },
       );
 
-      // 2 + 3. Pinned: title to its place, the card pops in, then the copy slides up.
+      // Subtitle and points: not tied to the scroll. They play once the title is in place, and go
+      // back when the user scrolls up past that point.
+      const reveal = gsap
+        .timeline({ paused: true })
+        .fromTo(q(".ap-reveal"), { y: 36, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.5, stagger: 0.12, ease: "power2.out" });
+
+      // 2. Pinned: the title moves to its place; the card pops in only when the title is almost
+      //    there, so they never cross (also when scrolling back up).
+      const total = LETTERS + MOVE + CARD;
       const tl = gsap.timeline({
         defaults: { ease: "power2.inOut" },
         scrollTrigger: {
           trigger: el,
           start: "top top",
-          end: "+=1500",
+          end: `+=${total}`,
           pin: pin,
           scrub: 0.8,
           invalidateOnRefresh: true,
           onRefreshInit: setBig,
+          onUpdate: (self) => {
+            const shown = self.progress >= (LETTERS + MOVE * 0.95) / total;
+            if (shown && reveal.reversed() !== false) reveal.play();
+            else if (!shown && reveal.progress() > 0 && !reveal.reversed()) reveal.reverse();
+          },
         },
       });
-      tl.to(title, { x: 0, y: 0, scale: 1, duration: 1 }, 0)
-        .to(line2, { x: 0, y: 0, duration: 1 }, 0)
+      tl.to({}, { duration: LETTERS })
+        .to(title, { x: 0, y: 0, scale: 1, duration: MOVE }, LETTERS)
+        // The second line drops below first, then slides left, so the two lines never cross.
+        .to(line2, { y: 0, duration: MOVE * 0.55, ease: "power2.out" }, LETTERS)
+        .to(line2, { x: 0, duration: MOVE * 0.8, ease: "power2.inOut" }, LETTERS + MOVE * 0.2)
         .fromTo(
           q(".ap-visual"),
           { xPercent: 70, scale: 0.7, rotate: 8, autoAlpha: 0 },
-          { xPercent: 0, scale: 1, rotate: 0, autoAlpha: 1, duration: 0.9, ease: "back.out(1.6)" },
-          0.2,
-        )
-        .fromTo(q(".ap-reveal"), { y: 36, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.4, stagger: 0.22, ease: "power2.out" }, 1.05)
-        .to({}, { duration: 0.3 }); // a short hold at the end before the page moves on
+          { xPercent: 0, scale: 1, rotate: 0, autoAlpha: 1, duration: CARD, ease: "back.out(1.6)" },
+          LETTERS + MOVE * 0.8,
+        );
+      reveal.reverse(); // start "reversed" so the first play() runs it forward
 
       return () => gsap.set([title, line2], { clearProps: "transform" });
     });
