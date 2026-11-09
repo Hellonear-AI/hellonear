@@ -1,7 +1,8 @@
-import { ScreenPlaceholder } from "@/modules/minds/components/ScreenPlaceholder"
+import { ChatScreen } from "@/modules/chat/components/ChatScreen"
 
 export const metadata = { title: "Chat" }
 
-export default function Page() {
-  return <ScreenPlaceholder title="Chat" description="Talk to your Mind and watch what it does." />
+export default async function Page({ params }: { params: Promise<{ mindId: string }> }) {
+  const { mindId } = await params
+  return <ChatScreen mindId={mindId} threadId={null} />
 }

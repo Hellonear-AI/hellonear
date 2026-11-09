@@ -28,3 +28,14 @@ export function formatNear(amount: string): string {
   const cents = (match[2] ?? "").padEnd(2, "0").slice(0, 2)
   return `${Number(whole).toLocaleString("en-US")}.${cents}`
 }
+
+/** A clock time for chat messages, in the viewer's own format ("10:42"). */
+export function clockTime(iso: string): string {
+  const date = new Date(iso)
+  return Number.isNaN(date.getTime()) ? "" : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+}
+
+/** A testnet transaction on NearBlocks (the explorer docs.near.org links for testnet; checked 9 Nov). */
+export function explorerTxUrl(txHash: string): string {
+  return `https://testnet.nearblocks.io/txns/${encodeURIComponent(txHash)}`
+}
