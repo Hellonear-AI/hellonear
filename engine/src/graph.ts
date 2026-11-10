@@ -8,9 +8,13 @@ const APP_TOOL = /^(gmail|googlecalendar|mail|googlesheets|googledrive|googledoc
 // Mastra's built-in skill tools take the skill name in different arguments.
 const SKILL_NAME_ARG: Record<string, string> = { skill: 'name', skill_read: 'skillName' }
 
+// The model sometimes names a skill by Mastra's internal path ("inline/best-price/SKILL.md", seen 11 Nov) instead of its
+// id; the node is the same skill either way.
+export const skillIdOf = (name: string) => name.replace(/^inline\//, '').replace(/\/SKILL\.md$/i, '')
+
 export function nodeIdFor(mindId: string, tool: string, args?: Record<string, unknown>): string {
   const skillArg = SKILL_NAME_ARG[tool]
-  if (skillArg && typeof args?.[skillArg] === 'string') return `skill:${args[skillArg]}`
+  if (skillArg && typeof args?.[skillArg] === 'string') return `skill:${skillIdOf(args[skillArg] as string)}`
   if (WALLET_TOOLS.has(tool)) return `wallet:${mindId}`
   // App tools are named <app>_<action> (e.g. gmail_list_emails), one App node per app.
   if (APP_TOOL.test(tool)) return `app:${tool.split('_')[0]}`

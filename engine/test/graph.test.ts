@@ -24,3 +24,9 @@ test('skill tools without a name fall back to a tool node', () => {
   assert.equal(nodeIdFor('m1', 'skill', {}), 'tool:skill')
   assert.equal(nodeIdFor('m1', 'skill_search', { query: 'pay' }), 'tool:skill_search')
 })
+
+test('a skill named by its internal path lights the same skill node (11 Nov)', () => {
+  assert.equal(nodeIdFor('m1', 'skill', { name: 'inline/best-price/SKILL.md' }), 'skill:best-price')
+  assert.equal(nodeIdFor('m1', 'skill', { name: 'best-price' }), 'skill:best-price')
+  assert.equal(nodeIdFor('m1', 'skill_read', { skillName: 'inline/payments/SKILL.md' }), 'skill:payments')
+})
