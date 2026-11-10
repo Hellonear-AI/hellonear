@@ -20,6 +20,7 @@ import { mindsApi, type ApiMind } from "@/modules/minds/api"
 import { templateLabel } from "@/modules/minds/data/minds"
 import { isValidMindName, NAME_RULE } from "@/modules/minds/data/templates"
 import { mindKeys, useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
+import { useSession } from "@/modules/auth/hooks/useSession"
 
 const IDENTITY_MAX = 1000
 
@@ -46,6 +47,9 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
   const mind = full.data
   const [draft, setDraft] = useState<{ name: string; identity: string; model: string } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // The NEAR the backend says is still in the Mind's wallet (409 wallet_not_empty, #163).
+  const [stuck, setStuck] = useState<string | null>(null)
+  const tryOut = Boolean(useSession().data?.demo)
   const saved = mind ? { name: mind.name, identity: mind.soul.identity, model: mind.model } : null
   const form = draft ?? saved
   const name = shell?.name ?? mind?.name ?? "Your Mind"
@@ -76,7 +80,7 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
   })
 
   const remove = useMutation({
-    mutationFn: () => mindsApi.remove(mindId),
+    mutationFn: (acknowledgeBalance: boolean) => mindsApi.remove(mindId, acknowledgeBalance),
     onSuccess: async () => {
       // Back to this Mind's pages should land on the newest Mind, not a 404 (MindGate).
       rememberLeftMinds([mindId])
@@ -84,10 +88,21 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
       await queryClient.invalidateQueries({ queryKey: mindKeys.all })
       router.replace("/")
     },
-    onError: (err) =>
+    onError: (err) => {
+      // Money left in its wallet: ask again, plainly, with the amount (Axel on #161).
+      if (err instanceof ApiError && err.code === "wallet_not_empty") {
+        setStuck(String(err.details.balanceNear ?? ""))
+        return
+      }
       toast.error(`Could not delete ${name}`, {
-        description: err instanceof ApiError && err.code === "demo_not_allowed" ? "A try-out Mind can't be deleted." : "Please try again later.",
-      }),
+        description:
+          err instanceof ApiError && err.code === "demo_not_allowed"
+            ? "A try-out Mind can't be deleted."
+            : err instanceof ApiError && (err.code === "outlayer_unreachable" || err.code === "outlayer_error")
+              ? "Its wallet could not be checked. No changes were made. Please try again later."
+              : "Please try again later.",
+      })
+    },
   })
 
   // The models the templates use: each is known to work with the tools.
@@ -181,8 +196,38 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
       )}
 
       {/* M1.4 */}
-      <Dialog open={confirmDelete} onOpenChange={(open) => !remove.isPending && setConfirmDelete(open)}>
+      <Dialog
+        open={confirmDelete}
+        onOpenChange={(open) => {
+          if (remove.isPending) return
+          setConfirmDelete(open)
+          if (!open) setStuck(null)
+        }}
+      >
         <DialogContent>
+          {stuck !== null ? (
+            // #163: the backend found NEAR in the wallet. Deleting removes the wallet's only key.
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  {name}&apos;s wallet still holds {stuck ? `${formatNear(stuck)} NEAR` : "NEAR"}
+                </DialogTitle>
+                <DialogDescription>
+                  Deleting {name} also deletes the only key to its wallet. After that nobody can move this NEAR, not you and not HelloNear. To keep it, have {name} pay it to one of your addresses first.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => (setConfirmDelete(false), setStuck(null))} disabled={remove.isPending}>
+                  Keep {name}
+                </Button>
+                <Button variant="destructive" onClick={() => remove.mutate(true)} disabled={remove.isPending}>
+                  {remove.isPending && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+                  Delete and lose it
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+          <>
           <DialogHeader>
             <DialogTitle>Delete {name}?</DialogTitle>
             <DialogDescription>
@@ -190,12 +235,15 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
             </DialogDescription>
           </DialogHeader>
           <ul className="flex flex-col gap-2 rounded-md bg-muted p-3 text-[13px] text-foreground">
-            <li className="flex gap-2">
-              <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-warning" />
-              {wallet?.balanceNear
-                ? `The ${formatNear(wallet.balanceNear)} NEAR in its wallet stays there; HelloNear can't move it back for you.`
-                : "Its wallet stays on NEAR; HelloNear can't move money back for you."}
-            </li>
+            {/* A try-out pays from the shared test wallet, so there is nothing of its own to lose (#163). */}
+            {!tryOut && !wallet?.shared && (
+              <li className="flex gap-2">
+                <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-warning" />
+                {wallet?.balanceNear && Number(wallet.balanceNear) > 0.001
+                  ? `The ${formatNear(wallet.balanceNear)} NEAR in its wallet can't be moved by anyone once ${name} is deleted.`
+                  : `If its wallet holds NEAR, nobody can move it once ${name} is deleted. You'll be asked first.`}
+              </li>
+            )}
             <li className="flex gap-2">
               <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-warning" />
               Past payments stay visible on NearBlocks.
@@ -209,11 +257,13 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
             <Button variant="outline" onClick={() => setConfirmDelete(false)} disabled={remove.isPending}>
               Keep {name}
             </Button>
-            <Button variant="destructive" onClick={() => remove.mutate()} disabled={remove.isPending}>
+            <Button variant="destructive" onClick={() => remove.mutate(false)} disabled={remove.isPending}>
               {remove.isPending && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
               Delete {name}
             </Button>
           </DialogFooter>
+          </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
