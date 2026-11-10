@@ -5,7 +5,7 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ApprovalScene, Icon, Point } from "./Sections";
 import { GRAPH_SUB } from "./Sections";
-import { NIGHT_BG, Starfield } from "./Starfield";
+import { NIGHT_BG } from "./night";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -55,7 +55,7 @@ export function ApprovalsScroll() {
     //               so the camera passes the Mind and lands on "Tricked?" (desktop only)
     //   up    0..1  still pinned: soft blurred clouds and fog rise from the bottom and slowly cover the
     //               lawn; behind them it turns to night with the Mind Graph's title already in place;
-    //               then the white clouds fade and the title is there on the stars, with the graph
+    //               then the white clouds fade and the title is there on the night, with the graph
     //               (the next section, same night) right below it.
     const STAGE_W = 1680;
     const STAGE_H = 722;
@@ -64,7 +64,6 @@ export function ApprovalsScroll() {
     const copy = q(".ap-copy")[0] as HTMLElement;
     const tricked = q(".ap-tricked")[0] as HTMLElement;
     const sky = q(".ap-sky")[0] as HTMLElement;
-    const stars = q(".ap-stars")[0] as HTMLElement;
     const fogLight = q(".ap-fog-light")[0] as HTMLElement;
     const grain = q(".grain")[0] as HTMLElement;
     const clouds = q(".ap-cloud") as HTMLElement[];
@@ -108,12 +107,11 @@ export function ApprovalsScroll() {
       const sx = lerp(x0, x1, t);
       stage.style.transform = `translate3d(${sx}px, ${lerp(T0, 0, t)}px, 0) scale(${sc})`;
       // into the clouds: fog and blurred clouds rise and cover the lawn; under that cover it turns to
-      // night; then they keep rising and thin out onto the stars. Every fade starts at zero slope, so
+      // night; then they keep rising and thin out onto the night. Every fade starts at zero slope, so
       // nothing pops in.
       const u = st.up;
       sky.style.visibility = u > 0 ? "visible" : "hidden";
       sky.style.opacity = String(smooth(0.4, 0.5, u));
-      stars.style.opacity = String(smooth(0.45, 0.55, u));
       fogLight.style.opacity = String(smooth(0.18, 0.45, u) * (1 - smooth(0.58, 0.9, u)));
       fogLight.style.transform = `translate3d(0, ${H * (0.55 - 0.9 * u)}px, 0)`;
       clouds.forEach((c, i) => {
@@ -203,9 +201,6 @@ export function ApprovalsScroll() {
           <ApprovalScene />
           {/* Into the clouds (desktop only): the night behind, then the fog and blurred clouds in front. */}
           <div className="ap-sky invisible absolute inset-0 hidden opacity-0 md:block" style={{ background: NIGHT_BG }} aria-hidden="true">
-            <div className="ap-stars absolute inset-0 opacity-0">
-              <Starfield count={160} seed={11} />
-            </div>
             {/* The Mind Graph's title, on the same night as the section below, so it is already there
                 when the clouds clear and the graph follows right under it. */}
             <div className="absolute inset-0 grid place-items-center">

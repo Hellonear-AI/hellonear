@@ -2,7 +2,7 @@
 // First pass so the layout can be judged in the browser; visuals marked "placeholder" come later.
 
 import { MindGraph } from "./MindGraph";
-import { NIGHT_BG, Starfield } from "./Starfield";
+import { NIGHT_BG } from "./night";
 
 export const Icon = {
   ban: "M4.9 4.9l14.2 14.2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
@@ -296,16 +296,13 @@ export function SeeInside() {
       className="graph-section relative z-10 overflow-hidden text-[#F2F1EC] md:-mt-[calc(50vh-130px)]"
       style={{ "--night": NIGHT_BG } as React.CSSProperties}
     >
-      <div className="absolute inset-x-0 bottom-0 top-0 md:top-[calc(50vh-130px)]">
-        <Starfield count={180} seed={23} />
-      </div>
-      <div className="relative mx-auto flex max-w-[1200px] flex-col gap-12 px-5 pb-28 pt-24 md:pt-6">
+      <div className="relative mx-auto flex max-w-[1200px] flex-col gap-12 px-5 pt-24 md:pt-0">
         <div className="flex flex-col items-center gap-3 text-center md:hidden">
           <h2 className="max-w-[760px] text-[40px] font-medium leading-[1.05] tracking-[-1.4px]">Watch your Mind think</h2>
           <p className="max-w-[600px] text-[17px] leading-[1.5] text-[#F2F1EC]/70">{GRAPH_SUB}</p>
         </div>
-        <MindGraph />
       </div>
+      <MindGraph />
     </section>
   );
 }

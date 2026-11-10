@@ -690,22 +690,13 @@ body {
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 24px 48px -20px rgb(0 0 0 / 0.6);
 }
 
-/* Stars that twinkle (Starfield). */
-@keyframes star-twinkle {
-  0%, 100% { opacity: 0.9; }
-  50% { opacity: 0.2; }
-}
-@media (prefers-reduced-motion: no-preference) {
-  .star-twinkle { animation: star-twinkle 3.6s ease-in-out infinite; }
-}
-
 /* The Mind Graph has no frame: its four edges fade into the night. */
 .graph-fade {
-  -webkit-mask-image: linear-gradient(to right, transparent, #000 9%, #000 91%, transparent),
-    linear-gradient(to bottom, transparent, #000 9%, #000 91%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent),
+    linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
   -webkit-mask-composite: source-in;
-  mask-image: linear-gradient(to right, transparent, #000 9%, #000 91%, transparent),
-    linear-gradient(to bottom, transparent, #000 9%, #000 91%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent),
+    linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
   mask-composite: intersect;
 }
 
