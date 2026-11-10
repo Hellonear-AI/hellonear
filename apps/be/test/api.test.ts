@@ -1752,7 +1752,7 @@ describe('Telegram (#168)', () => {
   const msg = (id: number, chatId: number, text: string) => ({ update_id: id, message: { message_id: id, text, chat: { id: chatId, type: 'private', first_name: 'Axel', username: 'axel' }, from: { id: chatId, is_bot: false } } })
   const settle = () => new Promise((r) => setTimeout(r, 400))
 
-  test('connect checks the token with Telegram, links the owner by a one-time code, answers only them, and points approvals to the app', async () => {
+  test('connect checks the token with Telegram, links the owner by a one-time code, answers only them, and asks for approvals with buttons', async () => {
     const { config } = await import('../src/config.ts')
     const savedBase = config.telegramWebhookBase
     config.telegramWebhookBase = 'https://api.hellonear.test'
@@ -1776,6 +1776,8 @@ describe('Telegram (#168)', () => {
       assert.equal(setHook.body.url, `https://api.hellonear.test/v1/telegram/${mindId}/webhook`)
       const secret = setHook.body.secret_token as string
       assert.ok(secret.length >= 32)
+      // Button presses (#208) only arrive when the webhook asks for them.
+      assert.deepEqual(setHook.body.allowed_updates, ['message', 'callback_query'])
       // The token is stored encrypted and never returned.
       assert.ok(!JSON.stringify(t).includes(TOKEN))
       const [stored] = await query('select token_ciphertext from mind_telegram where mind_id = $1', [mindId])
@@ -1817,10 +1819,14 @@ describe('Telegram (#168)', () => {
       await hook(mindId, secret, msg(6, 555, 'hi there'))
       await settle()
       assert.equal(fakeTelegram.sent(TOKEN).length, count)
-      // Something that needs approval: the bot points to the app, it never approves.
+      // Something that needs approval (#208): its own message with Approve / Decline and Open in app, to the chat that asked.
       await hook(mindId, secret, msg(7, 555, 'please pay the invoice'))
       await new Promise((r) => setTimeout(r, 1500))
-      assert.match(fakeTelegram.sent(TOKEN).at(-1).text, new RegExp(`needs your approval in the app: http://localhost:3000/minds/${mindId}/chat/thr_[a-f0-9]{24}$`))
+      const ask = fakeTelegram.sent(TOKEN).at(-1)
+      assert.match(ask.text, /^Approve pay_invoice\n\nWaiting for you\.$/)
+      const [approve, decline, open] = ask.reply_markup.inline_keyboard.flat()
+      assert.deepEqual([approve.text, decline.text, open.text], ['Approve', 'Decline', 'Open in app'])
+      assert.match(open.url, new RegExp(`^http://localhost:3000/minds/${mindId}/chat/${row.thread_id}$`))
 
       // One bot serves one Mind.
       const other = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Tele2' }, origin)).json()).mind.id as string
@@ -1848,7 +1854,7 @@ describe('Telegram (#168)', () => {
 
   test('local dev polls getUpdates when there is no public webhook URL', async () => {
     const { startTelegramPolling } = await import('../src/telegram.ts')
-    const { runTelegramChat } = await import('../src/server.ts')
+    const { telegramRunner } = await import('../src/server.ts')
     const a = await signIn()
     const mindId = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Poll' }, origin)).json()).mind.id as string
     const t = (await (await a.call('PUT', `/v1/minds/${mindId}/telegram`, { token: OTHER }, origin)).json()).telegram
@@ -1856,7 +1862,7 @@ describe('Telegram (#168)', () => {
     assert.equal(fakeTelegram.calls.findLast((c) => c.token === OTHER && c.method !== 'getMe')!.method, 'deleteWebhook')
     const code = t.linkUrl.split('start=')[1]
     fakeTelegram.updates.set(OTHER, [msg(10, 999, `/start ${code}`), msg(11, 999, 'hello')])
-    const stop = startTelegramPolling(runTelegramChat, 100)
+    const stop = startTelegramPolling(telegramRunner, 100)
     try {
       for (let i = 0; i < 40 && fakeTelegram.sent(OTHER).length < 2; i++) await new Promise((r) => setTimeout(r, 100))
     } finally {
@@ -1866,5 +1872,256 @@ describe('Telegram (#168)', () => {
     assert.match(sent[0].text, /^Linked\./)
     assert.match(sent[1].text, /^w0 w1/)
     assert.equal((await query('select last_update_id from mind_telegram where mind_id = $1', [mindId]))[0].last_update_id, '11')
+    assert.deepEqual(fakeTelegram.of(OTHER, 'getUpdates').at(-1).allowed_updates, ['message', 'callback_query'])
+  })
+})
+
+describe('Telegram approvals (#208)', () => {
+  const origin = { origin: 'http://localhost:3000' }
+  let savedBase = ''
+  before(() => { savedBase = config.telegramWebhookBase; config.telegramWebhookBase = 'https://api.hellonear.test'; fake.backendUrl = base })
+  after(() => { config.telegramWebhookBase = savedBase; fakeTelegram.refuseLocalUrls = false })
+
+  const until = async (ok: () => boolean | Promise<boolean>, what: string) => {
+    for (let i = 0; i < 60; i++) { if (await ok()) return; await new Promise((r) => setTimeout(r, 50)) }
+    assert.fail(`timed out waiting for ${what}`)
+  }
+
+  // A Payments Mind with its own wallet (1 NEAR, 0.05 NEAR per payment, the given address list) and its own bot, linked
+  // to the owner's Telegram account. `say` sends the owner's message; `press` presses a button as `from`.
+  async function linkedMind(whitelist = ['shop.testnet']) {
+    const a = await signIn()
+    const mindId = (await (await a.call('POST', '/v1/minds', { templateId: 'payments-mind', name: `Tg ${randomBytes(3).toString('hex')}` }, origin)).json()).mind.id as string
+    const { wallet } = await (await a.call('POST', `/v1/minds/${mindId}/wallet`, {}, origin)).json()
+    const w = fakeOutlayer.byAccount(wallet.address)
+    w.balance = (10n ** 24n).toString()
+    const { transaction } = await (await a.call('POST', `/v1/minds/${mindId}/wallet/policy`, { perTransactionNear: '0.05', whitelist }, origin)).json()
+    fakeOutlayer.store(transaction.actions[0].params.args.encrypted_data)
+
+    const id = 100_000_000 + Math.floor(Math.random() * 800_000_000)
+    const token = `${id}:AAH${randomBytes(18).toString('hex')}`
+    fakeTelegram.bots.set(token, { id, username: `hn_${id}_bot` })
+    const t = (await (await a.call('PUT', `/v1/minds/${mindId}/telegram`, { token }, origin)).json()).telegram
+    const secret = fakeTelegram.of(token, 'setWebhook').at(-1).secret_token as string
+    const owner = 200_000_000 + Math.floor(Math.random() * 800_000_000)
+    let update = 0
+    const post = (body: unknown) => fetch(`${base}/v1/telegram/${mindId}/webhook`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-telegram-bot-api-secret-token': secret }, body: JSON.stringify(body) })
+    const say = async (text: string) => {
+      const n = ++update
+      assert.equal((await post({ update_id: n, message: { message_id: n, text, chat: { id: owner, type: 'private', first_name: 'Axel' }, from: { id: owner, is_bot: false } } })).status, 200)
+    }
+    const press = async (data: string, messageId: number, from = owner) => {
+      const n = ++update
+      assert.equal((await post({ update_id: n, callback_query: { id: `cq${n}`, from: { id: from, is_bot: false }, message: { message_id: messageId, chat: { id: from, type: 'private' } }, chat_instance: '1', data } })).status, 200)
+      return `cq${n}`
+    }
+    await say(`/start ${t.linkUrl.split('start=')[1]}`)
+    await until(() => fakeTelegram.sent(token).some((m) => /^Linked\./.test(m.text)), 'the link')
+    // The next approval message the bot sends, with its message id (the fake answers sendMessage with its call count).
+    const nextAsk = async (count: number) => {
+      await until(() => fakeTelegram.sent(token).filter((m) => m.reply_markup).length >= count, `approval message ${count}`)
+      const body = fakeTelegram.sent(token).filter((m) => m.reply_markup)[count - 1]
+      const i = fakeTelegram.calls.findIndex((c) => c.body === body)
+      const buttons = Object.fromEntries(body.reply_markup.inline_keyboard.flat().map((b: any) => [b.text, b.callback_data ?? b.url]))
+      return { text: body.text as string, buttons: buttons as Record<string, string>, messageId: i + 1 }
+    }
+    const answers = (cq: string) => fakeTelegram.of(token, 'answerCallbackQuery').filter((b) => b.callback_query_id === cq).map((b) => b.text)
+    const edits = (messageId: number) => fakeTelegram.of(token, 'editMessageText').filter((b) => b.message_id === messageId)
+    const runOf = async () => (await query<{ id: string; status: string; thread_id: string }>('select id, status, thread_id from runs where mind_id = $1 order by started_at desc limit 1', [mindId]))[0]
+    const resumes = (runId: string) => fake.requests.filter((r) => r.path.startsWith(`/v1/runs/${runId}/`)).length
+    const payments = async () => query<{ status: string; tx_hash: string | null; to_account: string }>('select status, tx_hash, to_account from wallet_payments where mind_id = $1 order by created_at', [mindId])
+    return { a, mindId, w, token, owner, say, press, nextAsk, answers, edits, runOf, resumes, payments }
+  }
+
+  test('the owner presses Approve: the payment is sent and the message shows it with a NearBlocks button, then the reply', async () => {
+    const m = await linkedMind()
+    await m.say('pay 0.01 NEAR to shop.testnet')
+    const ask = await m.nextAsk(1)
+    // The same checks as the app's card, read against the stored policy and balance.
+    assert.equal(ask.text, 'Pay 0.01 NEAR to shop.testnet\n\n✓ Within your 0.05 NEAR limit\n✓ On your list of addresses\n✓ Enough balance: 1.00 NEAR\n\nWaiting for you.')
+    const run = await m.runOf()
+    assert.deepEqual(Object.keys(ask.buttons), ['Approve', 'Decline', 'Open in app'])
+    assert.equal(ask.buttons['Open in app'], `http://localhost:3000/minds/${m.mindId}/chat/${run.thread_id}`)
+    // An opaque one-time code: no run id, tool call or amount in the button, and within Telegram's 64 bytes.
+    for (const data of [ask.buttons.Approve, ask.buttons.Decline]) {
+      assert.match(data, /^a:[A-Za-z0-9_-]{22}$/)
+      assert.ok(Buffer.byteLength(data) <= 64)
+    }
+    // The reply text came first, as a normal message.
+    assert.ok(fakeTelegram.sent(m.token).some((s) => s.text === 'Asking you first.'))
+
+    const firstCall = fakeTelegram.calls.length
+    const cq = await m.press(ask.buttons.Approve, ask.messageId)
+    await until(async () => (await m.runOf()).status === 'finished' && fakeTelegram.sent(m.token).at(-1).text === 'Paid shop.testnet.', 'the reply after the approval')
+    assert.deepEqual(m.answers(cq), ['Sending…'])
+    const [paid] = await m.payments()
+    assert.equal(paid.status, 'sent')
+    const final = m.edits(ask.messageId).at(-1)
+    assert.equal(final.text, 'Pay 0.01 NEAR to shop.testnet\n\nSent 0.01 NEAR to shop.testnet.')
+    assert.deepEqual(final.reply_markup.inline_keyboard, [[{ text: 'See it on NearBlocks', url: `https://testnet.nearblocks.io/txns/${paid.tx_hash}` }]])
+    // Order: spinner answered, buttons removed, message edited, then the Mind's reply.
+    const order = fakeTelegram.calls.slice(firstCall).filter((c) => c.token === m.token).map((c) => c.method)
+    assert.deepEqual(order, ['answerCallbackQuery', 'editMessageReplyMarkup', 'editMessageText', 'sendMessage'])
+    assert.equal(fakeTelegram.of(m.token, 'editMessageReplyMarkup').at(-1).reply_markup, undefined)
+    // Answered in one place shows as answered in the other: the app's inbox is empty.
+    assert.deepEqual((await (await m.a.call('GET', `/v1/minds/${m.mindId}/approvals`)).json()).approvals, [])
+  })
+
+  test('Decline: nothing is paid, the message says so, and the Mind replies', async () => {
+    const m = await linkedMind()
+    await m.say('pay 0.01 NEAR to shop.testnet')
+    const ask = await m.nextAsk(1)
+    const cq = await m.press(ask.buttons.Decline, ask.messageId)
+    await until(() => fakeTelegram.sent(m.token).at(-1).text === 'Not paying shop.testnet.', 'the reply after the decline')
+    assert.deepEqual(m.answers(cq), ['Declined'])
+    assert.equal(m.edits(ask.messageId).at(-1).text, 'Pay 0.01 NEAR to shop.testnet\n\nDeclined. Nothing was sent.')
+    assert.deepEqual(await m.payments(), [])
+    const runId = (await m.runOf()).id
+    assert.equal(fake.requests.findLast((r) => r.path.startsWith(`/v1/runs/${runId}/`))!.path.split('?')[0].split('/').at(-1), 'decline')
+  })
+
+  test('a payment the policy would refuse has no Approve button, only the reason and a button to Wallet', async () => {
+    const m = await linkedMind()
+    await m.say('pay 0.5 NEAR to shop.testnet')
+    const over = await m.nextAsk(1)
+    assert.match(over.text, /✗ Over your 0\.05 NEAR limit: blocked even if you approve/)
+    assert.match(over.text, /Approving now would be refused by the wallet policy before signing\. Fix it in Wallet first\./)
+    assert.deepEqual(over.buttons, { Decline: over.buttons.Decline, 'Change limits first': `http://localhost:3000/minds/${m.mindId}/wallet` })
+    // Its decline code is the only code stored for it: there is nothing to approve.
+    assert.deepEqual((await query('select action from telegram_approvals where mind_id = $1', [m.mindId])).map((r) => r.action), ['decline'])
+
+    await m.press(over.buttons.Decline, over.messageId)
+    await until(() => m.edits(over.messageId).length > 0, 'the decline')
+    await m.say('pay 0.01 NEAR to stranger.testnet')
+    const unlisted = await m.nextAsk(2)
+    assert.match(unlisted.text, /✗ Not on your list: blocked even if you approve/)
+    assert.deepEqual(Object.keys(unlisted.buttons), ['Decline', 'Add the address first'])
+  })
+
+  test('a payment the wallet policy refuses after the press says so, before signing, with no tx link', async () => {
+    const m = await linkedMind()
+    await m.say('pay 0.01 NEAR to shop.testnet')
+    const ask = await m.nextAsk(1)
+    // The owner lowers the limit (signed in the app) after the message was sent: OutLayer refuses at send time.
+    m.w.policy.rules.limits.per_transaction.native = (5n * 10n ** 21n).toString()
+    await m.press(ask.buttons.Approve, ask.messageId)
+    await until(() => fakeTelegram.sent(m.token).at(-1).text === 'That payment to shop.testnet was not sent.', 'the reply after the refusal')
+    const final = m.edits(ask.messageId).at(-1)
+    assert.equal(final.text, 'Pay 0.01 NEAR to shop.testnet\n\nNot sent: refused by the wallet policy before signing. Nothing left your wallet.\n✗ Over 0.005 NEAR per payment')
+    assert.equal(final.reply_markup, undefined)
+    assert.doesNotMatch(JSON.stringify(final), /on-chain|nearblocks|txns/i)
+    assert.deepEqual((await m.payments()).map((p) => [p.status, p.tx_hash]), [['policy_denied', null]])
+  })
+
+  test('a press by anyone but the owner does nothing but say so', async () => {
+    const m = await linkedMind()
+    await m.say('pay 0.01 NEAR to shop.testnet')
+    const ask = await m.nextAsk(1)
+    const run = await m.runOf()
+    const editsBefore = fakeTelegram.of(m.token, 'editMessageText').length + fakeTelegram.of(m.token, 'editMessageReplyMarkup').length
+    const cq = await m.press(ask.buttons.Approve, ask.messageId, m.owner + 1)
+    await until(() => m.answers(cq).length > 0, 'the answer to the stranger')
+    assert.deepEqual(m.answers(cq), ['Only the owner can approve'])
+    assert.equal(fakeTelegram.of(m.token, 'editMessageText').length + fakeTelegram.of(m.token, 'editMessageReplyMarkup').length, editsBefore)
+    assert.equal(m.resumes(run.id), 0)
+    assert.equal((await m.runOf()).status, 'awaiting_approval')
+    assert.deepEqual((await query('select used_at from telegram_approvals where run_id = $1', [run.id])).map((r) => r.used_at), [null, null])
+    // A made-up code from the owner: answered, nothing else.
+    const fake1 = await m.press('a:madeUpCodeThatIsNotStored0', ask.messageId)
+    await until(() => m.answers(fake1).length > 0, 'the answer to a made-up code')
+    assert.deepEqual(m.answers(fake1), ['This button no longer works'])
+    assert.equal(m.resumes(run.id), 0)
+  })
+
+  test('a double press answers once; the second press reads "Already answered"', async () => {
+    const m = await linkedMind()
+    await m.say('pay 0.01 NEAR to shop.testnet')
+    const ask = await m.nextAsk(1)
+    const run = await m.runOf()
+    const first = await m.press(ask.buttons.Approve, ask.messageId)
+    const second = await m.press(ask.buttons.Approve, ask.messageId)
+    const third = await m.press(ask.buttons.Decline, ask.messageId)
+    await until(async () => (await m.runOf()).status === 'finished' && m.answers(third).length > 0 && m.answers(second).length > 0, 'all three answers')
+    assert.deepEqual([m.answers(first), m.answers(second), m.answers(third)], [['Sending…'], ['Already answered'], ['Already answered']])
+    assert.equal(m.resumes(run.id), 1)
+    assert.deepEqual((await m.payments()).map((p) => p.status), ['sent'])
+  })
+
+  test('an approval already answered in the app reads "Already answered" in Telegram, and the other way round', async () => {
+    const m = await linkedMind()
+    await m.say('pay 0.01 NEAR to shop.testnet')
+    const ask = await m.nextAsk(1)
+    const run = await m.runOf()
+    await events(await m.a.call('POST', `/v1/runs/${run.id}/approve`, { toolCallId: 'pay_1' }, origin))
+    const cq = await m.press(ask.buttons.Approve, ask.messageId)
+    await until(() => m.edits(ask.messageId).length > 0, 'the edit')
+    assert.deepEqual(m.answers(cq), ['Already answered'])
+    assert.equal(m.edits(ask.messageId).at(-1).text, 'Pay 0.01 NEAR to shop.testnet\n\nAlready answered.')
+    assert.equal(m.resumes(run.id), 1)
+    assert.deepEqual((await m.payments()).map((p) => p.status), ['sent'])
+
+    // Answered in Telegram first: the app gets 409.
+    await m.say('pay 0.02 NEAR to shop.testnet')
+    const next = await m.nextAsk(2)
+    const run2 = await m.runOf()
+    await m.press(next.buttons.Decline, next.messageId)
+    await until(async () => (await m.runOf()).status === 'finished', 'the decline')
+    const res = await m.a.call('POST', `/v1/runs/${run2.id}/approve`, { toolCallId: 'pay_1' }, origin)
+    assert.deepEqual([res.status, (await res.json()).error], [409, 'not_awaiting_approval'])
+  })
+
+  test('a split bill asks once per payment, as they come, and an old button cannot answer the next one', async () => {
+    const m = await linkedMind(['shop.testnet', 'cafe.testnet'])
+    await m.say('pay 0.01 NEAR to shop.testnet and 0.02 NEAR to cafe.testnet')
+    const first = await m.nextAsk(1)
+    assert.match(first.text, /^Pay 0\.01 NEAR to shop\.testnet\n/)
+    const run = await m.runOf()
+    await m.press(first.buttons.Approve, first.messageId)
+    const second = await m.nextAsk(2)
+    assert.match(second.text, /^Pay 0\.02 NEAR to cafe\.testnet\n/)
+    assert.notEqual(second.buttons.Approve, first.buttons.Approve)
+    assert.equal(m.edits(first.messageId).at(-1).text, 'Pay 0.01 NEAR to shop.testnet\n\nSent 0.01 NEAR to shop.testnet.')
+    assert.ok(fakeTelegram.sent(m.token).some((s) => s.text === 'Paid shop.testnet.'))
+    assert.equal((await m.runOf()).status, 'awaiting_approval')
+
+    // The first message's buttons are used up; the run waits for the second payment only.
+    const stale = await m.press(first.buttons.Decline, first.messageId)
+    await until(() => m.answers(stale).length > 0, 'the stale press')
+    assert.deepEqual(m.answers(stale), ['Already answered'])
+    // Nor can the app answer the first call again (it belongs to the earlier pause).
+    const res = await m.a.call('POST', `/v1/runs/${run.id}/approve`, { toolCallId: 'pay_1' }, origin)
+    assert.equal(res.status, 409)
+
+    await m.press(second.buttons.Approve, second.messageId)
+    await until(async () => (await m.runOf()).status === 'finished' && fakeTelegram.sent(m.token).at(-1).text === 'Paid cafe.testnet.', 'the second payment')
+    assert.equal(m.edits(second.messageId).at(-1).text, 'Pay 0.02 NEAR to cafe.testnet\n\nSent 0.02 NEAR to cafe.testnet.')
+    assert.deepEqual((await m.payments()).map((p) => [p.to_account, p.status]), [['shop.testnet', 'sent'], ['cafe.testnet', 'sent']])
+    assert.equal(m.resumes(run.id), 2)
+  })
+
+  test('when Telegram refuses a link button, the message still goes out with the link in its text', async () => {
+    const m = await linkedMind()
+    fakeTelegram.refuseLocalUrls = true
+    try {
+      await m.say('pay 0.01 NEAR to shop.testnet')
+      // The first try (refused, with the link button) and the second, without it.
+      const refused = await m.nextAsk(1)
+      assert.ok('Open in app' in refused.buttons)
+      const ask = await m.nextAsk(2)
+      assert.deepEqual(Object.keys(ask.buttons), ['Approve', 'Decline'])
+      assert.match(ask.text, new RegExp(`\\n\\nOpen in app: http://localhost:3000/minds/${m.mindId}/chat/thr_[a-f0-9]{24}$`))
+    } finally {
+      fakeTelegram.refuseLocalUrls = false
+    }
+  })
+
+  test('at start, every bot gets its webhook again with button presses allowed, keeping its secret and pending updates', async () => {
+    const m = await linkedMind()
+    const { registerTelegramWebhooks } = await import('../src/telegram.ts')
+    const secret = fakeTelegram.of(m.token, 'setWebhook').at(-1).secret_token
+    const out = await registerTelegramWebhooks()
+    assert.ok(out.updated >= 1)
+    const again = fakeTelegram.of(m.token, 'setWebhook').at(-1)
+    assert.deepEqual(again, { url: `https://api.hellonear.test/v1/telegram/${m.mindId}/webhook`, secret_token: secret, allowed_updates: ['message', 'callback_query'] })
   })
 })

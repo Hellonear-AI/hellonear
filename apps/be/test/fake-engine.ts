@@ -14,6 +14,10 @@ export const fake = {
   restartBeforeResume: false,
   // Runs whose stream the backend closed before the end (a cancel, #121).
   cutOff: new Set<string>(),
+  // Telegram approvals (#208): the backend's URL, so an approved send_payment pays through its internal route like the
+  // engine's tool does, and the payments each run still has to ask for.
+  backendUrl: '',
+  payments: new Map<string, { toolCallId: string; args: { to: string; amountNear: string } }[]>(),
 }
 
 export const templates = [
@@ -77,6 +81,13 @@ export const attacks = [
 // The verdict the fake engine ends an attack run with: paused for approval, refused on the wallet, or by the model.
 const verdict = (attackId: string, stoppedBy: string) => ({ type: 'attack.verdict', attackId, attacker: 'drain-attacker.testnet', paymentTool: true, stoppedBy, detail: stoppedBy })
 
+// One send_payment approval, then the pause, as the engine streams it.
+const askToPay = (mindId: string, p: { toolCallId: string; args: { to: string; amountNear: string } }) => [
+  { type: 'tool.called', toolCallId: p.toolCallId, tool: 'send_payment', nodeId: `wallet:${mindId}`, args: p.args },
+  { type: 'tool.approval_required', toolCallId: p.toolCallId, tool: 'send_payment', nodeId: `wallet:${mindId}`, args: p.args },
+  { type: 'run.finished', finishReason: 'suspended', text: '', usage: {}, costUsd: 0.0001, verification: { status: 'pending' } },
+]
+
 const deltas = (n: number) => Array.from({ length: n }, (_, i) => ({ type: 'text.delta', text: `w${i} ` }))
 
 export const engine = createServer(async (req, res) => {
@@ -94,6 +105,13 @@ export const engine = createServer(async (req, res) => {
     const mindId = chat[1]
     const runId = `run_${randomUUID()}`
     const started = { type: 'run.started', threadId: body.threadId, model: body.mind.model, nodeId: `model:${body.mind.model}`, skills: body.mind.skills.map((s: any) => s.skillId) }
+    // "pay 0.01 NEAR to a.testnet[ and 0.02 NEAR to b.testnet]": send_payment, one approval per pause like the real
+    // engine, so a split bill asks for the next person once the first is answered.
+    const payments = [...String(body.message).matchAll(/([\d.]+) NEAR to ([a-z0-9._-]+)/g)].map((m, i) => ({ toolCallId: `pay_${i + 1}`, args: { to: m[2], amountNear: m[1] } }))
+    if (/^pay [\d.]+ NEAR to /.test(body.message) && payments.length) {
+      fake.payments.set(runId, payments)
+      return stream(res, runId, mindId, 0, [started, { type: 'step.started', step: 1 }, { type: 'text.delta', text: 'Asking you first.' }, ...askToPay(mindId, payments[0])])
+    }
     if (body.message.includes('pay')) {
       return stream(res, runId, mindId, 0, [
         started, { type: 'step.started', step: 1 },
@@ -121,6 +139,28 @@ export const engine = createServer(async (req, res) => {
     const mindId = url.searchParams.get('mindId')!
     const start = fake.restartBeforeResume ? 0 : fake.nextSeq.get(runId) ?? 0
     const approved = resume[2] === 'approve'
+    const payments = fake.payments.get(runId)
+    if (payments) {
+      const i = payments.findIndex((p) => p.toolCallId === body.toolCallId)
+      const evs: Record<string, unknown>[] = []
+      if (approved) {
+        // Like the engine's send_payment: the backend's internal route pays, with the engine key and the run's wallet token.
+        const paid = await fetch(`${fake.backendUrl}/internal/v1/wallet/send_payment`, {
+          method: 'POST', headers: { 'content-type': 'application/json', 'x-engine-key': ENGINE_KEY, ...(body.walletToken ? { 'x-wallet-token': body.walletToken } : {}) }, body: JSON.stringify(payments[i].args),
+        })
+        const result = await paid.json() as { status?: string; message?: string }
+        const hard = result.status === 'policy_denied' || result.status === 'wallet_frozen'
+        evs.push(hard
+          ? { type: 'tool.error', toolCallId: body.toolCallId, tool: 'send_payment', nodeId: `wallet:${mindId}`, status: result.status, error: String(result.message ?? result.status), result }
+          : { type: 'tool.result', toolCallId: body.toolCallId, tool: 'send_payment', nodeId: `wallet:${mindId}`, result, status: 'ok' })
+        evs.push({ type: 'text.delta', text: result.status === 'sent' ? `Paid ${payments[i].args.to}.` : `That payment to ${payments[i].args.to} was not sent.` })
+      } else {
+        // A decline writes no tool result, like the engine.
+        evs.push({ type: 'text.delta', text: `Not paying ${payments[i].args.to}.` })
+      }
+      const next = payments[i + 1]
+      return stream(res, runId, mindId, start, next ? [...evs, { type: 'step.started', step: 2 }, ...askToPay(mindId, next)] : [...evs, { type: 'run.finished', finishReason: 'stop', text: '', usage: {}, costUsd: 0.0001, verification: { status: 'pending' } }])
+    }
     return stream(res, runId, mindId, start, [
       approved
         ? { type: 'tool.result', toolCallId: body.toolCallId, tool: 'pay_invoice', nodeId: `wallet:${mindId}`, result: { ok: true }, status: 'ok' }
