@@ -53,6 +53,9 @@ export const config = {
   // The shared try-out inbox (its inbox id, which is its address), on key slot 0. Empty: try-out Minds get no inbox.
   demoInbox: (process.env.DEMO_AGENTMAIL_INBOX ?? '').trim().toLowerCase(),
   mail: { maxRecipients: 5, sendsPerMindPerDay: 20 },
+  // Paid data (#150): the account a Mind pays for a data report (it must be on the paying wallet's address list,
+  // or the policy refuses the payment). Empty: the shop answers 503 shop_not_configured.
+  shopPayTo: (process.env.SHOP_PAY_TO ?? '').trim().toLowerCase(),
   nonceTtlMs: 5 * 60 * 1000,
   sessionTtlMs: 7 * 24 * 60 * 60 * 1000,
 }

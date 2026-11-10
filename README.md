@@ -79,6 +79,7 @@ What you should see in step 4 (checked locally on 7 Nov, ~46 s):
 **More to try** (each is a chat message to a Mind that has the skill; try-out users get sample data):
 - *"Brief me on today"* (`morning-briefing` skill): today's meetings, the emails that need you, money due, and a "Watch out" line for the phishing email. Read-only.
 - *"Which subscriptions do I pay for?"* (`subscriptions` skill): StreamBox, CloudNotes and the Lumen invoice from the sample inbox, with monthly totals. It never pays.
+- *"What's the gas price on NEAR testnet? Buy the report."* (`paid-data` skill, a 402 pattern on testnet NEAR): the Mind gets a price from our shop (`402`), asks you to approve 0.001 NEAR to the shop account, then shows the live report with the tx hash as the receipt. The shop serves it only for that Mind's own payment, once. Needs `SHOP_PAY_TO` on the backend.
 - *"Prep me for the call with Dimas"* (`meeting-prep` skill): the Kopi Kita call from the sample calendar, Dimas as the attendee, his order #1042 email by sender and subject, open questions and a short checklist. Read-only.
 - *"What is this app?"* or *"How do I freeze my wallet?"*: every Mind answers from a built-in HelloNear guide.
 - **Stop:** `POST $B/v1/runs/$RUN/cancel` while a reply streams. See: the stream ends with `run.finished` `"status":"canceled"`, and the engine stops calling the model (measured: 0 text after the cut, against ~25 s of text before #121).

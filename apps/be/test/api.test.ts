@@ -740,6 +740,65 @@ describe('payment tools through the backend (#42, option B)', () => {
     assert.ok(!sent.includes(w.key) && !sent.includes('wk_'))
   })
 
+  test('paid data (#150): 402 with the price, then the report for this Mind\'s own fresh payment, once', async () => {
+    const { config } = await import('../src/config.ts')
+    const saved = config.shopPayTo
+    try {
+      config.shopPayTo = ''
+      const a = await signIn()
+      const { mindId } = await walletMind(a)
+      const token = await tokenFromChat(a, mindId)
+      assert.equal((await engineCall('GET', '/internal/v1/shop/network-status', token)).status, 503)
+      config.shopPayTo = 'shop.testnet'
+
+      let res = await engineCall('GET', '/internal/v1/shop/network-status', token)
+      assert.equal(res.status, 402)
+      assert.deepEqual(await res.json(), { status: 'payment_required', item: 'network-status', title: 'NEAR testnet status: latest block, protocol version, validator count', priceNear: '0.001', payTo: 'shop.testnet' })
+      assert.equal((await engineCall('GET', '/internal/v1/shop/nope', token)).status, 404)
+      assert.equal((await engineCall('GET', '/internal/v1/shop/network-status?tx=not-a-hash', token)).status, 400)
+
+      // A hash this Mind never paid with: still 402.
+      res = await engineCall('GET', `/internal/v1/shop/network-status?tx=${'1'.repeat(44)}`, token)
+      assert.deepEqual([res.status, (await res.json()).error], [402, 'payment_not_found'])
+
+      // Too little: the payment row exists but is under the price.
+      const pay = async (amountNear: string, to = 'shop.testnet') => (await (await engineCall('POST', '/internal/v1/wallet/send_payment', token, { to, amountNear })).json()).txHash as string
+      const small = await pay('0.0005')
+      res = await engineCall('GET', `/internal/v1/shop/network-status?tx=${small}`, token)
+      assert.deepEqual([res.status, (await res.json()).error], [402, 'payment_does_not_match'])
+
+      const tx = await pay('0.001')
+      res = await engineCall('GET', `/internal/v1/shop/network-status?tx=${tx}`, token)
+      assert.equal(res.status, 200, await res.clone().text())
+      const out = await res.json()
+      assert.equal(out.status, 'paid')
+      assert.deepEqual(out.data, { chainId: 'testnet', latestBlock: 277049858, at: '2026-11-10T09:36:17Z', protocolVersion: 88, validators: 20 })
+      assert.deepEqual([out.receipt.txHash, out.receipt.amountNear], [tx, '0.001'])
+      // Once only, and not for another item either.
+      res = await engineCall('GET', `/internal/v1/shop/gas-price?tx=${tx}`, token)
+      assert.deepEqual([res.status, (await res.json()).error], [409, 'payment_already_used'])
+
+      // Another Mind cannot redeem this Mind's payment: the row belongs to the Mind that paid.
+      const b = await signIn()
+      const other = await walletMind(b)
+      const otherToken = await tokenFromChat(b, other.mindId)
+      const tx2 = await pay('0.001')
+      res = await engineCall('GET', `/internal/v1/shop/gas-price?tx=${tx2}`, otherToken)
+      assert.deepEqual([res.status, (await res.json()).error], [402, 'payment_not_found'])
+
+      // The chain says it failed: refused even though our row says sent.
+      fakeOutlayer.txs.get(tx2)!.failed = true
+      res = await engineCall('GET', `/internal/v1/shop/gas-price?tx=${tx2}`, token)
+      assert.deepEqual([res.status, (await res.json()).error], [402, 'payment_not_on_chain'])
+      fakeOutlayer.txs.get(tx2)!.failed = false
+      res = await engineCall('GET', `/internal/v1/shop/gas-price?tx=${tx2}`, token)
+      assert.equal(res.status, 200)
+      assert.deepEqual((await res.json()).data, { gasPriceYocto: '100000000', transferCostNear: '0.000045' })
+    } finally {
+      config.shopPayTo = saved
+    }
+  })
+
   test('send_payment: sent with a tx hash, refusals recorded without one, receipts listed', async () => {
     const a = await signIn()
     const { mindId, w } = await walletMind(a)
