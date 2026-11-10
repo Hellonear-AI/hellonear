@@ -105,7 +105,7 @@ export function SkillsScreen({ mindId }: { mindId: string }) {
       {/* What a skill is for: a line tab bar, so it reads as the page's sections and the Added /
           Not added pills below read as a filter inside them (Ancung, 11 Nov). Scrolls sideways on phones. */}
       <Tabs value={category} onValueChange={(v) => (setCategory(v as CategoryId | "all"), setPage(1))}>
-        <div className="relative -mx-4 border-b border-border md:mx-0">
+        <div className="relative -mx-4 md:mx-0">
           {/* Phones: no scrollbar under the tabs (it read like the active line), a fade at the right
               edge says more tabs are a swipe away (Ancung, 11 Nov). */}
           <div className="scrollbar-none overflow-x-auto px-4 md:px-0">
