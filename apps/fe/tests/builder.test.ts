@@ -370,6 +370,9 @@ describe("Ifs anywhere and End (#164)", () => {
     expect(canPlace(tree.line, [{ at: "low", h: "else" }], 1, "end")).toBe(true)
     expect(canPlace(tree.line, [], 0, "if")).toBe(false)
     expect(canPlace(tree.line, [], 1, "if")).toBe(true)
+    // Like n8n: nothing goes after an If; a path goes on inside its Yes and No.
+    expect(canPlace(tree.line, [], 2, "agent")).toBe(false)
+    expect(canPlace(tree.line, [{ at: "low", h: "else" }], 1, "if")).toBe(true)
     // An If whose ways both end closes the path.
     expect(closes({ ...low, then: [end("x")], else: [end("y")] })).toBe(true)
     const shut = job([bal, { ...low, then: [end("x")], else: [end("y")] }, note])

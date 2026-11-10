@@ -497,7 +497,8 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                     <span aria-hidden className="h-6 w-px bg-border-strong" />
                     <span className="pb-1.5 text-xs font-medium text-muted-foreground">{h === "then" ? "Yes" : "No"}</span>
                     {renderLine(way, wayPath)}
-                    {!lineCloses(way) && (
+                    {/* The next block on this way; none after an If, which goes on in its own ways. */}
+                    {!lineCloses(way) && way.at(-1)?.kind !== "if" && (
                       <>
                         {way.length > 0 && <span aria-hidden className="h-3 w-px bg-border-strong" />}
                         <EndingSlot
@@ -510,7 +511,6 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                           onPick={() => setSelected(`${blk.id}:${h}`)}
                           onDrop={() => dropAt(end)}
                         />
-                        {way.length > 0 && <span className="pt-1.5 text-[11px] text-muted-foreground">Then goes on below</span>}
                       </>
                     )}
                   </div>
@@ -785,7 +785,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
           {renderLine(draft.line, [])}
           {/* The end of the main line is this card, unless the path already ends; it is also where a
               dragged block lands (Ancung, 9 Nov). */}
-          {!lineCloses(draft.line) && (
+          {!lineCloses(draft.line) && draft.line.at(-1)?.kind !== "if" && (
           <Linked>
             <button
               type="button"
@@ -813,13 +813,8 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
               )}
             >
               <PlusIcon className={cn("size-4", over === "end" ? "text-foreground" : "text-muted-foreground")} />
-              {/* After an If, this step runs whichever way it took, unless that way ends (#164). */}
-              <span className="text-sm font-medium text-foreground">
-                {drag && accepts(mainEnd) ? "Drop to add it here" : draft.line.at(-1)?.kind === "if" ? "Add a step after the If" : "Add the next step"}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {draft.line.at(-1)?.kind === "if" ? "Runs after Yes or No, unless that way ends" : desktop ? `Ask ${name} to do something` : "Tap to pick a block"}
-              </span>
+              <span className="text-sm font-medium text-foreground">{drag && accepts(mainEnd) ? "Drop to add it here" : "Add the next step"}</span>
+              <span className="text-xs text-muted-foreground">{desktop ? `Ask ${name} to do something` : "Tap to pick a block"}</span>
             </button>
           </Linked>
           )}
@@ -913,7 +908,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       {/* Phones (design B1 mobile): Add a block, always there (Ancung, 10 Nov: with an If the Add
           card is gone and the + between blocks was easy to miss), then Test run and Save. */}
       <div className="flex flex-col gap-2 border-t border-border bg-background px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
-        <Button variant="secondary" disabled={lineCloses(draft.line)} onClick={() => setSheetAt(mainEnd)}>
+        <Button variant="secondary" disabled={lineCloses(draft.line) || draft.line.at(-1)?.kind === "if"} onClick={() => setSheetAt(mainEnd)}>
           <PlusIcon />
           Add a block
         </Button>
@@ -1560,7 +1555,7 @@ function EndingPanel({
       <p className="text-sm text-muted-foreground">
         {more
           ? "Add the next step on this way. It can use what came before it on this path."
-          : "Nothing runs here yet, so this way carries on after the If. Add a block, or drag one onto it."}
+          : "Nothing runs here yet, so the job stops on this way. Add a block, or drag one onto it."}
       </p>
       <div className="flex flex-col gap-2">
         {options.map((o) => (
@@ -1584,7 +1579,7 @@ function EndingPanel({
   )
 }
 
-/** An empty way of the If: tap to pick a block, or drop one on it. Empty, the path goes on after the If (#164). */
+/** An empty way of the If: tap to pick a block, or drop one on it. Empty, the path stops there. */
 function EndingSlot({
   id,
   more = false,
@@ -1637,8 +1632,7 @@ function EndingSlot({
     >
       <PlusIcon className="size-4 text-muted-foreground" />
       <span className="text-sm font-medium text-foreground">{accepts ? "Drop to add it here" : more ? "Add the next step" : "Add a step"}</span>
-      {/* #164: an empty way goes on after its If (End stops a path). */}
-      {!more && <span className="text-xs text-muted-foreground">Empty: goes on after the If</span>}
+      {!more && <span className="text-xs text-muted-foreground">Empty: the job stops here</span>}
     </button>
   )
 }

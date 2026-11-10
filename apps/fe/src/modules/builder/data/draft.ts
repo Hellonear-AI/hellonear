@@ -446,6 +446,10 @@ export function canPlace(line: Block[], path: LinePath, index: number, kind: Blo
   const here = lineAt(line, path)
   // Nothing after a block that ends the path, and End only last.
   if (index > 0 && closes(here[index - 1])) return false
+  // Like n8n, a path goes on only inside an If's Yes and No, never after the If (Ancung, 10 Nov:
+  // a third box under the If, for steps after both ways, read as strange). The engine still
+  // accepts it (#165), so jobs saved that way still open.
+  if (index > 0 && here[index - 1].kind === "if") return false
   if (kind === "end" && index !== here.length) return false
   if (kind === "end" && here.length === 0 && path.length === 0) return false
   if (allBlocks(line).length + 1 >= MAX_NODES) return false
