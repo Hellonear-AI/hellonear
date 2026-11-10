@@ -203,6 +203,8 @@ test('sell_offer and buy_from_mind (#181): publish waits for approval; buying is
   assert.equal(seen.at(-1)!.method, 'PUT')
   assert.deepEqual(JSON.parse(seen.at(-1)!.body), { title: 'Digest', priceNear: '0.002', content: 'Three things.' })
   assert.deepEqual([put.sellerMindId, put.payTo], [seller, 'f'.repeat(64)])
+  // The line the playbook copies, so buyers always get the full seller Mind id.
+  assert.equal(put.forBuyers, `To buy it, another Mind asks for seller Mind ${seller}, item weekly-digest (0.002 NEAR).`)
   const offer = await run('buy_from_mind', { sellerMindId: seller, item: 'weekly-digest' }, TOKEN)
   assert.deepEqual([offer.status, offer.priceNear, offer.payTo], ['payment_required', '0.002', 'f'.repeat(64)])
   assert.equal(seen.at(-1)!.url, `/internal/v1/minds/${seller}/offers/weekly-digest`)

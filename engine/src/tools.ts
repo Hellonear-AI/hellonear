@@ -554,9 +554,14 @@ const sellOffer = createTool({
     priceNear: z.string().regex(/^\d{1,3}(\.\d{1,24})?$/, 'a decimal string, e.g. "0.01"').refine((a) => /[1-9]/.test(a), 'must be more than 0'),
     content: z.string().min(1).max(20_000),
   }),
-  outputSchema: z.object({ sellerMindId: z.string(), item: z.string(), title: z.string(), priceNear: z.string(), payTo: z.string() }),
+  outputSchema: z.object({ sellerMindId: z.string(), item: z.string(), title: z.string(), priceNear: z.string(), payTo: z.string(), forBuyers: z.string() }),
   requireApproval: true,
-  execute: async ({ item, title, priceNear, content }, context) => walletCall(context, 'PUT', `/internal/v1/offers/${item}`, { title, priceNear, content }),
+  // The line buyers need, written here: after selling, the Mind once left out its own Mind id (11 Nov), and a buyer can't
+  // buy without it. The playbook copies this line as is.
+  execute: async ({ item, title, priceNear, content }, context) => {
+    const out = await walletCall<{ sellerMindId: string; item: string; title: string; priceNear: string; payTo: string }>(context, 'PUT', `/internal/v1/offers/${item}`, { title, priceNear, content })
+    return { ...out, forBuyers: `To buy it, another Mind asks for seller Mind ${out.sellerMindId}, item ${out.item} (${out.priceNear} NEAR).` }
+  },
 })
 
 const buyFromMind = createTool({
