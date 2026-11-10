@@ -183,8 +183,8 @@ const newCode = () => `a:${randomToken(16)}`
 const mark = (ok: boolean) => (ok ? '✓' : '✗')
 
 // One message per approval: what is asked, the app's checks, and the buttons. When the wallet policy would refuse the
-// payment (over the limit, not on the list, frozen), there is no Approve button: the reason, and a button to Wallet to
-// fix it first, as in the app.
+// payment (over the limit, not on the list, frozen), or the wallet holds less than it (unfunded counts as 0, #228),
+// there is no Approve button: the reason, and a button to Wallet to fix it first, as in the app.
 export async function askOwner(r: Row, threadId: string, asked: Asked) {
   const mindId = r.mind_id
   const payment = paymentOf(asked.tool, asked.args)
@@ -196,7 +196,8 @@ export async function askOwner(r: Row, threadId: string, asked: Asked) {
     const checked = approvalChecks(payment, await walletOf(mindId))
     next = checked.next
     lines.push(...checked.checks.map((c) => `${mark(c.ok)} ${c.text}`))
-    if (next !== 'approve') lines.push('', 'Approving now would be refused by the wallet policy before signing. Fix it in Wallet first.')
+    if (next === 'fund') lines.push('', "Approving now would fail: the wallet doesn't hold enough NEAR. Add NEAR in Wallet first.")
+    else if (next !== 'approve') lines.push('', 'Approving now would be refused by the wallet policy before signing. Fix it in Wallet first.')
   } else {
     // Telegram sends no time zone, so times are shown in UTC and say so.
     const details = approvalDetails(asked.tool, asked.args, 'UTC')
