@@ -119,6 +119,16 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   const pinKey = pinned && activeHere?.message ? `send-${activeHere.id}` : null
   const ready = !thread.isPending || !threadId || shown.length > 0
   const { ref: scrollRef, lastRef, onScroll, atBottom, toBottom, viewHeight } = useChatScroll(ready && shown.length > 0, pinKey)
+  // The floating composer's height, so the content and "Latest" keep clear of it.
+  const composerRef = useRef<HTMLDivElement>(null)
+  const [composerHeight, setComposerHeight] = useState(120)
+  useEffect(() => {
+    const el = composerRef.current
+    if (!el) return
+    const observer = new ResizeObserver(() => setComposerHeight(el.offsetHeight))
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   return (
     <div className="flex h-[calc(100dvh-3.5rem)] min-h-0 md:h-dvh">
@@ -171,15 +181,20 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
         >
           <NetworkIcon />
         </Button>
-        {/* The text fades out over 24 px under the header and 48 px above the composer instead of
-            being cut at a hard line (Ancung, 9 Nov, like Gemini). A mask, so it works on any background;
-            the content has the same room at both ends so nothing is faded at the start or the end. */}
+        {/* The scroll area runs to the bottom of the screen and the composer floats over it, so the
+            scrollbar reaches the bottom like Claude's (Ancung, 10 Nov). The text still fades under the
+            header and into the composer (Ancung, 9 Nov, like Gemini), now with overlays in the page
+            colour instead of a mask, which hid the scrollbar's ends too. They stop short of the
+            scrollbar. The content keeps room at the end for the composer. */}
         <div
           ref={scrollRef}
           onScroll={onScroll}
-          className="relative h-full overflow-y-auto overscroll-contain [mask-image:linear-gradient(to_bottom,transparent,black_24px,black_calc(100%-48px),transparent)]"
+          className="relative h-full overflow-y-auto overscroll-contain"
         >
-          <div className="mx-auto flex min-h-full w-full max-w-[804px] flex-col gap-5 px-4 pt-6 pb-12 md:px-10">
+          <div
+            className="mx-auto flex min-h-full w-full max-w-[804px] flex-col gap-5 px-4 pt-6 md:px-10"
+            style={{ paddingBottom: composerHeight + 32 }}
+          >
             {notFound ? (
               <Centered>
                 <p className="text-sm text-muted-foreground">This chat is no longer available.</p>
@@ -220,7 +235,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
                       ref={i === shown.length - 1 ? lastRef : undefined}
                       className="flex flex-col gap-5"
                       // Room below the pinned turn so it can sit at the top (16 above it, 48 of padding below).
-                      style={pinned && i === shown.length - 1 && viewHeight ? { minHeight: viewHeight - 64 } : undefined}
+                      style={pinned && i === shown.length - 1 && viewHeight ? { minHeight: viewHeight - composerHeight - 32 } : undefined}
                     >
                     <TurnView
                       mindId={mindId}
@@ -244,39 +259,48 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
             )}
           </div>
         </div>
+        <div aria-hidden className="pointer-events-none absolute top-0 right-4 left-0 h-6 bg-gradient-to-b from-background to-transparent" />
         {!atBottom && (
           <Button
             size="sm"
             variant="secondary"
-            className="absolute bottom-3 left-1/2 -translate-x-1/2 cursor-pointer shadow-sm animate-in fade-in-0 duration-150 motion-reduce:animate-none"
+            className="absolute left-1/2 z-10 -translate-x-1/2 cursor-pointer shadow-sm animate-in fade-in-0 duration-150 motion-reduce:animate-none"
+            style={{ bottom: composerHeight + 12 }}
             onClick={toBottom}
           >
             <ArrowDownIcon />
             Latest
           </Button>
         )}
-      </div>
-
-      <div className="mx-auto w-full max-w-[804px] px-4 pt-3 pb-4 md:px-10 md:pb-5">
-        {outOfMessages && (
-          // T1.5: one clear way forward once the try-out's messages are used up.
-          <div className="mb-3 flex flex-col items-start gap-2 rounded-lg border border-border bg-surface p-4">
-            <p className="text-[15px] font-semibold text-foreground">That&apos;s the end of the try-out</p>
-            <p className="text-sm text-muted-foreground">
-              You&apos;ve used all {TRY_OUT_MESSAGES} messages. Connect a wallet to keep going with your own Mind, wallet and limits. This try-out is deleted after 7 days.
-            </p>
-            <Button size="sm" onClick={leaveTryOut}>
-              Connect Meteor
-            </Button>
+        {/* The composer, floating at the bottom over a fade into the page colour. */}
+        <div
+          ref={composerRef}
+          className="pointer-events-none absolute inset-x-0 bottom-0 pt-12"
+        >
+          {/* The fade stops short of the scrollbar; the composer itself stays centred. */}
+          <div aria-hidden className="absolute inset-y-0 right-4 left-0 bg-gradient-to-t from-background from-60% to-transparent" />
+          <div className="pointer-events-auto relative mx-auto w-full max-w-[804px] px-4 pb-4 md:px-10 md:pb-5">
+            {outOfMessages && (
+              // T1.5: one clear way forward once the try-out's messages are used up.
+              <div className="mb-3 flex flex-col items-start gap-2 rounded-lg border border-border bg-surface p-4">
+                <p className="text-[15px] font-semibold text-foreground">That&apos;s the end of the try-out</p>
+                <p className="text-sm text-muted-foreground">
+                  You&apos;ve used all {TRY_OUT_MESSAGES} messages. Connect a wallet to keep going with your own Mind, wallet and limits. This try-out is deleted after 7 days.
+                </p>
+                <Button size="sm" onClick={leaveTryOut}>
+                  Connect Meteor
+                </Button>
+              </div>
+            )}
+            <Composer
+              name={name}
+              busy={busy}
+              note={outOfMessages ? "Connect a wallet to send more messages." : tryOut ? `Try-out payments: ${limit ? `up to ${limit} NEAR, ` : ""}approved addresses only.` : composerNote(name, frozen)}
+              locked={outOfMessages ? "Try-out finished" : undefined}
+              onSend={(text) => send(text, threadId)}
+            />
           </div>
-        )}
-        <Composer
-          name={name}
-          busy={busy}
-          note={outOfMessages ? "Connect a wallet to send more messages." : tryOut ? `Try-out payments: ${limit ? `up to ${limit} NEAR, ` : ""}approved addresses only.` : composerNote(name, frozen)}
-          locked={outOfMessages ? "Try-out finished" : undefined}
-          onSend={(text) => send(text, threadId)}
-        />
+        </div>
       </div>
     </div>
       {/* Opens and closes like the app's sidebar (Ancung, 10 Nov): the width slides 0 <-> 360 px
