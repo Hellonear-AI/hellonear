@@ -10,6 +10,7 @@ import { mindHref, NAV_ITEMS } from "@/components/layout/nav"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useApprovalsCount, useRecentChats } from "@/modules/minds/hooks/useMinds"
+import { useActiveRun } from "@/modules/chat/hooks/ChatRunProvider"
 
 export function useActiveSegment(mindId: string) {
   const pathname = usePathname()
@@ -94,6 +95,9 @@ export function RailNav({ mindId }: { mindId: string }) {
 export function RecentChats({ mindId, onNavigate }: { mindId: string; onNavigate?: () => void }) {
   const { data: chats = [] } = useRecentChats(mindId)
   const pathname = usePathname()
+  // The chat the Mind is answering right now, even when another one is open (Ancung, 10 Nov).
+  const active = useActiveRun()
+  const replying = active?.streaming ? active.threadId : null
 
   return (
     <section aria-labelledby="recent-chats" className="flex flex-col gap-0.5 pt-2">
@@ -130,7 +134,14 @@ export function RecentChats({ mindId, onNavigate }: { mindId: string; onNavigate
               )}
             >
               <span className="min-w-0 flex-1 truncate text-[13px]">{chat.title}</span>
-              <span className="shrink-0 text-[11px] text-tertiary-foreground">{chat.when}</span>
+              {replying === chat.threadId ? (
+                <span role="status" aria-label="Replying" title="Replying" className="relative flex size-2 shrink-0">
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-60 motion-reduce:animate-none" />
+                  <span className="relative inline-flex size-2 rounded-full bg-success" />
+                </span>
+              ) : (
+                <span className="shrink-0 text-[11px] text-tertiary-foreground">{chat.when}</span>
+              )}
             </Link>
           )
         })}

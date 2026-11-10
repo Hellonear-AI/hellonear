@@ -20,7 +20,8 @@ export type RunEvent = {
   verification?: { status: string; level?: string }
 }
 
-export type ToolStatus = "running" | "ok" | "error" | "policy_denied" | "wallet_frozen" | "awaiting_approval" | "declined"
+/** `stopped`: still running when the owner pressed Stop (#121); it never got a result. */
+export type ToolStatus = "running" | "ok" | "error" | "policy_denied" | "wallet_frozen" | "awaiting_approval" | "declined" | "stopped"
 
 export type ToolStep = {
   toolCallId: string
@@ -42,7 +43,7 @@ export type ReplyPart =
   /** The model's reasoning (`reasoning.delta`, GLM only), with when it started and last wrote. */
   | { kind: "thought"; text: string; from: string; to: string }
 
-export type RunStatus = "running" | "awaiting_approval" | "finished" | "error"
+export type RunStatus = "running" | "awaiting_approval" | "finished" | "error" | "canceled"
 
 export type RunView = {
   runId: string | null
@@ -146,7 +147,10 @@ export function foldRun(events: RunEvent[]): RunView {
         break
       }
       case "run.finished":
-        view.status = "finished"
+        // A run stopped with Stop ends with run.finished "canceled" and no run.verified (#121).
+        view.status = e.status === "canceled" ? "canceled" : "finished"
+        // A tool cut off by Stop never gets its result: it stopped, it isn't still running.
+        if (view.status === "canceled") for (const t of view.tools) if (t.status === "running") t.status = "stopped"
         break
       case "run.verified": {
         const v = e.verification

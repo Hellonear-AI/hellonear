@@ -1,32 +1,65 @@
 "use client"
 
-import { ArrowUpIcon, Loader2Icon } from "lucide-react"
-import { useState, type KeyboardEvent } from "react"
+import { ArrowUpIcon, Loader2Icon, SquareIcon } from "lucide-react"
+import { useEffect, useState, type KeyboardEvent } from "react"
 import { Button } from "@/components/ui/button"
 
-/** The message box (C1.1). Enter sends, Shift+Enter adds a line. While the Mind replies it waits. */
+/**
+ * The message box (C1.1). Enter sends, Shift+Enter adds a line. While the Mind replies, the send
+ * button becomes Stop (#121), like Claude and ChatGPT.
+ */
 export function Composer({
   name,
   busy,
   note,
   onSend,
+  onStop,
+  stopping = false,
+  draftKey,
   locked,
 }: {
   name: string
   busy: boolean
   note: string
   onSend: (message: string) => void
+  /** Stops the reply in progress; without it the button just waits. */
+  onStop?: () => void
+  /** Stop was pressed; the button waits for the run to end. */
+  stopping?: boolean
+  /** Where the unsent text is kept on this device, one per chat (Ancung, 10 Nov, like Claude). */
+  draftKey?: string
   /** Why nothing can be sent (a try-out with no messages left, T1.5): the box shows this and locks. */
   locked?: string
 }) {
   const [value, setValue] = useState("")
+  // The unsent text stays per chat: leave a chat and come back, it is still there.
+  useEffect(() => {
+    let saved = ""
+    try {
+      saved = draftKey ? (localStorage.getItem(draftKey) ?? "") : ""
+    } catch {
+      // no storage: start empty
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- read once per chat from this device
+    setValue(saved)
+  }, [draftKey])
+  const change = (next: string) => {
+    setValue(next)
+    if (!draftKey) return
+    try {
+      if (next.trim()) localStorage.setItem(draftKey, next)
+      else localStorage.removeItem(draftKey)
+    } catch {
+      // no storage
+    }
+  }
   const message = value.trim()
   const canSend = !busy && !locked && message.length > 0
 
   function send() {
     if (!canSend) return
     onSend(message)
-    setValue("")
+    change("")
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -51,17 +84,23 @@ export function Composer({
         <textarea
           id="chat-message"
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => change(e.target.value)}
           onKeyDown={onKeyDown}
           rows={1}
           maxLength={4000}
-          placeholder={locked ?? (busy ? `${name} is replying` : `Message ${name}`)}
+          placeholder={locked ?? (stopping ? "Stopping..." : busy ? `${name} is replying` : `Message ${name}`)}
           disabled={Boolean(locked)}
           className="field-sizing-content max-h-40 min-h-10 flex-1 resize-none bg-transparent py-2 text-base text-foreground outline-none placeholder:text-tertiary-foreground md:text-[15px]"
         />
-        <Button type="submit" size="icon" disabled={!canSend} aria-label={busy ? `${name} is replying` : "Send"}>
-          {busy ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <ArrowUpIcon />}
-        </Button>
+        {busy && onStop ? (
+          <Button type="button" size="icon" onClick={onStop} disabled={stopping} aria-label={stopping ? "Stopping" : `Stop ${name}'s reply`} title={stopping ? "Stopping" : "Stop"}>
+            {stopping ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <SquareIcon className="fill-current" />}
+          </Button>
+        ) : (
+          <Button type="submit" size="icon" disabled={!canSend} aria-label="Send">
+            <ArrowUpIcon />
+          </Button>
+        )}
       </div>
       <p className="text-center text-xs text-muted-foreground">{note}</p>
     </form>

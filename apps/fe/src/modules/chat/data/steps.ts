@@ -28,13 +28,14 @@ const LABELS: Record<string, [doing: string, done: string]> = {
   skill_search: ["Looking for a skill", "Looked for a skill"],
 }
 
-export type StepText = { label: string; detail: string | null; tone: "doing" | "done" | "failed" }
+export type StepText = { label: string; detail: string | null; tone: "doing" | "done" | "failed" | "stopped" }
 
 export function stepText(step: ToolStep): StepText {
   const [doing, done] = LABELS[step.tool] ?? ["Using a tool", "Used a tool"]
   if (step.status === "running" || step.status === "awaiting_approval") return { label: `${doing}...`, detail: null, tone: "doing" }
   if (step.status === "ok") return { label: done, detail: summary(step), tone: "done" }
   if (step.status === "declined") return { label: doing, detail: "you declined", tone: "failed" }
+  if (step.status === "stopped") return { label: doing, detail: "stopped", tone: "stopped" }
   return { label: doing, detail: "failed", tone: "failed" }
 }
 

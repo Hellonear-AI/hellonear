@@ -5,6 +5,7 @@ import { cn } from "cn"
 import { ArrowDownIcon, CircleXIcon, NetworkIcon, RotateCcwIcon, SnowflakeIcon } from "lucide-react"
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { MindAvatar } from "@/components/elements/MindAvatar"
+import { CopyButton } from "@/components/elements/CopyButton"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -41,7 +42,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   const wallet = useMindWallet(mindId).data ?? null
   const session = useSession()
   const thread = useThread(mindId, threadId)
-  const { active, send, resume } = useChatRun()
+  const { active, send, resume, stop, stopping } = useChatRun()
 
   const name = mind?.name ?? "Your Mind"
   const templateId = mind?.templateId ?? "general-assistant"
@@ -239,9 +240,10 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
                       ref={i === shown.length - 1 ? lastRef : undefined}
                       className="flex flex-col gap-5"
                       // Room below the pinned turn so it can sit at the top (16 above it, 48 of padding below).
-                      style={pinned && i === shown.length - 1 && viewHeight ? { minHeight: viewHeight - composerHeight - 32 } : undefined}
+                      style={pinned && i === shown.length - 1 && viewHeight ? { minHeight: viewHeight - composerHeight - 32 - pinGap() } : undefined}
                     >
                     <TurnView
+                      last={i === shown.length - 1}
                       mindId={mindId}
                       name={name}
                       templateId={templateId}
@@ -302,6 +304,9 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
               note={outOfMessages ? "Connect a wallet to send more messages." : tryOut ? `Try-out payments: ${limit ? `up to ${limit} NEAR, ` : ""}approved addresses only.` : composerNote(name, frozen)}
               locked={outOfMessages ? "Try-out finished" : undefined}
               onSend={(text) => send(text, threadId)}
+              onStop={stop}
+              stopping={stopping}
+              draftKey={`hellonear.draft.${mindId}.${threadId ?? "new"}`}
             />
           </div>
         </div>
@@ -355,7 +360,10 @@ function TurnView({
   wallet,
   answering,
   onAnswer,
+  last = false,
 }: {
+  /** The newest turn: only it offers Retry, like Claude's regenerate on the last reply. */
+  last?: boolean
   mindId: string
   name: string
   templateId: string
@@ -382,7 +390,7 @@ function TurnView({
 
   // Steps and thoughts are rows; approvals, receipts and refusals are cards that stay in place.
   const isRow = (step: ToolStep) =>
-    step.status !== "awaiting_approval" && (!paymentOf(step) || step.status === "running" || step.status === "declined")
+    step.status !== "awaiting_approval" && (!paymentOf(step) || step.status === "running" || step.status === "declined" || step.status === "stopped")
   const rowPart = (part: ReplyPart) => part.kind === "thought" || (part.kind === "tool" && Boolean(byCall.get(part.toolCallId) && isRow(byCall.get(part.toolCallId)!)))
   // Once the reply is done, its rows fold into one line above it (Ancung, 9 Nov, like Claude).
   const folded = !live && parts.some(rowPart)
@@ -418,7 +426,7 @@ function TurnView({
       }
       return null
     }
-    if (!payment || step.status === "running" || step.status === "declined") return <StepRow step={step} />
+    if (!payment || step.status === "running" || step.status === "declined" || step.status === "stopped") return <StepRow step={step} />
     if (step.status === "ok") return <PaymentReceipt payment={payment} policy={policy} />
     if (step.status === "policy_denied" || step.status === "wallet_frozen") {
       return <PaymentRefused step={step} payment={payment} policy={policy} mindName={name} />
@@ -464,13 +472,33 @@ function TurnView({
           })}
           {working && <Working name={name} />}
           {!live && view.text && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {view.verified && <VerifiedBadge level={view.verified} />}
               {view.at && <span className="text-xs text-muted-foreground">{clockTime(view.at)}</span>}
+              {/* Actions under a finished reply, like Claude (Ancung, 10 Nov). */}
+              <span className="flex items-center gap-0.5">
+                <CopyButton text={view.text} label="Copy reply" />
+                {/* Retry sends the same message again as a new turn; the backend has no "replace this
+                    reply" yet, so the old one stays above it. */}
+                {last && turn.message && !busy && (
+                  <button
+                    type="button"
+                    onClick={onRetry}
+                    aria-label="Ask again"
+                    title="Ask again"
+                    className="inline-flex size-7 items-center justify-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus [&_svg]:size-4"
+                  >
+                    <RotateCcwIcon />
+                  </button>
+                )}
+              </span>
             </div>
           )}
         </div>
       )}
+
+      {/* Stopped with Stop (#121): what it said so far stays, and this says why it ends there. */}
+      {!live && view.status === "canceled" && <p className="text-[13px] text-muted-foreground">You stopped this reply.</p>}
 
       {/* The run ended with nothing to show: say so instead of leaving a bare "Thought for" (Ancung, 9 Nov). */}
       {!failed && !live && view.status === "finished" && !view.text.trim() && view.tools.length === 0 && (
@@ -606,6 +634,15 @@ function ThreadSkeleton() {
  * sent here glides its turn to the top, and the reply grows below without the view chasing it.
  * "Latest" shows whenever there is more below.
  */
+/**
+ * Room above a pinned message: past the top fade, and on phones past the round Live view button
+ * too (Ancung, 10 Nov). The last turn's min-height leaves the same room, so scrolling to the very
+ * end puts the message where pinning put it, not under the fade. Read in the browser only.
+ */
+function pinGap(): number {
+  return window.matchMedia("(min-width: 768px)").matches ? 24 : 60
+}
+
 function useChatScroll(ready: boolean, pinKey: string | null) {
   const ref = useRef<HTMLDivElement>(null)
   const lastRef = useRef<HTMLDivElement>(null)
@@ -643,7 +680,7 @@ function useChatScroll(ready: boolean, pinKey: string | null) {
     placed.current = want
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
     if (pinKey && lastRef.current) {
-      el.scrollTo({ top: lastRef.current.offsetTop - 16, behavior: first || reduce ? "auto" : "smooth" })
+      el.scrollTo({ top: lastRef.current.offsetTop - pinGap(), behavior: first || reduce ? "auto" : "smooth" })
     } else {
       el.scrollTop = el.scrollHeight
     }

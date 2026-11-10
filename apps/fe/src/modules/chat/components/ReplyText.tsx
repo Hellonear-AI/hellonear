@@ -3,6 +3,7 @@
 import { Children, useEffect, useRef, useState, type ReactNode } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import { CopyButton } from "@/components/elements/CopyButton"
 
 // Chat streaming (design/CLAUDE.md, Motion): chunks are buffered and revealed at a steady pace,
 // each new word fades in over about 150 ms, no fake cursor. A finished reply renders as Markdown.
@@ -68,6 +69,9 @@ export function ReplyText({ text, live }: { text: string; live: boolean }) {
           li: ({ children }) => <li>{words(children)}</li>,
           strong: ({ children }) => <strong>{words(children)}</strong>,
           em: ({ children }) => <em>{words(children)}</em>,
+          // Code blocks (fenced) sit in a box with their language and a Copy button (Ancung, 10 Nov).
+          // Inline code keeps the small grey chip from the wrapper's classes.
+          pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
           a: ({ href, children }) => (
             <a href={href} target="_blank" rel="noopener noreferrer">
               {words(children)}
@@ -106,4 +110,22 @@ export function closeOpenMarks(text: string): string {
   if (ticks % 2 === 1) out += "`"
   if ((out.match(/\*\*/g)?.length ?? 0) % 2 === 1) out += "**"
   return out
+}
+
+/** A fenced code block: the language above it, Copy at the right, the code scrolling sideways. */
+function CodeBlock({ children }: { children: ReactNode }) {
+  const pre = useRef<HTMLPreElement>(null)
+  const code = Children.toArray(children)[0] as { props?: { className?: string } } | undefined
+  const lang = code?.props?.className?.match(/language-([\w+#-]+)/)?.[1] ?? null
+  return (
+    <div className="overflow-hidden rounded-md border border-border bg-muted/60">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-1">
+        <span className="text-xs text-muted-foreground">{lang ?? "Code"}</span>
+        <CopyButton text={() => pre.current?.textContent ?? ""} showLabel />
+      </div>
+      <pre ref={pre} className="overflow-x-auto px-3 py-2.5 font-mono text-[13px] leading-5 [&_code]:bg-transparent! [&_code]:p-0! [&_code]:text-[13px]">
+        {children}
+      </pre>
+    </div>
+  )
 }
