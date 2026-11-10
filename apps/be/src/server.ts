@@ -5,7 +5,7 @@ import { SESSION_COOKIE, createChallenge, login, loginSchema, logout, requireUse
 import { config } from './config.ts'
 import { newId, sameSecret } from './crypto.ts'
 import { migrate, query } from './db.ts'
-import { engineFetch, engineJson, skills, templates } from './engine.ts'
+import { engineFetch, engineJson, skill, skills, templates } from './engine.ts'
 import { HttpError, assertSameOrigin, cors, logServerError, readBody, sendJson, setCookie, isLoopback } from './http.ts'
 import { TOOLKITS, connect, disconnect, listConnections, toolkitSchema } from './connections.ts'
 import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, playgroundAttackOf, playgroundMind, requireMind, updateMind, updateMindSchema, type Mind } from './minds.ts'
@@ -306,6 +306,9 @@ export const server = createServer(async (req, res) => {
     if (route('GET', /^\/v1\/me$/)) return sendJson(res, 200, { user })
     if (route('GET', /^\/v1\/templates$/)) return sendJson(res, 200, { templates: await templates() })
     if (route('GET', /^\/v1\/skills$/)) return sendJson(res, 200, { skills: await skills() })
+    const skillRoute = route('GET', /^\/v1\/skills\/([^/]+)$/)
+    // Skill ids are [a-z0-9-] in the engine; anything else is unknown and never reaches it.
+    if (skillRoute) return /^[a-z0-9-]{1,64}$/.test(skillRoute[1]) ? sendJson(res, 200, { skill: await skill(skillRoute[1]) }) : sendJson(res, 404, { error: 'unknown_skill' })
 
     // Secrets (#18): names and hosts only ever leave the backend, never values.
     if (route('GET', /^\/v1\/secrets$/)) return sendJson(res, 200, { secrets: await listSecrets(user.id) })
