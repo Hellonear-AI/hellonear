@@ -98,6 +98,12 @@ export const engine = createServer(async (req, res) => {
   if (req.headers['x-engine-key'] !== ENGINE_KEY) return send(res, 401, { error: 'unauthorized' })
   if (url.pathname === '/v1/templates') return send(res, 200, { templates })
   if (url.pathname === '/v1/skills') return send(res, 200, { skills })
+  const skillPath = url.pathname.match(/^\/v1\/skills\/([a-z0-9-]+)$/)
+  if (skillPath) {
+    const s = skills.find((x) => x.skillId === skillPath[1])
+    if (!s) return send(res, 404, { error: 'not_found' })
+    return send(res, 200, { skill: { skillId: s.skillId, title: s.skillId, blurb: s.description, status: s.status, connections: s.connections, tools: s.tools, markdown: `# ${s.skillId}\n\n${s.description}\n` } })
+  }
   if (url.pathname === '/v1/attacks') return send(res, 200, { attacks })
 
   const chat = url.pathname.match(/^\/v1\/minds\/([^/]+)\/chat$/)

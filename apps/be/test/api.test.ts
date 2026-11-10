@@ -274,6 +274,24 @@ describe('minds (#8, #13)', () => {
     assert.deepEqual(mind.skills.map((s: any) => s.skillId ?? s), ['daily-planner', 'http-request'])
     assert.equal((await alice.call('PATCH', `/v1/minds/${mind.id}`, { skills: ['http-request'] })).status, 200)
   })
+
+  test('one skill with its SKILL.md body comes from the engine, cached; unknown ids are 404 unknown_skill (#220)', async () => {
+    const alice = await signIn()
+    assert.equal((await fetch(base + '/v1/skills/payments')).status, 401)
+    const before = fake.requests.filter((r) => r.path === '/v1/skills/payments').length
+    const res = await alice.call('GET', '/v1/skills/payments')
+    assert.equal(res.status, 200)
+    assert.deepEqual((await res.json()).skill, {
+      skillId: 'payments', title: 'payments', blurb: 'Pays.', status: 'simulated', connections: ['near-wallet'], tools: ['send_payment'], markdown: '# payments\n\nPays.\n',
+    })
+    assert.equal((await alice.call('GET', '/v1/skills/payments')).status, 200)
+    assert.equal(fake.requests.filter((r) => r.path === '/v1/skills/payments').length - before, 1, 'the second read is cached')
+    for (const id of ['nope', 'Payments', '..%2Fminds', 'x'.repeat(65)]) {
+      const r = await alice.call('GET', `/v1/skills/${id}`)
+      assert.deepEqual([r.status, await r.json()], [404, { error: 'unknown_skill' }], id)
+    }
+    assert.equal(fake.requests.some((r) => r.path.startsWith('/v1/skills/') && r.path !== '/v1/skills/payments' && r.path !== '/v1/skills/nope'), false, 'bad ids never reach the engine')
+  })
 })
 
 describe('secrets (#18)', () => {
