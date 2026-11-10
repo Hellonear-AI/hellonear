@@ -12,6 +12,21 @@ An AI assistant that can pay is one prompt injection away from paying the wrong 
 2. **The wallet enforces its own policy.** Each Mind's wallet is an [OutLayer](https://outlayer.ai) wallet whose policy (per-payment limit, list of allowed recipients) is stored on NEAR and checked in a TEE before anything is signed. A payment above the limit or to an unknown address is refused even if the owner approved it, and no transaction is made.
 3. **Freeze.** The owner can freeze the wallet with one transaction signed in their own NEAR wallet.
 
+## Security model
+
+Each layer below stops an attack on its own; the ones further down do not trust the ones above. Try each in the app (try-out needs no wallet) or through the API steps further down.
+
+| Layer | What it stops | Do this, see that |
+|---|---|---|
+| **The model** | Obvious tricks: an email or message telling "the AI" to pay someone | Attack playground, *Hide it in an email*. See: the Mind lists the email under "Watch out" and does not ask to pay (`stoppedBy: model`) |
+| **Skills grant tools** | A Mind without a payment skill has no payment tool, whatever it is told | Attack playground, *Use a skill it doesn't have*. See: `send_payment` never appears (`stoppedBy: no_tool`) |
+| **The owner's approval** | Any payment the model was talked into: nothing is sent until the owner approves it in the app | Ask a Payments Mind to pay. See: an approval card that names the amount, the recipient and the checks below; nothing sent yet |
+| **The wallet policy (OutLayer, in a TEE)** | A payment the owner approved by mistake: over the per-payment limit or to an address not on the list is refused before signing, with no transaction | Approve a payment above the limit. See: `policy_denied`, no tx hash. The approval card already says "blocked even if you approve" |
+| **Freeze** | Everything, at once: one transaction the owner signs | On your own Mind (needs a NEAR wallet; a try-out cannot freeze the shared wallet): Wallet → Freeze wallet. See: every later payment ends `wallet_frozen` (`apps/be/test/api.test.ts`) |
+| **Unattended jobs** | Autopilot jobs run with nobody watching, so they get no payment or approval tools at all. They may only add an event to the owner's own calendar or email the owner, and only as steps the owner placed in the Builder; the recipient is never chosen by the model (#146) | Builder → Use a tool → *Email me*. See: it can only send the Mind's notes, to your connected Gmail |
+
+**Why not a capped function-call key?** NEAR function-call access keys cannot transfer NEAR, and their `allowance` is a gas budget for the key's whole life, not a spending cap ([docs](https://docs.near.org/protocol/accounts-contracts/access-keys)). The spending rules therefore live in the wallet's policy, which OutLayer checks in its TEE before every signature.
+
 ## How NEAR is used
 
 | What | Where | Proof in this repo |
