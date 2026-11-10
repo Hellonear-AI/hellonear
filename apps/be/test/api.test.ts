@@ -1795,7 +1795,7 @@ describe('Telegram (#168)', () => {
       // Something that needs approval: the bot points to the app, it never approves.
       await hook(mindId, secret, msg(7, 555, 'please pay the invoice'))
       await new Promise((r) => setTimeout(r, 1500))
-      assert.match(fakeTelegram.sent(TOKEN).at(-1).text, new RegExp(`needs your approval in the app: http://localhost:3000/minds/${mindId}/approvals$`))
+      assert.match(fakeTelegram.sent(TOKEN).at(-1).text, new RegExp(`needs your approval in the app: http://localhost:3000/minds/${mindId}/chat/thr_[a-f0-9]{24}$`))
 
       // One bot serves one Mind.
       const other = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Tele2' }, origin)).json()).mind.id as string

@@ -131,9 +131,10 @@ export async function handleUpdate(mindId: string, update: Update, runChat: RunC
   await bot(tokenOf(r), 'sendChatAction', { chat_id: chatId, action: 'typing' }).catch(() => {})
   const out = await runChat(mindId, r.thread_id ?? undefined, text)
   if (out.threadId !== r.thread_id) await query('update mind_telegram set thread_id = $2, updated_at = now() where mind_id = $1', [mindId, out.threadId])
+  // A request that waits links to its chat, where the card is answered (no Approvals page since 11 Nov, PR #212).
   const reply = out.error
     ? `Your Mind couldn't answer that (${out.error}). Try again in a moment.`
-    : [plainForTelegram(out.text.trim()) || (out.needsApproval ? '' : 'Done.'), out.needsApproval ? `This needs your approval in the app: ${config.feOrigin}/minds/${mindId}/approvals` : ''].filter(Boolean).join('\n\n')
+    : [plainForTelegram(out.text.trim()) || (out.needsApproval ? '' : 'Done.'), out.needsApproval ? `This needs your approval in the app: ${config.feOrigin}/minds/${mindId}/chat/${out.threadId}` : ''].filter(Boolean).join('\n\n')
   for (const part of chunks(reply)) await send(r, part)
   return 'answered'
 }
