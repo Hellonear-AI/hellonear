@@ -134,11 +134,15 @@ Resumes a run paused on `tool.approval_required`. Streams the remaining events a
 
 ### `GET /v1/templates`
 
-`{ "templates": [ { templateId, name, tagline, quote, soul, model, skills: [ { skillId, description, status: "available" | "simulated" | "blocked", connections: [...], note? } ] } ] }` for the Choose a Mind screen. Status tells the UI what is simulated or blocked (e.g. email before Composio) **[tested, #13]**. `quote` is one line (≤ 80 characters) in the Mind's own voice for the template card (#55) **[tested]**.
+`{ "templates": [ { templateId, name, tagline, quote, soul, model, skills: [ { skillId, description, status: "available" | "simulated" | "blocked", connections: [...], note?, title?, blurb? } ] } ] }` for the Choose a Mind screen. Status tells the UI what is simulated or blocked (e.g. email before Composio) **[tested, #13]**. `quote` is one line (≤ 80 characters) in the Mind's own voice for the template card (#55) **[tested]**.
 
 ### `GET /v1/skills`
 
-`{ "skills": [ { skillId, description, status, connections: [...], note?, tools: [toolKey] } ] }`: **every** skill a Mind may equip, in id order, not only those a template starts with (e.g. `near-account` and `http-request`, which the Visual Builder's tools need). Built-in skills (`hellonear-guide`, #114) are not listed: every Mind has them and they cannot be equipped. This is the list to validate a Mind's `skills` against; `blocked` skills are listed so the UI can say why they are off, and the engine never loads them. `tools` are the tool keys the skill grants (the Builder palette) **[tested]**.
+`{ "skills": [ { skillId, description, status, connections: [...], note?, title, blurb, tools: [toolKey] } ] }`: **every** skill a Mind may equip, in id order, not only those a template starts with (e.g. `near-account` and `http-request`, which the Visual Builder's tools need). Built-in skills (`hellonear-guide`, #114) are not listed: every Mind has them and they cannot be equipped. This is the list to validate a Mind's `skills` against; `blocked` skills are listed so the UI can say why they are off, and the engine never loads them. `tools` are the tool keys the skill grants (the Builder palette) **[tested]**. `title` is the name people see and `blurb` one line on what it can and cannot do, from the SKILL.md's `metadata.hellonear` (#220) **[tested]**.
+
+### `GET /v1/skills/{skillId}` (#220)
+
+`{ "skill": { skillId, title, blurb, status, connections: [...], tools: [toolKey], markdown } }` for one skill's detail page. `markdown` is the SKILL.md body without its YAML frontmatter. Shared references (`engine/references/*.md`) are not included. `404 { error: "not_found" }` for an unknown id and for built-in skills (`hellonear-guide`), which `GET /v1/skills` does not list either. Same `X-Engine-Key` as every route but health **[tested]**.
 
 ### `GET /v1/attacks` (Attack Playground, #16)
 
@@ -357,6 +361,7 @@ The FE asks the wallet (NEAR Connect `signMessage`, Meteor first) to sign exactl
 |---|---|---|
 | `GET /v1/templates` | | `{ templates }` (engine §2, cached 60 s) |
 | `GET /v1/skills` | | `{ skills }` (engine §2, cached 60 s): what the skill picker offers. `POST`/`PATCH /v1/minds` validate `skills` against this list, so skills no template starts with (`near-account`, `http-request`) can be equipped **[tested]** |
+| `GET /v1/skills/{skillId}` | | `{ skill: { skillId, title, blurb, status, connections, tools, markdown } }` (engine §2, cached 60 s per skill): the skill detail page, `markdown` = SKILL.md body without frontmatter. `404 unknown_skill` for an id the engine does not offer (unknown or built-in) or one that is not `[a-z0-9-]{1,64}` (never sent to the engine) **[tested]** |
 | `GET /v1/attacks` | | `{ attacks: [{ attackId, title, description, templateId, skills, attacker, message }] }` (engine §2, passed through): the Attack Playground scenarios (#16, #129). Wallet and try-out sessions |
 | `POST /v1/attacks/{attackId}/runs` | `{ timeZone? }` | SSE as chat; it ends with `attack.verdict` (§3) before `run.verified`, and `run.started` gives the `runId` (#129). The run is on the user's **playground Mind** for that scenario: made on first use from the scenario's `templateId` and `skills`, then reused (new thread each run). It pays from the **shared demo wallet** (try-out cap: 2 sent payments per user from it), reads the sample inbox and calendar (`demo: true`), and gets **none of the owner's secrets**. It is not one of the owner's Minds: not in `GET /v1/minds`, and `/v1/minds/{id}/…` answers `404`; the owner's Minds and wallet are untouched. Pause → `POST /v1/runs/{runId}/approve` · `/decline` as usual: the backend adds the `attackId` itself, so the resumed run gets its own verdict. Counts as a run in the try-out's 20. `404 unknown_attack` for an id the engine does not list |
 | `GET /v1/minds` | | `{ minds: [Mind] }`, newest first |
