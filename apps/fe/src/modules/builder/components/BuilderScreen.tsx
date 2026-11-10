@@ -1298,6 +1298,7 @@ function PromptField({
   onChange,
   labelText,
   placeholder = "Sum up the emails that need me today, in three lines.",
+  hint,
 }: {
   name: string
   value: string
@@ -1305,6 +1306,8 @@ function PromptField({
   onChange: (p: string) => void
   labelText?: string
   placeholder?: string
+  /** Replaces the line under the field (an Ask step's says what the Mind can't do alone). */
+  hint?: ReactNode
 }) {
   const labels = tokenLabels(results)
   const editor = useRef<PromptEditorHandle>(null)
@@ -1345,7 +1348,7 @@ function PromptField({
           ))}
         </div>
       )}
-      <span className="text-xs text-muted-foreground">{name} uses the skills it has. It can&apos;t pay, ask you to approve, or use keys while it runs alone.</span>
+      {hint ?? <span className="text-xs text-muted-foreground">{name} uses the skills it has. It can&apos;t pay, ask you to approve, or use keys while it runs alone.</span>}
     </div>
   )
 }
@@ -1424,7 +1427,15 @@ function ToolPanel({
           </label>
         ) : a.kind === "note" ? (
           <div key={a.name} className="flex flex-col gap-2">
-            <PromptField name={name} labelText={a.label} placeholder={a.placeholder} value={step.args[a.name] ?? ""} results={notes} onChange={(v) => setArg(a.name, v)} />
+            <PromptField
+              name={name}
+              labelText={a.label}
+              placeholder={a.placeholder}
+              value={step.args[a.name] ?? ""}
+              results={notes}
+              onChange={(v) => setArg(a.name, v)}
+              hint={<span className="text-xs text-muted-foreground">Sent from {name}&apos;s own address to the Gmail you connected, and nobody else.</span>}
+            />
             {!notes.length && <p className="text-xs text-muted-foreground">Add an Ask step before this one: the email sends what {name} wrote, never an email or a web page as it came in.</p>}
           </div>
         ) : a.kind === "time" ? (

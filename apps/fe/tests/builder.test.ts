@@ -295,3 +295,14 @@ describe("Add to my calendar and Email me (#146)", () => {
     expect(draftProblems(job)).toEqual([])
   })
 })
+
+describe("run lines for Add to my calendar and Email me (#146)", () => {
+  it("say what happened, and that a try-out sample did nothing", async () => {
+    const { nodeSummary } = await import("@/modules/builder/data/testRun")
+    expect(nodeSummary({ source: "googlecalendar", status: "created", title: "Focus time", start: "2026-11-11T09:00:00+07:00" })).toBe('Added "Focus time" at 09:00 to your calendar')
+    expect(nodeSummary({ source: "sample_calendar", status: "created", title: "Focus time", start: "2026-11-11T09:00:00+07:00" })).toBe('Sample only: "Focus time" at 09:00 was not added to a real calendar')
+    expect(nodeSummary({ sendId: "m1", status: "sent", to: ["owner@gmail.example"] })).toBe("Emailed you at owner@gmail.example")
+    expect(nodeSummary({ sendId: "mail_sample", status: "sent", sample: true })).toBe("Sample only: no email was sent")
+    expect(nodeSummary({ sendId: "m2", status: "rejected", message: "limit: 20 emails per Mind per day" })).toBe("Not sent: limit: 20 emails per Mind per day")
+  })
+})
