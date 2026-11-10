@@ -463,8 +463,25 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
     }
     frame = requestAnimationFrame(loop)
 
-    // Pointer: drag a bubble, drag the background to pan, click to pick.
+    // Pointer: drag a bubble, drag the background to pan, click to pick, pinch with two fingers
+    // to zoom (Ancung, 10 Nov), around the point between them, moving both to pan.
     let drag: { id: string | null; x: number; y: number; moved: boolean; vx: number; vy: number } | null = null
+    const touches = new Map<number, { x: number; y: number }>()
+    let pinch: { d: number; mx: number; my: number; k: number; vx: number; vy: number } | null = null
+    const startPinch = () => {
+      const [a, b] = [...touches.values()]
+      const v = view.current
+      pinch = { d: Math.hypot(b.x - a.x, b.y - a.y) || 1, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, k: v.k, vx: v.x, vy: v.y }
+      // A second finger ends a bubble drag; the bubble goes back into the layout.
+      const s0 = sim.current
+      if (drag?.id && s0 && drag.id !== mind) {
+        const body = s0.bodies.get(drag.id)
+        if (body) body.pinned = false
+      }
+      drag = null
+      v.auto = false
+      focus.current = null
+    }
     const local = (e: PointerEvent | WheelEvent) => {
       const r = cv.getBoundingClientRect()
       return { x: e.clientX - r.left, y: e.clientY - r.top }
@@ -473,14 +490,34 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       // Dragging on the graph moves the graph, not the drawer it sits in on phones.
       e.stopPropagation()
       const p = local(e)
+      cv.setPointerCapture(e.pointerId)
+      if (e.pointerType === "touch") {
+        touches.set(e.pointerId, p)
+        if (touches.size === 2) return startPinch()
+        if (touches.size > 2) return
+      }
       const id = hit(p.x, p.y)
       drag = { id, x: p.x, y: p.y, moved: false, vx: view.current.x, vy: view.current.y }
-      cv.setPointerCapture(e.pointerId)
       cv.style.cursor = id ? "grabbing" : "grabbing"
     }
     const move = (e: PointerEvent) => {
       const p = local(e)
       if (e.pointerType === "mouse") torch.current = toWorld(p.x, p.y)
+      if (e.pointerType === "touch" && touches.has(e.pointerId)) touches.set(e.pointerId, p)
+      if (pinch && touches.size >= 2) {
+        const [a, b] = [...touches.values()]
+        const v = view.current
+        const k = Math.min(2.5, Math.max(0.35, pinch.k * (Math.hypot(b.x - a.x, b.y - a.y) / pinch.d)))
+        const mx = (a.x + b.x) / 2
+        const my = (a.y + b.y) / 2
+        // Keep the point that was under the fingers' middle under it, wherever they move.
+        const wx = (pinch.mx - size.w / 2 - pinch.vx) / pinch.k
+        const wy = (pinch.my - size.h / 2 - pinch.vy) / pinch.k
+        v.k = k
+        v.x = mx - size.w / 2 - wx * k
+        v.y = my - size.h / 2 - wy * k
+        return
+      }
       if (!drag) {
         const id = hit(p.x, p.y)
         if (id !== hover.current) hover.current = id
@@ -509,7 +546,15 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         view.current.y = drag.vy + (p.y - drag.y)
       }
     }
-    const up = () => {
+    const up = (e: PointerEvent) => {
+      if (e.pointerType === "touch") {
+        touches.delete(e.pointerId)
+        if (pinch) {
+          // Lifting a finger ends the pinch; the next touch starts fresh.
+          if (touches.size < 2) pinch = null
+          return
+        }
+      }
       if (!drag) return
       const s = sim.current
       if (drag.id && s && drag.id !== mind) {
