@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { ApiError } from "@/lib/api"
-import { dayLabel, failureText } from "@/modules/chat/components/ChatScreen"
+import { dayLabel, failureText } from "@/modules/chat/data/thread"
 import { refusalReasons } from "@/modules/wallet/data/checks"
 
 describe("refusalReasons", () => {
