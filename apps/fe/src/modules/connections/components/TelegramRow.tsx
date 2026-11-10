@@ -15,8 +15,8 @@ import { useConnectTelegram, useDisconnectTelegram, useTelegram } from "@/module
 /**
  * Telegram (#168, #172) as one row in Apps, like Gmail and Calendar (Ancung, 11 Nov: a card of its
  * own with the whole guide was too much). Connecting happens in a dialog: the BotFather steps and
- * the token, then the one-time link, then "Linked". Payments and other approvals still happen in
- * the app; the bot sends a link when one waits. Started from Axel's draft.
+ * the token, then the one-time link, then "Linked". Approvals can be answered in Telegram (#208, the
+ * bot's Approve and Decline buttons) or in the app. Started from Axel's draft.
  */
 export function TelegramRow({ mindId, name }: { mindId: string; name: string }) {
   const telegram = useTelegram(mindId)
@@ -49,7 +49,7 @@ export function TelegramRow({ mindId, name }: { mindId: string; name: string }) 
           {telegram.isError
             ? "Could not check Telegram. Please try again later."
             : linked && t?.connected
-              ? `Bot @${t.botUsername} answers ${t.ownerName ?? "you"} for ${name}. Approvals still happen here.`
+              ? `Bot @${t.botUsername} answers ${t.ownerName ?? "you"} for ${name}. You can approve payments there or here.`
               : halfway
                 ? "Open the bot's link in Telegram to finish."
                 : `Talk to ${name} from Telegram through a bot of your own. It answers only you.`}
@@ -202,7 +202,7 @@ function ConnectTelegramDialog({
       open
       onOpenChange={close}
       title="Telegram is connected"
-      description={`@${bot?.botUsername} answers ${bot?.ownerName ?? "you"}. Write to it in Telegram to talk to ${name}. Payments and other approvals still happen here; the bot sends you a link when one waits.`}
+      description={`@${bot?.botUsername} answers ${bot?.ownerName ?? "you"}. Write to it in Telegram to talk to ${name}. When it asks before paying or acting, approve or decline right there, or here in the app.`}
       footer={<Button onClick={onClose}>Done</Button>}
     />
   )
