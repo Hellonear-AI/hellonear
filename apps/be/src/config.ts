@@ -56,6 +56,10 @@ export const config = {
   // Paid data (#150): the account a Mind pays for a data report (it must be on the paying wallet's address list,
   // or the policy refuses the payment). Empty: the shop answers 503 shop_not_configured.
   shopPayTo: (process.env.SHOP_PAY_TO ?? '').trim().toLowerCase(),
+  // Best Price Buyer (#176): several sellers for the same items, `account:multiplier` pairs separated by commas
+  // (`a.testnet:1,b.testnet:0.8`); a seller's price is the item's base price times its multiplier. Each account must be
+  // on the paying wallet's address list too. Empty: SHOP_PAY_TO is the only seller, at the base price.
+  shopSellers: (process.env.SHOP_SELLERS ?? '').trim().toLowerCase(),
   nonceTtlMs: 5 * 60 * 1000,
   sessionTtlMs: 7 * 24 * 60 * 60 * 1000,
 }

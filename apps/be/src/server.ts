@@ -13,7 +13,7 @@ import { cancelRun, getRun, listRuns, mindEvents, pendingApprovals, relayRun, ru
 import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema, secretsForRun } from './secrets.ts'
 import { assertWalletEmpty, createWallet, freezeTransaction, getWallet, hasWallet, isDemoMind, policySchema, policyTransaction } from './wallets.ts'
 import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
-import { itemSchema, shop, txHashSchema } from './shop.ts'
+import { itemSchema, sellerSchema, shop, txHashSchema } from './shop.ts'
 import { issueMailToken, issueWalletToken, verifyMailToken, verifyWalletToken } from './walletToken.ts'
 import { EMAIL_SKILL, ensureInbox, inboxOf, listMail, listSends, mailEnabled, messageIdSchema, ownerMailSchema, readMail, releaseInbox, sendMail, sendMailSchema, sendMailToOwner } from './mail.ts'
 import { listThreads, parseCursor, threadExists, threadMessages } from './threads.ts'
@@ -144,7 +144,12 @@ export const server = createServer(async (req, res) => {
       if (!item.success) throw new HttpError(404, 'unknown_item')
       const tx = url.searchParams.get('tx')
       if (tx !== null && !txHashSchema.safeParse(tx).success) throw new HttpError(400, 'invalid_tx_hash')
-      const out = await shop(mindId, item.data, tx ?? undefined)
+      const seller = url.searchParams.get('seller')
+      if (seller !== null && !sellerSchema.safeParse(seller).success) throw new HttpError(400, 'invalid_seller')
+      // Best Price Buyer (#176): the price list, without paying; it takes no seller or tx.
+      const quotes = url.searchParams.get('quotes')
+      if (quotes !== null && (quotes !== '1' || tx !== null || seller !== null)) throw new HttpError(400, 'invalid_query')
+      const out = await shop(mindId, item.data, { txHash: tx ?? undefined, seller: seller ?? undefined, quotes: quotes === '1' })
       return sendJson(res, out.httpStatus, out.body)
     }
     // Autopilot's "Email me" (#146): engine key only, since a scheduled run carries no run token; the recipient is
