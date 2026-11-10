@@ -2,9 +2,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { parseSkillMd, skillCatalog, skillCatalogSummaries, usableSkills } from '../src/skills.ts'
+import { needsApproval } from '../src/tools.ts'
 
 test('every SKILL.md in engine/skills parses and only uses registered tools', () => {
-  assert.deepEqual([...skillCatalog.keys()], ['daily-planner', 'email-address', 'email-triage', 'hellonear-guide', 'http-request', 'meeting-prep', 'morning-briefing', 'near-account', 'paid-data', 'payments', 'subscriptions'])
+  assert.deepEqual([...skillCatalog.keys()], ['best-price', 'calendar-conflicts', 'confidential-reader', 'daily-planner', 'docs', 'email-address', 'email-triage', 'follow-ups', 'freeze-advisor', 'health-journal', 'hellonear-guide', 'http-request', 'invoice', 'meeting-prep', 'mind-seller', 'morning-briefing', 'near-account', 'notion', 'outlook', 'paid-data', 'payments', 'phishing-detector', 'price-watch', 'recipient-guard', 'redact-before-send', 'revenue-split', 'sheets', 'slack', 'spending-audit', 'spending-tracker', 'split-bill', 'subscriptions', 'treasury-report'])
   assert.deepEqual(skillCatalog.get('daily-planner')?.tools, ['get_time', 'add_numbers', 'googlecalendar_list_events', 'googlecalendar_create_event', 'googlecalendar_create_meeting', 'googlecalendar_block_time'])
   assert.deepEqual(skillCatalog.get('daily-planner')?.connections, ['googlecalendar', 'googlemeet'])
   assert.equal(skillCatalog.get('payments')?.status, 'available')
@@ -12,6 +13,24 @@ test('every SKILL.md in engine/skills parses and only uses registered tools', ()
   assert.equal(skillCatalog.get('email-triage')?.status, 'available')
   assert.deepEqual(skillCatalog.get('email-triage')?.tools, ['gmail_list_emails', 'gmail_read_email', 'gmail_create_draft', 'gmail_organize', 'get_time'])
   assert.equal(skillCatalog.get('daily-planner')?.skill.name, 'daily-planner')
+})
+
+test('commerce skills (#176, #179, #180, #181): buying and selling wait for approval, invoicing never pays', async () => {
+  const { needsApproval } = await import('../src/tools.ts')
+  assert.deepEqual(skillCatalog.get('best-price')?.tools, ['get_quotes', 'buy_data', 'send_payment', 'list_payments', 'get_time'])
+  assert.deepEqual(skillCatalog.get('price-watch')?.tools, ['get_quotes', 'buy_data', 'send_payment', 'add_numbers', 'get_time'])
+  const invoice = skillCatalog.get('invoice')!
+  assert.deepEqual(invoice.tools, ['mail_send', 'mail_list', 'mail_read', 'get_balance', 'near_check_transfer', 'get_time'])
+  assert.ok(!invoice.tools.includes('send_payment'), 'an invoice never sends money')
+  assert.deepEqual(skillCatalog.get('mind-seller')?.tools, ['sell_offer', 'buy_from_mind', 'send_payment', 'get_balance', 'get_time'])
+  for (const id of ['best-price', 'price-watch', 'invoice', 'mind-seller']) {
+    const s = skillCatalog.get(id)!
+    assert.equal(s.status, 'available')
+    assert.ok(s.blurb && s.title, id)
+    // Every tool that moves money or sends mail is an approval tool.
+    for (const t of s.tools.filter((t) => ['send_payment', 'mail_send', 'sell_offer'].includes(t))) assert.equal(needsApproval(t), true, t)
+    assert.ok(!/intents/i.test(s.blurb ?? ''), 'never claims NEAR Intents')
+  }
 })
 
 test('shared references load into the skill for skill_read, once per file, reused by several skills', () => {
@@ -24,6 +43,24 @@ test('shared references load into the skill for skill_read, once per file, reuse
   const md = (refs: string) => `---\nname: t\ndescription: d\nmetadata:\n  hellonear:\n    tools: []\n    connections: []\n    status: available\n    references: ${refs}\n---\n# Body\n`
   assert.throws(() => parseSkillMd(md('[../secrets.md]'), 't', () => ''), /Invalid|regex|string/i)
   assert.throws(() => parseSkillMd(md('[missing.md]'), 't'), /ENOENT/)
+})
+
+test('wallet skills grant only the wallet tools they need; read-only ones can never pay (#177, #182, #184, #185, #189, #190)', () => {
+  assert.deepEqual(skillCatalog.get('recipient-guard')?.tools, ['near_view_account', 'list_payments', 'send_payment', 'get_balance', 'get_time'])
+  assert.deepEqual(skillCatalog.get('recipient-guard')?.references, ['near-recipients.md'])
+  assert.deepEqual(skillCatalog.get('split-bill')?.tools, ['add_numbers', 'split_amount', 'send_payment', 'near_view_account', 'list_payments', 'get_balance', 'get_time'])
+  assert.deepEqual(skillCatalog.get('revenue-split')?.tools, ['get_balance', 'send_payment', 'near_view_account', 'add_numbers', 'split_amount', 'list_payments', 'get_time'])
+  for (const id of ['freeze-advisor', 'treasury-report', 'spending-audit']) {
+    const s = skillCatalog.get(id)!
+    assert.ok(!s.tools.includes('send_payment'), `${id} never pays`)
+    assert.ok(s.tools.includes('list_payments') && s.tools.includes('get_balance'), id)
+  }
+  for (const id of ['recipient-guard', 'freeze-advisor', 'split-bill', 'revenue-split', 'treasury-report', 'spending-audit']) {
+    const s = skillCatalog.get(id)!
+    assert.equal(s.status, 'available')
+    assert.deepEqual(s.connections, ['near-wallet'])
+    assert.ok(s.title && s.blurb, `${id} has a title and a blurb for the Skills screen`)
+  }
 })
 
 test('blocked and unknown skills are never usable', () => {
@@ -60,4 +97,52 @@ test('invalid SKILL.md files are rejected', () => {
   assert.throws(() => parseSkillMd(md(good), 'other'), /must match its folder/)
   assert.throws(() => parseSkillMd(md(good.replace('[get_time]', '[rm_rf]')), 'demo'), /unknown tools rm_rf/)
   assert.throws(() => parseSkillMd(md(good.replace('available', 'live')), 'demo'))
+})
+
+test('mail skills grant only the tools their playbooks need (#183, #186, #187, #188, #191, #193)', () => {
+  const tools = (id: string) => skillCatalog.get(id)?.tools
+  // The Mind's own inbox tools come only with the Email address skill: without it, mail_list errored on every check (11 Nov).
+  assert.deepEqual(tools('phishing-detector'), ['gmail_list_emails', 'gmail_read_email', 'gmail_organize'])
+  assert.deepEqual(tools('confidential-reader'), ['gmail_list_emails', 'gmail_read_email'])
+  assert.deepEqual(tools('redact-before-send'), ['mail_send', 'http_request'])
+  assert.deepEqual(tools('health-journal'), ['get_time'])
+  assert.deepEqual(tools('spending-tracker'), ['get_time', 'gmail_list_emails', 'gmail_read_email', 'add_numbers'])
+  assert.deepEqual(tools('follow-ups'), ['get_time', 'gmail_list_emails', 'gmail_read_email', 'gmail_create_draft'])
+  // Bill due dates extend the subscription tracker instead of a second skill over the same emails (#193).
+  assert.deepEqual(tools('subscriptions'), ['get_time', 'gmail_list_emails', 'gmail_read_email', 'add_numbers', 'googlecalendar_create_event'])
+  assert.equal(skillCatalog.get('subscriptions')?.title, 'Subscriptions & bills')
+  // Reading and drafting skills never pay or send.
+  for (const id of ['phishing-detector', 'confidential-reader', 'health-journal', 'spending-tracker', 'follow-ups', 'subscriptions']) {
+    assert.ok(!tools(id)!.some((t) => ['send_payment', 'mail_send'].includes(t)), id)
+  }
+  for (const id of ['phishing-detector', 'confidential-reader', 'redact-before-send', 'health-journal', 'spending-tracker', 'follow-ups']) {
+    const s = skillCatalog.get(id)!
+    assert.equal(s.status, 'available', id)
+    assert.ok(s.title && s.blurb && s.note, id)
+  }
+})
+
+test('one small skill per connected app (#194): its own tools and connection, writes behind approval', () => {
+  const apps: Record<string, [string[], string[]]> = {
+    sheets: [['add_numbers', 'googlesheets_find_spreadsheets', 'googlesheets_read_range', 'googlesheets_append_row'], ['googlesheets']],
+    docs: [['googledrive_find_files', 'googledocs_read_document', 'googledocs_create_document'], ['googledrive', 'googledocs']],
+    slack: [['slack_list_channels', 'slack_send_message'], ['slack']],
+    notion: [['notion_search', 'notion_read_page', 'notion_create_page', 'notion_add_row'], ['notion']],
+    outlook: [['outlook_list_emails', 'outlook_read_email', 'outlook_create_draft'], ['outlook']],
+  }
+  for (const [id, [tools, connections]] of Object.entries(apps)) {
+    const s = skillCatalog.get(id)!
+    assert.deepEqual([s.tools, s.connections, s.status], [tools, connections, 'available'], id)
+    assert.ok(s.title && s.blurb, id)
+  }
+  for (const t of ['googlesheets_append_row', 'googledocs_create_document', 'slack_send_message', 'notion_create_page', 'notion_add_row']) assert.equal(needsApproval(t), true, t)
+  // Outlook is drafts only, like Gmail: none of its tools sends.
+  assert.ok(!skillCatalog.get('outlook')!.tools.some((t) => needsApproval(t) || /send/.test(t)))
+})
+
+test('calendar-conflicts (#192): reads the calendar, and its only write waits for approval', () => {
+  const s = skillCatalog.get('calendar-conflicts')!
+  assert.deepEqual([s.tools, s.connections, s.status], [['get_time', 'googlecalendar_list_events', 'googlecalendar_create_event'], ['googlecalendar'], 'available'])
+  assert.ok(s.title && s.blurb)
+  assert.equal(needsApproval('googlecalendar_create_event'), true)
 })

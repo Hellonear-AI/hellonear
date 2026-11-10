@@ -10,7 +10,8 @@ import { isApiCode } from "@/lib/api"
 import { explorerTxUrl } from "@/lib/format"
 import { chatApi } from "@/modules/chat/api"
 import { answerOutcome, type Answer, type Outcome } from "@/modules/chat/data/answer"
-import { foldRun, type RunEvent, type RunView } from "@/modules/runs/data/events"
+import { foldRun, paymentOf, pendingStep, type RunEvent, type RunView } from "@/modules/runs/data/events"
+import { toolLabel } from "@/modules/runs/data/steps"
 import { chatKeys } from "@/modules/chat/hooks/useThread"
 import { mindKeys } from "@/modules/minds/hooks/useMinds"
 
@@ -105,6 +106,20 @@ export function ChatRunProvider({ mindId, children }: { mindId: string; children
             const chatPath = mindHref(mindId, "chat")
             if (pathRef.current === chatPath) router.replace(`${chatPath}/${threadId}`)
             void queryClient.invalidateQueries({ queryKey: mindKeys.recentChats(mindId) })
+          }
+          if (e.type === "tool.approval_required" && e.toolCallId) {
+            // Recent chats marks the chat as waiting at once (A), and if the owner is in another
+            // chat, a toast says so with a way there (Ancung, 11 Nov: no Approvals page any more).
+            void queryClient.invalidateQueries({ queryKey: mindKeys.approvals(mindId) })
+            const there = threadId ? `${mindHref(mindId, "chat")}/${threadId}` : null
+            if (there && pathRef.current !== there) {
+              const payment = paymentOf(pendingStep({ toolCallId: e.toolCallId, tool: e.tool ?? "", args: e.args }))
+              toast("Approval needed", {
+                description: payment ? `${payment.amountNear} NEAR to ${payment.to}` : toolLabel(e.tool ?? ""),
+                action: { label: "Open", onClick: () => router.push(there) },
+                duration: 10_000,
+              })
+            }
           }
           update({ threadId })
         })

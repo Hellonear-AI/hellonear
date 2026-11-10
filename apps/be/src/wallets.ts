@@ -151,6 +151,16 @@ export async function getWallet(mindId: string) {
   }
 }
 
+// The paying wallet's address rule (#176), so a Mind can tell which sellers its payment would reach. `null`: the policy
+// sets no address rule, so OutLayer lets a payment go to any account (other rules still apply).
+export type AddressRule = { mode: 'whitelist' | 'blacklist'; list: string[] } | null
+export async function addressRuleOf(mindId: string): Promise<AddressRule> {
+  const { key } = await keyOf(mindId)
+  const a = (await outlayer('GET', '/wallet/v1/policy', key)).rules?.addresses
+  return (a?.mode === 'whitelist' || a?.mode === 'blacklist') && Array.isArray(a.list) ? { mode: a.mode, list: a.list } : null
+}
+export const allowsAddress = (rule: AddressRule, account: string) => !rule || (rule.mode === 'whitelist') === rule.list.includes(account)
+
 // Deleting a Mind deletes its `mind_wallets` row, the only copy of the agent key: after that nobody can move what is
 // left in the wallet (the owner never holds the key, #15). So a delete is refused while the Mind's own wallet holds more
 // than dust, unless the owner acknowledged it (#161). Try-out and playground Minds pay from the shared demo wallet and

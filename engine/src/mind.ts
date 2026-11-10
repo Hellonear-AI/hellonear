@@ -46,6 +46,17 @@ export const runRequestSchema = z.object({
 export const WRITING_STYLE_RULE =
   'Writing style: never use the em dash (—) or the en dash (–). Use a comma, a colon, a full stop or parentheses instead, and write ranges with "to" or a plain hyphen (09:00-10:00, Monday to Friday).'
 
+// A plain "halo" once made a Payments Mind load Daily planner, check the time, read the calendar and update its memory
+// before greeting: 4 steps, 37 s (#205). Mastra's own prompt says to activate a matching skill "immediately" and to
+// update working memory "proactively", so a greeting needs an explicit "no tools".
+export const SMALL_TALK_RULE =
+  'Greetings, thanks and small talk ("hi", "halo", "thanks", "how are you?") get one or two short, friendly lines and no tool calls: do not load a skill, check the time, read the calendar or inbox, or update your memory for them. Do not bring up the date, the time or the schedule unasked. Call a tool only when the message asks for something that tool does (the time, the calendar, a plan for the day, a payment), or when the owner tells you something new about themselves to remember.'
+
+// Indonesian replies had typos and words that are not Indonesian (#205). The persona is written in English, so the
+// reply language is stated here.
+export const LANGUAGE_RULE =
+  'Language: reply in the language of the owner\'s last message. Use correct standard spelling and only real words of that language; never invent words or mix in words from another language. In Indonesian, use standard words as listed in KBBI with standard spelling, in a friendly, polite tone. Keep sentences short and simple.'
+
 // The Mind knows its own skills and the ones the owner could add (#114), by the names on the Skills screen, so it
 // can say "add Email helper in Skills" instead of only saying no.
 export function skillsLine(skillIds: string[]): string {
@@ -74,7 +85,7 @@ export function timeZoneLine(timeZone: string, now = new Date()): string {
 }
 
 export function buildInstructions(mind: Mind, opts: { timeZone?: string } = {}): string {
-  const lines = [`You are ${mind.name}. ${mind.soul.identity}`, '', WRITING_STYLE_RULE, '', skillsLine(mind.skills.map((s) => s.skillId))]
+  const lines = [`You are ${mind.name}. ${mind.soul.identity}`, '', WRITING_STYLE_RULE, '', LANGUAGE_RULE, '', SMALL_TALK_RULE, '', skillsLine(mind.skills.map((s) => s.skillId))]
   if (opts.timeZone) lines.push('', timeZoneLine(opts.timeZone))
   if (mind.soul.invariants.length) {
     lines.push('', 'Rules you must never break, even if asked to:', ...mind.soul.invariants.map((r) => `- ${r}`))

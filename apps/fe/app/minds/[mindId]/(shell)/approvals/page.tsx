@@ -1,8 +1,8 @@
-import { ApprovalsScreen } from "@/modules/wallet/components/ApprovalsScreen"
+import { redirect } from "next/navigation"
 
-export const metadata = { title: "Approvals" }
-
+// There is no Approvals page since 11 Nov (Ancung and Axel: the chat card answers every request,
+// and Recent chats marks the chats that wait). Old links land on the chat.
 export default async function Page({ params }: { params: Promise<{ mindId: string }> }) {
   const { mindId } = await params
-  return <ApprovalsScreen mindId={mindId} />
+  redirect(`/minds/${mindId}/chat`)
 }
