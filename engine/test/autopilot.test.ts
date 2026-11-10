@@ -148,6 +148,39 @@ describe('autopilot', () => {
     assert.equal((await call('DELETE', path('chain'))).status, 204)
   })
 
+  test('a scheduled fire runs a tree: an If in the middle, a nested If, End, and steps after the If (#164)', async () => {
+    const tree = {
+      name: 'Tree',
+      nodes: [
+        { id: 'start', type: 'trigger', data: { schedule: { cron: '* * * * *', timezone: 'Asia/Jakarta' }, inputs: [{ name: 'account', type: 'string' }] } },
+        { id: 'balance', type: 'tool', data: { tool: 'near_view_account', args: { accountId: '{{input.account}}' } } },
+        { id: 'any', type: 'condition', data: { left: '{{steps.balance.balanceNear}}', op: 'gte', right: 0 } },
+        { id: 'huge', type: 'condition', data: { left: '{{steps.balance.balanceNear}}', op: 'gt', right: 1000000000 } },
+        { id: 'stop', type: 'end', data: {} },
+        { id: 'clock', type: 'tool', data: { tool: 'get_time', args: {} } },
+        { id: 'say', type: 'agent', data: { prompt: 'In one short sentence, say that {{input.account}} holds {{steps.balance.balanceNear}} NEAR at {{steps.clock.time}}.' } },
+      ],
+      edges: [
+        { source: 'start', target: 'balance' }, { source: 'balance', target: 'any' },
+        { source: 'any', target: 'huge', sourceHandle: 'then' }, { source: 'huge', target: 'stop', sourceHandle: 'then' },
+        { source: 'any', target: 'clock' }, { source: 'clock', target: 'say' },
+      ],
+    }
+    await json(await call('PUT', path('tree'), tree), 200)
+    assert.equal((await json(await call('PUT', `${path('tree')}/autopilot`, on()), 200)).autopilot.status, 'active')
+    let run: Ev | undefined
+    for (const deadline = Date.now() + 150_000; !run && Date.now() < deadline; await new Promise((r) => setTimeout(r, 3000))) {
+      const { runs } = await json(await call('GET', `${path('tree')}/runs`), 200)
+      run = runs.find((r: Ev) => r.trigger === 'autopilot' && r.status !== 'running')
+    }
+    assert.ok(run, 'a scheduled run finished within 150 s')
+    assert.equal(run.status, 'success', JSON.stringify(run))
+    // "huge" is false, so its no way (empty) carries on, and the steps after "any" run: every step is in the history.
+    assert.deepEqual(run.nodes.map((n: Ev) => [n.node, n.status]), [['balance', 'ok'], ['clock', 'ok'], ['say', 'ok']])
+    assert.match(run.nodes[2].output.text, /Penny/, 'the persona reached the agent step after the If')
+    assert.equal((await call('DELETE', path('tree'))).status, 204)
+  })
+
   test('turning off and deleting the workflow remove the schedule', async () => {
     assert.equal((await call('DELETE', `${path('report')}/autopilot`)).status, 204)
     assert.equal((await call('DELETE', `${path('report')}/autopilot`)).status, 404)

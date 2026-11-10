@@ -1,6 +1,6 @@
 // Saved Visual Builder workflows (#20): compile, register live, persist in Postgres
 // (Mastra's workflowDefinitions store), list, load for the editor and delete.
-import { compileCanvas, mastraWorkflowId, wayWorkflowId, type Canvas, type CompiledWorkflow } from './builder.ts'
+import { compileCanvas, mastraWorkflowId, type Canvas, type CompiledWorkflow } from './builder.ts'
 import { deleteAutopilot, syncAutopilot } from './autopilot.ts'
 import { mastra, storage } from './mastra.ts'
 
@@ -48,12 +48,15 @@ export async function listWorkflows(mindId: string) {
   return definitions.filter((d) => d.id.startsWith(prefix) && d.metadata?.hellonear?.mindId === mindId).map(summary)
 }
 
+// Nested workflows of a job (If ways, #153; any If and the steps after it, #164) all have ids under
+// `<job id>--`. Drops every one the current canvas no longer uses.
 async function removeWays(mindId: string, workflowId: string, keep = new Set<string>()) {
-  for (const handle of ['then', 'else'] as const) {
-    const id = wayWorkflowId(mindId, workflowId, handle)
-    if (keep.has(id) || !(await (await store()).get(id))) continue
-    await (await store()).delete(id)
-    try { mastra.removeWorkflow(id) } catch { /* not registered in this process */ }
+  const prefix = `${mastraWorkflowId(mindId, workflowId)}--`
+  const { definitions } = await (await store()).list()
+  for (const d of definitions) {
+    if (!d.id.startsWith(prefix) || keep.has(d.id)) continue
+    await (await store()).delete(d.id)
+    try { mastra.removeWorkflow(d.id) } catch { /* not registered in this process */ }
   }
 }
 
