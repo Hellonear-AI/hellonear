@@ -9,18 +9,15 @@ import {
   FlaskConicalIcon,
   GitBranchIcon,
   GlobeIcon,
-  KeyboardIcon,
-  MinusIcon,
   OctagonXIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   PlusIcon,
-  ScanIcon,
   SearchIcon,
   XIcon,
 } from "lucide-react"
 import Link from "next/link"
-import { createContext, useContext, useMemo, useRef, useState, type ReactNode } from "react"
+import { useMemo, useRef, useState, type ReactNode } from "react"
 import { toast } from "sonner"
 import { cn } from "cn"
 import { Spinner } from "@/components/elements/Spinner"
@@ -32,44 +29,34 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useMediaQuery } from "@/hooks/useMediaQuery"
 import { MEDIA } from "@/lib/media"
 import { browserTimeZone } from "@/lib/stream"
-import { scheduleText, zoneName } from "@/modules/autopilot/data/schedule"
 import { useWorkflow } from "@/modules/autopilot/hooks/useAutopilot"
 import { BuilderContext } from "@/modules/builder/components/BuilderContext"
+import { Canvas } from "@/modules/builder/components/canvas/Canvas"
+import { TestRunContext } from "@/modules/builder/components/canvas/TestRunContext"
 import { BlockSettings } from "@/modules/builder/components/panels/BlockSettings"
 import { SettingsFrame } from "@/modules/builder/components/panels/SettingsFrame"
-import { PromptPreview } from "@/modules/builder/components/PromptText"
 import { newBlock, type Kind } from "@/modules/builder/data/blocks"
-import { ifTitle } from "@/modules/builder/data/conditions"
 import {
   canPlace,
-  closes,
-  cronOf,
   emptyDraft,
   findBlock,
   fromCanvas,
   insertBlock,
-  isStep,
   lineAt,
   lineCloses,
   NAME_MAX,
-  promptParts,
   removeBlock,
-  resultsOf,
-  stepsAt,
   updateBlock,
   type Block,
   type Draft,
-  type LinePath,
-  type Result,
   type Self,
-  type Step,
 } from "@/modules/builder/data/draft"
-import { mainEnd as mainEndOf, placeKey, START, type Place } from "@/modules/builder/data/places"
-import { wentWrong, type NodeRun } from "@/modules/builder/data/testRun"
+import { mainEnd as mainEndOf, START, type Place } from "@/modules/builder/data/places"
+import { wentWrong } from "@/modules/builder/data/testRun"
 import { TONE, type Tone } from "@/modules/builder/data/tone"
 import { toolInfo } from "@/modules/builder/data/tools"
 import { useCanvasView, ZOOM_STEP } from "@/modules/builder/hooks/useCanvasView"
-import { useDragDrop } from "@/modules/builder/hooks/useDragDrop"
+import { DragContext, useDragDrop } from "@/modules/builder/hooks/useDragDrop"
 import { useEditorShortcuts } from "@/modules/builder/hooks/useEditorShortcuts"
 import { useHistory } from "@/modules/builder/hooks/useHistory"
 import { useLeaveGuard } from "@/modules/builder/hooks/useLeaveGuard"
@@ -78,7 +65,6 @@ import { useSave } from "@/modules/builder/hooks/useSave"
 import { useSelection } from "@/modules/builder/hooks/useSelection"
 import { useTestRun } from "@/modules/builder/hooks/useTestRun"
 import { useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
-import { shortAddress } from "@/modules/wallet/data/address"
 
 const ZONE = () => browserTimeZone() ?? "UTC"
 /**
@@ -109,9 +95,6 @@ function Gone({ mindId, text }: { mindId: string; text: string }) {
 }
 
 
-/** Test run state per canvas node id, read by every block card (B1.2). */
-const TestRun = createContext<Record<string, NodeRun>>({})
-
 function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: string | null; initial: Draft }) {
   const name = useMind(mindId).data?.name ?? "Your Mind"
   const address = useMindWallet(mindId).data?.address ?? ""
@@ -120,19 +103,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const builder = useMemo(() => ({ mindId, name, address, self }), [mindId, name, address, self])
   const [draft, setDraft] = useState<Draft>(initial)
   const { selected, select, picked, slot, pickNext, toggle: toggleSettings } = useSelection(draft.line)
-  const {
-    frame: canvasFrame,
-    content: canvasContent,
-    zoomLabel,
-    space: spaceDown,
-    panning,
-    reset: resetView,
-    fit: fitView,
-    zoomBy,
-    onPointerDown: panStart,
-    onPointerMove: panMove,
-    endPan,
-  } = useCanvasView()
+  const { frame, content, zoomLabel, space, panning, reset, fit, zoomBy, onPointerDown, onPointerMove, endPan } = useCanvasView()
   const [helpOpen, setHelpOpen] = useState(false)
   // Phones (B1.8): a + between blocks opens "Add a block" for that place.
   const [sheetAt, setSheetAt] = useState<Place | null>(null)
@@ -169,106 +140,9 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   }
 
   const dnd = useDragDrop({ line: draft.line, setDraft, self, onAdd: addAt })
-  const { drag, over, setOver, startDrag, endDrag, dropAt, accepts } = dnd
-  const spot = (at: Place) =>
-    !desktop && !drag ? (
-      canPlace(draft.line, at.path, at.index, "agent", self) ? <TapSpot key={`tap-${placeKey(at)}`} onClick={() => setSheetAt(at)} /> : null
-    ) : accepts(at) ? (
-      <DropSpot key={`spot-${placeKey(at)}`} id={`spot-${placeKey(at)}`} over={over} setOver={setOver} onDrop={() => dropAt(at)} label="Drop here" />
-    ) : null
-
+  const { startDrag, endDrag } = dnd
   const canIf = canPlace(draft.line, mainEnd.path, mainEnd.index, "if", self)
   const canEnd = canPlace(draft.line, mainEnd.path, mainEnd.index, "end", self)
-
-  /**
-   * A line of blocks (#164): a + between blocks, each block, and under an If its Yes and No side by
-   * side, each a line of its own (that may hold more Ifs) with a slot to add the next block. A way
-   * without End carries on after its If, so the line goes on below, centred.
-   */
-  const renderLine = (line: Block[], path: LinePath, goesOn = false): ReactNode =>
-    line.map((blk, i) => {
-      // When this If's ways run out the job goes on below it (a job saved with steps after an If).
-      const waysGoOn = blk.kind === "if" && (i < line.length - 1 || goesOn)
-      const joins = waysGoOn && blk.kind === "if" && !closes(blk)
-      const at = { path, index: i }
-      const before = stepsAt(draft.line, path, i)
-      return (
-        <div key={blk.id} className="flex flex-col items-center">
-          {spot(at)}
-          <Linked nodeId={blk.id}>
-            <div
-              draggable={blk.kind !== "end"}
-              onDragStart={(e) => {
-                e.dataTransfer.effectAllowed = "move"
-                e.dataTransfer.setData("text/plain", blk.id)
-                startDrag({ move: blk.id })
-              }}
-              onDragEnd={endDrag}
-              className={cn(blk.kind !== "end" && "cursor-grab active:cursor-grabbing", drag && "move" in drag && drag.move === blk.id && "opacity-40")}
-            >
-              {isStep(blk) ? (
-                <StepCard step={blk} name={name} results={resultsOf(before, self)} active={selected === blk.id} problem={flagged(blk.id)} onClick={() => select(blk.id)} />
-              ) : blk.kind === "if" ? (
-                <BlockCard tone="if" icon={<GitBranchIcon />} kind="If or else" nodeId={blk.id} title={ifTitle(blk, before)} active={selected === blk.id} warn={flagged(blk.id)} onClick={() => select(blk.id)} />
-              ) : (
-                <BlockCard tone="start" icon={<OctagonXIcon />} kind="End" nodeId={blk.id} title="The job stops here" active={selected === blk.id} warn={flagged(blk.id)} onClick={() => select(blk.id)} />
-              )}
-            </div>
-          </Linked>
-          {blk.kind === "if" && (
-            // A flowchart fork (Ancung, 10 Nov: the ways looked unconnected): a stem down from the If,
-            // a bar across to the middle of each way, then a line down to Yes and to No. Each way
-            // draws its half of the bar, so it meets in the middle whatever the ways' widths.
-            <div className="flex flex-col items-center">
-              <Wire run={lit[blk.id] && { status: "ok" }} className="h-5" />
-              <div className={cn("flex justify-center gap-6", joins ? "items-stretch" : "items-start")}>
-              {(["then", "else"] as const).map((h) => {
-                const wayPath: LinePath = [...path, { at: blk.id, h }]
-                const way = blk[h]
-                const end = { path: wayPath, index: way.length }
-                // The way that ran turns green from the If down to its first block.
-                const ran = lit[blk.id]?.note === (h === "then" ? "Yes" : "No") ? ({ status: "ok" } as const) : undefined
-                return (
-                  <div key={h} className="relative flex min-w-[300px] flex-col items-center">
-                    <span aria-hidden className={cn("absolute top-0 h-px", ran ? "bg-success" : "bg-border-strong", h === "then" ? "right-[-12px] left-1/2" : "right-1/2 left-[-12px]")} />
-                    <Wire run={ran} className="h-6" />
-                    <span className="pb-1.5 text-xs font-medium text-muted-foreground">{h === "then" ? "Yes" : "No"}</span>
-                    {renderLine(way, wayPath, waysGoOn)}
-                    {/* The next block on this way; none after an If, which goes on in its own ways. */}
-                    {!lineCloses(way) && way.at(-1)?.kind !== "if" && (
-                      <>
-                        {way.length > 0 && <span aria-hidden className="h-3 w-px bg-border-strong" />}
-                        <EndingSlot
-                          id={`slot-${blk.id}-${h}`}
-                          more={way.length > 0}
-                          goesOn={waysGoOn}
-                          active={selected === `${blk.id}:${h}`}
-                          over={over}
-                          setOver={setOver}
-                          accepts={accepts(end)}
-                          onPick={() => select(`${blk.id}:${h}`)}
-                          onDrop={() => dropAt(end)}
-                        />
-                      </>
-                    )}
-                    {/* The ways meet again before the blocks after the If: a line down from each way
-                        that doesn't end, and a bar across, the fork above upside down. */}
-                    {joins && !lineCloses(way) && (
-                      <>
-                        <span aria-hidden className="min-h-6 w-px flex-1 bg-border-strong" />
-                        <span aria-hidden className={cn("absolute bottom-0 h-px bg-border-strong", h === "then" ? "right-[-12px] left-1/2" : "right-1/2 left-[-12px]")} />
-                      </>
-                    )}
-                  </div>
-                )
-              })}
-              </div>
-              {joins && <span aria-hidden className="h-5 w-px bg-border-strong" />}
-            </div>
-          )}
-        </div>
-      )
-    })
 
   const palette = (compact: boolean) => (
     <>
@@ -338,8 +212,8 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
     redo: history.redo,
     zoomIn: () => zoomBy(ZOOM_STEP),
     zoomOut: () => zoomBy(1 / ZOOM_STEP),
-    resetZoom: resetView,
-    fit: fitView,
+    resetZoom: reset,
+    fit,
     togglePalette: fold.toggle,
     toggleSettings,
     help: () => setHelpOpen(true),
@@ -353,6 +227,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
 
   return (
     <BuilderContext value={builder}>
+    <DragContext value={dnd}>
     <div className="flex h-dvh min-w-0 flex-col overflow-hidden bg-background">
       <header className="flex items-center gap-3 border-b border-border px-4 py-3 md:px-6">
         <Button variant="ghost" size="icon" aria-label="Back to Autopilot" onClick={() => guard.leave(mindHref(mindId, "autopilot"))}>
@@ -428,7 +303,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       )}
       {dirty && workflowId && <p className="mx-4 mt-3 text-xs text-muted-foreground md:mx-6">Save your changes to test them.</p>}
 
-      <TestRun.Provider value={lit}>
+      <TestRunContext value={lit}>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row">
         {/* The Blocks panel folds like the app's sidebar (AppShell): the width slides 240 <-> 72
             (ease-in-out, 200 ms) and the full list crossfades with the icon rail. Phones and
@@ -476,93 +351,18 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
           </div>
         </aside>
 
-        <main
-          ref={canvasFrame}
-          aria-label="Job steps"
-          onDragOver={(e) => drag && e.preventDefault()}
-          onPointerDown={panStart}
-          onPointerMove={panMove}
-          onPointerUp={(e) => {
-            const moved = endPan(e)
-            // A click on empty canvas closes the settings panel, as in n8n.
-            if (!moved && e.button === 0 && !spaceDown && e.target instanceof Element && !e.target.closest("button, a, input, textarea, [draggable='true']")) select(null)
-          }}
-          onPointerCancel={endPan}
-          // Dots that fade a little when zoomed out (--dot-opacity, set with the grid in useCanvasView).
-          style={{ backgroundImage: "radial-gradient(color-mix(in oklab, var(--color-border) calc(var(--dot-opacity, 1) * 100%), transparent) 1px, transparent 1px)" }}
-          className={cn(
-            "relative min-h-0 min-w-0 flex-1 touch-none overflow-hidden select-none",
-            panning ? "cursor-grabbing" : spaceDown ? "cursor-grab" : "cursor-default"
-          )}
-        >
-          <div
-            ref={canvasContent}
-            className={cn("absolute top-0 left-0 flex w-max min-w-[640px] origin-top-left flex-col items-center pb-24 will-change-transform", spaceDown && "pointer-events-none")}
-          >
-          <BlockCard tone="start" icon={<CalendarClockIcon />} kind="Start" title={scheduleText(cronOf(draft))} line={`${zoneName(draft.timezone)} time`} active={selected === START} onClick={() => select(START)} />
-          {renderLine(draft.line, [])}
-          {/* The end of the main line is this card, unless the path already ends; it is also where a
-              dragged block lands (Ancung, 9 Nov). */}
-          {!lineCloses(draft.line) && draft.line.at(-1)?.kind !== "if" && (
-          <Linked>
-            <button
-              type="button"
-              onClick={() => (desktop ? addStep("agent") : setSheetAt(mainEnd))}
-              onDragOver={(e) => {
-                if (!accepts(mainEnd)) return
-                e.preventDefault()
-                if (over !== "end") setOver("end")
-              }}
-              onDragLeave={(e) => {
-                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(null)
-              }}
-              onDrop={(e) => {
-                if (!accepts(mainEnd)) return
-                e.preventDefault()
-                dropAt(mainEnd)
-              }}
-              className={cn(
-                "flex w-full max-w-[280px] flex-col items-center gap-1 rounded-lg border border-dashed px-4 py-3 text-center outline-none transition-colors duration-100 ease-out focus-visible:ring-2 focus-visible:ring-focus",
-                over === "end"
-                  ? "border-solid border-foreground bg-surface-hover ring-4 ring-foreground/10"
-                  : drag && accepts(mainEnd)
-                    ? "border-foreground/60 bg-surface"
-                    : "border-border-strong bg-surface/60 hover:bg-surface"
-              )}
-            >
-              <PlusIcon className={cn("size-4", over === "end" ? "text-foreground" : "text-muted-foreground")} />
-              <span className="text-sm font-medium text-foreground">{drag && accepts(mainEnd) ? "Drop to add it here" : "Add the next step"}</span>
-              <span className="text-xs text-muted-foreground">{desktop ? `Ask ${name} to do something` : "Tap to pick a block"}</span>
-            </button>
-          </Linked>
-          )}
-          </div>
-
-          {/* Zoom controls (n8n's, bottom left): out, the level (click for 100%), in, fit, shortcuts. */}
-          <div className="absolute top-3 right-3 flex flex-col-reverse items-center gap-1 rounded-full border border-border bg-surface p-1 shadow-xs lg:top-auto lg:right-auto lg:bottom-4 lg:left-4 lg:flex-row">
-            <Button variant="ghost" size="icon-sm" className="lg:order-last" aria-label="Fit the job on screen (1)" title="Fit (1)" onClick={fitView}>
-              <ScanIcon />
-            </Button>
-            <Button variant="ghost" size="icon-sm" aria-label="Zoom out (-)" title="Zoom out (-)" onClick={() => zoomBy(1 / ZOOM_STEP)}>
-              <MinusIcon />
-            </Button>
-            <button
-              type="button"
-              onClick={() => resetView()}
-              title="Back to 100% (0)"
-              className="hidden min-w-12 lg:block rounded-full px-1.5 py-1 text-center text-xs font-medium text-foreground tabular-nums outline-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus"
-            >
-              <span ref={zoomLabel}>100%</span>
-            </button>
-            <Button variant="ghost" size="icon-sm" aria-label="Zoom in (+)" title="Zoom in (+)" onClick={() => zoomBy(ZOOM_STEP)}>
-              <PlusIcon />
-            </Button>
-            <span aria-hidden className="mx-0.5 hidden h-4 w-px bg-border lg:order-last lg:block" />
-            <Button variant="ghost" size="icon-sm" className="hidden lg:order-last lg:inline-flex" aria-label="Keyboard shortcuts (?)" title="Keyboard shortcuts (?)" onClick={() => setHelpOpen(true)}>
-              <KeyboardIcon />
-            </Button>
-          </div>
-        </main>
+        <Canvas
+          frameRef={frame}
+          contentRef={content}
+          zoomLabelRef={zoomLabel}
+          pan={{ space, panning, onPointerDown, onPointerMove, endPan }}
+          zoom={{ zoomBy, reset, fit }}
+          draft={draft}
+          ctx={{ root: draft.line, selected, select, flagged, desktop, onTap: setSheetAt }}
+          onAddNext={() => (desktop ? addStep("agent") : setSheetAt(mainEnd))}
+          onEmptyClick={() => select(null)}
+          onHelp={() => setHelpOpen(true)}
+        />
 
         {selected && (
         <SettingsFrame desktop={desktop} onClose={() => select(null)}>
@@ -613,7 +413,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
           addAt(kind, at)
         }}
       />
-      </TestRun.Provider>
+      </TestRunContext>
       <ShortcutsDialog open={helpOpen} onOpenChange={setHelpOpen} />
       <Dialog open={guard.asking} onOpenChange={(open) => !open && guard.stay()}>
         <DialogContent>
@@ -649,207 +449,8 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
         </DialogContent>
       </Dialog>
     </div>
+    </DragContext>
     </BuilderContext>
-  )
-}
-
-/**
- * A place between two steps where a dragged block may go (B1.7): a slim dashed line with a small +,
- * bright while hovered. Its hit area is taller than it looks so it's easy to land on.
- */
-function DropSpot({ id, over, setOver, onDrop, label }: { id: string; over: string | null; setOver: (id: string | null) => void; onDrop: () => void; label: string }) {
-  const hot = over === id
-  return (
-    <div className="flex w-[280px] max-w-full flex-col items-center">
-      <div
-        aria-label={label}
-        onDragOver={(e) => {
-          e.preventDefault()
-          if (!hot) setOver(id)
-        }}
-        onDragLeave={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(null)
-        }}
-        onDrop={(e) => {
-          e.preventDefault()
-          onDrop()
-        }}
-        className="flex h-7 w-full items-center gap-2"
-      >
-        <span className={cn("h-0.5 flex-1 rounded-full border-t-2 border-dashed transition-colors duration-100 ease-out", hot ? "border-foreground" : "border-border-strong")} />
-        <span
-          className={cn(
-            "flex size-5 shrink-0 items-center justify-center rounded-full transition-colors duration-100 ease-out",
-            hot ? "bg-surface-hover text-foreground ring-2 ring-foreground" : "bg-surface text-muted-foreground ring-1 ring-border-strong"
-          )}
-        >
-          <PlusIcon className="size-3" />
-        </span>
-        <span className={cn("h-0.5 flex-1 rounded-full border-t-2 border-dashed transition-colors duration-100 ease-out", hot ? "border-foreground" : "border-border-strong")} />
-      </div>
-    </div>
-  )
-}
-
-/** The line from the block above, coloured by how the block below went in a Test run. */
-function Wire({ run, className }: { run?: NodeRun; className?: string }) {
-  return <span aria-hidden className={cn(className, wireTone(run))} />
-}
-
-/** Grey at rest; while its block works a light runs down it (`wire-flow`); then green or red. */
-const wireTone = (run?: NodeRun) =>
-  run?.status === "running" ? "wire-flow" : run?.status === "ok" ? "w-px bg-success" : run?.status === "error" ? "w-px bg-danger" : "w-px bg-border-strong"
-
-function Linked({ nodeId, children }: { nodeId?: string; children: ReactNode }) {
-  const run = useContext(TestRun)[nodeId ?? ""]
-  return (
-    <div className="flex flex-col items-center">
-      <Wire run={run} className="h-6 transition-colors duration-300 ease-out" />
-      {children}
-    </div>
-  )
-}
-
-function StepCard({
-  step,
-  name,
-  results = [],
-  active,
-  problem,
-  onClick,
-}: {
-  step: Step
-  name: string
-  /** Earlier results, so a prompt shows {Balance} instead of its reference. */
-  results?: Result[]
-  active: boolean
-  problem: boolean
-  onClick: () => void
-}) {
-  if (step.kind === "agent") {
-    return (
-      <BlockCard
-        tone="agent"
-        icon={<BotIcon />}
-        kind={`Ask ${name}`}
-        nodeId={step.id}
-        title={step.prompt.trim() ? <PromptPreview parts={promptParts(step.prompt.trim(), results)} className="line-clamp-2" /> : "Say what to do"}
-        line={step.prompt.trim() ? undefined : "Not set yet"}
-        active={active}
-        warn={problem}
-        onClick={onClick}
-      />
-    )
-  }
-  if (step.kind === "http") {
-    let host = "Not set yet"
-    try {
-      host = new URL(step.url).hostname || host
-    } catch {
-      // keep "Not set yet"
-    }
-    return (
-      <BlockCard
-        tone="http"
-        icon={<GlobeIcon />}
-        kind="Call a website"
-        nodeId={step.id}
-        title={`${step.method === "GET" ? "Read from" : "Send to"} ${host}`}
-        line={step.key ? `With your key ${step.key}` : undefined}
-        active={active}
-        warn={problem}
-        onClick={onClick}
-      />
-    )
-  }
-  const info = toolInfo(step.tool)
-  const account = step.args.accountId
-  const own = step.tool === "googlecalendar_block_time" ? `${step.args.title?.trim() || "An event"} at ${step.args.at || "09:00"}` : step.tool === "mail_send_to_owner" ? step.args.subject?.trim() || "No subject yet" : null
-  return (
-    <BlockCard
-      tone="tool"
-      icon={<SearchIcon />}
-      kind="Use a tool"
-      nodeId={step.id}
-      title={info?.title ?? "A tool"}
-      line={account ? shortAddress(account) : own ?? info?.line}
-      mono={Boolean(account)}
-      active={active}
-      warn={problem}
-      onClick={onClick}
-    />
-  )
-}
-
-
-function BlockCard({
-  icon,
-  kind,
-  title,
-  line,
-  mono,
-  active,
-  warn,
-  dashed,
-  nodeId,
-  onClick,
-  tone,
-}: {
-  tone: Tone
-  icon: ReactNode
-  kind: string
-  title: ReactNode
-  line?: string
-  mono?: boolean
-  active: boolean
-  warn?: boolean
-  dashed?: boolean
-  /** The canvas node id, to show its Test run state. */
-  nodeId?: string
-  onClick: () => void
-}) {
-  const run = useContext(TestRun)[nodeId ?? ""]
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "flex w-[280px] max-w-full flex-col gap-1 rounded-lg border bg-surface px-4 py-3 text-left shadow-xs outline-none transition-[background-color,border-color,box-shadow] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-focus",
-        dashed && "border-dashed bg-surface/60",
-        // The edge says the state (Test run, or amber when something is missing)...
-        run?.status === "running"
-          ? "border-info"
-          : run?.status === "ok"
-            ? "border-success"
-            : run?.status === "error"
-              ? "border-danger"
-              : warn
-                ? "border-warning"
-                : "border-border",
-        // ...and the picked block gets its own outline, a gap away, lifted (Ancung, 9 Nov: a 1 px
-        // edge didn't show which block was picked, and the amber ones drew the eye instead).
-        active ? "shadow-md ring-2 ring-foreground ring-offset-2 ring-offset-background" : run?.status === "running" ? "node-glow" : "hover:bg-surface-hover"
-      )}
-    >
-      <span className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span className={cn("flex size-6 shrink-0 items-center justify-center rounded-[6px] [&>svg]:size-3.5", TONE[tone])}>{icon}</span>
-        {kind}
-      </span>
-      <span className="text-sm font-semibold break-words text-foreground">{title}</span>
-      {line && <span className={cn("text-xs text-muted-foreground", mono && "font-mono")}>{line}</span>}
-      {run && (
-        <span
-          className={cn(
-            "flex items-start gap-1.5 pt-1 text-xs [&>svg]:mt-px [&>svg]:size-3.5 [&>svg]:shrink-0",
-            run.status === "error" ? "text-danger" : run.status === "ok" ? "text-success" : "text-info"
-          )}
-        >
-          {run.status === "running" ? <Spinner /> : run.status === "ok" ? <CheckIcon /> : <XIcon />}
-          <span className="min-w-0 break-words text-foreground">{run.status === "running" ? "Working..." : (run.note ?? "Done")}</span>
-        </span>
-      )}
-    </button>
   )
 }
 
@@ -903,67 +504,6 @@ function PaletteItem({
   )
 }
 
-/** An empty way of the If: tap to pick a block, or drop one on it. Empty, the path stops there. */
-function EndingSlot({
-  id,
-  more = false,
-  goesOn = false,
-  active,
-  over,
-  setOver,
-  accepts,
-  onPick,
-  onDrop,
-}: {
-  id: string
-  /** The way already has steps: a smaller slot that adds one more. */
-  more?: boolean
-  /** Blocks follow its If, so empty it carries on to them instead of stopping. */
-  goesOn?: boolean
-  active: boolean
-  over: string | null
-  setOver: (id: string | null) => void
-  accepts: boolean
-  onPick: () => void
-  onDrop: () => void
-}) {
-  const hot = over === id
-  return (
-    <button
-      type="button"
-      onClick={onPick}
-      onDragOver={(e) => {
-        if (!accepts) return
-        e.preventDefault()
-        if (!hot) setOver(id)
-      }}
-      onDragLeave={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(null)
-      }}
-      onDrop={(e) => {
-        if (!accepts) return
-        e.preventDefault()
-        onDrop()
-      }}
-      aria-pressed={active}
-      className={cn(
-        "flex w-[280px] max-w-full flex-col items-center gap-1 rounded-lg border border-dashed px-4 py-3 text-center outline-none transition-[background-color,border-color,box-shadow] duration-100 ease-out focus-visible:ring-2 focus-visible:ring-focus",
-        hot
-          ? "border-solid border-foreground bg-surface-hover ring-4 ring-foreground/10"
-          : accepts
-            ? "border-foreground/60 bg-surface"
-            : active
-              ? "border-foreground bg-surface ring-2 ring-foreground ring-offset-2 ring-offset-background"
-              : "border-border-strong bg-surface/60 hover:bg-surface"
-      )}
-    >
-      <PlusIcon className="size-4 text-muted-foreground" />
-      <span className="text-sm font-medium text-foreground">{accepts ? "Drop to add it here" : more ? "Add the next step" : "Add a step"}</span>
-      {!more && <span className="text-xs text-muted-foreground">{goesOn ? "Empty: carries on after the If" : "Empty: the job stops here"}</span>}
-    </button>
-  )
-}
-
 const SHORTCUTS: [string, string][] = [
   ["Scroll, or drag empty canvas", "Move around"],
   ["Shift + scroll", "Move sideways"],
@@ -1003,23 +543,6 @@ function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
         </dl>
       </DialogContent>
     </Dialog>
-  )
-}
-
-/** The + between two blocks on phones (B1.8): tap it to add a block there. */
-function TapSpot({ onClick }: { onClick: () => void }) {
-  return (
-    <div className="flex w-[280px] max-w-full flex-col items-center">
-      <span aria-hidden className="h-2 w-px bg-border-strong" />
-      <button
-        type="button"
-        onClick={onClick}
-        aria-label="Add a block here"
-        className="flex size-7 items-center justify-center rounded-full bg-surface text-foreground ring-1 ring-border-strong outline-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus"
-      >
-        <PlusIcon className="size-3.5" />
-      </button>
-    </div>
   )
 }
 
