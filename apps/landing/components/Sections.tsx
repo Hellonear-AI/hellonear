@@ -318,7 +318,7 @@ export function Cta() {
           <h2 className="text-[34px] font-medium leading-[1.08] tracking-[-1px] md:text-[44px]">Ready to meet your Mind?</h2>
           <p className="text-[17px] text-white/70">Free to try on NEAR testnet. No real money involved.</p>
           <div className="mt-2 flex flex-wrap gap-2.5">
-            <a href="#top" className="hero-btn bg-[var(--color-accent)] text-[var(--color-on-accent)]">
+            <a href="#minds" className="hero-btn bg-[var(--color-accent)] text-[var(--color-on-accent)]">
               Meet your Mind <I d={Icon.arrow} size={15} />
             </a>
             <a href="https://github.com/Hellonear-AI/hellonear" className="hero-btn border border-white/25 text-white">
