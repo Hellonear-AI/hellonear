@@ -60,6 +60,8 @@ Watch your Mind think (`components/MindGraph.tsx`, `SeeInside` in `Sections.tsx`
 
 Two minutes with a Mind (`components/Demo.tsx`): the heading slides up word by word and the three steps rise in when the section comes into view. The video plays on its own, muted and looping; a click opens it full screen from the start with sound and controls, and leaving full screen mutes it and lets it loop again (iPhone: `webkitEnterFullscreen`). The video comes from `NEXT_PUBLIC_DEMO_VIDEO_URL`, default `/demo/demo.mp4`; `public/demo/` is gitignored because the video is large, so host it (or add it on purpose). Without it, a placeholder shows. Reduced motion: no autoplay, no slide-ups.
 
+Ready to meet your Mind? (`components/Cta.tsx`): no card, straight on the page, about 86vh tall on desktop. The copy and two buttons (Meet your Mind to `#minds`, View on GitHub) on the left; on the right a big Mind flies in from the screen's right edge on a rocket-fire trail (`public/scenes/cta-flying.webp`, 1536 px with alpha, 155 KB; generated, master in `design/hellonear-assets/sections/cta-flying.png`), its flames running off the edge, with a soft shadow under it. In view: the heading slides up word by word, the rest rises in, the Mind flies in (`.cta-fly-in`) and then hovers (`.float-idle`). Phones: the Mind sits under the copy, bleeding off the right edge. Reduced motion: no motion.
+
 ## Copy guidelines
 
 - Problem: AI agents that hold money have no limits you can trust. Solution: a Mind whose wallet limits are stored on-chain and enforced in a TEE, with private, verifiable AI.

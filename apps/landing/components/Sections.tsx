@@ -36,11 +36,6 @@ function Heading({ title, sub, align = "center" }: { title: string; sub?: string
   );
 }
 
-const MINDS = [
-  { img: "general-assistant", name: "General Assistant", role: "Your everyday helper", quote: "I remember the small stuff so you don't have to.", bg: "var(--color-info-soft)" },
-  { img: "payments-mind", name: "Payments Mind", role: "Pays your bills, inside your limits", quote: "I keep your bills paid and your limits boring.", bg: "var(--color-accent-soft)" },
-  { img: "email-manager", name: "Email Manager", role: "Keeps your inbox calm", quote: "I read the noise so you only see what matters.", bg: "var(--color-warning-soft)" },
-];
 
 export function Point({ d, children, className = "" }: { d: string; children: React.ReactNode; className?: string }) {
   return (
@@ -310,31 +305,6 @@ export function SeeInside() {
 }
 
 
-export function Cta() {
-  return (
-    <section className="mx-auto max-w-[1200px] px-5 pb-24">
-      <div className="relative flex flex-col gap-6 overflow-hidden rounded-[32px] bg-[var(--color-primary)] p-10 text-[var(--color-on-primary)] md:flex-row md:items-center md:justify-between md:p-14">
-        <div className="flex flex-col gap-3">
-          <h2 className="text-[34px] font-medium leading-[1.08] tracking-[-1px] md:text-[44px]">Ready to meet your Mind?</h2>
-          <p className="text-[17px] text-white/70">Free to try on NEAR testnet. No real money involved.</p>
-          <div className="mt-2 flex flex-wrap gap-2.5">
-            <a href="#minds" className="hero-btn bg-[var(--color-accent)] text-[var(--color-on-accent)]">
-              Meet your Mind <I d={Icon.arrow} size={15} />
-            </a>
-            <a href="https://github.com/Hellonear-AI/hellonear" className="hero-btn border border-white/25 text-white">
-              <I d={Icon.github} size={15} /> View on GitHub
-            </a>
-          </div>
-        </div>
-        <div className="flex gap-3">
-          {MINDS.map((m) => (
-            <span key={m.img} className="size-24 rounded-[20px] bg-cover bg-center" style={{ backgroundColor: m.bg, backgroundImage: `url(/minds/${m.img}.webp)` }} />
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
 
 export function Footer() {
   return (
