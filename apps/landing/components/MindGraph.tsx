@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 
 // "Watch your Mind think": an Obsidian-style graph of a Mind (Penny) with its skills, tools, apps,
-// memory and wallet, the same nodes as the app's live view. Nodes float gently, can be dragged and
-// spring back; hovering a node lights its neighbours and dims the rest. While the section is in view,
+// memory and wallet, the same nodes as the app's live view. Nodes stay in place but their shapes are
+// alive: each outline wobbles softly like a drop of liquid. They can be dragged and spring back; hovering a node lights its neighbours and dims the rest. While the section is in view,
 // Penny's run plays: the nodes it uses light up in order with particles along the edges, and the
 // step list beside it ticks along. Reduced motion: still graph, all steps shown.
 
@@ -62,6 +62,26 @@ const RUN: { edge: [string, string]; text: string; wait?: boolean }[] = [
 ];
 const STEP_MS = 1500;
 
+// A soft blob around (0,0): the radius at each of 8 points rises and falls with time, and the points
+// are joined with smooth curves (Catmull-Rom as cubic Béziers).
+function blob(r: number, t: number, seed: number) {
+  const N = 8;
+  const amp = Math.max(0.9, r * 0.09);
+  const pts = Array.from({ length: N }, (_, k) => {
+    const a = (k / N) * Math.PI * 2;
+    const rr = r + amp * (Math.sin(t * 1.6 + seed + k * 1.9) * 0.6 + Math.sin(t * 2.3 + seed * 1.7 + k * 3.1) * 0.4);
+    return [Math.cos(a) * rr, Math.sin(a) * rr];
+  });
+  let d = `M${pts[0][0].toFixed(2)},${pts[0][1].toFixed(2)}`;
+  for (let k = 0; k < N; k++) {
+    const p0 = pts[(k - 1 + N) % N], p1 = pts[k], p2 = pts[(k + 1) % N], p3 = pts[(k + 2) % N];
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += `C${c1[0].toFixed(2)},${c1[1].toFixed(2)} ${c2[0].toFixed(2)},${c2[1].toFixed(2)} ${p2[0].toFixed(2)},${p2[1].toFixed(2)}`;
+  }
+  return d + "Z";
+}
+
 const byId = Object.fromEntries(NODES.map((n) => [n.id, n]));
 const neighbours = (id: string) =>
   new Set(EDGES.flatMap(([a, b]) => (a === id ? [b] : b === id ? [a] : [])).concat(id));
@@ -99,13 +119,17 @@ export function MindGraph() {
       for (const [i, n] of NODES.entries()) {
         const p = pos.current[n.id];
         if (drag.current === n.id) continue;
-        const ax = n.x + (reduced || n.kind === "mind" ? 0 : Math.sin(t * 0.6 + i * 1.7) * 6);
-        const ay = n.y + (reduced || n.kind === "mind" ? 0 : Math.cos(t * 0.5 + i * 2.3) * 6);
+        const ax = n.x;
+        const ay = n.y;
+        void i;
         p.vx = (p.vx + (ax - p.x) * 0.06) * 0.82;
         p.vy = (p.vy + (ay - p.y) * 0.06) * 0.82;
         p.x += p.vx;
         p.y += p.vy;
       }
+      if (!reduced)
+        for (const b of el.querySelectorAll<SVGPathElement>("[data-blob]"))
+          b.setAttribute("d", blob(Number(b.dataset.r), t, Number(b.dataset.seed)));
       for (const g of el.querySelectorAll<SVGGElement>("[data-node]")) {
         const p = pos.current[g.dataset.node!];
         g.setAttribute("transform", `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`);
@@ -233,6 +257,7 @@ export function MindGraph() {
           const on = lit.has(n.id) || (n.id === "penny" && step >= 0);
           const dim = focus && !focus.has(n.id);
           const waiting = active?.wait && n.id === "penny";
+          const seed = NODES.indexOf(n) * 2.17;
           return (
             <g
               key={n.id}
@@ -249,9 +274,13 @@ export function MindGraph() {
               {on && <circle r={r + 8} fill={n.kind === "app" ? "#D8F04A" : COLORS[n.kind]} opacity="0.55" filter="url(#mg-glow)" />}
               {n.kind === "mind" ? (
                 <>
-                  <circle r={r + 3} fill="none" stroke={waiting ? "#F0A93C" : "rgb(242 241 236 / 0.5)"} strokeWidth="2">
-                    {waiting && <animate attributeName="r" values={`${r + 3};${r + 9};${r + 3}`} dur="1s" repeatCount="indefinite" />}
-                  </circle>
+                  <path data-blob data-r={r + 4} data-seed={seed} d={blob(r + 4, 0, seed)} fill="none" stroke={waiting ? "#F0A93C" : "rgb(242 241 236 / 0.5)"} strokeWidth="2" />
+                  {waiting && (
+                    <circle r={r + 4} fill="none" stroke="#F0A93C" strokeWidth="1.5" opacity="0.6">
+                      <animate attributeName="r" values={`${r + 4};${r + 12}`} dur="1.2s" repeatCount="indefinite" />
+                      <animate attributeName="opacity" values="0.6;0" dur="1.2s" repeatCount="indefinite" />
+                    </circle>
+                  )}
                   <clipPath id="mg-penny">
                     <circle r={r} />
                   </clipPath>
@@ -260,7 +289,7 @@ export function MindGraph() {
                 </>
               ) : n.kind === "app" ? (
                 <>
-                  <circle r={r} fill={COLORS.app} stroke="rgb(242 241 236 / 0.35)" strokeWidth="1.5" />
+                  <path data-blob data-r={r} data-seed={seed} d={blob(r, 0, seed)} fill={COLORS.app} stroke="rgb(242 241 236 / 0.35)" strokeWidth="1.5" />
                   {n.icon ? (
                     <image href={n.icon} x={-r * 0.6} y={-r * 0.6} width={r * 1.2} height={r * 1.2} />
                   ) : (
@@ -268,7 +297,7 @@ export function MindGraph() {
                   )}
                 </>
               ) : (
-                <circle r={r} fill={COLORS[n.kind]} />
+                <path data-blob data-r={r} data-seed={seed} d={blob(r, 0, seed)} fill={COLORS[n.kind]} />
               )}
               <text
                 y={r + 18}
