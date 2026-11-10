@@ -6,6 +6,7 @@
 import type { RunEvent, ToolStatus, ToolStep } from "@/modules/chat/data/events"
 import type { ApiSkill } from "@/modules/minds/api"
 import { skillCopy } from "@/modules/skills/data/skills"
+import { TOOLS } from "@/modules/chat/data/tools"
 
 export type NodeKind = "mind" | "skill" | "tool" | "app" | "wallet" | "memory" | "model" | "workflow"
 
@@ -44,13 +45,6 @@ export function nodeIdFor(mindId: string, tool: string, args?: unknown): string 
   return `tool:${tool}`
 }
 
-const TOOL_LABEL: Record<string, string> = {
-  near_view_account: "NEAR lookup",
-  http_request: "Websites",
-  get_time: "Clock",
-  add_numbers: "Calculator",
-  skill_search: "Skill search",
-}
 
 const APP_LABEL: Record<string, string> = { gmail: "Gmail", googlecalendar: "Google Calendar", googlemeet: "Google Meet" }
 
@@ -66,7 +60,7 @@ function labelOf(id: string, mindName: string): string {
   if (kind === "wallet") return "Wallet"
   if (kind === "memory") return "Memory"
   if (kind === "app") return rest === "mail" ? `${mindName}'s email` : (APP_LABEL[rest] ?? rest)
-  if (kind === "tool") return TOOL_LABEL[rest] ?? rest.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())
+  if (kind === "tool") return TOOLS[rest]?.node ?? rest.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())
   // workflow:{workflowId}: the id comes from the job's name ("wallet-watch" -> "Wallet watch").
   if (kind === "workflow") return rest ? rest.replace(/-\d+$/, "").replace(/-/g, " ").replace(/^\w/, (c) => c.toUpperCase()) : "A job"
   return rest
