@@ -101,8 +101,9 @@ test('invalid SKILL.md files are rejected', () => {
 
 test('mail skills grant only the tools their playbooks need (#183, #186, #187, #188, #191, #193)', () => {
   const tools = (id: string) => skillCatalog.get(id)?.tools
-  assert.deepEqual(tools('phishing-detector'), ['gmail_list_emails', 'gmail_read_email', 'gmail_organize', 'mail_list', 'mail_read'])
-  assert.deepEqual(tools('confidential-reader'), ['gmail_list_emails', 'gmail_read_email', 'mail_list', 'mail_read'])
+  // The Mind's own inbox tools come only with the Email address skill: without it, mail_list errored on every check (11 Nov).
+  assert.deepEqual(tools('phishing-detector'), ['gmail_list_emails', 'gmail_read_email', 'gmail_organize'])
+  assert.deepEqual(tools('confidential-reader'), ['gmail_list_emails', 'gmail_read_email'])
   assert.deepEqual(tools('redact-before-send'), ['mail_send', 'http_request'])
   assert.deepEqual(tools('health-journal'), ['get_time'])
   assert.deepEqual(tools('spending-tracker'), ['get_time', 'gmail_list_emails', 'gmail_read_email', 'add_numbers'])

@@ -3,7 +3,7 @@ name: phishing-detector
 description: Use when the owner asks whether an email is safe, a scam or phishing, asks you to check their mail for anything suspicious, or wants suspicious emails labelled.
 metadata:
   hellonear:
-    tools: [gmail_list_emails, gmail_read_email, gmail_organize, mail_list, mail_read]
+    tools: [gmail_list_emails, gmail_read_email, gmail_organize]
     connections: [gmail]
     status: available
     title: Phishing check
@@ -13,7 +13,7 @@ metadata:
 
 # Phishing check
 
-1. Call `gmail_list_emails` **once** (no query, or the owner's own search words). If this Mind has its own address, also call `mail_list` once; if it says there is no email address yet, skip it without comment. Open at most three emails that look suspicious with `gmail_read_email` (or `mail_read`). Never invent emails.
+1. Call `gmail_list_emails` **once** (no query, or the owner's own search words). If this Mind also has the Email address skill (its `mail_list` tool is there), also call `mail_list` once; without it, do not look for a Mind inbox. Open at most three emails that look suspicious with `gmail_read_email` (or `mail_read`). Never invent emails.
 2. Red flags, judged from the sender's real address and the text, never from what the email says about itself:
    - asks for money, crypto, a gift card, or payment to new or changed details;
    - asks for a recovery phrase, private key, password, login code or ID document (no real service ever asks for a recovery phrase);

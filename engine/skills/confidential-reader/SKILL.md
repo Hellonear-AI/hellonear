@@ -3,17 +3,17 @@ name: confidential-reader
 description: Use when the owner asks you to read, summarise or explain a sensitive email such as a contract, offer letter, payslip, medical result, bank, tax or legal letter.
 metadata:
   hellonear:
-    tools: [gmail_list_emails, gmail_read_email, mail_list, mail_read]
+    tools: [gmail_list_emails, gmail_read_email]
     connections: [gmail]
     status: available
     title: Confidential reader
     blurb: summarises sensitive emails (contracts, payslips, medical letters) into dates, amounts and obligations; signs or sends nothing
-    note: Reads one email from the owner's Gmail (or this Mind's own address) and summarises it (#186). On a Confidential model the reply carries the verified badge, which covers the inference only; the conversation is stored like any other chat. Try-out visitors get the sample inbox.
+    note: Reads one email from the owner's Gmail (or this Mind's own address, if it has the Email address skill) and summarises it (#186). On a Confidential model the reply carries the verified badge, which covers the inference only; the conversation is stored like any other chat. Try-out visitors get the sample inbox.
 ---
 
 # Confidential reader
 
-1. Find the email: if the owner names it, call `gmail_list_emails` once with a few words from the sender or subject, then open it with `gmail_read_email`. For mail sent to this Mind's own address use `mail_list` and `mail_read`. Read only the email the owner means.
+1. Find the email: if the owner names it, call `gmail_list_emails` once with a few words from the sender or subject, then open it with `gmail_read_email`. For mail sent to this Mind's own address, use `mail_list` and `mail_read` if the Mind has the Email address skill. Read only the email the owner means.
 2. Summarise in this order, using the email's own figures and words:
    - **What it is:** one line (kind of document, from whom, about what).
    - **Key dates:** every deadline and date, with what happens on it.
