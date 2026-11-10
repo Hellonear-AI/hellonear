@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // "Watch your Mind think": a world of Minds drawn like Obsidian's graph view. Penny's graph sits in
 // the middle (its skills, the tools and apps they reach, its memory and wallet, as in Ancung's app
@@ -25,6 +25,38 @@ const LINE = "rgba(216,240,74,0.15)";
 const LIME = "#FFFFFF";
 const AVATARS = ["/minds/payments-mind.webp", "/minds/general-assistant.webp", "/minds/email-manager.webp"];
 const AMBER = "#F0B43C";
+/** What the rest of the world keeps while one bubble is hovered or picked: 20% darker. */
+const DIM = 0.8;
+
+// One line for the card that opens on a click.
+const ABOUT: Record<string, string> = {
+  "Daily planner": "Plans your day from your calendar.",
+  "Email helper": "Reads your inbox and sorts what matters.",
+  Payments: "Pays your bills inside your limits, after you approve.",
+  "Wallet watch": "Tells you when your wallet changes.",
+  "Meeting prep": "Gets you ready for your next meeting.",
+  "Other apps": "Reaches websites and other apps for you.",
+  "Email address": "Gives the Mind its own email address.",
+  "NEAR account lookup": "Checks a NEAR account before anything is sent.",
+  Research: "Looks things up and sums them up.",
+  Reminders: "Reminds you at the right time.",
+  Invoices: "Keeps track of the bills you get.",
+  Travel: "Plans trips and keeps the details together.",
+  Memory: "What the Mind remembers about you, so you never repeat yourself.",
+  Notes: "Keeps notes you can ask about later.",
+  Shopping: "Keeps your lists and finds what you need.",
+  "Google Calendar": "Reads your events and adds new ones.",
+  "Google Meet": "Adds a meeting link to your events.",
+  Calculator: "Does the maths, exactly.",
+  Gmail: "Your inbox, read only with your OK.",
+  "Penny's email": "Penny's own address, to email you.",
+  Wallet: "Penny's NEAR wallet. Your limits are enforced outside the AI, before signing.",
+  "NEAR lookup": "Looks up a NEAR account.",
+  Clock: "Knows the time in your time zone.",
+  Websites: "Opens a web page to read it.",
+  "Skill search": "Finds a skill for something new.",
+};
+export type Picked = { title: string; kind: string; about: string };
 const NIGHT = "#0a0d1c";
 
 function rng(seed: number) {
@@ -209,6 +241,9 @@ export function MindGraph() {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const api = useRef<{ zoom: (f: number) => void; reset: () => void } | null>(null);
+  const [picked, setPicked] = useState<Picked | null>(null);
+  const card = useRef<HTMLDivElement>(null);
+  const pickRef = useRef<(i: number) => void>(() => {});
   const run = useRef({ on: new Map<number, { at: number; wait: boolean }>(), trail: new Set<number>(), running: false });
 
   useEffect(() => {
@@ -295,6 +330,30 @@ export function MindGraph() {
     };
 
     let hover = -1;
+    let selected = -1;
+    const hubOf = new Map<number, number>();
+    nodes.forEach((n, i) => {
+      if (n.kind === "mind") hubOf.set(n.c, i);
+    });
+    const describe = (i: number): Picked => {
+      const n = nodes[i];
+      const mind = nodes[hubOf.get(n.c)!].label;
+      if (n.kind === "mind") {
+        const skills = nbr[i].filter((j) => nodes[j].kind === "skill").map((j) => nodes[j].label);
+        return {
+          title: n.label,
+          kind: "Mind",
+          about: n.c === 0 ? "A Payments Mind. Pays your bills inside your limits and asks you first." : `A Mind with ${skills.length} skills: ${skills.join(", ")}.`,
+        };
+      }
+      if (n.kind === "skill") return { title: n.label, kind: `Skill · ${mind}`, about: ABOUT[n.label] ?? "A skill this Mind uses." };
+      if (n.label) return { title: n.label, kind: `Tool · ${mind}`, about: ABOUT[n.label] ?? "A tool this Mind can use." };
+      return { title: "A memory", kind: mind, about: `Something ${mind} learned or did for its owner.` };
+    };
+    pickRef.current = (i: number) => {
+      selected = i;
+      setPicked(i >= 0 ? describe(i) : null);
+    };
     const smooth = (a: number, b: number, v: number) => {
       const x = Math.min(1, Math.max(0, (v - a) / (b - a)));
       return x * x * (3 - 2 * x);
@@ -318,7 +377,13 @@ export function MindGraph() {
       const seen = (n: N) => n.x > x0 && n.x < x1 && n.y > y0 && n.y < y1;
 
       const R = run.current;
-      const focus = hover >= 0 ? new Set([hover, ...nbr[hover]]) : null;
+      const lead = selected >= 0 ? selected : hover;
+      const focus = lead >= 0 ? new Set([lead, ...nbr[lead]]) : null;
+      // the card follows its bubble
+      if (selected >= 0 && card.current) {
+        const n = nodes[selected];
+        card.current.style.transform = `translate3d(${w / 2 + view.x + n.x * k + n.r * k + 14}px, ${h / 2 + view.y + n.y * k - 20}px, 0)`;
+      }
       const trailLinks = new Set<string>();
       for (const id of R.trail) {
         const p = pathTo(id);
@@ -333,14 +398,14 @@ export function MindGraph() {
       // Lines: all the quiet ones in one path, then the lit ones.
       ctx.lineWidth = 1 / k;
       ctx.strokeStyle = LINE;
-      ctx.globalAlpha = focus ? 0.45 : 1;
+      ctx.globalAlpha = focus ? DIM : 1;
       ctx.beginPath();
       const lit: L[] = [];
       for (const l of links) {
         const a = nodes[l.a];
         const b = nodes[l.b];
         if (!seen(a) && !seen(b)) continue;
-        if (trailLinks.has(`${l.a}>${l.b}`) || (focus && (l.a === hover || l.b === hover))) {
+        if (trailLinks.has(`${l.a}>${l.b}`) || (focus && (l.a === lead || l.b === lead))) {
           lit.push(l);
           continue;
         }
@@ -352,7 +417,7 @@ export function MindGraph() {
       for (const l of lit) {
         const a = nodes[l.a];
         const b = nodes[l.b];
-        const hot = focus && (l.a === hover || l.b === hover);
+        const hot = focus && (l.a === lead || l.b === lead);
         ctx.strokeStyle = LIME;
         ctx.globalAlpha = hot ? 0.9 : R.running ? 0.75 : 0.45;
         ctx.lineWidth = (hot ? 1.6 : 1.8) / k;
@@ -381,7 +446,7 @@ export function MindGraph() {
       ctx.globalAlpha = 1;
 
       // Bubbles: the quiet ones in one path per tone, then the lit ones, then the Minds.
-      ctx.globalAlpha = focus ? 0.45 : 1;
+      ctx.globalAlpha = focus ? DIM : 1;
       const hot: number[] = [];
       for (const kind of ["leaf", "skill"] as const) {
         ctx.fillStyle = kind === "skill" ? SKILL : LEAF;
@@ -422,7 +487,7 @@ export function MindGraph() {
       nodes.forEach((n, i) => {
         if (n.kind !== "mind" || !seen(n)) return;
         const r = Math.max(n.r, 1.5 / k);
-        ctx.globalAlpha = focus && !focus.has(i) ? 0.45 : 1;
+        ctx.globalAlpha = focus && !focus.has(i) ? DIM : 1;
         const img = pics[n.c % pics.length];
         ctx.save();
         ctx.beginPath();
@@ -459,7 +524,7 @@ export function MindGraph() {
         if (a <= 0.01) return;
         const px = (n.kind === "mind" ? (mine ? 14 : 12) : 11) / k;
         ctx.font = `${n.kind === "mind" ? 600 : 500} ${px}px ${font}`;
-        ctx.globalAlpha = a * (focus && !focus.has(i) ? 0.4 : 1);
+        ctx.globalAlpha = a * (focus && !focus.has(i) ? DIM : 1);
         ctx.strokeStyle = NIGHT;
         ctx.lineWidth = 4 / k;
         const y = n.y + n.r + 4 / k;
@@ -515,7 +580,7 @@ export function MindGraph() {
     else runIo.observe(box);
 
     // ---- pointer: drag a bubble or the background; pinch / Ctrl+scroll to zoom -----
-    let drag: { id: number; x: number; y: number; vx: number; vy: number } | null = null;
+    let drag: { id: number; x: number; y: number; vx: number; vy: number; moved: boolean } | null = null;
     const local = (e: PointerEvent | WheelEvent) => {
       const r = cv.getBoundingClientRect();
       return { x: e.clientX - r.left, y: e.clientY - r.top };
@@ -524,7 +589,7 @@ export function MindGraph() {
       if (e.pointerType !== "mouse" && e.pointerType !== "pen") return; // touch scrolls the page
       const p = local(e);
       const id = hit(p.x, p.y);
-      drag = { id, x: p.x, y: p.y, vx: view.x, vy: view.y };
+      drag = { id, x: p.x, y: p.y, vx: view.x, vy: view.y, moved: false };
       if (id >= 0) nodes[id].pinned = true;
       cv.setPointerCapture(e.pointerId);
       cv.style.cursor = "grabbing";
@@ -536,6 +601,8 @@ export function MindGraph() {
         cv.style.cursor = hover >= 0 ? "grab" : "default";
         return;
       }
+      if (Math.hypot(p.x - drag.x, p.y - drag.y) > 4) drag.moved = true;
+      if (!drag.moved) return;
       if (drag.id >= 0) {
         const wpt = toWorld(p.x, p.y);
         const n = nodes[drag.id];
@@ -553,9 +620,15 @@ export function MindGraph() {
         nodes[drag.id].pinned = false;
         alpha = Math.max(alpha, 0.5);
       }
+      // a click (no drag) opens the bubble's card, or closes it on the background / the same bubble
+      if (!drag.moved) pickRef.current(drag.id >= 0 && drag.id !== selected ? drag.id : -1);
       drag = null;
       cv.style.cursor = hover >= 0 ? "grab" : "default";
     };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") pickRef.current(-1);
+    };
+    window.addEventListener("keydown", esc);
     const leave = () => {
       if (!drag) hover = -1;
     };
@@ -585,6 +658,7 @@ export function MindGraph() {
       cv.removeEventListener("pointercancel", up);
       cv.removeEventListener("pointerleave", leave);
       cv.removeEventListener("wheel", wheel);
+      window.removeEventListener("keydown", esc);
     };
   }, []);
 
@@ -597,6 +671,21 @@ export function MindGraph() {
         aria-label="Penny's Mind Graph among dozens of other Minds, each with its skills, tools and memories. Penny's nodes light up as it pays a bill."
         className="graph-fade absolute inset-0 size-full touch-pan-y"
       />
+      {/* A small card for the picked bubble; it follows the bubble. */}
+      <div ref={card} className="pointer-events-none absolute left-0 top-0" aria-live="polite">
+        {picked && (
+          <div className="glass-dark pointer-events-auto w-[240px] rounded-[16px] px-4 py-3 text-[#F2F1EC]">
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-[#D8F04A]">{picked.kind}</span>
+              <button type="button" aria-label="Close" onClick={() => pickRef.current(-1)} className="-mr-1 -mt-0.5 text-[15px] leading-none text-[#F2F1EC]/60 hover:text-[#F2F1EC]">
+                ×
+              </button>
+            </div>
+            <p className="mt-1 text-[15px] font-medium leading-tight">{picked.title}</p>
+            <p className="mt-1 text-[13px] leading-[1.45] text-[#F2F1EC]/70">{picked.about}</p>
+          </div>
+        )}
+      </div>
       <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-3 text-[12.5px] text-[#F2F1EC]/55">
         <span className="hidden md:inline">Drag to move · pinch or ⌘/Ctrl + scroll to zoom</span>
         <div className="glass-dark flex items-center gap-0.5 rounded-full p-1 text-[#F2F1EC]">
