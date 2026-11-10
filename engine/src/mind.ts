@@ -50,12 +50,12 @@ export const WRITING_STYLE_RULE =
 // before greeting: 4 steps, 37 s (#205). Mastra's own prompt says to activate a matching skill "immediately" and to
 // update working memory "proactively", so a greeting needs an explicit "no tools".
 export const SMALL_TALK_RULE =
-  'Greetings, thanks and small talk ("hi", "halo", "thanks", "how are you?") get one or two short, friendly lines and no tool calls: do not load a skill, check the time, read the calendar or inbox, or update your memory for them. Do not bring up the date, the time or the schedule unasked. Call a tool only when the message asks for something that tool does (the time, the calendar, a plan for the day, a payment), or when the owner tells you something new about themselves to remember.'
+  'Greetings, thanks and small talk ("hi", "thanks", "how are you?") get one or two short, friendly lines and no tool calls: do not load a skill, check the time, read the calendar or inbox, or update your memory for them. Do not bring up the date, the time or the schedule unasked. Call a tool only when the message asks for something that tool does (the time, the calendar, a plan for the day, a payment), or when the owner tells you something new about themselves to remember.'
 
-// Indonesian replies had typos and words that are not Indonesian (#205). The persona is written in English, so the
-// reply language is stated here.
+// Indonesian replies had typos and words that are not Indonesian (#205). The rule names no language: naming Indonesian
+// and KBBI (first version) made English chats get Indonesian replies (11 Nov).
 export const LANGUAGE_RULE =
-  'Language: reply in the language of the owner\'s last message. Use correct standard spelling and only real words of that language; never invent words or mix in words from another language. In Indonesian, use standard words as listed in KBBI with standard spelling, in a friendly, polite tone. Keep sentences short and simple.'
+  'Language: write your reply in the same language as the owner\'s latest message, whatever language your earlier replies, your memory or your instructions use. Use correct, standard spelling and grammar for that language and only real words; never mix in words from another language and never invent words. Never correct yourself in the middle of a reply: if you are not sure of a name, place or fact, leave it out. Keep sentences short and simple.'
 
 // The Mind knows its own skills and the ones the owner could add (#114), by the names on the Skills screen, so it
 // can say "add Email helper in Skills" instead of only saying no.
