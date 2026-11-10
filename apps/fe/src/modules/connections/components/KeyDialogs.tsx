@@ -1,18 +1,20 @@
 "use client"
 
-import { CheckIcon, Loader2Icon, XIcon } from "lucide-react"
+import { CheckIcon, XIcon } from "lucide-react"
 import { useId, useState, type ReactNode } from "react"
 import { toast } from "sonner"
 import { cn } from "cn"
+import { Spinner } from "@/components/elements/Spinner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { ApiError } from "@/lib/api"
+import { isApiCode } from "@/lib/api"
 import type { ApiSecret } from "@/modules/connections/api"
 import { keyNameError, keyValueError, parseHosts } from "@/modules/connections/data/keys"
-import { useDeleteSecret, useDisconnect, useSaveSecret } from "@/modules/connections/hooks/useKeys"
-import type { ApiConnection } from "@/modules/minds/api"
+import { useDeleteSecret, useSaveSecret } from "@/modules/connections/hooks/useKeys"
+import { useDisconnect } from "@/modules/connections/hooks/useConnections"
+import type { ApiConnection } from "@/modules/connections/api"
 import { TOOLKIT_NAME } from "@/modules/skills/data/skills"
 
 function Field({ label, help, error, children, id }: { label: string; help: string; error: string | null; children: ReactNode; id: string }) {
@@ -139,7 +141,7 @@ export function KeyDialog({
             </Field>
             {save.error && (
               <p role="alert" className="text-[13px] text-danger">
-                {save.error instanceof ApiError && save.error.code === "demo_not_allowed"
+                {isApiCode(save.error, "demo_not_allowed")
                   ? "Connect a wallet to save keys. This try-out can't keep them."
                   : "Could not save the key. No changes were made. Please try again."}
               </p>
@@ -151,7 +153,7 @@ export function KeyDialog({
             Cancel
           </Button>
           <Button type="submit" form="key-form" disabled={!ready || busy}>
-            {busy && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+            {busy && <Spinner />}
             {existing ? "Save new key" : "Save key"}
           </Button>
         </DialogFooter>
@@ -216,7 +218,7 @@ export function DeleteKeyDialog({ mindName, secret, open, onOpenChange }: { mind
               })
             }
           >
-            {busy && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+            {busy && <Spinner />}
             Delete key
           </Button>
         </DialogFooter>
@@ -247,10 +249,15 @@ export function DisconnectDialog({
           { ok: false, t: `${mindName} can't save new drafts` },
           { ok: true, t: "Drafts already in Gmail stay there" },
         ]
-      : [
-          { ok: false, t: "Daily planner can't read or add events" },
-          { ok: true, t: "Events already in your calendar stay there" },
-        ]
+      : toolkit === "googlemeet"
+        ? [
+            { ok: false, t: "Daily planner can't add video links to new meetings" },
+            { ok: true, t: "Meetings already scheduled keep their links" },
+          ]
+        : [
+            { ok: false, t: "Daily planner can't read or add events" },
+            { ok: true, t: "Events already in your calendar stay there" },
+          ]
   return (
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)} disablePointerDismissal={busy}>
       <DialogContent showCloseButton={!busy}>
@@ -281,7 +288,7 @@ export function DisconnectDialog({
               })
             }
           >
-            {busy && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+            {busy && <Spinner />}
             Disconnect
           </Button>
         </DialogFooter>

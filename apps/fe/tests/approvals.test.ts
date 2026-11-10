@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { compareNear } from "@/lib/near"
 import { timeAgo } from "@/lib/format"
-import { mindsApi, type ApiWallet } from "@/modules/minds/api"
+import { walletApi, type ApiWallet } from "@/modules/wallet/api"
 import { approvalChecks } from "@/modules/wallet/data/checks"
 import { freezeErrorText } from "@/modules/wallet/components/FreezeDialog"
-import { FreezeError } from "@/modules/wallet/hooks/useFreeze"
+import { OwnerActionError } from "@/modules/wallet/data/ownerAction"
 import { WrongAccountError } from "@/modules/wallet/hooks/useOwnerTransaction"
 import { answerOutcome } from "@/modules/chat/data/answer"
 import { ApiError } from "@/lib/api"
-import type { ToolStep } from "@/modules/chat/data/events"
+import type { ToolStep } from "@/modules/runs/data/events"
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -74,14 +74,14 @@ describe("freeze", () => {
     const transaction = { receiverId: "outlayer.testnet", actions: [] }
     const fetchMock = vi.fn(async () => Response.json({ transaction }))
     vi.stubGlobal("fetch", fetchMock)
-    await expect(mindsApi.freezeTransaction("m1", true)).resolves.toEqual(transaction)
-    await mindsApi.freezeTransaction("m1", false)
+    await expect(walletApi.freezeTransaction("m1", true)).resolves.toEqual(transaction)
+    await walletApi.freezeTransaction("m1", false)
     const urls = (fetchMock.mock.calls as unknown as [string][]).map(([u]) => u)
     expect(urls).toEqual(["/api/v1/minds/m1/wallet/freeze", "/api/v1/minds/m1/wallet/unfreeze"])
   })
   it("says what happened when it fails", () => {
-    expect(freezeErrorText(new FreezeError("sign", new Error("User rejected")), true)).toBe("Meteor didn't sign, so the wallet wasn't frozen.")
-    expect(freezeErrorText(new FreezeError("sign", new WrongAccountError("me.testnet", ["you.testnet"])), true)).toContain("Switch it to me.testnet")
+    expect(freezeErrorText(new OwnerActionError("sign", new Error("User rejected")), true)).toBe("Meteor didn't sign, so the wallet wasn't frozen.")
+    expect(freezeErrorText(new OwnerActionError("sign", new WrongAccountError("me.testnet", ["you.testnet"])), true)).toContain("Switch it to me.testnet")
   })
 })
 

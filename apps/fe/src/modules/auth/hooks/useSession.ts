@@ -3,11 +3,13 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 import { useNearWallet } from "near-connect-hooks"
+import { mindKeys, sessionKey } from "@/lib/queryKeys"
 import { ApiError } from "@/lib/api"
+import { readPref, writePref } from "@/lib/storage"
 import { authApi, nonceBytes, type SessionUser } from "@/modules/auth/api"
 import { rememberLeftMinds } from "@/modules/auth/data/leftMinds"
 
-export const sessionKey = ["session"] as const
+export { sessionKey } from "@/lib/queryKeys"
 
 /** The backend session (`hn_session` cookie): the user, or `null` when signed out. */
 export function useSession() {
@@ -25,6 +27,9 @@ export function useSession() {
     staleTime: 5 * 60_000,
   })
 }
+
+/** Whether this session is a try-out (no wallet; owner actions are locked, T1.4). */
+export const useIsTryOut = () => Boolean(useSession().data?.demo)
 
 /**
  * Sign in (NEP-413): connect a wallet if none is connected (Meteor is first in the picker),
@@ -78,21 +83,9 @@ export function useDemoSignIn() {
 // name, which is public; signing in again still asks the wallet.
 const LAST_ACCOUNT_KEY = "hellonear.lastAccount"
 
-export function rememberAccount(accountId: string) {
-  try {
-    window.localStorage.setItem(LAST_ACCOUNT_KEY, accountId)
-  } catch {
-    // Storage can be blocked; the screen then shows the first-visit version.
-  }
-}
-
-export function lastAccount(): string | null {
-  try {
-    return window.localStorage.getItem(LAST_ACCOUNT_KEY)
-  } catch {
-    return null
-  }
-}
+// Storage can be blocked; the sign-in screen then shows the first-visit version.
+export const rememberAccount = (accountId: string) => writePref(LAST_ACCOUNT_KEY, accountId)
+export const lastAccount = () => readPref(LAST_ACCOUNT_KEY)
 
 /**
  * Leave a try-out for a real wallet (T1.3, T1.4, T1.5): end the try-out session and go back to
@@ -163,7 +156,7 @@ export function signInErrorMessage(err: unknown): string {
   return "The wallet did not sign the request."
 }
 
-/** The Mind ids the cache holds for the session that is ending (`["minds"]`, see `mindKeys.all`). */
+/** The Mind ids the cache holds for the session that is ending. */
 function cachedMindIds(queryClient: QueryClient): string[] {
-  return (queryClient.getQueryData<{ mindId: string }[]>(["minds"]) ?? []).map((m) => m.mindId)
+  return (queryClient.getQueryData<{ mindId: string }[]>(mindKeys.all) ?? []).map((m) => m.mindId)
 }

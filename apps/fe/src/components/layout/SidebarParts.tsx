@@ -4,6 +4,7 @@ import { SquarePenIcon } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { ReactNode } from "react"
+import { ThinkingOrb } from "thinking-orbs"
 import { cn } from "cn"
 import { CountBadge } from "@/components/elements/CountBadge"
 import { mindHref, NAV_ITEMS } from "@/components/layout/nav"
@@ -133,11 +134,12 @@ export function RecentChats({ mindId, onNavigate }: { mindId: string; onNavigate
                 isOpen ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-surface-hover"
               )}
             >
-              <span className="min-w-0 flex-1 truncate text-[13px]">{chat.title}</span>
+              {/* While the Mind answers this chat, its title shimmers and the chat's thinking orb
+                  takes the time's place (Ancung, 10 Nov: like "Thinking...", not a green dot). */}
+              <span className={cn("min-w-0 flex-1 truncate text-[13px]", replying === chat.threadId && "text-shimmer")}>{chat.title}</span>
               {replying === chat.threadId ? (
-                <span role="status" aria-label="Replying" title="Replying" className="relative flex size-2 shrink-0">
-                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-60 motion-reduce:animate-none" />
-                  <span className="relative inline-flex size-2 rounded-full bg-success" />
+                <span role="status" aria-label="Replying" title="Replying" className="flex shrink-0">
+                  <ThinkingOrb state="solving" size={20} aria-hidden className="-my-1" />
                 </span>
               ) : (
                 <span className="shrink-0 text-[11px] text-tertiary-foreground">{chat.when}</span>

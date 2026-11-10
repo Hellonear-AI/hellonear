@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { issueText } from "@/modules/autopilot/components/AutopilotScreen"
+import { issueText } from "@/modules/autopilot/data/issues"
 import { IDEAS } from "@/modules/autopilot/data/ideas"
 import { runSummary } from "@/modules/autopilot/data/runs"
 import { scheduleText, whenNext, zoneName } from "@/modules/autopilot/data/schedule"
-import { jobSteps } from "@/modules/autopilot/data/steps"
 
 describe("Autopilot schedules in plain words (#21)", () => {
   it("words the common cron shapes and admits the rest", () => {
@@ -40,17 +39,6 @@ describe("ready jobs and their steps", () => {
     expect(canvas.edges.find((e) => e.source === "low")?.sourceHandle).toBe("then")
   })
 
-  it("read as plain steps in run order", () => {
-    const steps = jobSteps(canvas, "Omaga")
-    expect(steps.map((s) => s.title)).toEqual([
-      "Every day at 08:00",
-      `Check 83e05486…1e98bd`,
-      "If the balance is under 5 NEAR",
-      "Omaga writes you a note",
-    ])
-    expect(steps[0].note).toBe("Jakarta time")
-    expect(steps[3].branch).toBe("then")
-  })
 })
 
 describe("run lines and refusals", () => {
@@ -67,5 +55,22 @@ describe("run lines and refusals", () => {
     expect(issueText({ code: "uses_secrets", message: "x" }, "Omaga")).toContain("can't use keys yet")
     expect(issueText({ code: "missing_tools", message: "x", tools: ["near_view_account"] }, "Omaga")).toContain("Skills")
     expect(issueText({ code: "something_new", message: "Engine words." }, "Omaga")).toBe("Engine words.")
+  })
+})
+
+describe("the way the last run went (Autopilot steps)", () => {
+  it("lights an If's way when a step in it ran, and End after a step that ran", async () => {
+    const { wayRan, wentThrough } = await import("@/modules/autopilot/components/StepsTimeline")
+    const step = (id: string, kind: "tool" | "agent" | "end" | "trigger" = "agent") => ({ id, kind, title: id })
+    const inner = { id: "low", kind: "condition" as const, title: "If", then: [step("urgent"), step("e1", "end")], else: [step("calm"), step("e2", "end")] }
+    const tree = [step("t", "trigger"), step("bal", "tool"), { id: "check", kind: "condition" as const, title: "If", then: [inner], else: [step("site")] }]
+    const ran = new Set(["bal", "urgent"])
+    expect(wentThrough(tree, 0, ran)).toBe(true)
+    expect(wentThrough(tree, 2, ran)).toBe(true)
+    expect(wayRan(tree[2].then, ran)).toBe(true)
+    expect(wayRan(tree[2].else, ran)).toBe(false)
+    expect(wentThrough(inner.then, 1, ran)).toBe(true)
+    expect(wayRan(inner.else, ran)).toBe(false)
+    expect(wentThrough(tree, 0, new Set())).toBe(false)
   })
 })

@@ -3,7 +3,7 @@
 // Email helper follow the design; Daily planner, NEAR account lookup and Other apps follow
 // the same pattern and still need Nabil's review. A skill the FE doesn't know gets a plain card.
 
-import type { ApiConnection } from "@/modules/minds/api"
+import type { ApiConnection } from "@/modules/connections/api"
 
 type Ctx = {
   name: string

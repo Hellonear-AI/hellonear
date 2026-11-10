@@ -1,16 +1,17 @@
 "use client"
 
-import { Loader2Icon, PenLineIcon, PlusIcon, XIcon } from "lucide-react"
+import { PenLineIcon, PlusIcon, XIcon } from "lucide-react"
 import { useId, useState } from "react"
 import { toast } from "sonner"
 import { cn } from "cn"
+import { Spinner } from "@/components/elements/Spinner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { compareNear } from "@/lib/near"
 import { addressError, DEFAULT_PER_PAYMENT, MAX_ADDRESSES, normalizeAccount, perPaymentError } from "@/modules/minds/data/limits"
-import type { ApiWallet } from "@/modules/minds/api"
+import type { ApiWallet } from "@/modules/wallet/api"
 import { walletActionText } from "@/modules/wallet/data/errors"
 import { useSaveLimits } from "@/modules/wallet/hooks/useWalletActions"
 
@@ -205,7 +206,7 @@ export function LimitsDialog({
             Cancel
           </Button>
           <Button type="submit" form="limits-form" disabled={signing || Boolean(blocker)}>
-            {signing ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <PenLineIcon />}
+            {signing ? <Spinner /> : <PenLineIcon />}
             {signing ? "Waiting for Meteor" : save.error ? "Try again" : "Save and sign"}
           </Button>
         </DialogFooter>

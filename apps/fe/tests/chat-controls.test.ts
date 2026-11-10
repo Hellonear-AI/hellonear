@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { foldRun, type RunEvent } from "@/modules/chat/data/events"
+import { foldRun, type RunEvent } from "@/modules/runs/data/events"
 
 let seq = 0
 const ev = (type: string, extra: Partial<RunEvent> = {}): RunEvent => ({ v: 1, type, runId: "r1", mindId: "m1", seq: ++seq, ts: "2026-11-10T10:00:00Z", ...extra })
@@ -24,7 +24,7 @@ describe("Stop (#121)", () => {
 
 describe("Step orbs (10 Nov)", () => {
   it("picks an orb by the kind of work", async () => {
-    const { stepOrb } = await import("@/modules/chat/data/steps")
+    const { stepOrb } = await import("@/modules/runs/data/steps")
     expect(stepOrb({ tool: "gmail_list_emails", status: "running" })).toBe("searching")
     expect(stepOrb({ tool: "http_request", status: "running" })).toBe("connecting")
     expect(stepOrb({ tool: "mail_send", status: "running" })).toBe("composing")

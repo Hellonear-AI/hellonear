@@ -1,26 +1,24 @@
 "use client"
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2Icon, Trash2Icon, TriangleAlertIcon } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { Trash2Icon } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
+import { Spinner } from "@/components/elements/Spinner"
 import { ChoiceSelect } from "@/components/elements/ChoiceSelect"
 import { MindAvatar } from "@/components/elements/MindAvatar"
 import { PageTitle } from "@/components/elements/PageTitle"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
-import { ApiError } from "@/lib/api"
-import { formatNear } from "@/lib/format"
-import { rememberLeftMinds } from "@/modules/auth/data/leftMinds"
+import { isApiCode } from "@/lib/api"
 import { mindsApi, type ApiMind } from "@/modules/minds/api"
 import { templateLabel } from "@/modules/minds/data/minds"
 import { isValidMindName, NAME_RULE } from "@/modules/minds/data/templates"
-import { mindKeys, useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
-import { useSession } from "@/modules/auth/hooks/useSession"
+import { mindKeys, useFullMind, useMind, useMindWallet, useTemplates } from "@/modules/minds/hooks/useMinds"
+import { useIsTryOut } from "@/modules/auth/hooks/useSession"
+import { DeleteMindDialog } from "@/modules/settings/components/DeleteMindDialog"
 
 const IDENTITY_MAX = 1000
 
@@ -34,22 +32,15 @@ const modelName = (id: string) => id.split("/").pop() ?? id
  */
 export function SettingsScreen({ mindId }: { mindId: string }) {
   const queryClient = useQueryClient()
-  const router = useRouter()
   const shell = useMind(mindId).data
   const wallet = useMindWallet(mindId).data
-  // The shell's list leaves out soul and model; this reads the whole Mind.
-  const full = useQuery({
-    queryKey: [...mindKeys.all, mindId, "full"],
-    queryFn: async () => (await mindsApi.list()).find((m) => m.id === mindId) ?? null,
-  })
-  const templates = useQuery({ queryKey: mindKeys.templates, queryFn: mindsApi.templates, staleTime: 5 * 60_000 })
+  const full = useFullMind(mindId)
+  const templates = useTemplates()
 
   const mind = full.data
   const [draft, setDraft] = useState<{ name: string; identity: string; model: string } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  // The NEAR the backend says is still in the Mind's wallet (409 wallet_not_empty, #163).
-  const [stuck, setStuck] = useState<string | null>(null)
-  const tryOut = Boolean(useSession().data?.demo)
+  const tryOut = useIsTryOut()
   const saved = mind ? { name: mind.name, identity: mind.soul.identity, model: mind.model } : null
   const form = draft ?? saved
   const name = shell?.name ?? mind?.name ?? "Your Mind"
@@ -68,41 +59,15 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
       return mindsApi.update(mindId, body)
     },
     onSuccess: (next) => {
-      queryClient.setQueryData([...mindKeys.all, mindId, "full"], next)
+      queryClient.setQueryData(mindKeys.full(mindId), next)
       setDraft(null)
       toast.success("Settings saved", { description: persona ? `New chats use ${next.name}'s new name and voice.` : undefined })
     },
     onError: (err) =>
       toast.error("Could not save the settings", {
-        description: err instanceof ApiError && err.code === "demo_not_allowed" ? "A try-out Mind can't be changed. Connect a wallet to make your own." : "Please try again later.",
+        description: isApiCode(err, "demo_not_allowed") ? "A try-out Mind can't be changed. Connect a wallet to make your own." : "Please try again later.",
       }),
     onSettled: () => queryClient.invalidateQueries({ queryKey: mindKeys.all }),
-  })
-
-  const remove = useMutation({
-    mutationFn: (acknowledgeBalance: boolean) => mindsApi.remove(mindId, acknowledgeBalance),
-    onSuccess: async () => {
-      // Back to this Mind's pages should land on the newest Mind, not a 404 (MindGate).
-      rememberLeftMinds([mindId])
-      toast.success(`${name} was deleted`)
-      await queryClient.invalidateQueries({ queryKey: mindKeys.all })
-      router.replace("/")
-    },
-    onError: (err) => {
-      // Money left in its wallet: ask again, plainly, with the amount (Axel on #161).
-      if (err instanceof ApiError && err.code === "wallet_not_empty") {
-        setStuck(String(err.details.balanceNear ?? ""))
-        return
-      }
-      toast.error(`Could not delete ${name}`, {
-        description:
-          err instanceof ApiError && err.code === "demo_not_allowed"
-            ? "A try-out Mind can't be deleted."
-            : err instanceof ApiError && (err.code === "outlayer_unreachable" || err.code === "outlayer_error")
-              ? "Its wallet could not be checked. No changes were made. Please try again later."
-              : "Please try again later.",
-      })
-    },
   })
 
   // The models the templates use: each is known to work with the tools.
@@ -188,7 +153,7 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
               Discard
             </Button>
             <Button onClick={() => save.mutate()} disabled={!nameOk || !form.identity.trim() || save.isPending}>
-              {save.isPending && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+              {save.isPending && <Spinner />}
               Save
             </Button>
           </div>
@@ -196,76 +161,7 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
       )}
 
       {/* M1.4 */}
-      <Dialog
-        open={confirmDelete}
-        onOpenChange={(open) => {
-          if (remove.isPending) return
-          setConfirmDelete(open)
-          if (!open) setStuck(null)
-        }}
-      >
-        <DialogContent>
-          {stuck !== null ? (
-            // #163: the backend found NEAR in the wallet. Deleting removes the wallet's only key.
-            <>
-              <DialogHeader>
-                <DialogTitle>
-                  {name}&apos;s wallet still holds {stuck ? `${formatNear(stuck)} NEAR` : "NEAR"}
-                </DialogTitle>
-                <DialogDescription>
-                  Deleting {name} also deletes the only key to its wallet. After that nobody can move this NEAR, not you and not HelloNear. To keep it, have {name} pay it to one of your addresses first.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => (setConfirmDelete(false), setStuck(null))} disabled={remove.isPending}>
-                  Keep {name}
-                </Button>
-                <Button variant="destructive" onClick={() => remove.mutate(true)} disabled={remove.isPending}>
-                  {remove.isPending && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
-                  Delete and lose it
-                </Button>
-              </DialogFooter>
-            </>
-          ) : (
-          <>
-          <DialogHeader>
-            <DialogTitle>Delete {name}?</DialogTitle>
-            <DialogDescription>
-              {name}, its chats, memory and Autopilot jobs are removed. This can&apos;t be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <ul className="flex flex-col gap-2 rounded-md bg-muted p-3 text-[13px] text-foreground">
-            {/* A try-out pays from the shared test wallet, so there is nothing of its own to lose (#163). */}
-            {!tryOut && !wallet?.shared && (
-              <li className="flex gap-2">
-                <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-warning" />
-                {wallet?.balanceNear && Number(wallet.balanceNear) > 0.001
-                  ? `The ${formatNear(wallet.balanceNear)} NEAR in its wallet can't be moved by anyone once ${name} is deleted.`
-                  : `If its wallet holds NEAR, nobody can move it once ${name} is deleted. You'll be asked first.`}
-              </li>
-            )}
-            <li className="flex gap-2">
-              <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-warning" />
-              Past payments stay visible on NearBlocks.
-            </li>
-            <li className="flex gap-2">
-              <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-warning" />
-              {name} can&apos;t be brought back.
-            </li>
-          </ul>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDelete(false)} disabled={remove.isPending}>
-              Keep {name}
-            </Button>
-            <Button variant="destructive" onClick={() => remove.mutate(false)} disabled={remove.isPending}>
-              {remove.isPending && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
-              Delete {name}
-            </Button>
-          </DialogFooter>
-          </>
-          )}
-        </DialogContent>
-      </Dialog>
+      <DeleteMindDialog mindId={mindId} name={name} wallet={wallet} tryOut={tryOut} open={confirmDelete} onOpenChange={setConfirmDelete} />
     </div>
   )
 }

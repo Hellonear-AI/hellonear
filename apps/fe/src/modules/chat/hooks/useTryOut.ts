@@ -1,7 +1,8 @@
 "use client"
 
 import { useQuery } from "@tanstack/react-query"
-import { useSession } from "@/modules/auth/hooks/useSession"
+import { mindKeys } from "@/lib/queryKeys"
+import { useIsTryOut } from "@/modules/auth/hooks/useSession"
 import { mindsApi } from "@/modules/minds/api"
 import { useMinds } from "@/modules/minds/hooks/useMinds"
 
@@ -14,10 +15,10 @@ export const TRY_OUT_MESSAGES = 20
  * Under `["minds", …]`, so it refreshes with the rest after every run. Null for wallet users.
  */
 export function useTryOutLeft(): number | null {
-  const demo = Boolean(useSession().data?.demo)
+  const demo = useIsTryOut()
   const minds = useMinds().data
   const { data } = useQuery({
-    queryKey: ["minds", "try-out-runs", minds?.map((m) => m.mindId).join(",") ?? ""],
+    queryKey: mindKeys.tryOutRuns(minds?.map((m) => m.mindId).join(",") ?? ""),
     enabled: demo && Boolean(minds),
     queryFn: async () => {
       const counts = await Promise.all((minds ?? []).map((m) => mindsApi.runs(m.mindId, TRY_OUT_MESSAGES).then((r) => r.length)))

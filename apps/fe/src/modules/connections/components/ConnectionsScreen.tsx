@@ -1,8 +1,10 @@
 "use client"
 
-import { CheckIcon, ExternalLinkIcon, KeyRoundIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon, TriangleAlertIcon } from "lucide-react"
+import { CheckIcon, ExternalLinkIcon, KeyRoundIcon, PencilIcon, PlusIcon, Trash2Icon, TriangleAlertIcon } from "lucide-react"
 import { useState, type ReactNode } from "react"
 import { cn } from "cn"
+import { ErrorRetry } from "@/components/elements/ErrorRetry"
+import { Spinner } from "@/components/elements/Spinner"
 import { GmailLogo, GoogleCalendarLogo, GoogleMeetLogo } from "@/components/elements/AppLogos"
 import { PageTitle } from "@/components/elements/PageTitle"
 import { Badge } from "@/components/ui/badge"
@@ -10,28 +12,35 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { shortWhen } from "@/lib/format"
 import { TryOutLockedDialog, useTryOutLock } from "@/modules/auth/components/TryOutLockedDialog"
-import { useSession } from "@/modules/auth/hooks/useSession"
+import { useIsTryOut } from "@/modules/auth/hooks/useSession"
 import type { ApiSecret } from "@/modules/connections/api"
 import { DeleteKeyDialog, DisconnectDialog, KeyDialog } from "@/modules/connections/components/KeyDialogs"
-import { useSecrets, useDisconnect } from "@/modules/connections/hooks/useKeys"
-import type { ApiConnection } from "@/modules/minds/api"
+import { useSecrets } from "@/modules/connections/hooks/useKeys"
+import { useDisconnect } from "@/modules/connections/hooks/useConnections"
+import type { ApiConnection } from "@/modules/connections/api"
 import { useMind } from "@/modules/minds/hooks/useMinds"
 import { TOOLKIT_NAME } from "@/modules/skills/data/skills"
-import { connectionStatus, useConnect, useConnections } from "@/modules/skills/hooks/useSkills"
+import { connectionStatus, useConnect, useConnections } from "@/modules/connections/hooks/useConnections"
 
-const APPS: { toolkit: ApiConnection["toolkit"]; logo: ReactNode; uses: string; needs: string }[] = [
-  { toolkit: "gmail", logo: <GmailLogo />, uses: "Used by Email helper to read mail and save drafts.", needs: "Email helper needs it to read your mail and save drafts." },
+// `paused` and `lost` say what stops when the app's connection ends (Google Meet read like the
+// calendar before, 10 Nov).
+const APPS: { toolkit: ApiConnection["toolkit"]; logo: ReactNode; uses: string; needs: string; paused: string; lost: string }[] = [
+  { toolkit: "gmail", logo: <GmailLogo />, uses: "Used by Email helper to read mail and save drafts.", needs: "Email helper needs it to read your mail and save drafts.", paused: "Email helper", lost: "Email helper can't read mail" },
   {
     toolkit: "googlecalendar",
     logo: <GoogleCalendarLogo />,
     uses: "Used by Daily planner to read your events and add new ones.",
     needs: "Daily planner uses it to read your events and add new ones.",
+    paused: "Daily planner's calendar",
+    lost: "Daily planner can't see your calendar",
   },
   {
     toolkit: "googlemeet",
     logo: <GoogleMeetLogo />,
     uses: "Used by Daily planner to add a video link to meetings it schedules.",
     needs: "Daily planner uses it to add a video link to meetings.",
+    paused: "Daily planner's meeting links",
+    lost: "Daily planner can't add video links to meetings",
   },
 ]
 
@@ -45,7 +54,7 @@ type Open = { kind: "add" } | { kind: "replace"; secret: ApiSecret } | { kind: "
  */
 export function ConnectionsScreen({ mindId }: { mindId: string }) {
   const mind = useMind(mindId).data
-  const demo = Boolean(useSession().data?.demo)
+  const demo = useIsTryOut()
   const [watching, setWatching] = useState<ApiConnection["toolkit"] | null>(null)
   const connections = useConnections({ watching })
   const secrets = useSecrets()
@@ -76,7 +85,7 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
         <div key={a.toolkit} role="status" className="flex items-center gap-3 rounded-md bg-warning-soft px-4 py-2.5 text-sm text-foreground">
           <TriangleAlertIcon className="size-4 shrink-0 text-warning" />
           <p className="min-w-0 flex-1">
-            {TOOLKIT_NAME[a.toolkit]} is disconnected, so {a.toolkit === "gmail" ? "Email helper" : "Daily planner's calendar"} is paused.
+            {TOOLKIT_NAME[a.toolkit]} is disconnected, so {a.paused} is paused.
           </p>
           <button type="button" onClick={() => startConnect(a.toolkit)} className="shrink-0 rounded-sm font-semibold outline-none hover:underline focus-visible:ring-2 focus-visible:ring-focus">
             Reconnect
@@ -94,12 +103,7 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
             {connections.isPending ? (
               <Skeleton className="h-36 w-full" />
             ) : connections.isError ? (
-              <div className="flex flex-col items-start gap-2">
-                <p className="text-[13px] text-muted-foreground">Could not check your apps. Please try again later.</p>
-                <Button variant="outline" size="sm" onClick={() => void connections.refetch()}>
-                  Try again
-                </Button>
-              </div>
+              <ErrorRetry small message="Could not check your apps. Please try again later." onRetry={() => void connections.refetch()} />
             ) : (
               <ul className="flex flex-col gap-2">
                 {APPS.map((a) => {
@@ -120,7 +124,7 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
                             </Badge>
                           ) : waiting ? (
                             <Badge variant="warning">
-                              <Loader2Icon className="animate-spin motion-reduce:animate-none" />
+                              <Spinner />
                               Waiting for Google
                             </Badge>
                           ) : status === "expired" ? (
@@ -135,7 +139,7 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
                             : waiting
                               ? "Finish signing in to Google in the other window. This page updates by itself."
                               : status === "expired"
-                                ? `Google ended the connection. ${a.toolkit === "gmail" ? "Email helper can't read mail" : "Daily planner can't see your calendar"} until you reconnect.`
+                                ? `Google ended the connection. ${a.lost} until you reconnect.`
                                 : a.needs}
                         </p>
                       </div>

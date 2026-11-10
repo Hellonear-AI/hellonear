@@ -1,16 +1,18 @@
 "use client"
 
 import { useQuery } from "@tanstack/react-query"
-import { ArrowUpRightIcon, CheckIcon, CopyIcon, Loader2Icon, SendIcon } from "lucide-react"
+import { ArrowUpRightIcon, CheckIcon, CopyIcon, SendIcon } from "lucide-react"
 import { useId, useState } from "react"
 import { toast } from "sonner"
 import { cn } from "cn"
+import { ownerKeys } from "@/lib/queryKeys"
+import { Spinner } from "@/components/elements/Spinner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { formatNear } from "@/lib/format"
 import { compareNear, toYocto } from "@/lib/near"
 import { useSession } from "@/modules/auth/hooks/useSession"
-import type { ApiWallet } from "@/modules/minds/api"
+import type { ApiWallet } from "@/modules/wallet/api"
 import { ownerAvailableNear } from "@/modules/wallet/api"
 import { shortAddress } from "@/modules/wallet/data/address"
 import { walletActionText } from "@/modules/wallet/data/errors"
@@ -41,7 +43,7 @@ export function AddFundsDialog({
 }) {
   const owner = useSession().data?.nearAccountId ?? null
   const available = useQuery({
-    queryKey: ["owner-balance", owner],
+    queryKey: ownerKeys.balance(owner),
     enabled: open && Boolean(owner),
     queryFn: () => ownerAvailableNear(owner!),
     staleTime: 10_000,
@@ -175,7 +177,7 @@ export function AddFundsDialog({
             Cancel
           </Button>
           <Button type="submit" form="funds-form" disabled={sending || !valid || tooMuch}>
-            {sending ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <SendIcon />}
+            {sending ? <Spinner /> : <SendIcon />}
             {sending ? "Waiting for Meteor" : `Send ${valid ? value : ""} NEAR with Meteor`.replace("  ", " ")}
           </Button>
         </DialogFooter>

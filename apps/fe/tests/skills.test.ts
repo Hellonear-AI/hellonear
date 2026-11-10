@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { connectionsApi } from "@/modules/connections/api"
 import { mindsApi } from "@/modules/minds/api"
 import { matchesSearch, SKILLS, skillCopy, skillLines } from "@/modules/skills/data/skills"
-import { connectionStatus } from "@/modules/skills/hooks/useSkills"
+import { connectionStatus } from "@/modules/connections/hooks/useConnections"
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -54,7 +55,7 @@ describe("mindsApi skills calls", () => {
     )
     vi.stubGlobal("fetch", fetchMock)
     await mindsApi.update("m1", { skills: ["payments"] })
-    await expect(mindsApi.connect("gmail")).resolves.toBe("https://connect.composio.dev/x")
+    await expect(connectionsApi.connect("gmail")).resolves.toBe("https://connect.composio.dev/x")
     const calls = fetchMock.mock.calls as unknown as [string, RequestInit][]
     expect(calls[0][0]).toBe("/api/v1/minds/m1")
     expect(calls[0][1].method).toBe("PATCH")

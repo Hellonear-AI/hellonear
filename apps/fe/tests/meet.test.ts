@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
-import { approvalDetails, whenText } from "@/modules/chat/data/approvalDetails"
-import type { ToolStep } from "@/modules/chat/data/events"
-import { stepText } from "@/modules/chat/data/steps"
+import { approvalDetails, whenText } from "@/modules/runs/data/approvalDetails"
+import type { ToolStep } from "@/modules/runs/data/events"
+import { stepText } from "@/modules/runs/data/steps"
 import { skillLines } from "@/modules/skills/data/skills"
 
 const step = (tool: string, args: unknown, result?: unknown, status: ToolStep["status"] = "awaiting_approval"): ToolStep => ({

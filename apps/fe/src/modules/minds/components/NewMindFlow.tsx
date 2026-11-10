@@ -3,14 +3,14 @@
 import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
-import { Button } from "@/components/ui/button"
+import { ErrorRetry } from "@/components/elements/ErrorRetry"
 import { mindHref } from "@/components/layout/nav"
-import { ApiError } from "@/lib/api"
+import { ApiError, isApiCode } from "@/lib/api"
 import { useLeaveTryOut, useSession, useSignOut } from "@/modules/auth/hooks/useSession"
 import { checkLimits, DEFAULT_PER_PAYMENT } from "@/modules/minds/data/limits"
 import { useCreateMind, useMinds } from "@/modules/minds/hooks/useMinds"
-import { SetUpError, useSetUpMind } from "@/modules/minds/hooks/useSetUpMind"
-import { WrongAccountError } from "@/modules/wallet/hooks/useOwnerTransaction"
+import { useSetUpMind } from "@/modules/minds/hooks/useSetUpMind"
+import { OwnerActionError, wrongAccountText } from "@/modules/wallet/data/ownerAction"
 import { ChooseMindStep } from "@/modules/minds/components/ChooseMindStep"
 import { SetLimitsStep } from "@/modules/minds/components/SetLimitsStep"
 import { MindReady } from "@/modules/minds/components/MindReady"
@@ -58,14 +58,7 @@ export function NewMindFlow() {
   }, [setUp.stage])
 
   if (session.isError) {
-    return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-3 p-6 text-center">
-        <p className="text-sm text-muted-foreground">Could not reach HelloNear. Check your connection and try again.</p>
-        <Button variant="outline" onClick={() => void session.refetch()}>
-          Try again
-        </Button>
-      </div>
-    )
+    return <ErrorRetry fullPage message="Could not reach HelloNear. Check your connection and try again." onRetry={() => void session.refetch()} />
   }
   if (!session.data) return <div className="min-h-dvh bg-background" aria-busy="true" />
 
@@ -139,11 +132,9 @@ export function NewMindFlow() {
 }
 
 function setUpNotice(err: unknown, name: string): Notice {
-  if (err instanceof SetUpError && err.step === "sign") {
-    if (err.cause instanceof WrongAccountError) {
-      const actual = err.cause.actual.join(", ") || "another account"
-      return { text: `Your wallet is signed in as ${actual}. Switch it to ${err.cause.expected}, then try again.`, retry: "Try again" }
-    }
+  if (err instanceof OwnerActionError && err.step === "sign") {
+    const wrong = wrongAccountText(err)
+    if (wrong) return { text: wrong, retry: "Try again" }
     // The wallet sent the transaction but the contract refused it (it carries the execution error).
     if (/ExecutionError|FunctionCallError|publishing_transaction_failed/.test(errorText(err.cause))) {
       return {
@@ -156,11 +147,11 @@ function setUpNotice(err: unknown, name: string): Notice {
       retry: "Try again",
     }
   }
-  if (err instanceof SetUpError && err.step === "check") {
+  if (err instanceof OwnerActionError && err.step === "check") {
     return { text: "Meteor signed, but the limits do not show yet. Please check again.", retry: "Check again" }
   }
-  const cause = err instanceof SetUpError ? err.cause : err
-  if (cause instanceof ApiError && (cause.code === "outlayer_error" || cause.code === "outlayer_unreachable")) {
+  const cause = err instanceof OwnerActionError ? err.cause : err
+  if (isApiCode(cause, "outlayer_error", "outlayer_unreachable")) {
     return { text: "The wallet service did not respond. No transaction was signed. Please try again later.", retry: "Try again" }
   }
   return { text: `Could not set up ${name}. Nothing was signed. Try again.`, retry: "Try again" }
@@ -176,7 +167,7 @@ function errorText(err: unknown): string {
 }
 
 function createErrorMessage(err: unknown): string {
-  if (err instanceof ApiError && err.code === "unknown_template") return "This template is no longer available. Please choose another one."
+  if (isApiCode(err, "unknown_template")) return "This template is no longer available. Please choose another one."
   if (err instanceof ApiError && err.status === 401) return "Your session has expired. Please sign in again."
   return "Could not create the Mind. Please try again."
 }

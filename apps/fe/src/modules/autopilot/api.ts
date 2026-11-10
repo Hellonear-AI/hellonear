@@ -1,6 +1,6 @@
 import { api } from "@/lib/api"
-import { ownerTimeZone, stream } from "@/modules/chat/api"
-import type { RunEvent } from "@/modules/chat/data/events"
+import { ownerTimeZone, stream } from "@/lib/stream"
+import type { RunEvent } from "@/modules/runs/data/events"
 
 // Workflows and Autopilot (#20, #21): docs/api-contract.md §2 "Visual Builder workflows" and
 // "Autopilot", proxied by the backend under /minds/{mindId}/workflows (§7). The backend adds the

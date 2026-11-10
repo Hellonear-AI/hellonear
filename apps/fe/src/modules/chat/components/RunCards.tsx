@@ -1,25 +1,24 @@
 "use client"
 
-import Link from "next/link"
+import { useState } from "react"
 import {
   ArrowUpRightIcon,
   CheckIcon,
   CircleSlashIcon,
   HourglassIcon,
-  Loader2Icon,
   SnowflakeIcon,
   XIcon,
 } from "lucide-react"
 import { cn } from "cn"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { mindHref } from "@/components/layout/nav"
 import { explorerTxUrl } from "@/lib/format"
-import { compareNear } from "@/lib/near"
-import { approvalDetails, type ApprovalDetails } from "@/modules/chat/data/approvalDetails"
-import { paymentOf, toolLabel, type Payment, type ToolStep } from "@/modules/chat/data/events"
-import type { ApiWallet } from "@/modules/minds/api"
-import { approvalChecks } from "@/modules/wallet/data/checks"
+import { approvalDetails } from "@/modules/runs/data/approvalDetails"
+import { paymentOf, type Payment, type ToolStep } from "@/modules/runs/data/events"
+import { toolLabel } from "@/modules/runs/data/steps"
+import type { ApiWallet } from "@/modules/wallet/api"
+import { FreezeDialog } from "@/modules/wallet/components/FreezeDialog"
+import { ApprovalActions, ApprovalCheckList, ApprovalDetailLines } from "@/modules/wallet/components/ApprovalParts"
+import { approvalChecks, NOT_LISTED, refusalReasons } from "@/modules/wallet/data/checks"
 
 // What a run did, in the chat (design C1.1, C1.3, C1.4, C1.7): a pill per tool, a receipt for a
 // payment, a red card when the wallet refused one, and an approval card while it waits.
@@ -116,6 +115,7 @@ export function PaymentFailed({ payment }: { payment: Payment }) {
  */
 export function ApprovalCard({
   mindId,
+  name,
   step,
   wallet,
   busy,
@@ -123,6 +123,7 @@ export function ApprovalCard({
   onAnswer,
 }: {
   mindId: string
+  name: string
   step: ToolStep
   wallet: ApiWallet | null
   busy: boolean
@@ -132,6 +133,8 @@ export function ApprovalCard({
 }) {
   const payment = paymentOf(step)
   const details = payment ? null : approvalDetails(step)
+  // Unfreeze opens the same dialog as on Approvals, right here (it used to send the owner there).
+  const [unfreeze, setUnfreeze] = useState({ open: false, key: 0 })
   const { checks, next } = payment ? approvalChecks(payment, wallet) : { checks: [], next: "approve" as const }
   return (
     <div className="flex w-full flex-col gap-3 rounded-lg bg-warning-soft p-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-out motion-reduce:animate-none md:max-w-[480px]">
@@ -145,52 +148,22 @@ export function ApprovalCard({
         </Badge>
       </div>
       {details && <ApprovalDetailLines details={details} />}
-      {checks.length > 0 && (
-        <ul className="flex flex-col gap-1.5">
-          {checks.map((c) => (
-            <li key={c.text} className="flex items-center gap-2 text-[13px] text-foreground">
-              {c.ok ? <CheckIcon className="size-3.5 shrink-0 text-success" /> : <XIcon className="size-3.5 shrink-0 text-danger" />}
-              {c.text}
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" onClick={() => onAnswer("decline")} disabled={busy}>
-          {sending === "decline" && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
-          {sending === "decline" ? "Declining" : "Decline"}
-        </Button>
-        {next === "approve" || sending === "approve" ? (
-          <Button size="sm" onClick={() => onAnswer("approve")} disabled={busy} aria-live="polite">
-            {sending === "approve" ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <CheckIcon />}
-            {sending === "approve" ? "Sending" : "Approve"}
-          </Button>
-        ) : (
-          <Button size="sm" nativeButton={false} render={<Link href={mindHref(mindId, next === "unfreeze" ? "approvals" : "wallet")} />}>
-            {next === "unfreeze" ? "Unfreeze first" : next === "add_address" ? "Add the address first" : "Change limits first"}
-          </Button>
-        )}
-      </div>
+      <ApprovalCheckList checks={checks} />
+      <ApprovalActions
+        small
+        mindId={mindId}
+        next={next}
+        sending={sending}
+        busy={busy}
+        onApprove={() => onAnswer("approve")}
+        onDecline={() => onAnswer("decline")}
+        onUnfreeze={wallet?.shared ? undefined : () => setUnfreeze((u) => ({ open: true, key: u.key + 1 }))}
+      />
+      {unfreeze.key > 0 && <FreezeDialog key={unfreeze.key} mindId={mindId} name={name} freeze={false} open={unfreeze.open} onOpenChange={(open) => setUnfreeze((u) => ({ ...u, open }))} />}
     </div>
   )
 }
 
-/** The arguments the owner is approving, as plain "Label value" rows (no code font, per the UI rules). */
-export function ApprovalDetailLines({ details }: { details: ApprovalDetails }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <dl className="flex flex-col gap-1">
-        {details.lines.map((l) => (
-          <div key={l.label} className="flex min-w-0 gap-2 text-[13px]">
-            <dt className="w-14 shrink-0 text-muted-foreground">{l.label}</dt>
-            <dd className="min-w-0 break-words text-foreground">{l.value}</dd>
-          </div>
-        ))}
-      </dl>
-      {details.note && <p className="text-xs text-muted-foreground">{details.note}</p>}
-    </div>
-  )
-}
 
 function To({ account }: { account: string }) {
   return (
@@ -201,14 +174,4 @@ function To({ account }: { account: string }) {
   )
 }
 
-const NOT_LISTED = "Not on your list of addresses"
 
-/** Which of the owner's limits a refused payment broke, read against the wallet's stored policy. */
-export function refusalReasons(payment: Payment, policy: Policy): string[] {
-  const reasons: string[] = []
-  if (policy?.whitelist && !policy.whitelist.includes(payment.to.toLowerCase())) reasons.push(NOT_LISTED)
-  if (policy?.perTransactionNear && compareNear(payment.amountNear, policy.perTransactionNear) === 1) {
-    reasons.push(`Over ${policy.perTransactionNear} NEAR per payment`)
-  }
-  return reasons
-}

@@ -2,16 +2,18 @@
 
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { ArrowRightIcon, CircleXIcon, FlaskConicalIcon, GlobeIcon, KeyRoundIcon, Loader2Icon, WalletMinimalIcon } from "lucide-react"
+import { ArrowRightIcon, CircleXIcon, FlaskConicalIcon, GlobeIcon, KeyRoundIcon, WalletMinimalIcon } from "lucide-react"
 import { useEffect, useState, type ReactNode } from "react"
 import { cn } from "cn"
+import { ErrorRetry } from "@/components/elements/ErrorRetry"
+import { Spinner } from "@/components/elements/Spinner"
 import { MeteorLogo } from "@/components/elements/AppLogos"
 import { Logo } from "@/components/elements/Logo"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { mindHref } from "@/components/layout/nav"
-import { ApiError } from "@/lib/api"
-import { lastAccount, signInErrorMessage, useDemoSignIn, useSession, useSignIn } from "@/modules/auth/hooks/useSession"
+import { demoError, walletError } from "@/modules/auth/data/errors"
+import { lastAccount, useDemoSignIn, useSession, useSignIn } from "@/modules/auth/hooks/useSession"
 import { useMinds } from "@/modules/minds/hooks/useMinds"
 
 const METEOR = "meteor-wallet"
@@ -67,14 +69,7 @@ export function SignInScreen() {
   }
 
   if (user && minds.isError) {
-    return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-background p-6 text-center">
-        <p className="text-sm text-muted-foreground">Your Minds could not be loaded. Check your connection and try again.</p>
-        <Button variant="outline" onClick={() => void minds.refetch()}>
-          Try again
-        </Button>
-      </div>
-    )
+    return <ErrorRetry fullPage message="Your Minds could not be loaded. Check your connection and try again." onRetry={() => void minds.refetch()} />
   }
   if (session.isPending || (user && !emptyTryOut)) {
     return <div aria-busy="true" className="min-h-dvh bg-background" />
@@ -126,7 +121,7 @@ export function SignInScreen() {
               onClick={() => withWallet("meteor")}
               disabled={busy}
               strong
-              icon={signIn.isPending && picked === "meteor" ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <MeteorLogo className="size-6" />}
+              icon={signIn.isPending && picked === "meteor" ? <Spinner /> : <MeteorLogo className="size-6" />}
               logoTile
               title={signIn.isPending && picked === "meteor" ? "Waiting for Meteor" : returning ? "Continue with Meteor" : "Meteor Wallet"}
               note={
@@ -139,7 +134,7 @@ export function SignInScreen() {
             <Option
               onClick={() => withWallet("other")}
               disabled={busy}
-              icon={signIn.isPending && picked === "other" ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <WalletMinimalIcon />}
+              icon={signIn.isPending && picked === "other" ? <Spinner /> : <WalletMinimalIcon />}
               title={signIn.isPending && picked === "other" ? "Waiting for your wallet" : "Other NEAR wallets"}
             />
 
@@ -152,7 +147,7 @@ export function SignInScreen() {
             <Option
               onClick={tryOut}
               disabled={busy}
-              icon={demo.isPending ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <FlaskConicalIcon />}
+              icon={demo.isPending ? <Spinner /> : <FlaskConicalIcon />}
               title={emptyTryOut ? "Continue your try-out" : "Try without a wallet"}
               note={emptyTryOut ? "Pick a Mind and start chatting." : "No sign-up. 20 messages and a shared test wallet. Deleted after 7 days."}
             />
@@ -259,17 +254,4 @@ function AboutMind({ open, onOpenChange }: { open: boolean; onOpenChange: (open:
       </DialogContent>
     </Dialog>
   )
-}
-
-/** L1.3: say what happened and that nothing changed; the same button works again. */
-export function walletError(err: unknown): string {
-  if (err instanceof ApiError) return signInErrorMessage(err)
-  return "Sign-in was canceled in the wallet. No changes were made."
-}
-
-/** T1.2 and a backend without try-out mode. */
-export function demoError(err: unknown): string {
-  if (err instanceof ApiError && err.code === "demo_rate_limited") return "Too many try-outs from this network. Please try again later or connect a wallet."
-  if (err instanceof ApiError && err.status === 404) return "Try-out is not available at the moment. Please connect a wallet."
-  return "Could not start a try-out. Please try again later."
 }

@@ -1,39 +1,29 @@
 "use client"
 
 import Link from "next/link"
-import { ThinkingOrb } from "thinking-orbs"
 import { cn } from "cn"
-import { ArrowDownIcon, CircleXIcon, NetworkIcon, RotateCcwIcon, SnowflakeIcon } from "lucide-react"
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
-import { MindAvatar } from "@/components/elements/MindAvatar"
-import { CopyButton } from "@/components/elements/CopyButton"
-import { Badge } from "@/components/ui/badge"
+import { ArrowDownIcon, NetworkIcon, SnowflakeIcon } from "lucide-react"
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
 import { mindHref } from "@/components/layout/nav"
-import { ApiError } from "@/lib/api"
-import { clockTime, shortWhen } from "@/lib/format"
-import { paymentOf, type ReplyPart, type RunView, type ToolStep } from "@/modules/chat/data/events"
-import { composerNote, introFor } from "@/modules/chat/data/intro"
+import { isApiCode } from "@/lib/api"
+import { composerNote } from "@/modules/chat/data/intro"
 import { useChatRun } from "@/modules/chat/hooks/ChatRunProvider"
 import { useThread } from "@/modules/chat/hooks/useThread"
 import { TRY_OUT_MESSAGES, useTryOutLeft } from "@/modules/chat/hooks/useTryOut"
 import { useLeaveTryOut, useSession } from "@/modules/auth/hooks/useSession"
 import { Composer } from "@/modules/chat/components/Composer"
-import { ReplyText } from "@/modules/chat/components/ReplyText"
-import { ApprovalCard, PaymentFailed, PaymentReceipt, PaymentRefused } from "@/modules/chat/components/RunCards"
-import { Elapsed, StepRow, StepsSummary, ThoughtRow } from "@/modules/chat/components/ReplySteps"
-import { summaryLabel } from "@/modules/chat/data/steps"
-import type { ApiWallet } from "@/modules/minds/api"
 import { templateLabel } from "@/modules/minds/data/minds"
 import { useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
 import { LiveView } from "@/modules/graph/components/LiveView"
 import { setLiveOpen, useLiveOpen } from "@/modules/graph/data/liveOpen"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer"
-
-/** `read`: the run's events are in, so an empty reply is known to be empty, not still loading. */
-type Shown = { key: string; message: string | null; createdAt: string; view: RunView; live: boolean; failed: unknown; read: boolean }
+import { MEDIA, matches } from "@/lib/media"
+import { pinGap, useChatScroll } from "@/modules/chat/hooks/useChatScroll"
+import { dayLabel } from "@/modules/chat/data/thread"
+import { Shown, TurnView } from "@/modules/chat/components/TurnView"
+import { FirstChat, Centered, ThreadSkeleton } from "@/modules/chat/components/ChatStates"
 
 /**
  * Chat (design 4 · Chat, C1): the thread, what each run did, and the composer. `threadId` null
@@ -55,7 +45,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   const tryOutLeft = useTryOutLeft()
   const leaveTryOut = useLeaveTryOut()
   const outOfMessages =
-    tryOut && (tryOutLeft === 0 || (active?.failed instanceof ApiError && active.failed.code === "demo_run_limit"))
+    tryOut && (tryOutLeft === 0 || isApiCode(active?.failed, "demo_run_limit"))
   const limit = wallet?.policy?.perTransactionNear ?? null
 
   // The live view (C2, #17): beside the chat from 1280 px, remembered per device; a sheet below that.
@@ -65,8 +55,8 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   const [liveDrawer, setLiveDrawer] = useState(false)
   const [liveAnimate, setLiveAnimate] = useState(false)
   const toggleLive = () => {
-    if (!window.matchMedia("(min-width: 768px)").matches) return setLiveDrawer(true)
-    if (!window.matchMedia("(min-width: 1280px)").matches) return setLiveSheet(true)
+    if (!matches(MEDIA.md)) return setLiveDrawer(true)
+    if (!matches(MEDIA.xl)) return setLiveSheet(true)
     setLiveAnimate(true)
     setLiveOpen(!liveOpen)
   }
@@ -103,7 +93,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   }
 
   const isNew = !threadId && shown.length === 0
-  const notFound = thread.error instanceof ApiError && thread.error.code === "thread_not_found"
+  const notFound = isApiCode(thread.error, "thread_not_found")
 
   // A message sent here pins its turn to the top of the view while the reply grows below it.
   const last = shown.at(-1)
@@ -123,6 +113,39 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
+
+  // A new chat puts the composer in the middle, under the greeting, like Gemini (Ancung, 11 Nov);
+  // the first message sends it gliding down to its usual place. It stays one composer, so what
+  // was typed stays. `slotRef` is the gap FirstChat leaves for it; `lift` moves it there.
+  const centered = isNew && !notFound && !outOfMessages
+  const composerBox = useRef<HTMLDivElement>(null)
+  const slotRef = useRef<HTMLDivElement>(null)
+  const [slotHeight, setSlotHeight] = useState(0)
+  const [lift, setLift] = useState(0)
+  // No glide on the first placement, only when it moves after that.
+  const [glide, setGlide] = useState(false)
+  useLayoutEffect(() => {
+    const wrap = composerRef.current
+    const box = composerBox.current
+    const area = wrap?.parentElement
+    if (!centered || !wrap || !box || !area) return setLift(0)
+    const place = () => {
+      setSlotHeight(box.offsetHeight)
+      const slot = slotRef.current
+      if (!slot) return
+      const slotTop = slot.getBoundingClientRect().top - area.getBoundingClientRect().top
+      setLift(Math.max(0, wrap.offsetTop + box.offsetTop - slotTop))
+    }
+    place()
+    const observer = new ResizeObserver(place)
+    observer.observe(area)
+    observer.observe(box)
+    const frame = requestAnimationFrame(() => setGlide(true))
+    return () => {
+      observer.disconnect()
+      cancelAnimationFrame(frame)
+    }
+  }, [centered, slotHeight])
 
   return (
     <div className="flex h-[calc(100dvh-3.5rem)] min-h-0 md:h-dvh">
@@ -165,6 +188,16 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
       )}
 
       <div className="relative min-h-0 flex-1">
+        {/* A faint lime glow behind a new chat (Ancung, 11 Nov, like Gemini's), the one accent. */}
+        <div
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute inset-0 transition-opacity duration-500 ease-out motion-reduce:transition-none",
+            centered && "animate-in fade-in-0 duration-700 motion-reduce:animate-none",
+            centered ? "opacity-100" : "opacity-0"
+          )}
+          style={{ background: "radial-gradient(ellipse 55% 45% at 50% 52%, color-mix(in oklab, var(--brand) 9%, transparent), transparent 70%)" }}
+        />
         {/* Phones have no chat header, so the live view opens from here (Ancung, 10 Nov). */}
         <Button
           variant="outline"
@@ -187,7 +220,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
         >
           <div
             className="mx-auto flex min-h-full w-full max-w-[804px] flex-col gap-5 px-4 pt-6 md:px-10"
-            style={{ paddingBottom: composerHeight + 32 }}
+            style={{ paddingBottom: centered ? 32 : composerHeight + 32 }}
           >
             {notFound ? (
               <Centered>
@@ -212,6 +245,8 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
                 limit={limit}
                 disabled={busy || !mind}
                 onPick={(text) => send(text, null)}
+                slotRef={slotRef}
+                slotHeight={slotHeight}
               />
             ) : (
               <>
@@ -270,11 +305,29 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
         {/* The composer, floating at the bottom over a fade into the page colour. */}
         <div
           ref={composerRef}
-          className="pointer-events-none absolute inset-x-0 bottom-0 pt-12"
+          className={cn(
+            "pointer-events-none absolute inset-x-0 bottom-0 pt-12",
+            glide && "transition-transform duration-500 ease-drawer motion-reduce:transition-none"
+          )}
+          style={centered && lift ? { transform: `translateY(-${lift}px)` } : undefined}
         >
-          {/* The fade stops short of the scrollbar; the composer itself stays centred. */}
-          <div aria-hidden className="absolute inset-y-0 right-4 left-0 bg-gradient-to-t from-background from-60% to-transparent" />
-          <div className="pointer-events-auto relative mx-auto w-full max-w-[804px] px-4 pb-4 md:px-10 md:pb-5">
+          {/* The fade stops short of the scrollbar; the composer itself stays centred. A new chat
+              has nothing under it to fade. */}
+          <div
+            aria-hidden
+            className={cn(
+              "absolute inset-y-0 right-4 left-0 bg-gradient-to-t from-background from-60% to-transparent transition-opacity duration-300",
+              centered && "opacity-0"
+            )}
+          />
+          <div
+            ref={composerBox}
+            className={cn(
+              "pointer-events-auto relative mx-auto w-full max-w-[804px] px-4 pb-4 md:px-10 md:pb-5",
+              // In a new chat it comes in with the greeting, after the intro (FirstChat).
+              centered && "animate-in fade-in-0 slide-in-from-bottom-2 delay-[240ms] duration-500 ease-out fill-mode-both motion-reduce:animate-none"
+            )}
+          >
             {outOfMessages && (
               // T1.5: one clear way forward once the try-out's messages are used up.
               <div className="mb-3 flex flex-col items-start gap-2 rounded-lg border border-border bg-surface p-4">
@@ -336,351 +389,4 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
       </Sheet>
     </div>
   )
-}
-
-function TurnView({
-  mindId,
-  name,
-  templateId,
-  turn,
-  policy,
-  busy,
-  onRetry,
-  wallet,
-  answering,
-  onAnswer,
-  last = false,
-}: {
-  /** The newest turn: only it offers Retry, like Claude's regenerate on the last reply. */
-  last?: boolean
-  mindId: string
-  name: string
-  templateId: string
-  turn: Shown
-  policy: ApiWallet["policy"]
-  busy: boolean
-  onRetry: () => void
-  wallet: ApiWallet | null
-  /** The approval being answered right now, if any. */
-  answering: { toolCallId: string; action: "approve" | "decline" } | null
-  onAnswer: (step: ToolStep, action: "approve" | "decline") => void
-}) {
-  const { view, live } = turn
-  const failed = Boolean(turn.failed) || view.status === "error"
-  // Stored replies read before their events arrive have text but no parts yet.
-  const parts: ReplyPart[] = view.parts.length > 0 ? view.parts : view.text ? [{ kind: "text", text: view.text }] : []
-  const lastText = parts.findLastIndex((p) => p.kind === "text")
-  // Dots only while nothing else shows progress: before anything arrives, or after a finished
-  // tool until the next text. Reasoning and running tools have their own shimmering rows.
-  const lastPart = parts.at(-1)
-  const lastStep = lastPart?.kind === "tool" ? view.tools.find((t) => t.toolCallId === lastPart.toolCallId) : undefined
-  const working = live && (!lastPart || (lastPart.kind === "tool" && lastStep?.status !== "running" && lastStep?.status !== "awaiting_approval"))
-  const byCall = new Map(view.tools.map((t) => [t.toolCallId, t]))
-
-  // Steps and thoughts are rows; approvals, receipts and refusals are cards that stay in place.
-  const isRow = (step: ToolStep) =>
-    step.status !== "awaiting_approval" && (!paymentOf(step) || step.status === "running" || step.status === "declined" || step.status === "stopped")
-  const rowPart = (part: ReplyPart) => part.kind === "thought" || (part.kind === "tool" && Boolean(byCall.get(part.toolCallId) && isRow(byCall.get(part.toolCallId)!)))
-  // Once the reply is done, its rows fold into one line above it (Ancung, 9 Nov, like Claude).
-  const folded = !live && parts.some(rowPart)
-  const foldLabel = folded
-    ? summaryLabel(parts.filter((p) => p.kind === "tool" && rowPart(p)).length, view.workMs)
-    : ""
-
-  function rowNode(part: ReplyPart, i: number) {
-    if (part.kind === "thought") return <ThoughtRow key={`r${i}`} text={part.text} from={part.from} to={part.to} live={live && i === parts.length - 1} />
-    if (part.kind === "tool") {
-      const step = byCall.get(part.toolCallId)
-      return step ? <StepRow key={part.toolCallId} step={step} /> : null
-    }
-    return null
-  }
-
-  function toolPart(step: ToolStep) {
-    const payment = paymentOf(step)
-    // Waiting, or being answered right now (then it says "Sending" until the result replaces it).
-    const answeringThis = answering?.toolCallId === step.toolCallId && live
-    if (step.status === "awaiting_approval") {
-      if ((view.status === "awaiting_approval" && !live) || answeringThis) {
-        return (
-          <ApprovalCard
-            mindId={mindId}
-            step={step}
-            wallet={wallet}
-            busy={busy}
-            sending={answeringThis ? answering.action : null}
-            onAnswer={(action) => onAnswer(step, action)}
-          />
-        )
-      }
-      return null
-    }
-    if (!payment || step.status === "running" || step.status === "declined" || step.status === "stopped") return <StepRow step={step} />
-    if (step.status === "ok") return <PaymentReceipt payment={payment} policy={policy} />
-    if (step.status === "policy_denied" || step.status === "wallet_frozen") {
-      return <PaymentRefused step={step} payment={payment} policy={policy} mindName={name} />
-    }
-    return <PaymentFailed payment={payment} />
-  }
-
-  return (
-    <>
-      {turn.message && (
-        <div className="flex justify-end">
-          <p className="max-w-[85%] rounded-[18px_18px_4px_18px] bg-primary px-4 py-2.5 text-[15px] leading-[22px] break-words whitespace-pre-wrap text-primary-foreground md:max-w-[75%]">
-            {turn.message}
-          </p>
-        </div>
-      )}
-
-      {(parts.length > 0 || working) && (
-        // The Mind's whole reply under one avatar, in the order it happened: what it said, the
-        // card it needed (approval, then the receipt), and what it said after (Ancung, 9 Nov).
-        <div className="flex w-full flex-col gap-3">
-          <div className="flex items-center gap-2">
-            <MindAvatar templateId={templateId} size={24} />
-            <span className="text-[13px] font-semibold text-foreground">{name}</span>
-          </div>
-          {folded && <StepsSummary label={foldLabel}>{parts.map((p, i) => (rowPart(p) ? rowNode(p, i) : null))}</StepsSummary>}
-          {parts.map((part, i) => {
-            if (folded && rowPart(part)) return null
-            if (part.kind === "thought") return rowNode(part, i)
-            if (part.kind === "text") {
-              // Plain text, no bubble (decided 9 Nov with Ancung, like Claude and Gemini).
-              // A stable key: text already shown stays as it is when the run goes on (an approval),
-              // and only what arrives after it is revealed (Ancung, 9 Nov: it re-typed on Approve).
-              return <ReplyText key={`t${i}`} text={part.text} live={live && i === lastText} />
-            }
-            const step = byCall.get(part.toolCallId)
-            const node = step ? toolPart(step) : null
-            return node ? (
-              <div key={part.toolCallId} className="flex">
-                {node}
-              </div>
-            ) : null
-          })}
-          {working && <Working name={name} />}
-          {!live && view.text && (
-            <div className="flex flex-wrap items-center gap-2">
-              {view.verified && <VerifiedBadge level={view.verified} />}
-              {view.at && <span className="text-xs text-muted-foreground">{clockTime(view.at)}</span>}
-              {/* Actions under a finished reply, like Claude (Ancung, 10 Nov). */}
-              <span className="flex items-center gap-0.5">
-                <CopyButton text={view.text} label="Copy reply" />
-                {/* Retry sends the same message again as a new turn; the backend has no "replace this
-                    reply" yet, so the old one stays above it. */}
-                {last && turn.message && !busy && (
-                  <button
-                    type="button"
-                    onClick={onRetry}
-                    aria-label="Ask again"
-                    title="Ask again"
-                    className="inline-flex size-7 items-center justify-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus [&_svg]:size-4"
-                  >
-                    <RotateCcwIcon />
-                  </button>
-                )}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Stopped with Stop (#121): what it said so far stays, and this says why it ends there. */}
-      {!live && view.status === "canceled" && <p className="text-[13px] text-muted-foreground">You stopped this reply.</p>}
-
-      {/* The run ended with nothing to show: say so instead of leaving a bare "Thought for" (Ancung, 9 Nov). */}
-      {/* Only once the run's events are read: a stopped reply has no text either, and flashed this
-          card while its events were still loading (Ancung, 10 Nov). */}
-      {!failed && !live && turn.read && view.status === "finished" && !view.text.trim() && view.tools.length === 0 && (
-        <FailedReply name={name} error="no_reply" canRetry={Boolean(turn.message) && !busy} onRetry={onRetry} />
-      )}
-
-      {failed && !live && <FailedReply name={name} error={turn.failed ?? view.error} canRetry={Boolean(turn.message) && !busy} onRetry={onRetry} />}
-    </>
-  )
-}
-
-/**
- * The Mind is at work and nothing else shows it yet (design C1.3): typing dots and "Thinking..."
- * from the moment the message is sent until the first text, thought or step (Ancung, 9 Nov: one
- * word for the whole wait; "Sending" read like money moving in a payments app).
- */
-export function Working({ name }: { name: string }) {
-  return (
-    <span role="status" aria-label={`${name} is thinking`} className="flex h-[22px] items-center gap-2">
-      {/* A thinking orb (thinking-orbs, Axel's pick, 10 Nov) instead of three dots. It follows the
-          dark class, freezes with reduced motion and pauses off screen by itself. */}
-      <ThinkingOrb state="solving" size={20} aria-hidden className="shrink-0" />
-      <span aria-hidden className="text-shimmer text-[13px]">
-        Thinking...
-      </span>
-      <Elapsed />
-    </span>
-  )
-}
-
-/** C1.6: the reply didn't come. Says whether anything was kept, and offers one retry. */
-function FailedReply({ name, error, canRetry, onRetry }: { name: string; error: unknown; canRetry: boolean; onRetry: () => void }) {
-  return (
-    <div role="alert" className="flex w-full flex-col items-start gap-3 rounded-lg bg-danger-soft p-4 md:max-w-[480px]">
-      <p className="flex items-start gap-2.5 text-sm text-foreground">
-        <CircleXIcon className="mt-0.5 size-4 shrink-0 text-danger" />
-        {failureText(name, error)}
-      </p>
-      {canRetry && (
-        <Button variant="outline" size="sm" onClick={onRetry}>
-          <RotateCcwIcon />
-          Try again
-        </Button>
-      )}
-    </div>
-  )
-}
-
-/**
- * A day label before a turn, only where it tells something: when the day changes inside the
- * thread, or at the top of a thread from another day. A chat from today has none.
- */
-export function dayLabel(at: string, previous: string | null, now: Date = new Date()): string | null {
-  const day = shortWhen(at, now)
-  if (previous === null) return day === "Today" ? null : day
-  return day === shortWhen(previous, now) ? null : day
-}
-
-export function failureText(name: string, error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.code === "demo_run_limit") return `That's all the messages this try-out has. Connect a wallet to keep chatting with ${name}.`
-    if (error.code === "demo_rate_limited") return "Too many messages from this network. Please try again in a few minutes."
-    if (error.status === 401) return "Your session ended. Sign in again to keep chatting."
-    if (error.status >= 500) return `${name} could not answer. The AI service didn't respond, so nothing happened.`
-    return `${name} could not answer. Nothing happened.`
-  }
-  if (error === "no_reply") return `${name} thought about it but didn't write a reply. Try asking again.`
-  // A string is a run.error from the stream: the message was stored before the run broke.
-  if (typeof error === "string") return `${name} could not answer. The AI service stopped partway. Your message is saved and nothing else happened.`
-  return `${name} could not answer. The connection dropped, so check yours and try again.`
-}
-
-function VerifiedBadge({ level }: { level: "gateway_tee" | "model_tee" }) {
-  return (
-    <Badge variant="verified" className="animate-in fade-in-0 duration-200 motion-reduce:animate-none">
-      {level === "model_tee" ? "Verified private (model TEE)" : "Verified via NEAR AI TEE gateway"}
-    </Badge>
-  )
-}
-
-/** C1.2: a brand new chat. The Mind introduces itself and offers three things to try. */
-function FirstChat({
-  name,
-  templateId,
-  limit,
-  disabled,
-  onPick,
-}: {
-  name: string
-  templateId: string
-  limit: string | null
-  disabled: boolean
-  onPick: (text: string) => void
-}) {
-  const { intro, suggestions } = introFor(templateId, limit, null)
-  return (
-    <Centered>
-      <MindAvatar templateId={templateId} size={64} shown={112} className="size-24! md:size-28!" />
-      <h2 className="text-2xl font-medium tracking-tight text-foreground md:text-[28px]">Hi, I&apos;m {name}.</h2>
-      <p className="max-w-md text-[15px] text-muted-foreground">{intro}</p>
-      {suggestions.length > 0 && (
-        <div className="flex flex-col items-center gap-2">
-          {suggestions.map((s) => (
-            <Button key={s} variant="outline" size="sm" disabled={disabled} onClick={() => onPick(s)}>
-              {s}
-            </Button>
-          ))}
-        </div>
-      )}
-    </Centered>
-  )
-}
-
-function Centered({ children }: { children: ReactNode }) {
-  return <div className="m-auto flex flex-col items-center gap-3 py-10 text-center">{children}</div>
-}
-
-function ThreadSkeleton() {
-  return (
-    <div aria-busy="true" className="flex flex-col gap-5">
-      <Skeleton className="ml-auto h-10 w-56 rounded-[18px]" />
-      <Skeleton className="h-24 w-full max-w-[480px] rounded-[18px]" />
-      <Skeleton className="ml-auto h-10 w-40 rounded-[18px]" />
-      <Skeleton className="h-16 w-full max-w-[420px] rounded-[18px]" />
-    </div>
-  )
-}
-
-/**
- * Where the chat sits (Ancung, 9 Nov, like Claude): an old thread opens at its end; a message
- * sent here glides its turn to the top, and the reply grows below without the view chasing it.
- * "Latest" shows whenever there is more below.
- */
-/**
- * Room above a pinned message: past the top fade, and on phones past the round Live view button
- * too (Ancung, 10 Nov). The last turn's min-height leaves the same room, so scrolling to the very
- * end puts the message where pinning put it, not under the fade. Read in the browser only.
- */
-function pinGap(): number {
-  return window.matchMedia("(min-width: 768px)").matches ? 24 : 60
-}
-
-function useChatScroll(ready: boolean, pinKey: string | null) {
-  const ref = useRef<HTMLDivElement>(null)
-  const lastRef = useRef<HTMLDivElement>(null)
-  const [viewHeight, setViewHeight] = useState(0)
-  const [atBottom, setAtBottom] = useState(true)
-  const placed = useRef<string | null>(null)
-
-  const measure = useCallback(() => {
-    const el = ref.current
-    if (el) setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 48)
-  }, [])
-
-  // The view's height (for the pinned turn's room) and content growth (for "Latest").
-  useEffect(() => {
-    const el = ref.current
-    const content = el?.firstElementChild
-    if (!el || !content) return
-    const observer = new ResizeObserver(() => {
-      setViewHeight(el.clientHeight)
-      measure()
-    })
-    observer.observe(el)
-    observer.observe(content)
-    return () => observer.disconnect()
-  }, [measure])
-
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el || !ready || !viewHeight) return
-    // Opening: go to the end (or to the turn just sent). After that, move only for a new message;
-    // an approval, a resume or new text never moves the view (Ancung, 9 Nov).
-    const first = placed.current === null
-    if (!first && (!pinKey || placed.current === pinKey)) return
-    const want = pinKey ?? "end"
-    placed.current = want
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    if (pinKey && lastRef.current) {
-      el.scrollTo({ top: lastRef.current.offsetTop - pinGap(), behavior: first || reduce ? "auto" : "smooth" })
-    } else {
-      el.scrollTop = el.scrollHeight
-    }
-  }, [ready, pinKey, viewHeight])
-
-  const toBottom = useCallback(() => {
-    const el = ref.current
-    if (!el) return
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    el.scrollTo({ top: el.scrollHeight, behavior: reduce ? "auto" : "smooth" })
-  }, [])
-
-  return { ref, lastRef, onScroll: measure, atBottom, toBottom, viewHeight }
 }

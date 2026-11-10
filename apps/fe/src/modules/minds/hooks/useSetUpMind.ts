@@ -2,35 +2,15 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useRef, useState } from "react"
-import { mindsApi, type ApiWallet } from "@/modules/minds/api"
+import { mindsApi } from "@/modules/minds/api"
+import { walletApi } from "@/modules/wallet/api"
 import type { Mind } from "@/modules/minds/data/minds"
 import { mindKeys } from "@/modules/minds/hooks/useMinds"
+import { OwnerActionError, ownerStep, readWalletUntil } from "@/modules/wallet/data/ownerAction"
 import { useOwnerTransaction } from "@/modules/wallet/hooks/useOwnerTransaction"
 
 export type SetUpInput = { templateId: string; name: string; perTransactionNear: string; whitelist: string[] }
 export type SetUpStage = "idle" | "creating" | "signing" | "checking"
-
-/** Where a set-up stopped, so the screen can say what happened. */
-export class SetUpError extends Error {
-  constructor(
-    readonly step: "create" | "sign" | "check",
-    readonly cause: unknown
-  ) {
-    super(`Set-up failed at ${step}`)
-  }
-}
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
-/** After signing, the policy can take a moment to show up in OutLayer's view. */
-async function waitForPolicy(mindId: string): Promise<ApiWallet | null> {
-  for (let i = 0; i < 5; i++) {
-    const wallet = await mindsApi.wallet(mindId).catch(() => null)
-    if (wallet?.policy) return wallet
-    await sleep(1500)
-  }
-  return null
-}
 
 /**
  * Create a Mind with its spending limits (design L3): create the Mind, its OutLayer wallet,
@@ -62,38 +42,27 @@ export function useSetUpMind() {
             queryClient.setQueryData<Mind[]>(mindKeys.all, (old) => [created, ...(old ?? []).filter((m) => m.mindId !== mind.id)])
           }
           if (!p.walletReady) {
-            await mindsApi.createWallet(p.mindId)
+            await walletApi.createWallet(p.mindId)
             p.walletReady = true
           }
         }
       } catch (err) {
-        throw new SetUpError("create", err)
+        throw new OwnerActionError("build", err)
       }
       const mindId = p.mindId!
 
       if (!p.signed) {
-        // Building the transaction is part of the "create" step for the user.
-        let transaction
-        try {
-          transaction = await mindsApi.policyTransaction(mindId, {
-            perTransactionNear: input.perTransactionNear,
-            whitelist: input.whitelist,
-          })
-        } catch (err) {
-          throw new SetUpError("create", err)
-        }
+        // Building the transaction is part of creating it, for the user.
+        const transaction = await ownerStep("build", () =>
+          walletApi.policyTransaction(mindId, { perTransactionNear: input.perTransactionNear, whitelist: input.whitelist })
+        )
         setStage("signing")
-        try {
-          await signTransaction(transaction)
-        } catch (err) {
-          throw new SetUpError("sign", err)
-        }
+        await ownerStep("sign", () => signTransaction(transaction))
         p.signed = true
       }
 
       setStage("checking")
-      const wallet = await waitForPolicy(mindId)
-      if (!wallet) throw new SetUpError("check", null)
+      const wallet = await readWalletUntil(mindId, (w) => Boolean(w.policy))
       return { mindId, wallet }
     },
     onSettled: () => {

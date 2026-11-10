@@ -3,8 +3,11 @@
 import { useEffect, useRef } from "react"
 import { cn } from "cn"
 import { GmailLogo, GoogleCalendarLogo, GoogleMeetLogo } from "@/components/elements/AppLogos"
-import type { GraphLink, GraphNode, NodeKind } from "@/modules/graph/data/graph"
+import type { GraphLink, GraphNode } from "@/modules/graph/data/graph"
 import { stepSim, syncSim, type Sim } from "@/modules/graph/data/sim"
+import { MEDIA } from "@/lib/media"
+import { clampZoom, framing, toWorld as worldAt, zoomAround } from "@/modules/graph/data/camera"
+import { readColors, FILL } from "@/modules/graph/data/colors"
 
 // The Mind Graph drawn on a plain canvas (Ancung, 10 Nov: Obsidian-like, no library): bubbles that
 // settle with a small force layout, lines that carry moving dots while a tool runs, rings that
@@ -29,42 +32,8 @@ type Props = {
   className?: string
 }
 
-type Colors = Record<
-  "fg" | "muted" | "faint" | "line" | "glow" | "surface" | "bg" | "info" | "success" | "danger" | "warning" | "mind" | "skill" | "tool" | "app" | "wallet" | "memory" | "model",
-  string
->
-
-const VAR: Record<keyof Colors, string> = {
-  fg: "--foreground",
-  muted: "--muted-foreground",
-  faint: "--tertiary-foreground",
-  line: "--border-strong",
-  // The one accent (lime in dark mode, its deep olive in light), for the hover glow.
-  glow: "--focus",
-  surface: "--surface",
-  bg: "--background",
-  info: "--info",
-  success: "--success",
-  danger: "--danger",
-  warning: "--warning",
-  mind: "--node-mind",
-  skill: "--node-skill",
-  tool: "--node-tool",
-  app: "--node-app",
-  wallet: "--node-wallet",
-  memory: "--node-memory",
-  model: "--node-model",
-}
-
-function readColors(): Colors {
-  const css = getComputedStyle(document.documentElement)
-  return Object.fromEntries(Object.entries(VAR).map(([k, v]) => [k, css.getPropertyValue(v).trim() || "#888"])) as Colors
-}
-
 /** Each Mind's last layout and camera, kept across mounts of the chat page. */
 const KEPT = new Map<string, { sim: Sim; view: { x: number; y: number; k: number; auto: boolean } }>()
-
-const FILL: Record<NodeKind, keyof Colors> = { mind: "mind", skill: "skill", tool: "tool", app: "surface", wallet: "wallet", memory: "memory", model: "model", workflow: "model" }
 
 /** How long a finished state keeps glowing (ms). */
 const AFTERGLOW = { ok: 1600, error: 4000, denied: 4000 } as const
@@ -146,7 +115,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
     const camera = view
     let colors = readColors()
     let font = getComputedStyle(document.body).fontFamily
-    const still = window.matchMedia("(prefers-reduced-motion: reduce)")
+    const still = window.matchMedia(MEDIA.reducedMotion)
     let size = { w: 0, h: 0, dpr: 1 }
     let frame = 0
     let visible = true
@@ -170,10 +139,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
     const io = new IntersectionObserver(([e]) => (visible = e.isIntersecting))
     io.observe(box)
 
-    const toWorld = (px: number, py: number) => {
-      const v = view.current
-      return { x: (px - size.w / 2 - v.x) / v.k, y: (py - size.h / 2 - v.y) / v.k }
-    }
+    const toWorld = (px: number, py: number) => worldAt(view.current, size, { x: px, y: py })
     const hit = (px: number, py: number) => {
       const p = toWorld(px, py)
       let best: string | null = null
@@ -202,13 +168,12 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         x1 = Math.max(x1, b.x + b.r)
         y1 = Math.max(y1, b.y + b.r + 16)
       }
-      const k = Math.min(1.4, Math.max(0.35, Math.min((size.w - 48) / (x1 - x0 || 1), (size.h - 48) / (y1 - y0 || 1))))
+      const to = framing({ x0, y0, x1, y1 }, size)
       const v = view.current
-      const tx = -((x0 + x1) / 2) * k
-      const ty = -((y0 + y1) / 2) * k
-      v.k += (k - v.k) * 0.12
-      v.x += (tx - v.x) * 0.12
-      v.y += (ty - v.y) * 0.12
+      // Ease toward the frame a little every frame.
+      v.k += (to.k - v.k) * 0.12
+      v.x += (to.x - v.x) * 0.12
+      v.y += (to.y - v.y) * 0.12
     }
 
     // The chain of links from the Mind to a node, for the moving dots.
@@ -360,8 +325,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       for (const n of data.current.nodes) {
         const b = s.bodies.get(n.id)
         if (!b) continue
-        const dim = false
-        ctx.globalAlpha = dim ? 0.22 : 1
+        ctx.globalAlpha = 1
 
         if (glowing(n)) {
           const c = stateColor(n)
@@ -369,19 +333,19 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
           const loop = n.state === "running" ? (now % 1200) / 1200 : n.state === "waiting" ? 0.5 + 0.5 * Math.sin(now / 400) : Math.min(1, since / 900)
           // A soft halo, then a ring that grows and fades.
           ctx.fillStyle = c
-          ctx.globalAlpha = (dim ? 0.1 : 0.18) * (n.state === "running" || n.state === "waiting" ? 1 : 1 - loop)
+          ctx.globalAlpha = 0.18 * (n.state === "running" || n.state === "waiting" ? 1 : 1 - loop)
           ctx.beginPath()
           ctx.arc(b.x, b.y, b.r + 9, 0, Math.PI * 2)
           ctx.fill()
           if (!still.matches) {
             ctx.strokeStyle = c
             ctx.lineWidth = 2 / v.k
-            ctx.globalAlpha = (dim ? 0.2 : 0.8) * (1 - loop)
+            ctx.globalAlpha = 0.8 * (1 - loop)
             ctx.beginPath()
             ctx.arc(b.x, b.y, b.r + 3 + loop * 16, 0, Math.PI * 2)
             ctx.stroke()
           }
-          ctx.globalAlpha = dim ? 0.22 : 1
+          ctx.globalAlpha = 1
         }
 
         if (n.kind === "mind") {
@@ -423,11 +387,11 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         if (onTrail.has(n.id) && n.kind !== "mind" && !glowing(n)) {
           ctx.strokeStyle = colors.info
           ctx.lineWidth = 1.6 / v.k
-          ctx.globalAlpha = dim ? 0.15 : data.current.live ? 0.9 : 0.55
+          ctx.globalAlpha = data.current.live ? 0.9 : 0.55
           ctx.beginPath()
           ctx.arc(b.x, b.y, b.r + 3.5 / v.k, 0, Math.PI * 2)
           ctx.stroke()
-          ctx.globalAlpha = dim ? 0.22 : 1
+          ctx.globalAlpha = 1
         }
 
         if (n.id === data.current.selected) {
@@ -450,11 +414,10 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       for (const n of data.current.nodes) {
         const b = s.bodies.get(n.id)
         if (!b) continue
-        const dim = false
         const strong = hover.current === n.id || n.id === data.current.selected || glowing(n)
         const px = (n.kind === "mind" ? 13 : n.kind === "tool" ? 10.5 : 11.5) / Math.max(0.8, v.k)
         ctx.font = `${n.kind === "mind" || strong ? 600 : 500} ${px}px ${font}`
-        ctx.globalAlpha = dim ? 0.18 : 1
+        ctx.globalAlpha = 1
         ctx.strokeStyle = colors.bg
         ctx.lineWidth = 4 / v.k
         const y = b.y + b.r + 5 / v.k
@@ -506,7 +469,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       }
       const id = hit(p.x, p.y)
       drag = { id, x: p.x, y: p.y, moved: false, vx: view.current.x, vy: view.current.y }
-      cv.style.cursor = id ? "grabbing" : "grabbing"
+      cv.style.cursor = "grabbing"
     }
     const move = (e: PointerEvent) => {
       const p = local(e)
@@ -515,15 +478,12 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       if (pinch && touches.size >= 2) {
         const [a, b] = [...touches.values()]
         const v = view.current
-        const k = Math.min(2.5, Math.max(0.35, pinch.k * (Math.hypot(b.x - a.x, b.y - a.y) / pinch.d)))
-        const mx = (a.x + b.x) / 2
-        const my = (a.y + b.y) / 2
+        const k = clampZoom(pinch.k * (Math.hypot(b.x - a.x, b.y - a.y) / pinch.d))
         // Keep the point that was under the fingers' middle under it, wherever they move.
-        const wx = (pinch.mx - size.w / 2 - pinch.vx) / pinch.k
-        const wy = (pinch.my - size.h / 2 - pinch.vy) / pinch.k
-        v.k = k
-        v.x = mx - size.w / 2 - wx * k
-        v.y = my - size.h / 2 - wy * k
+        const next = zoomAround({ x: pinch.vx, y: pinch.vy, k: pinch.k }, size, { x: pinch.mx, y: pinch.my }, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, k)
+        v.k = next.k
+        v.x = next.x
+        v.y = next.y
         return
       }
       if (!drag) {
@@ -583,13 +543,12 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       e.preventDefault()
       const p = local(e)
       const v = view.current
-      const k = Math.min(2.5, Math.max(0.35, v.k * Math.exp(-Math.max(-60, Math.min(60, e.deltaY)) * 0.003)))
+      const k = clampZoom(v.k * Math.exp(-Math.max(-60, Math.min(60, e.deltaY)) * 0.003))
       // Zoom around the pointer.
-      const wx = (p.x - size.w / 2 - v.x) / v.k
-      const wy = (p.y - size.h / 2 - v.y) / v.k
-      v.k = k
-      v.x = p.x - size.w / 2 - wx * k
-      v.y = p.y - size.h / 2 - wy * k
+      const next = zoomAround(v, size, p, p, k)
+      v.k = next.k
+      v.x = next.x
+      v.y = next.y
       v.auto = false
       focus.current = null
     }

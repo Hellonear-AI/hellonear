@@ -1,12 +1,14 @@
 "use client"
 
-import { CheckIcon, ExternalLinkIcon, Loader2Icon, XIcon } from "lucide-react"
+import { CheckIcon, ExternalLinkIcon, XIcon } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
+import { Spinner } from "@/components/elements/Spinner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { skillCopy, TOOLKIT_NAME } from "@/modules/skills/data/skills"
-import { useConnect, useSetSkills } from "@/modules/skills/hooks/useSkills"
+import { useSetSkills } from "@/modules/skills/hooks/useSkills"
+import { useConnect } from "@/modules/connections/hooks/useConnections"
 
 type Ctx = { name: string; limit: string | null }
 
@@ -119,12 +121,12 @@ export function AddSkillDialog({
                     })
                   }
                 >
-                  {connect.isPending ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <ExternalLinkIcon />}
+                  {connect.isPending ? <Spinner /> : <ExternalLinkIcon />}
                   Connect {app}
                 </Button>
               ) : (
                 <Button disabled={busy} onClick={() => setSkills.mutate([...skills, skillId], { onSuccess: () => setAdded(true) })}>
-                  {setSkills.isPending && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+                  {setSkills.isPending && <Spinner />}
                   Add skill
                 </Button>
               )}
@@ -192,7 +194,7 @@ export function RemoveSkillDialog({
               )
             }
           >
-            {busy && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+            {busy && <Spinner />}
             Remove
           </Button>
         </DialogFooter>
