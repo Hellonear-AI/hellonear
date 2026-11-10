@@ -152,7 +152,7 @@ test('an If way can be a chain of steps, compiled as a nested workflow with its 
   assert.equal(compileCanvas('m', 'w', two).children.length, 1)
 })
 
-test('If way chains: no reference across ways, no fork inside a way, no If inside a way (#153)', () => {
+test('If way chains: no reference across ways, no fork inside a way (#153)', () => {
   const across = balanceAlert()
   across.nodes.push({ id: 'note', type: 'agent', data: { prompt: '{{steps.chill.text}}' } } as any)
   across.edges.push({ source: 'notify', target: 'note' } as any)
@@ -161,10 +161,7 @@ test('If way chains: no reference across ways, no fork inside a way, no If insid
   fork.nodes.push({ id: 'x', type: 'agent', data: { prompt: 'x' } } as any, { id: 'y', type: 'agent', data: { prompt: 'y' } } as any)
   fork.edges.push({ source: 'notify', target: 'x' } as any, { source: 'notify', target: 'y' } as any)
   assert.match(issues(() => compileCanvas('m', 'w', fork)), /can have only one next step/)
-  const nested = balanceAlert()
-  nested.nodes.push({ id: 'again', type: 'condition', data: { left: '{{steps.balance.balanceNear}}', op: 'lt', right: 1 } } as any)
-  nested.edges.push({ source: 'notify', target: 'again' } as any)
-  assert.match(issues(() => compileCanvas('m', 'w', nested)), /must be an agent, tool or http node/)
+  // An If inside a way is allowed since #164 (see the tree tests below).
   // Email me inside a way still refuses raw tool output, and accepts the way's own note.
   const mail = balanceAlert()
   mail.nodes.push({ id: 'mail', type: 'tool', data: { tool: 'mail_send_to_owner', args: { subject: 'x', text: '{{steps.notify.body}}' } } } as any)
@@ -176,4 +173,78 @@ test('headers may carry secrets but not step references', () => {
   const c = balanceAlert()
   ;(c.nodes[3].data as any).headers = { 'X-Id': '{{steps.balance.accountId}}' }
   assert.match(issues(() => compileCanvas('m', 'w', c)), /headers cannot use references/)
+})
+
+// #164: Ifs anywhere and End where the user puts it. The doc example from the issue, smaller: the balance, an If in
+// the middle of the main line, a nested If on the yes way, End on one path, and a step after the If for the rest.
+const tree = () => ({
+  name: 'Tree',
+  nodes: [
+    { id: 't', type: 'trigger', data: { inputs: [{ name: 'account', type: 'string' }] } },
+    { id: 'bal', type: 'tool', data: { tool: 'near_view_account', args: { accountId: '{{input.account}}' } } },
+    { id: 'low', type: 'condition', data: { left: '{{steps.bal.balanceNear}}', op: 'lt', right: 10 } },
+    { id: 'very', type: 'condition', data: { left: '{{steps.bal.balanceNear}}', op: 'lt', right: 2 } },
+    { id: 'urgent', type: 'agent', data: { prompt: 'Urgent: {{steps.bal.accountId}} has {{steps.bal.balanceNear}} NEAR.' } },
+    { id: 'stop', type: 'end', data: {} },
+    { id: 'warn', type: 'agent', data: { prompt: 'Warn about {{input.account}}.' } },
+    { id: 'clock', type: 'tool', data: { tool: 'get_time', args: {} } },
+    { id: 'wrap', type: 'agent', data: { prompt: 'At {{steps.clock.time}}, sum up {{steps.bal.accountId}}.' } },
+  ],
+  edges: [
+    { source: 't', target: 'bal' }, { source: 'bal', target: 'low' },
+    { source: 'low', target: 'very', sourceHandle: 'then' },
+    { source: 'very', target: 'urgent', sourceHandle: 'then' }, { source: 'urgent', target: 'stop' },
+    { source: 'very', target: 'warn', sourceHandle: 'else' },
+    { source: 'low', target: 'clock' }, { source: 'clock', target: 'wrap' },
+  ],
+})
+
+test('Ifs anywhere and End (#164): nested ways, a gate for the steps after an If, End leaves no way to carry on', () => {
+  const out = compileCanvas('m', 'w', tree())
+  const g = out.definition.graph as any[]
+  assert.deepEqual(g.map((e) => e.id), ['in:bal', 'bal', 'in:low', 'low', 'in:low:next', 'low:gate'])
+  const ids = out.children.map((c) => c.id.split('--').slice(2).join('--')).sort()
+  assert.deepEqual(ids, ['low.else', 'low.next', 'low.then', 'very.else', 'very.then'])
+  // The gate runs the steps after "low" only if the way that ran carried on. The yes way of "low" is the nested If
+  // "very": its yes way ends (End), so only its no way, and the empty no way of "low", can carry on.
+  assert.deepEqual(g[5].predicates[0], { op: 'or', args: [
+    { op: 'truthy', value: { path: 'stepResults.low:then.very:else.continues' } },
+    { op: 'truthy', value: { path: 'stepResults.low:else.continues' } },
+  ] })
+  const byId = (slug: string) => out.children.find((c) => c.id.endsWith(`--${slug}`))! as any
+  const veryThen = byId('very.then')
+  assert.deepEqual(veryThen.graph.map((e: any) => e.id), ['in:urgent', 'urgent', 'out'])
+  assert.deepEqual(veryThen.graph[2].mapConfig.continues, { value: false })
+  // Values from the main line reach two levels down through each parent's mapping.
+  assert.match(veryThen.graph[0].mapConfig.prompt.template, /^Urgent: \$\{initData\.very_then_p0\} has \$\{initData\.very_then_p1\} NEAR\.$/)
+  const lowThen = byId('low.then')
+  assert.deepEqual(Object.keys(lowThen.graph[0].mapConfig).sort(), ['very_else_p0', 'very_then_p0', 'very_then_p1'])
+  // The steps after the If read the main line through the gate's mapping, and their own clock locally.
+  const next = byId('low.next')
+  assert.match(next.graph[2].mapConfig.prompt.template, /^At \$\{stepResults\.clock\.time\}, sum up \$\{initData\.low_next_p0\}\.$/)
+  // Events of nested steps arrive as <path>.<node>.
+  assert.equal(out.steps['low:then.very:then.urgent'].node, 'urgent')
+  assert.equal(out.steps['low:next.wrap'].node, 'wrap')
+  assert.equal(out.steps['low:then'].way, true)
+  // Children are registered deepest first, so each parent finds its children.
+  const order = out.children.map((c) => c.id.split('--').slice(2).join('--'))
+  assert.ok(order.indexOf('very.then') < order.indexOf('low.then'))
+})
+
+test('Ifs anywhere (#164): no joins, no steps after an If whose ways both end, End has no next step', () => {
+  const join = tree()
+  join.edges.push({ source: 'warn', target: 'clock' } as any)
+  assert.match(issues(() => compileCanvas('m', 'w', join)), /used twice; paths cannot join/)
+  const dead = tree()
+  dead.nodes.push({ id: 'stop2', type: 'end', data: {} } as any)
+  dead.edges.push({ source: 'warn', target: 'stop2' } as any, { source: 'low', target: 'stop3', sourceHandle: 'else' } as any)
+  dead.nodes.push({ id: 'stop3', type: 'end', data: {} } as any)
+  assert.match(issues(() => compileCanvas('m', 'w', dead)), /both ways end, so the steps after this If never run/)
+  const endNext = tree()
+  endNext.edges.push({ source: 'stop', target: 'warn' } as any)
+  assert.match(issues(() => compileCanvas('m', 'w', endNext)), /End cannot have a next step|used twice/)
+  // A sibling way's step is not on this path.
+  const sibling = tree()
+  ;(sibling.nodes.find((n) => n.id === 'warn') as any).data.prompt = '{{steps.urgent.text}}'
+  assert.match(issues(() => compileCanvas('m', 'w', sibling)), /steps\.urgent…\}\} must be a node that runs earlier on this path/)
 })
