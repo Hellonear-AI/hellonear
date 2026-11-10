@@ -38,6 +38,7 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { ApiError } from "@/lib/api"
+import { browserTimeZone } from "@/lib/stream"
 import { autopilotApi } from "@/modules/autopilot/api"
 import { nodeSummary, type NodeRun } from "@/modules/builder/data/testRun"
 import { TONE, type Tone } from "@/modules/builder/data/tone"
@@ -96,7 +97,7 @@ import { skillCopy } from "@/modules/skills/data/skills"
 import { useSetSkills, useSkillCatalog } from "@/modules/skills/hooks/useSkills"
 import { shortAddress } from "@/modules/wallet/data/address"
 
-const ZONE = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+const ZONE = () => browserTimeZone() ?? "UTC"
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 const OPS: { op: Op; label: string; number?: boolean }[] = [
   { op: "eq", label: "is" },

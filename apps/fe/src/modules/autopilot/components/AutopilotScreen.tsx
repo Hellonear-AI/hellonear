@@ -35,6 +35,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { ApiError } from "@/lib/api"
 import { shortWhen, clockTime } from "@/lib/format"
+import { browserTimeZone } from "@/lib/stream"
 import { TryOutLockedDialog, useTryOutLock } from "@/modules/auth/components/TryOutLockedDialog"
 import { useSession } from "@/modules/auth/hooks/useSession"
 import { autopilotApi, type ApiWorkflow, type AutopilotIssue, type WorkflowRun } from "@/modules/autopilot/api"
@@ -570,7 +571,7 @@ function IdeaCard({ mindId, name, demo, idea, onAdded, compact }: { mindId: stri
 
   async function use() {
     if (missingSkill && mind) await setSkills.mutateAsync([...mind.skills, missingSkill])
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+    const timezone = browserTimeZone() ?? "UTC"
     const workflowId = await add.mutateAsync({ workflowId: idea.workflowId, canvas: idea.canvas({ timezone, address: wallet?.address ?? null }), turnOn: !demo })
     onAdded(workflowId)
   }
