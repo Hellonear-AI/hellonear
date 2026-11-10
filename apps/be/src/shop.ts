@@ -14,7 +14,7 @@ import { addressRuleOf, allowsAddress, keyOf, toNear, toYocto } from './wallets.
 
 type Item = { title: string; priceNear: string; read: () => Promise<Record<string, unknown>> }
 
-async function rpc(method: string, params: unknown): Promise<any> {
+export async function rpc(method: string, params: unknown): Promise<any> {
   const res = await fetch(config.nearRpcUrl, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

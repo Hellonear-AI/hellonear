@@ -14,6 +14,7 @@ import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema
 import { assertWalletEmpty, createWallet, freezeTransaction, getWallet, hasWallet, isDemoMind, policySchema, policyTransaction } from './wallets.ts'
 import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
 import { itemSchema, sellerSchema, shop, txHashSchema } from './shop.ts'
+import { buyOffer, offerItemSchema, putOffer, putOfferSchema } from './offers.ts'
 import { issueMailToken, issueWalletToken, verifyMailToken, verifyWalletToken } from './walletToken.ts'
 import { EMAIL_SKILL, ensureInbox, inboxOf, listMail, listSends, mailEnabled, messageIdSchema, ownerMailSchema, readMail, releaseInbox, sendMail, sendMailSchema, sendMailToOwner } from './mail.ts'
 import { listThreads, parseCursor, threadExists, threadMessages } from './threads.ts'
@@ -150,6 +151,26 @@ export const server = createServer(async (req, res) => {
       const quotes = url.searchParams.get('quotes')
       if (quotes !== null && (quotes !== '1' || tx !== null || seller !== null)) throw new HttpError(400, 'invalid_query')
       const out = await shop(mindId, item.data, { txHash: tx ?? undefined, seller: seller ?? undefined, quotes: quotes === '1' })
+      return sendJson(res, out.httpStatus, out.body)
+    }
+    // Mind as Seller (#181): a Mind publishes what it sells (`PUT /internal/v1/offers/{item}`) and another Mind buys it
+    // (`GET /internal/v1/minds/{sellerMindId}/offers/{item}`), each with its own run's wallet token.
+    const offerPath = path.match(/^\/internal\/v1\/offers\/([^/]+)$/)
+    const buyPath = path.match(/^\/internal\/v1\/minds\/(mnd_[0-9a-f]{24})\/offers\/([^/]+)$/)
+    if (offerPath || buyPath) {
+      if (!sameSecret(String(req.headers['x-engine-key'] ?? ''), config.engineApiKey)) throw new HttpError(401, 'unauthorized')
+      const { userId, mindId } = verifyWalletToken(req.headers['x-wallet-token'] as string | undefined)
+      await requireMind(userId, mindId)
+      const item = offerItemSchema.safeParse(decodeURIComponent((offerPath ?? buyPath)!.at(-1)!))
+      if (!item.success) throw new HttpError(404, 'no_offer')
+      if (offerPath) {
+        if (req.method !== 'PUT') throw new HttpError(405, 'method_not_allowed')
+        return sendJson(res, 200, await putOffer(mindId, item.data, await readBody(req, putOfferSchema)))
+      }
+      if (req.method !== 'GET') throw new HttpError(405, 'method_not_allowed')
+      const tx = url.searchParams.get('tx')
+      if (tx !== null && !txHashSchema.safeParse(tx).success) throw new HttpError(400, 'invalid_tx_hash')
+      const out = await buyOffer(mindId, buyPath![1], item.data, tx ?? undefined)
       return sendJson(res, out.httpStatus, out.body)
     }
     // Autopilot's "Email me" (#146): engine key only, since a scheduled run carries no run token; the recipient is
