@@ -21,6 +21,7 @@ import { useMind } from "@/modules/minds/hooks/useMinds"
 import { TOOLKIT_NAME } from "@/modules/skills/data/skills"
 import { connectionStatus, useConnect, useConnections } from "@/modules/connections/hooks/useConnections"
 import { APPS } from "@/modules/connections/data/apps"
+import { TelegramRow } from "@/modules/connections/components/TelegramRow"
 
 type Open = { kind: "add" } | { kind: "replace"; secret: ApiSecret } | { kind: "delete"; secret: ApiSecret } | { kind: "disconnect"; toolkit: ApiConnection["toolkit"] } | null
 
@@ -78,7 +79,7 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
             <h2 id="apps" className="text-[15px] font-semibold text-foreground">
               Apps
             </h2>
-            {demo && <p className="text-[13px] text-muted-foreground">This try-out uses a sample inbox, calendar and Meet link, so there is nothing to connect.</p>}
+            {demo && <p className="text-[13px] text-muted-foreground">This try-out uses a sample inbox, calendar and Meet link, so the Google apps have nothing to connect. Telegram works with a bot of your own.</p>}
             {connections.isPending ? (
               <Skeleton className="h-36 w-full" />
             ) : connections.isError ? (
@@ -149,6 +150,8 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
                     </li>
                   )
                 })}
+                {/* Per Mind, unlike the Google apps (#172); try-outs can use it too. */}
+                <TelegramRow mindId={mindId} name={name} />
               </ul>
             )}
             {connect.error && <p className="text-[13px] text-danger">Could not open the sign-in page. No changes were made. Please try again later.</p>}

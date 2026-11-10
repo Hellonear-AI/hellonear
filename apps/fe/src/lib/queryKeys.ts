@@ -35,6 +35,9 @@ export const skillKeys = { catalog: ["skills"] as const }
 /** The account's app connections (Gmail, Google Calendar, Google Meet). */
 export const connectionKeys = { all: ["connections"] as const }
 
+/** A Mind's Telegram bot (#168). */
+export const telegramKeys = { mind: (mindId: string) => ["telegram", mindId] as const }
+
 export const secretKeys = { all: ["secrets"] as const }
 
 /** Outside ["minds"] on purpose: a week of events is heavy, so a Mind change doesn't refetch it. */
