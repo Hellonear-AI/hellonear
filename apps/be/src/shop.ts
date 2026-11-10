@@ -71,7 +71,9 @@ export async function shop(mindId: string, item: string, txHash?: string): Promi
   const ok = tx?.status && 'SuccessValue' in tx.status && tx.transaction?.signer_id === address && tx.transaction?.receiver_id === config.shopPayTo && deposit >= toYocto(it.priceNear)
   if (!ok) throw new HttpError(402, 'payment_not_on_chain', offer)
 
+  // Read before redeeming: if RPC fails here, the hash is still unused and the Mind can ask again (Lin1er, #156).
+  const data = await it.read()
   const inserted = await query('insert into shop_purchases (tx_hash, mind_id, item, payment_id) values ($1, $2, $3, $4) on conflict do nothing returning tx_hash', [txHash, mindId, item, pay.id])
   if (!inserted.length) throw new HttpError(409, 'payment_already_used')
-  return { httpStatus: 200, body: { status: 'paid', item, title: it.title, data: await it.read(), receipt: { txHash, paymentId: pay.id, amountNear: toNear(BigInt(pay.amount_yocto)) } } }
+  return { httpStatus: 200, body: { status: 'paid', item, title: it.title, data, receipt: { txHash, paymentId: pay.id, amountNear: toNear(BigInt(pay.amount_yocto)) } } }
 }
