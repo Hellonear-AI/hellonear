@@ -1069,6 +1069,26 @@ describe('judge try-out mode (#43)', () => {
 })
 
 describe('app connections through Composio (#13)', () => {
+  // #195–#201: listed after the Google three, not connected unless a test connects them.
+  const MORE_APPS = ['googlesheets', 'googledrive', 'googledocs', 'slack', 'discord', 'notion', 'outlook', 'hubspot'].map((t) => [t, 'not_connected'])
+
+  test('the apps added for #194 connect, list and disconnect like Gmail (#195–#201)', async () => {
+    const a = await signIn()
+    const { user } = await (await a.call('GET', '/v1/me')).json()
+    const origin = { origin: 'http://localhost:3000' }
+    const res = await a.call('POST', '/v1/connections/slack', {}, origin)
+    assert.equal(res.status, 200, await res.clone().text())
+    assert.deepEqual(fakeComposio.requests.findLast((r) => r.path === '/tool_router/session')!.body.toolkits, { enable: ['slack'] })
+    assert.equal(fakeComposio.requests.findLast((r) => r.path.endsWith('/link'))!.body.callback_url, 'http://localhost:3000/connections?toolkit=slack')
+    fakeComposio.activate(user.id, 'slack')
+    const list = (await (await a.call('GET', '/v1/connections')).json()).connections
+    assert.deepEqual(list.map((c: any) => c.toolkit), ['gmail', 'googlecalendar', 'googlemeet', 'googlesheets', 'googledrive', 'googledocs', 'slack', 'discord', 'notion', 'outlook', 'hubspot'])
+    assert.equal(list.find((c: any) => c.toolkit === 'slack').status, 'connected')
+    assert.equal((await a.call('DELETE', '/v1/connections/slack', undefined, origin)).status, 204)
+    // Still only the listed slugs: anything else is refused before Composio is asked.
+    assert.equal((await a.call('POST', '/v1/connections/twitter', {}, origin)).status, 404)
+  })
+
   test('Google Calendar connects on its own, next to Gmail (#57)', async () => {
     const a = await signIn()
     const { user } = await (await a.call('GET', '/v1/me')).json()
@@ -1088,14 +1108,14 @@ describe('app connections through Composio (#13)', () => {
     assert.equal(link.body.callback_url, 'http://localhost:3000/connections?toolkit=googlecalendar')
 
     let list = (await (await a.call('GET', '/v1/connections')).json()).connections
-    assert.deepEqual(list.map((c: any) => [c.toolkit, c.status]), [['gmail', 'connected'], ['googlecalendar', 'pending'], ['googlemeet', 'not_connected']])
+    assert.deepEqual(list.map((c: any) => [c.toolkit, c.status]), [['gmail', 'connected'], ['googlecalendar', 'pending'], ['googlemeet', 'not_connected'], ...MORE_APPS])
     fakeComposio.activate(user.id, 'googlecalendar')
     assert.equal((await a.call('POST', '/v1/connections/googlecalendar', {}, origin)).status, 409)
 
     // Disconnecting the calendar leaves Gmail connected.
     assert.equal((await a.call('DELETE', '/v1/connections/googlecalendar', undefined, origin)).status, 204)
     list = (await (await a.call('GET', '/v1/connections')).json()).connections
-    assert.deepEqual(list.map((c: any) => [c.toolkit, c.status]), [['gmail', 'connected'], ['googlecalendar', 'not_connected'], ['googlemeet', 'not_connected']])
+    assert.deepEqual(list.map((c: any) => [c.toolkit, c.status]), [['gmail', 'connected'], ['googlecalendar', 'not_connected'], ['googlemeet', 'not_connected'], ...MORE_APPS])
   })
 
   test('Google Meet connects on its own too (#97)', async () => {
@@ -1110,7 +1130,7 @@ describe('app connections through Composio (#13)', () => {
     assert.equal(link.body.callback_url, 'http://localhost:3000/connections?toolkit=googlemeet')
     fakeComposio.activate(user.id, 'googlemeet')
     const list = (await (await a.call('GET', '/v1/connections')).json()).connections
-    assert.deepEqual(list.map((c: any) => [c.toolkit, c.status]), [['gmail', 'not_connected'], ['googlecalendar', 'not_connected'], ['googlemeet', 'connected']])
+    assert.deepEqual(list.map((c: any) => [c.toolkit, c.status]), [['gmail', 'not_connected'], ['googlecalendar', 'not_connected'], ['googlemeet', 'connected'], ...MORE_APPS])
     assert.equal((await a.call('DELETE', '/v1/connections/googlemeet', undefined, origin)).status, 204)
   })
 
@@ -1120,7 +1140,7 @@ describe('app connections through Composio (#13)', () => {
 
     let res = await a.call('GET', '/v1/connections')
     assert.equal(res.status, 200)
-    assert.deepEqual((await res.json()).connections, [{ toolkit: 'gmail', status: 'not_connected' }, { toolkit: 'googlecalendar', status: 'not_connected' }, { toolkit: 'googlemeet', status: 'not_connected' }])
+    assert.deepEqual((await res.json()).connections, [{ toolkit: 'gmail', status: 'not_connected' }, { toolkit: 'googlecalendar', status: 'not_connected' }, { toolkit: 'googlemeet', status: 'not_connected' }, ...MORE_APPS.map(([toolkit, status]) => ({ toolkit, status }))])
 
     res = await a.call('POST', '/v1/connections/gmail', {}, { origin: 'http://localhost:3000' })
     assert.equal(res.status, 200, await res.clone().text())
@@ -1166,7 +1186,7 @@ describe('app connections through Composio (#13)', () => {
 
   test('unknown toolkit, wrong method, CSRF, Composio failure and no key', async () => {
     const a = await signIn()
-    let res = await a.call('POST', '/v1/connections/slack', {}, { origin: 'http://localhost:3000' })
+    let res = await a.call('POST', '/v1/connections/myspace', {}, { origin: 'http://localhost:3000' })
     assert.equal(res.status, 404)
     assert.equal((await res.json()).error, 'unknown_toolkit')
     res = await a.call('PUT', '/v1/connections/gmail', {}, { origin: 'http://localhost:3000' })
