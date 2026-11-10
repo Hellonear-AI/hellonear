@@ -19,19 +19,25 @@ import { useMind } from "@/modules/minds/hooks/useMinds"
 import { TOOLKIT_NAME } from "@/modules/skills/data/skills"
 import { connectionStatus, useConnect, useConnections } from "@/modules/skills/hooks/useSkills"
 
-const APPS: { toolkit: ApiConnection["toolkit"]; logo: ReactNode; uses: string; needs: string }[] = [
-  { toolkit: "gmail", logo: <GmailLogo />, uses: "Used by Email helper to read mail and save drafts.", needs: "Email helper needs it to read your mail and save drafts." },
+// `paused` and `lost` say what stops when the app's connection ends (Google Meet read like the
+// calendar before, 10 Nov).
+const APPS: { toolkit: ApiConnection["toolkit"]; logo: ReactNode; uses: string; needs: string; paused: string; lost: string }[] = [
+  { toolkit: "gmail", logo: <GmailLogo />, uses: "Used by Email helper to read mail and save drafts.", needs: "Email helper needs it to read your mail and save drafts.", paused: "Email helper", lost: "Email helper can't read mail" },
   {
     toolkit: "googlecalendar",
     logo: <GoogleCalendarLogo />,
     uses: "Used by Daily planner to read your events and add new ones.",
     needs: "Daily planner uses it to read your events and add new ones.",
+    paused: "Daily planner's calendar",
+    lost: "Daily planner can't see your calendar",
   },
   {
     toolkit: "googlemeet",
     logo: <GoogleMeetLogo />,
     uses: "Used by Daily planner to add a video link to meetings it schedules.",
     needs: "Daily planner uses it to add a video link to meetings.",
+    paused: "Daily planner's meeting links",
+    lost: "Daily planner can't add video links to meetings",
   },
 ]
 
@@ -76,7 +82,7 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
         <div key={a.toolkit} role="status" className="flex items-center gap-3 rounded-md bg-warning-soft px-4 py-2.5 text-sm text-foreground">
           <TriangleAlertIcon className="size-4 shrink-0 text-warning" />
           <p className="min-w-0 flex-1">
-            {TOOLKIT_NAME[a.toolkit]} is disconnected, so {a.toolkit === "gmail" ? "Email helper" : "Daily planner's calendar"} is paused.
+            {TOOLKIT_NAME[a.toolkit]} is disconnected, so {a.paused} is paused.
           </p>
           <button type="button" onClick={() => startConnect(a.toolkit)} className="shrink-0 rounded-sm font-semibold outline-none hover:underline focus-visible:ring-2 focus-visible:ring-focus">
             Reconnect
@@ -135,7 +141,7 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
                             : waiting
                               ? "Finish signing in to Google in the other window. This page updates by itself."
                               : status === "expired"
-                                ? `Google ended the connection. ${a.toolkit === "gmail" ? "Email helper can't read mail" : "Daily planner can't see your calendar"} until you reconnect.`
+                                ? `Google ended the connection. ${a.lost} until you reconnect.`
                                 : a.needs}
                         </p>
                       </div>

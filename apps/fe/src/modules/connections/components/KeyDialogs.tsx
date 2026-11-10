@@ -247,10 +247,15 @@ export function DisconnectDialog({
           { ok: false, t: `${mindName} can't save new drafts` },
           { ok: true, t: "Drafts already in Gmail stay there" },
         ]
-      : [
-          { ok: false, t: "Daily planner can't read or add events" },
-          { ok: true, t: "Events already in your calendar stay there" },
-        ]
+      : toolkit === "googlemeet"
+        ? [
+            { ok: false, t: "Daily planner can't add video links to new meetings" },
+            { ok: true, t: "Meetings already scheduled keep their links" },
+          ]
+        : [
+            { ok: false, t: "Daily planner can't read or add events" },
+            { ok: true, t: "Events already in your calendar stay there" },
+          ]
   return (
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)} disablePointerDismissal={busy}>
       <DialogContent showCloseButton={!busy}>
