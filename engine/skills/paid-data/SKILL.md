@@ -19,3 +19,4 @@ metadata:
 4. If `send_payment` comes back declined, refused by the wallet (`policy_denied`, `wallet_frozen`) or with an error, say the report was not bought and that no money moved for it. Do not retry.
 5. If `buy_data` still says `payment_required` with a `reason`, or `refused`, report the reason in plain words and stop. Do not pay again unless the owner asks.
 6. When it is `paid`, give the report in two or three plain lines with its numbers, then one line with what was paid and the tx hash as the receipt.
+7. If `send_payment` fails with an error (anything that is not a `sent`, `pending`, declined or refused result), do not call `send_payment` again in this request, for that account or any other: a new call opens an approval the owner did not ask for. Always write a reply: what was paid so far, and that the rest did not go through, with the error in plain words. The owner can ask again.

@@ -11,7 +11,11 @@ import { HttpError, UPSTREAM_ERROR, fetchFailure } from './http.ts'
 // googlemeet (#97): Composio-managed OAuth2 auth config `ac_ISu09_uuoKCK` (made by James 9 Nov, read live: ENABLED,
 // scopes meetings.space.created + meetings.space.settings, so it can create Meet spaces but not read other meetings).
 // The engine only creates Meet spaces.
-export const TOOLKITS = ['gmail', 'googlecalendar', 'googlemeet'] as const
+// More apps (#194, #195–#201): Sheets, Drive, Docs, Slack, Discord, Notion, Outlook, HubSpot. Each slug read live on
+// 11 Nov (GET /api/v3/toolkits/<slug>: 200, Composio-managed OAUTH2) and a Connect Link made for a throwaway user
+// (session 201, link 201, then deleted), so owners connect with one sign-in and we create no OAuth app. The backend
+// only connects, lists and disconnects them; which actions a Mind may run is decided in the engine.
+export const TOOLKITS = ['gmail', 'googlecalendar', 'googlemeet', 'googlesheets', 'googledrive', 'googledocs', 'slack', 'discord', 'notion', 'outlook', 'hubspot'] as const
 export const toolkitSchema = z.enum(TOOLKITS)
 export type Toolkit = z.infer<typeof toolkitSchema>
 

@@ -12,5 +12,10 @@
     "priors": []
   },
   "model": "z-ai/glm-5.3-flash",
-  "skills": ["daily-planner"]
+  "skills": [
+    "daily-planner",
+    "calendar-conflicts",
+    "health-journal",
+    "redact-before-send"
+  ]
 }

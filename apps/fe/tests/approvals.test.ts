@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { compareNear } from "@/lib/near"
-import { timeAgo } from "@/lib/format"
 import { walletApi, type ApiWallet } from "@/modules/wallet/api"
 import { approvalChecks } from "@/modules/wallet/data/checks"
 import { freezeErrorText } from "@/modules/wallet/components/FreezeDialog"
@@ -57,15 +56,6 @@ describe("approvalChecks (A1.1)", () => {
   it("skips checks the policy doesn't have (#79: fields can be null)", () => {
     const r = approvalChecks({ to: "x.testnet", amountNear: "5" }, wallet({ policy: { perTransactionNear: null, whitelist: null, transactionTypes: null, boundToThisWallet: true } }))
     expect(r.checks.map((c) => c.text)).toEqual(["Enough balance: 42.00 NEAR"])
-  })
-})
-
-describe("timeAgo", () => {
-  const now = new Date("2026-11-09T12:00:00Z")
-  it("reads like the design", () => {
-    expect(timeAgo("2026-11-09T11:59:40Z", now)).toBe("just now")
-    expect(timeAgo("2026-11-09T11:48:00Z", now)).toBe("12 min ago")
-    expect(timeAgo("2026-11-09T11:00:00Z", now)).toBe("1 h ago")
   })
 })
 

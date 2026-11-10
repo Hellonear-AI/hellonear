@@ -238,7 +238,7 @@ export function LiveView({ mindId, className }: { mindId: string; className?: st
               return (
                 <Link
                   key={a.toolCallId}
-                  href={mindHref(mindId, "approvals")}
+                  href={`${mindHref(mindId, "chat")}/${a.threadId}`}
                   className="flex items-center gap-2.5 rounded-md px-1 py-1 outline-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus"
                 >
                   <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-warning-soft text-warning">

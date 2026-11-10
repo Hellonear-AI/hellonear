@@ -40,14 +40,3 @@ export function explorerTxUrl(txHash: string): string {
   return `https://testnet.nearblocks.io/txns/${encodeURIComponent(txHash)}`
 }
 
-/** "just now", "12 min ago", "3 h ago", then the day (`shortWhen`). For approval requests. */
-export function timeAgo(iso: string, now: Date = new Date()): string {
-  const ms = now.getTime() - new Date(iso).getTime()
-  if (Number.isNaN(ms)) return ""
-  const min = Math.floor(ms / 60_000)
-  if (min < 1) return "just now"
-  if (min < 60) return `${min} min ago`
-  const h = Math.floor(min / 60)
-  if (h < 24) return `${h} h ago`
-  return shortWhen(iso, now)
-}

@@ -12,5 +12,13 @@
     "priors": []
   },
   "model": "z-ai/glm-5.3-flash",
-  "skills": ["email-triage", "daily-planner"]
+  "skills": [
+    "email-triage",
+    "daily-planner",
+    "phishing-detector",
+    "follow-ups",
+    "subscriptions",
+    "confidential-reader",
+    "calendar-conflicts"
+  ]
 }
