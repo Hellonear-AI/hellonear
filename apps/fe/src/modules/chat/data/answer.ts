@@ -1,6 +1,6 @@
 // What happened to an approve or decline (design A1.3), as the toast shows it.
 
-import { ApiError } from "@/lib/api"
+import { isApiCode } from "@/lib/api"
 import { paymentOf, type RunView } from "@/modules/chat/data/events"
 import { stepText } from "@/modules/chat/data/steps"
 
@@ -30,7 +30,7 @@ export function answerOutcome(answer: Answer, run: { view: RunView; streaming: b
     return { kind: "sending", title: payment ? `Sending ${what}` : `Approving ${what}` }
   }
   if (run.failed) {
-    const already = run.failed instanceof ApiError && run.failed.code === "not_awaiting_approval"
+    const already = isApiCode(run.failed, "not_awaiting_approval")
     return already
       ? { kind: "failed", title: `${capital(what)} was already answered` }
       : { kind: "failed", title: "Could not send your answer", detail: "No changes were made. Please try again." }
@@ -52,5 +52,5 @@ export function answerOutcome(answer: Answer, run: { view: RunView; streaming: b
 
 /** An answer that never reached the run (network, 5xx) leaves the request waiting. */
 export function answerLost(failed: unknown): boolean {
-  return Boolean(failed) && !(failed instanceof ApiError && failed.code === "not_awaiting_approval")
+  return Boolean(failed) && !isApiCode(failed, "not_awaiting_approval")
 }

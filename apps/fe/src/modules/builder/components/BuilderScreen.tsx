@@ -11,7 +11,6 @@ import {
   GitBranchIcon,
   GlobeIcon,
   KeyboardIcon,
-  Loader2Icon,
   MinusIcon,
   OctagonXIcon,
   PanelLeftCloseIcon,
@@ -25,8 +24,9 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { createContext, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react"
 import { cn } from "cn"
+import { Spinner } from "@/components/elements/Spinner"
 import { mindHref } from "@/components/layout/nav"
 import { ChoiceSelect } from "@/components/elements/ChoiceSelect"
 import { TimePicker } from "@/components/elements/TimePicker"
@@ -37,7 +37,8 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } f
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
-import { ApiError } from "@/lib/api"
+import { isApiCode } from "@/lib/api"
+import { browserTimeZone } from "@/lib/stream"
 import { autopilotApi } from "@/modules/autopilot/api"
 import { nodeSummary, type NodeRun } from "@/modules/builder/data/testRun"
 import { TONE, type Tone } from "@/modules/builder/data/tone"
@@ -95,8 +96,12 @@ import { useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
 import { skillCopy } from "@/modules/skills/data/skills"
 import { useSetSkills, useSkillCatalog } from "@/modules/skills/hooks/useSkills"
 import { shortAddress } from "@/modules/wallet/data/address"
+import { useMediaQuery } from "@/hooks/useMediaQuery"
+import { MEDIA, matches } from "@/lib/media"
+import { readPref, writePref } from "@/lib/storage"
 
-const ZONE = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+const PALETTE_KEY = "hellonear.builder.palette"
+const ZONE = () => browserTimeZone() ?? "UTC"
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 const OPS: { op: Op; label: string; number?: boolean }[] = [
   { op: "eq", label: "is" },
@@ -160,7 +165,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const [draft, setDraft] = useState<Draft>(initial)
   // The block whose settings show on the right; null closes that panel (n8n opens it on demand).
   // Desktop opens on Start's settings; phones open on the canvas, since settings are a sheet there.
-  const [selected, setSelected] = useState<string | null>(() => (window.matchMedia("(min-width: 1024px)").matches ? "start" : null))
+  const [selected, setSelected] = useState<string | null>(() => (matches(MEDIA.lg) ? "start" : null))
   const {
     frame: canvasFrame,
     content: canvasContent,
@@ -178,30 +183,12 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   // Phones (B1.8): a + between blocks opens "Add a block" for that place.
   const [sheetAt, setSheetAt] = useState<Place | null>(null)
   // The fold only applies from lg (1024 px); below that the list sits on top, always open.
-  const desktop = useSyncExternalStore(
-    (on) => {
-      const q = window.matchMedia("(min-width: 1024px)")
-      q.addEventListener("change", on)
-      return () => q.removeEventListener("change", on)
-    },
-    () => window.matchMedia("(min-width: 1024px)").matches,
-    () => true
-  )
+  const desktop = useMediaQuery(MEDIA.lg, true)
   // The Blocks panel folds to icons; remembered on this device.
-  const [paletteOpen, setPaletteOpen] = useState(() => {
-    try {
-      return window.localStorage.getItem("hellonear.builder.palette") !== "closed"
-    } catch {
-      return true
-    }
-  })
+  const [paletteOpen, setPaletteOpen] = useState(() => readPref(PALETTE_KEY) !== "closed")
   const togglePalette = () =>
     setPaletteOpen((open) => {
-      try {
-        window.localStorage.setItem("hellonear.builder.palette", open ? "closed" : "open")
-      } catch {
-        // Not remembered, still works.
-      }
+      writePref(PALETTE_KEY, open ? "closed" : "open")
       return !open
     })
 
@@ -418,7 +405,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       router.push(`${mindHref(mindId, "autopilot")}?job=${encodeURIComponent(id)}`)
     } catch (err) {
       setSaving(false)
-      if (err instanceof ApiError && err.code === "invalid_workflow") {
+      if (isApiCode(err, "invalid_workflow")) {
         const issues = (err.details.issues as { path?: string; message?: string }[] | undefined) ?? []
         // The engine names blocks by their ids ("node ask-x", "nodes.2…"): pin each issue to its block (B1.3).
         const ids = toCanvas(draft).nodes.map((n) => n.id)
@@ -684,12 +671,12 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             disabled={Boolean(test?.running) || dirty || saving}
             title={dirty ? "Save your changes to test them" : "Runs the saved job once"}
           >
-            {test?.running ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <FlaskConicalIcon />}
+            {test?.running ? <Spinner /> : <FlaskConicalIcon />}
             {test?.running ? "Testing" : "Test run"}
           </Button>
         )}
         <Button className="hidden lg:inline-flex" onClick={() => void save()} disabled={saving || (Boolean(workflowId) && !dirty)}>
-          {saving && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+          {saving && <Spinner />}
           Save
         </Button>
       </header>
@@ -938,11 +925,11 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
         </Button>
         <div className="grid grid-cols-2 gap-2">
           <Button variant="outline" onClick={() => void runTest()} disabled={!workflowId || Boolean(test?.running) || dirty || saving}>
-            {test?.running ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <FlaskConicalIcon />}
+            {test?.running ? <Spinner /> : <FlaskConicalIcon />}
             {test?.running ? "Testing" : "Test run"}
           </Button>
           <Button onClick={() => void save()} disabled={saving || (Boolean(workflowId) && !dirty)}>
-            {saving ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <CheckIcon />}
+            {saving ? <Spinner /> : <CheckIcon />}
             Save
           </Button>
         </div>
@@ -988,7 +975,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                   void save()
                 }}
               >
-                {saving && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+                {saving && <Spinner />}
                 Save
               </Button>
             )}
@@ -1216,7 +1203,7 @@ function BlockCard({
             run.status === "error" ? "text-danger" : run.status === "ok" ? "text-success" : "text-info"
           )}
         >
-          {run.status === "running" ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : run.status === "ok" ? <CheckIcon /> : <XIcon />}
+          {run.status === "running" ? <Spinner /> : run.status === "ok" ? <CheckIcon /> : <XIcon />}
           <span className="min-w-0 break-words text-foreground">{run.status === "running" ? "Working..." : (run.note ?? "Done")}</span>
         </span>
       )}

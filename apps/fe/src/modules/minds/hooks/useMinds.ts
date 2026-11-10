@@ -1,6 +1,7 @@
 "use client"
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { mindKeys } from "@/lib/queryKeys"
 import { shortWhen } from "@/lib/format"
 import { useSession } from "@/modules/auth/hooks/useSession"
 import { mindsApi } from "@/modules/minds/api"
@@ -10,14 +11,7 @@ import { cleanThreadTitle, type Mind, type RecentChat } from "@/modules/minds/da
 // only "global state" (apps/fe/CLAUDE.md). They only run with a backend session; signing
 // out clears the cache.
 
-export const mindKeys = {
-  all: ["minds"] as const,
-  templates: ["templates"] as const,
-  approvals: (mindId: string) => ["minds", mindId, "approvals"] as const,
-  wallet: (mindId: string) => ["minds", mindId, "wallet"] as const,
-  payments: (mindId: string) => ["minds", mindId, "wallet", "payments"] as const,
-  recentChats: (mindId: string) => ["minds", mindId, "threads", "recent"] as const,
-}
+export { mindKeys } from "@/lib/queryKeys"
 
 function useSignedIn() {
   return Boolean(useSession().data)

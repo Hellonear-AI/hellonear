@@ -1,5 +1,5 @@
 import { api, ApiError } from "@/lib/api"
-import { ownerTimeZone, stream } from "@/modules/chat/api"
+import { ownerTimeZone, stream } from "@/lib/stream"
 import type { RunEvent } from "@/modules/chat/data/events"
 
 // Attack Playground (#16). The engine side is docs/api-contract.md §2 (`GET /v1/attacks`, `attackId`

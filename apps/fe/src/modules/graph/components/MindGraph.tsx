@@ -5,6 +5,7 @@ import { cn } from "cn"
 import { GmailLogo, GoogleCalendarLogo, GoogleMeetLogo } from "@/components/elements/AppLogos"
 import type { GraphLink, GraphNode, NodeKind } from "@/modules/graph/data/graph"
 import { stepSim, syncSim, type Sim } from "@/modules/graph/data/sim"
+import { MEDIA } from "@/lib/media"
 
 // The Mind Graph drawn on a plain canvas (Ancung, 10 Nov: Obsidian-like, no library): bubbles that
 // settle with a small force layout, lines that carry moving dots while a tool runs, rings that
@@ -146,7 +147,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
     const camera = view
     let colors = readColors()
     let font = getComputedStyle(document.body).fontFamily
-    const still = window.matchMedia("(prefers-reduced-motion: reduce)")
+    const still = window.matchMedia(MEDIA.reducedMotion)
     let size = { w: 0, h: 0, dpr: 1 }
     let frame = 0
     let visible = true

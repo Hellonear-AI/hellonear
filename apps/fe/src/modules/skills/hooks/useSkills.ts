@@ -1,15 +1,13 @@
 "use client"
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { skillKeys } from "@/lib/queryKeys"
 import { useSession } from "@/modules/auth/hooks/useSession"
 import { mindsApi, type ApiConnection } from "@/modules/minds/api"
 import type { Mind } from "@/modules/minds/data/minds"
 import { mindKeys } from "@/modules/minds/hooks/useMinds"
 
-export const skillKeys = {
-  catalog: ["skills"] as const,
-  connections: ["connections"] as const,
-}
+export { skillKeys } from "@/lib/queryKeys"
 
 /** Every skill a Mind may equip (`GET /skills`, cached 60 s by the backend). */
 export function useSkillCatalog() {

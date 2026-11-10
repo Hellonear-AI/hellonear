@@ -3,9 +3,9 @@
 import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
-import { Button } from "@/components/ui/button"
+import { ErrorRetry } from "@/components/elements/ErrorRetry"
 import { mindHref } from "@/components/layout/nav"
-import { ApiError } from "@/lib/api"
+import { ApiError, isApiCode } from "@/lib/api"
 import { useLeaveTryOut, useSession, useSignOut } from "@/modules/auth/hooks/useSession"
 import { checkLimits, DEFAULT_PER_PAYMENT } from "@/modules/minds/data/limits"
 import { useCreateMind, useMinds } from "@/modules/minds/hooks/useMinds"
@@ -58,14 +58,7 @@ export function NewMindFlow() {
   }, [setUp.stage])
 
   if (session.isError) {
-    return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-3 p-6 text-center">
-        <p className="text-sm text-muted-foreground">Could not reach HelloNear. Check your connection and try again.</p>
-        <Button variant="outline" onClick={() => void session.refetch()}>
-          Try again
-        </Button>
-      </div>
-    )
+    return <ErrorRetry fullPage message="Could not reach HelloNear. Check your connection and try again." onRetry={() => void session.refetch()} />
   }
   if (!session.data) return <div className="min-h-dvh bg-background" aria-busy="true" />
 
@@ -160,7 +153,7 @@ function setUpNotice(err: unknown, name: string): Notice {
     return { text: "Meteor signed, but the limits do not show yet. Please check again.", retry: "Check again" }
   }
   const cause = err instanceof SetUpError ? err.cause : err
-  if (cause instanceof ApiError && (cause.code === "outlayer_error" || cause.code === "outlayer_unreachable")) {
+  if (isApiCode(cause, "outlayer_error", "outlayer_unreachable")) {
     return { text: "The wallet service did not respond. No transaction was signed. Please try again later.", retry: "Try again" }
   }
   return { text: `Could not set up ${name}. Nothing was signed. Try again.`, retry: "Try again" }
@@ -176,7 +169,7 @@ function errorText(err: unknown): string {
 }
 
 function createErrorMessage(err: unknown): string {
-  if (err instanceof ApiError && err.code === "unknown_template") return "This template is no longer available. Please choose another one."
+  if (isApiCode(err, "unknown_template")) return "This template is no longer available. Please choose another one."
   if (err instanceof ApiError && err.status === 401) return "Your session has expired. Please sign in again."
   return "Could not create the Mind. Please try again."
 }

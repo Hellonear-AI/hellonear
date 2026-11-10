@@ -1,4 +1,4 @@
-import { api, ApiError } from "@/lib/api"
+import { api, isApiCode } from "@/lib/api"
 
 // Templates, Minds, wallet, approvals and threads routes: docs/api-contract.md §7.
 
@@ -117,7 +117,7 @@ export const mindsApi = {
     try {
       return (await api<{ wallet: ApiWallet }>(`/minds/${encodeURIComponent(mindId)}/wallet`)).wallet
     } catch (err) {
-      if (err instanceof ApiError && err.code === "no_wallet") return null
+      if (isApiCode(err, "no_wallet")) return null
       throw err
     }
   },
@@ -126,7 +126,7 @@ export const mindsApi = {
     try {
       await api(`/minds/${encodeURIComponent(mindId)}/wallet`, { method: "POST", body: {} })
     } catch (err) {
-      if (!(err instanceof ApiError && err.code === "wallet_exists")) throw err
+      if (!isApiCode(err, "wallet_exists")) throw err
     }
   },
   /** The `store_wallet_policy` transaction for policy v2; the owner signs it. */

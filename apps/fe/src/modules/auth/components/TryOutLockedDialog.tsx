@@ -1,7 +1,8 @@
 "use client"
 
-import { LockIcon, Loader2Icon, WalletMinimalIcon, CircleXIcon } from "lucide-react"
+import { LockIcon, WalletMinimalIcon, CircleXIcon } from "lucide-react"
 import { useState } from "react"
+import { Spinner } from "@/components/elements/Spinner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { walletError } from "@/modules/auth/components/SignInScreen"
@@ -81,7 +82,7 @@ export function TryOutLockedDialog({ action, name, onClose }: { action: LockedAc
             Not now
           </Button>
           <Button disabled={connect.isPending} onClick={() => connect.start()}>
-            {connect.isPending ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <WalletMinimalIcon />}
+            {connect.isPending ? <Spinner /> : <WalletMinimalIcon />}
             {connect.isPending ? "Waiting for Meteor" : "Connect Meteor"}
           </Button>
         </div>

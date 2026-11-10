@@ -6,6 +6,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { mindHref } from "@/components/layout/nav"
 import { ArrowUpRightIcon } from "lucide-react"
 import { toast } from "sonner"
+import { isApiCode } from "@/lib/api"
 import { explorerTxUrl } from "@/lib/format"
 import { chatApi } from "@/modules/chat/api"
 import { answerOutcome, type Answer, type Outcome } from "@/modules/chat/data/answer"
@@ -69,7 +70,7 @@ export function ChatRunProvider({ mindId, children }: { mindId: string; children
     cancelSent.current = runId
     // 409 not_running: it ended on its own first; nothing to tell the owner.
     chatApi.cancel(runId).catch((err) => {
-      if (err instanceof Error && "status" in err && (err as { status: number }).status === 409) return
+      if (isApiCode(err, "not_running")) return
       setStopping(false)
       toast.error("Could not stop the reply", { description: "Please try again." })
     })

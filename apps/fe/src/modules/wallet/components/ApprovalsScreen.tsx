@@ -6,11 +6,13 @@ import {
   CheckIcon,
   CircleSlashIcon,
   InboxIcon,
-  Loader2Icon,
   SnowflakeIcon,
   XIcon,
 } from "lucide-react"
 import { useState } from "react"
+import { EmptyState } from "@/components/elements/EmptyState"
+import { chatKeys } from "@/lib/queryKeys"
+import { Spinner } from "@/components/elements/Spinner"
 import { CountBadge } from "@/components/elements/CountBadge"
 import { MindAvatar } from "@/components/elements/MindAvatar"
 import { PageTitle } from "@/components/elements/PageTitle"
@@ -203,7 +205,7 @@ function ApprovalCard({
         </Button>
         {next === "approve" || state === "sending" ? (
           <Button disabled={busy} onClick={onApprove}>
-            {state === "sending" ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <CheckIcon />}
+            {state === "sending" ? <Spinner /> : <CheckIcon />}
             {state === "sending" ? "Sending" : "Approve"}
           </Button>
         ) : next === "unfreeze" ? (
@@ -226,7 +228,7 @@ function ApprovalCard({
 /** The user's own message that led to this request, as the reason (the payment tool carries none). */
 function useAsked(mindId: string, approval: ApiApproval): string | null {
   const { data } = useQuery({
-    queryKey: ["runs", approval.runId, "asked"],
+    queryKey: chatKeys.asked(approval.runId),
     queryFn: async () => {
       const { messages } = await chatApi.messages(mindId, approval.threadId)
       return messages.find((m) => m.runId === approval.runId && m.role === "user")?.text ?? null
@@ -239,16 +241,16 @@ function useAsked(mindId: string, approval: ApiApproval): string | null {
 /** A1.4: empty is good news. Says when things show up and keeps the limits close. */
 function NothingWaiting({ mindId, name }: { mindId: string; name: string }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-border bg-surface px-6 py-12 text-center">
-      <span className="flex size-12 items-center justify-center rounded-full bg-muted">
-        <InboxIcon className="size-5 text-muted-foreground" />
-      </span>
-      <p className="text-[15px] font-semibold text-foreground">No pending approvals</p>
-      <p className="max-w-sm text-sm text-muted-foreground">When {name} wants to pay someone, it shows up here first.</p>
+    <EmptyState
+      className="flex-1 justify-center"
+      icon={<InboxIcon />}
+      title="No pending approvals"
+      description={`When ${name} wants to pay someone, it shows up here first.`}
+    >
       <Button variant="outline" size="sm" nativeButton={false} render={<Link href={mindHref(mindId, "wallet")} />}>
         Change limits
       </Button>
-    </div>
+    </EmptyState>
   )
 }
 

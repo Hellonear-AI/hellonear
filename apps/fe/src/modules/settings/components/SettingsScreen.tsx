@@ -1,10 +1,11 @@
 "use client"
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2Icon, Trash2Icon, TriangleAlertIcon } from "lucide-react"
+import { Trash2Icon, TriangleAlertIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
+import { Spinner } from "@/components/elements/Spinner"
 import { ChoiceSelect } from "@/components/elements/ChoiceSelect"
 import { MindAvatar } from "@/components/elements/MindAvatar"
 import { PageTitle } from "@/components/elements/PageTitle"
@@ -13,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
-import { ApiError } from "@/lib/api"
+import { isApiCode } from "@/lib/api"
 import { formatNear } from "@/lib/format"
 import { rememberLeftMinds } from "@/modules/auth/data/leftMinds"
 import { mindsApi, type ApiMind } from "@/modules/minds/api"
@@ -39,7 +40,7 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
   const wallet = useMindWallet(mindId).data
   // The shell's list leaves out soul and model; this reads the whole Mind.
   const full = useQuery({
-    queryKey: [...mindKeys.all, mindId, "full"],
+    queryKey: mindKeys.full(mindId),
     queryFn: async () => (await mindsApi.list()).find((m) => m.id === mindId) ?? null,
   })
   const templates = useQuery({ queryKey: mindKeys.templates, queryFn: mindsApi.templates, staleTime: 5 * 60_000 })
@@ -68,13 +69,13 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
       return mindsApi.update(mindId, body)
     },
     onSuccess: (next) => {
-      queryClient.setQueryData([...mindKeys.all, mindId, "full"], next)
+      queryClient.setQueryData(mindKeys.full(mindId), next)
       setDraft(null)
       toast.success("Settings saved", { description: persona ? `New chats use ${next.name}'s new name and voice.` : undefined })
     },
     onError: (err) =>
       toast.error("Could not save the settings", {
-        description: err instanceof ApiError && err.code === "demo_not_allowed" ? "A try-out Mind can't be changed. Connect a wallet to make your own." : "Please try again later.",
+        description: isApiCode(err, "demo_not_allowed") ? "A try-out Mind can't be changed. Connect a wallet to make your own." : "Please try again later.",
       }),
     onSettled: () => queryClient.invalidateQueries({ queryKey: mindKeys.all }),
   })
@@ -90,15 +91,15 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
     },
     onError: (err) => {
       // Money left in its wallet: ask again, plainly, with the amount (Axel on #161).
-      if (err instanceof ApiError && err.code === "wallet_not_empty") {
+      if (isApiCode(err, "wallet_not_empty")) {
         setStuck(String(err.details.balanceNear ?? ""))
         return
       }
       toast.error(`Could not delete ${name}`, {
         description:
-          err instanceof ApiError && err.code === "demo_not_allowed"
+          isApiCode(err, "demo_not_allowed")
             ? "A try-out Mind can't be deleted."
-            : err instanceof ApiError && (err.code === "outlayer_unreachable" || err.code === "outlayer_error")
+            : isApiCode(err, "outlayer_unreachable", "outlayer_error")
               ? "Its wallet could not be checked. No changes were made. Please try again later."
               : "Please try again later.",
       })
@@ -188,7 +189,7 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
               Discard
             </Button>
             <Button onClick={() => save.mutate()} disabled={!nameOk || !form.identity.trim() || save.isPending}>
-              {save.isPending && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+              {save.isPending && <Spinner />}
               Save
             </Button>
           </div>
@@ -221,7 +222,7 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
                   Keep {name}
                 </Button>
                 <Button variant="destructive" onClick={() => remove.mutate(true)} disabled={remove.isPending}>
-                  {remove.isPending && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+                  {remove.isPending && <Spinner />}
                   Delete and lose it
                 </Button>
               </DialogFooter>
@@ -258,7 +259,7 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
               Keep {name}
             </Button>
             <Button variant="destructive" onClick={() => remove.mutate(false)} disabled={remove.isPending}>
-              {remove.isPending && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+              {remove.isPending && <Spinner />}
               Delete {name}
             </Button>
           </DialogFooter>

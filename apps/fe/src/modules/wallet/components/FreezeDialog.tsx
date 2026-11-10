@@ -1,10 +1,11 @@
 "use client"
 
-import { CheckIcon, Loader2Icon, SnowflakeIcon, SunIcon, XIcon } from "lucide-react"
+import { CheckIcon, SnowflakeIcon, SunIcon, XIcon } from "lucide-react"
 import { useState } from "react"
+import { Spinner } from "@/components/elements/Spinner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { ApiError } from "@/lib/api"
+import { isApiCode } from "@/lib/api"
 import { clockTime } from "@/lib/format"
 import { WrongAccountError } from "@/modules/wallet/hooks/useOwnerTransaction"
 import { FreezeError, useFreeze } from "@/modules/wallet/hooks/useFreeze"
@@ -111,7 +112,7 @@ export function FreezeDialog({
                 disabled={signing}
                 onClick={() => mutation.mutate(freeze, { onSuccess: ({ at }) => setDoneAt(at) })}
               >
-                {signing ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <SnowflakeIcon />}
+                {signing ? <Spinner /> : <SnowflakeIcon />}
                 {signing ? "Waiting for Meteor" : mutation.error ? "Try again" : freeze ? "Freeze with Meteor" : "Unfreeze with Meteor"}
               </Button>
             </DialogFooter>
@@ -130,7 +131,7 @@ export function freezeErrorText(err: unknown, freeze: boolean): string {
     }
     if (err.step === "sign") return `Meteor didn't sign, so the wallet wasn't ${what}.`
     if (err.step === "check") return `Meteor signed, but the wallet does not show the change yet. Please check again.`
-    if (err.cause instanceof ApiError && err.cause.code === "demo_not_allowed") return "Connect a wallet to do this."
+    if (isApiCode(err.cause, "demo_not_allowed")) return "Connect a wallet to do this."
   }
   return `Could not reach the wallet service, so nothing changed. Please try again later.`
 }

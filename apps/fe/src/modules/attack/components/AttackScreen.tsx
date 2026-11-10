@@ -6,7 +6,6 @@ import {
   CircleSlashIcon,
   FlagIcon,
   HourglassIcon,
-  Loader2Icon,
   MailIcon,
   MessageSquareWarningIcon,
   PuzzleIcon,
@@ -18,6 +17,9 @@ import {
 } from "lucide-react"
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { cn } from "cn"
+import { EmptyState } from "@/components/elements/EmptyState"
+import { attackKeys } from "@/lib/queryKeys"
+import { Spinner } from "@/components/elements/Spinner"
 import { PageTitle } from "@/components/elements/PageTitle"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -57,7 +59,7 @@ const ICON: Record<AttackCopy["icon"], typeof MailIcon> = {
  * and the wallet's limits in OutLayer's TEE are layer 2. The playground never approves for the owner.
  */
 export function AttackScreen() {
-  const list = useQuery({ queryKey: ["attacks"], queryFn: attackApi.list, staleTime: 5 * 60_000 })
+  const list = useQuery({ queryKey: attackKeys.list, queryFn: attackApi.list, staleTime: 5 * 60_000 })
   const ready = Array.isArray(list.data)
   const attacks = list.data ?? KNOWN_ATTACKS
   const [run, setRun] = useState<Run | null>(null)
@@ -162,7 +164,7 @@ export function AttackScreen() {
                       onClick={() => start(a)}
                       className="w-full"
                     >
-                      {mine?.streaming && !mine.answered ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : null}
+                      {mine?.streaming && !mine.answered ? <Spinner /> : null}
                       {mine?.streaming && !mine.answered ? "Running" : mine ? "Run again" : "Run attack"}
                     </Button>
                   </li>
@@ -176,15 +178,12 @@ export function AttackScreen() {
           {run ? (
             <RunPanel run={run} wallet={wallet.data ?? null} onAnswer={answer} />
           ) : (
-            <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-surface px-6 py-16 text-center">
-              <span className="flex size-12 items-center justify-center rounded-full bg-muted">
-                <SwordsIcon className="size-5 text-muted-foreground" />
-              </span>
-              <p className="text-[15px] font-semibold text-foreground">Pick an attack to start</p>
-              <p className="max-w-md text-sm text-muted-foreground">
-                Each one runs on testnet with a test Mind and a shared test wallet, never your own. Nothing you do here costs real money.
-              </p>
-            </div>
+            <EmptyState
+              className="py-16"
+              icon={<SwordsIcon />}
+              title="Pick an attack to start"
+              description="Each one runs on testnet with a test Mind and a shared test wallet, never your own. Nothing you do here costs real money."
+            />
           )}
         </div>
       </div>
@@ -235,7 +234,7 @@ function RunPanel({ run, wallet, onAnswer }: { run: Run; wallet: ApiWallet | nul
         </h2>
         {run.streaming && (
           <Badge variant="neutral">
-            <Loader2Icon className="animate-spin motion-reduce:animate-none" />
+            <Spinner />
             Live
           </Badge>
         )}
@@ -291,11 +290,11 @@ function Result({
   const foot = `Nothing was signed or sent.${balance ? ` The test wallet still has ${balance}.` : ""}`
   switch (outcome.kind) {
     case "running":
-      return <Head icon={<Loader2Icon className="animate-spin motion-reduce:animate-none" />} title={`Running: ${copy.title.toLowerCase()}`} />
+      return <Head icon={<Spinner />} title={`Running: ${copy.title.toLowerCase()}`} />
     case "answering":
       return (
         <Head
-          icon={<Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+          icon={<Spinner />}
           title={outcome.action === "approve" ? "Approving anyway..." : "Declining..."}
           line={outcome.action === "approve" ? "The wallet checks your limits before signing anything." : undefined}
         />

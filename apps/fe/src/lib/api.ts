@@ -30,6 +30,11 @@ export class ApiError extends Error {
   }
 }
 
+/** Whether `err` is the backend's answer with one of these error codes (`docs/api-contract.md`). */
+export function isApiCode(err: unknown, ...codes: string[]): err is ApiError {
+  return err instanceof ApiError && codes.includes(err.code)
+}
+
 export async function api<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
   const res = await fetch(apiUrl(path), {
     method: init.method ?? (init.body === undefined ? "GET" : "POST"),

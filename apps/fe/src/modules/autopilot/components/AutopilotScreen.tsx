@@ -9,7 +9,6 @@ import {
   OctagonXIcon,
   GlobeIcon,
   InfoIcon,
-  Loader2Icon,
   EllipsisIcon,
   PencilIcon,
   PlayIcon,
@@ -25,6 +24,8 @@ import { useRouter } from "next/navigation"
 import { useSearchParams } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { cn } from "cn"
+import { EmptyState } from "@/components/elements/EmptyState"
+import { Spinner } from "@/components/elements/Spinner"
 import { PageTitle } from "@/components/elements/PageTitle"
 import { mindHref } from "@/components/layout/nav"
 import { Badge } from "@/components/ui/badge"
@@ -33,8 +34,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
-import { ApiError } from "@/lib/api"
+import { isApiCode } from "@/lib/api"
 import { shortWhen, clockTime } from "@/lib/format"
+import { browserTimeZone } from "@/lib/stream"
 import { TryOutLockedDialog, useTryOutLock } from "@/modules/auth/components/TryOutLockedDialog"
 import { useSession } from "@/modules/auth/hooks/useSession"
 import { autopilotApi, type ApiWorkflow, type AutopilotIssue, type WorkflowRun } from "@/modules/autopilot/api"
@@ -165,7 +167,7 @@ function JobCard({
   const set = useSetAutopilot(mindId, job.workflowId)
   const autopilot = state.data ?? null
   const on = autopilot?.status === "active"
-  const refused = set.error instanceof ApiError && set.error.code === "cannot_autopilot" ? ((set.error.details.issues as AutopilotIssue[]) ?? []) : []
+  const refused = isApiCode(set.error, "cannot_autopilot") ? ((set.error.details.issues as AutopilotIssue[]) ?? []) : []
   const paused = autopilot?.status === "paused" && autopilot.pausedFor.length ? autopilot.pausedFor : []
   const problems = refused.length ? refused : paused
   const next = on ? whenNext(autopilot?.nextFireAt) : null
@@ -242,9 +244,9 @@ function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string;
     } catch (err) {
       if (!controller.signal.aborted) {
         setRunError(
-          err instanceof ApiError && err.code === "missing_tools"
+          isApiCode(err, "missing_tools")
             ? `${name} doesn't have a skill this job uses. Add it in Skills first.`
-            : err instanceof ApiError && err.code === "demo_run_limit"
+            : isApiCode(err, "demo_run_limit")
               ? "That's all the messages this try-out has."
               : "The job did not start. Please try again later."
         )
@@ -285,7 +287,7 @@ function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string;
             {/* One main action, the rest in a menu (Ancung, 10 Nov: three buttons were too many). */}
             <div className="flex shrink-0 items-center gap-2">
               <Button onClick={() => void runNow()} disabled={running}>
-                {running ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <PlayIcon />}
+                {running ? <Spinner /> : <PlayIcon />}
                 {running ? "Running" : "Run now"}
               </Button>
               <DropdownMenu>
@@ -355,7 +357,7 @@ function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string;
               disabled={remove.isPending}
               onClick={() => remove.mutate(workflowId, { onSuccess: () => setConfirmDelete(false) })}
             >
-              {remove.isPending && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+              {remove.isPending && <Spinner />}
               Delete job
             </Button>
           </DialogFooter>
@@ -449,7 +451,7 @@ function RunRow({
       </Badge>
     ) : status === "running" ? (
       <Badge variant="info">
-        <Loader2Icon className="animate-spin motion-reduce:animate-none" />
+        <Spinner />
         Running
       </Badge>
     ) : (
@@ -516,18 +518,15 @@ function RunRow({
 
 function NoJobs({ mindId, name, demo, onAdded }: { mindId: string; name: string; demo: boolean; onAdded: (id: string) => void }) {
   return (
-    <div className="flex flex-col items-center gap-4 rounded-lg border border-border bg-surface px-6 py-12 text-center">
-      <span className="flex size-12 items-center justify-center rounded-full bg-muted">
-        <RepeatIcon className="size-5 text-muted-foreground" />
-      </span>
-      <div className="flex flex-col gap-1">
-        <p className="text-[15px] font-semibold text-foreground">No jobs yet</p>
-        <p className="max-w-md text-sm text-muted-foreground">A job is a few steps {name} runs on a schedule. Start from one of these, or build your own with New job.</p>
-      </div>
-      <ul className="grid w-full max-w-2xl gap-3 text-left md:grid-cols-2">
+    <EmptyState
+      icon={<RepeatIcon />}
+      title="No jobs yet"
+      description={`A job is a few steps ${name} runs on a schedule. Start from one of these, or build your own with New job.`}
+    >
+      <ul className="mt-1 grid w-full max-w-2xl gap-3 text-left md:grid-cols-2">
         <Ideas mindId={mindId} name={name} demo={demo} taken={[]} onAdded={onAdded} />
       </ul>
-    </div>
+    </EmptyState>
   )
 }
 
@@ -570,7 +569,7 @@ function IdeaCard({ mindId, name, demo, idea, onAdded, compact }: { mindId: stri
 
   async function use() {
     if (missingSkill && mind) await setSkills.mutateAsync([...mind.skills, missingSkill])
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+    const timezone = browserTimeZone() ?? "UTC"
     const workflowId = await add.mutateAsync({ workflowId: idea.workflowId, canvas: idea.canvas({ timezone, address: wallet?.address ?? null }), turnOn: !demo })
     onAdded(workflowId)
   }
@@ -590,7 +589,7 @@ function IdeaCard({ mindId, name, demo, idea, onAdded, compact }: { mindId: stri
         <>
           {missingSkill && <span className="text-xs text-muted-foreground">Adds the {skillCopy(missingSkill).title} skill to {name}.</span>}
           <Button size="sm" variant="outline" className="w-fit" disabled={busy || wallet === undefined} onClick={() => void use()}>
-            {busy && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+            {busy && <Spinner />}
             Use this
           </Button>
           {demo && <span className="text-xs text-muted-foreground">In a try-out it stays off; you can run it with Run now.</span>}

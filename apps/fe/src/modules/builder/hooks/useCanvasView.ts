@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react"
+import { prefersReducedMotion } from "@/lib/media"
 
 // Pan and zoom for the Builder canvas, the way n8n does it (docs.n8n.io/build/keyboard-shortcuts,
 // read 9 Nov): scroll or two fingers move the view, Ctrl/Cmd + scroll (and a trackpad pinch) zooms
@@ -111,7 +112,7 @@ export function useCanvasView() {
   const go = useCallback(
     (to: View | ((v: View) => View), now = false) => {
       target.current = typeof to === "function" ? to(target.current) : to
-      const still = now || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+      const still = now || prefersReducedMotion()
       if (still) {
         if (raf.current !== null) cancelAnimationFrame(raf.current)
         raf.current = null

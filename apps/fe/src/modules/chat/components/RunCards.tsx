@@ -7,11 +7,11 @@ import {
   CheckIcon,
   CircleSlashIcon,
   HourglassIcon,
-  Loader2Icon,
   SnowflakeIcon,
   XIcon,
 } from "lucide-react"
 import { cn } from "cn"
+import { Spinner } from "@/components/elements/Spinner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { mindHref } from "@/components/layout/nav"
@@ -164,12 +164,12 @@ export function ApprovalCard({
       )}
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" size="sm" onClick={() => onAnswer("decline")} disabled={busy}>
-          {sending === "decline" && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+          {sending === "decline" && <Spinner />}
           {sending === "decline" ? "Declining" : "Decline"}
         </Button>
         {next === "approve" || sending === "approve" ? (
           <Button size="sm" onClick={() => onAnswer("approve")} disabled={busy} aria-live="polite">
-            {sending === "approve" ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <CheckIcon />}
+            {sending === "approve" ? <Spinner /> : <CheckIcon />}
             {sending === "approve" ? "Sending" : "Approve"}
           </Button>
         ) : next === "unfreeze" && !wallet?.shared ? (

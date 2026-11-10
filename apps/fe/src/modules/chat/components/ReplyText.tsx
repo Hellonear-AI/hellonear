@@ -4,6 +4,7 @@ import { Children, useEffect, useMemo, useRef, useState, type ReactNode } from "
 import ReactMarkdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { CopyButton } from "@/components/elements/CopyButton"
+import { prefersReducedMotion } from "@/lib/media"
 
 // Chat streaming (design/CLAUDE.md, Motion): chunks are buffered and revealed at a steady pace,
 // each new word fades in over about 150 ms, no fake cursor. A finished reply renders as Markdown.
@@ -19,7 +20,7 @@ function useRevealed(text: string, live: boolean): number {
   useEffect(() => {
     target.current = text.length
     if (shownRef.current >= target.current) return
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (prefersReducedMotion()) {
       shownRef.current = target.current
       setShown(target.current)
       return

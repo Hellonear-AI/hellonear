@@ -1,14 +1,15 @@
 "use client"
 
-import { CheckIcon, Loader2Icon, XIcon } from "lucide-react"
+import { CheckIcon, XIcon } from "lucide-react"
 import { useId, useState, type ReactNode } from "react"
 import { toast } from "sonner"
 import { cn } from "cn"
+import { Spinner } from "@/components/elements/Spinner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { ApiError } from "@/lib/api"
+import { isApiCode } from "@/lib/api"
 import type { ApiSecret } from "@/modules/connections/api"
 import { keyNameError, keyValueError, parseHosts } from "@/modules/connections/data/keys"
 import { useDeleteSecret, useDisconnect, useSaveSecret } from "@/modules/connections/hooks/useKeys"
@@ -139,7 +140,7 @@ export function KeyDialog({
             </Field>
             {save.error && (
               <p role="alert" className="text-[13px] text-danger">
-                {save.error instanceof ApiError && save.error.code === "demo_not_allowed"
+                {isApiCode(save.error, "demo_not_allowed")
                   ? "Connect a wallet to save keys. This try-out can't keep them."
                   : "Could not save the key. No changes were made. Please try again."}
               </p>
@@ -151,7 +152,7 @@ export function KeyDialog({
             Cancel
           </Button>
           <Button type="submit" form="key-form" disabled={!ready || busy}>
-            {busy && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+            {busy && <Spinner />}
             {existing ? "Save new key" : "Save key"}
           </Button>
         </DialogFooter>
@@ -216,7 +217,7 @@ export function DeleteKeyDialog({ mindName, secret, open, onOpenChange }: { mind
               })
             }
           >
-            {busy && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+            {busy && <Spinner />}
             Delete key
           </Button>
         </DialogFooter>
@@ -286,7 +287,7 @@ export function DisconnectDialog({
               })
             }
           >
-            {busy && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+            {busy && <Spinner />}
             Disconnect
           </Button>
         </DialogFooter>
