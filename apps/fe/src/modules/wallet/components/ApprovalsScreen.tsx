@@ -10,6 +10,7 @@ import {
   XIcon,
 } from "lucide-react"
 import { useState } from "react"
+import { chatKeys } from "@/lib/queryKeys"
 import { Spinner } from "@/components/elements/Spinner"
 import { CountBadge } from "@/components/elements/CountBadge"
 import { MindAvatar } from "@/components/elements/MindAvatar"
@@ -226,7 +227,7 @@ function ApprovalCard({
 /** The user's own message that led to this request, as the reason (the payment tool carries none). */
 function useAsked(mindId: string, approval: ApiApproval): string | null {
   const { data } = useQuery({
-    queryKey: ["runs", approval.runId, "asked"],
+    queryKey: chatKeys.asked(approval.runId),
     queryFn: async () => {
       const { messages } = await chatApi.messages(mindId, approval.threadId)
       return messages.find((m) => m.runId === approval.runId && m.role === "user")?.text ?? null

@@ -3,12 +3,13 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 import { useNearWallet } from "near-connect-hooks"
+import { mindKeys, sessionKey } from "@/lib/queryKeys"
 import { ApiError } from "@/lib/api"
 import { readPref, writePref } from "@/lib/storage"
 import { authApi, nonceBytes, type SessionUser } from "@/modules/auth/api"
 import { rememberLeftMinds } from "@/modules/auth/data/leftMinds"
 
-export const sessionKey = ["session"] as const
+export { sessionKey } from "@/lib/queryKeys"
 
 /** The backend session (`hn_session` cookie): the user, or `null` when signed out. */
 export function useSession() {
@@ -152,7 +153,7 @@ export function signInErrorMessage(err: unknown): string {
   return "The wallet did not sign the request."
 }
 
-/** The Mind ids the cache holds for the session that is ending (`["minds"]`, see `mindKeys.all`). */
+/** The Mind ids the cache holds for the session that is ending. */
 function cachedMindIds(queryClient: QueryClient): string[] {
-  return (queryClient.getQueryData<{ mindId: string }[]>(["minds"]) ?? []).map((m) => m.mindId)
+  return (queryClient.getQueryData<{ mindId: string }[]>(mindKeys.all) ?? []).map((m) => m.mindId)
 }

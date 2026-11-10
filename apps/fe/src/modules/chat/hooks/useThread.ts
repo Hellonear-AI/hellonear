@@ -2,14 +2,12 @@
 
 import { useInfiniteQuery, useQueries } from "@tanstack/react-query"
 import { useMemo } from "react"
+import { chatKeys } from "@/lib/queryKeys"
 import { chatApi, type ApiMessage } from "@/modules/chat/api"
 import { foldRun, type RunView } from "@/modules/chat/data/events"
 import { useSession } from "@/modules/auth/hooks/useSession"
 
-export const chatKeys = {
-  thread: (mindId: string, threadId: string) => ["minds", mindId, "threads", threadId] as const,
-  run: (runId: string) => ["runs", runId] as const,
-}
+export { chatKeys } from "@/lib/queryKeys"
 
 /** One exchange in a thread: what the user said and how the run answered. */
 export type Turn = {

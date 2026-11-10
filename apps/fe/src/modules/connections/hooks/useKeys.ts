@@ -1,13 +1,13 @@
 "use client"
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { secretKeys } from "@/lib/queryKeys"
 import { ApiError } from "@/lib/api"
 import { useSession } from "@/modules/auth/hooks/useSession"
 import { connectionsApi } from "@/modules/connections/api"
 import type { ApiConnection } from "@/modules/minds/api"
 import { skillKeys } from "@/modules/skills/hooks/useSkills"
 
-const secretKeys = { all: ["secrets"] as const }
 
 /** The account's saved keys (names, sites, dates; never values). */
 export function useSecrets() {

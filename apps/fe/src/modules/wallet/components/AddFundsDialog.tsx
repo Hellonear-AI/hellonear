@@ -5,6 +5,7 @@ import { ArrowUpRightIcon, CheckIcon, CopyIcon, SendIcon } from "lucide-react"
 import { useId, useState } from "react"
 import { toast } from "sonner"
 import { cn } from "cn"
+import { ownerKeys } from "@/lib/queryKeys"
 import { Spinner } from "@/components/elements/Spinner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -42,7 +43,7 @@ export function AddFundsDialog({
 }) {
   const owner = useSession().data?.nearAccountId ?? null
   const available = useQuery({
-    queryKey: ["owner-balance", owner],
+    queryKey: ownerKeys.balance(owner),
     enabled: open && Boolean(owner),
     queryFn: () => ownerAvailableNear(owner!),
     staleTime: 10_000,

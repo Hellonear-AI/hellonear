@@ -53,7 +53,7 @@ src/
   hooks/                 hooks shared across modules (`useMediaQuery`, `useCoarsePointer`)
   lib/                   config (network), utils (cn, kept for the shadcn CLI's `components.json`), api clients,
                          formatting, storage (`readPref` / `writePref`, safe when storage is blocked), stream (the SSE
-                         reader, `ownerTimeZone`), media (`MEDIA` breakpoints, `prefersReducedMotion`); `isApiCode` in api
+                         reader, `ownerTimeZone`), media (`MEDIA` breakpoints, `prefersReducedMotion`); `isApiCode` in api, queryKeys (every React Query key)
   providers/             AppProviders (NEAR Connect via near-connect-hooks, client only)
   styles/                globals.css (Tailwind + shadcn tokens)
   types/                 shared types

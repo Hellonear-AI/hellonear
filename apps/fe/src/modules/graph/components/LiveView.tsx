@@ -5,6 +5,7 @@ import { HourglassIcon } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { cn } from "cn"
+import { graphKeys } from "@/lib/queryKeys"
 import { mindHref } from "@/components/layout/nav"
 import { api } from "@/lib/api"
 import { shortWhen, clockTime } from "@/lib/format"
@@ -23,7 +24,7 @@ import { useSkillCatalog } from "@/modules/skills/hooks/useSkills"
 /** The Mind's events from the last 7 days (docs/api-contract.md §7), for the history graph. */
 function useMindEvents(mindId: string) {
   return useQuery({
-    queryKey: ["mind-events", mindId],
+    queryKey: graphKeys.events(mindId),
     queryFn: async () => (await api<{ events: RunEvent[] }>(`/minds/${encodeURIComponent(mindId)}/events?limit=2000`)).events,
     staleTime: 60_000,
   })
@@ -100,7 +101,7 @@ export function LiveView({ mindId, className }: { mindId: string; className?: st
   // When a run ends, read the history again so its calls stay on the graph.
   const wasStreaming = useRef(false)
   useEffect(() => {
-    if (wasStreaming.current && !active?.streaming) void queryClient.invalidateQueries({ queryKey: ["mind-events", mindId] })
+    if (wasStreaming.current && !active?.streaming) void queryClient.invalidateQueries({ queryKey: graphKeys.events(mindId) })
     wasStreaming.current = Boolean(active?.streaming)
   }, [active?.streaming, mindId, queryClient])
 

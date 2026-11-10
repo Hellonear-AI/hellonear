@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { cn } from "cn"
+import { attackKeys } from "@/lib/queryKeys"
 import { Spinner } from "@/components/elements/Spinner"
 import { PageTitle } from "@/components/elements/PageTitle"
 import { Badge } from "@/components/ui/badge"
@@ -57,7 +58,7 @@ const ICON: Record<AttackCopy["icon"], typeof MailIcon> = {
  * and the wallet's limits in OutLayer's TEE are layer 2. The playground never approves for the owner.
  */
 export function AttackScreen() {
-  const list = useQuery({ queryKey: ["attacks"], queryFn: attackApi.list, staleTime: 5 * 60_000 })
+  const list = useQuery({ queryKey: attackKeys.list, queryFn: attackApi.list, staleTime: 5 * 60_000 })
   const ready = Array.isArray(list.data)
   const attacks = list.data ?? KNOWN_ATTACKS
   const [run, setRun] = useState<Run | null>(null)

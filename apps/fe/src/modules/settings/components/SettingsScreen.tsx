@@ -40,7 +40,7 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
   const wallet = useMindWallet(mindId).data
   // The shell's list leaves out soul and model; this reads the whole Mind.
   const full = useQuery({
-    queryKey: [...mindKeys.all, mindId, "full"],
+    queryKey: mindKeys.full(mindId),
     queryFn: async () => (await mindsApi.list()).find((m) => m.id === mindId) ?? null,
   })
   const templates = useQuery({ queryKey: mindKeys.templates, queryFn: mindsApi.templates, staleTime: 5 * 60_000 })
@@ -69,7 +69,7 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
       return mindsApi.update(mindId, body)
     },
     onSuccess: (next) => {
-      queryClient.setQueryData([...mindKeys.all, mindId, "full"], next)
+      queryClient.setQueryData(mindKeys.full(mindId), next)
       setDraft(null)
       toast.success("Settings saved", { description: persona ? `New chats use ${next.name}'s new name and voice.` : undefined })
     },
