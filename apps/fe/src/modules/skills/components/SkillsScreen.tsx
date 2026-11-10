@@ -1,10 +1,9 @@
 "use client"
 
 import Link from "next/link"
-import { AtSignIcon, CalendarDaysIcon, ChartNoAxesColumnIcon, CheckIcon, ClipboardListIcon, PlugIcon, RepeatIcon, SearchIcon, SunriseIcon, WalletIcon, type LucideIcon } from "lucide-react"
-import { useState, type ComponentType } from "react"
+import { CheckIcon, PlugIcon, SearchIcon } from "lucide-react"
+import { useState } from "react"
 import { ErrorRetry } from "@/components/elements/ErrorRetry"
-import { GmailLogo } from "@/components/elements/AppLogos"
 import { cn } from "cn"
 import { PageTitle } from "@/components/elements/PageTitle"
 import { Badge } from "@/components/ui/badge"
@@ -16,25 +15,12 @@ import { useIsTryOut } from "@/modules/auth/hooks/useSession"
 import type { ApiSkill } from "@/modules/skills/api"
 import type { ApiConnection } from "@/modules/connections/api"
 import { useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
+import { SKILL_ICON } from "@/modules/skills/data/icons"
 import { matchesSearch, skillCopy, skillLines, TOOLKIT_NAME } from "@/modules/skills/data/skills"
 import { SkillLines } from "@/modules/skills/components/SkillLines"
 import { useSkillCatalog } from "@/modules/skills/hooks/useSkills"
 import { connectionStatus, useConnections } from "@/modules/connections/hooks/useConnections"
 import { AddSkillDialog } from "@/modules/skills/components/SkillDialogs"
-
-export const SKILL_ICON: Record<string, LucideIcon | ComponentType<{ className?: string }>> = {
-  payments: WalletIcon,
-  // The Gmail logo from the design, not a generic envelope (Ancung, 9 Nov).
-  "email-triage": GmailLogo,
-  "daily-planner": CalendarDaysIcon,
-  "near-account": SearchIcon,
-  "http-request": PlugIcon,
-  "email-address": AtSignIcon,
-  "morning-briefing": SunriseIcon,
-  subscriptions: RepeatIcon,
-  "meeting-prep": ClipboardListIcon,
-  "paid-data": ChartNoAxesColumnIcon,
-}
 
 type Filter = "all" | "added" | "not_added"
 

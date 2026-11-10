@@ -13,7 +13,7 @@ import { SkillLines } from "@/modules/skills/components/SkillLines"
 import { useConnections } from "@/modules/connections/hooks/useConnections"
 import { useSession } from "@/modules/auth/hooks/useSession"
 import { RemoveSkillDialog } from "@/modules/skills/components/SkillDialogs"
-import { SKILL_ICON } from "@/modules/skills/components/SkillsScreen"
+import { SKILL_ICON } from "@/modules/skills/data/icons"
 
 /**
  * One skill's settings (S3.1): what it does and the rules it follows, then Remove at the bottom.
