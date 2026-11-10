@@ -282,17 +282,19 @@ export function Safety() {
   );
 }
 
+export const GRAPH_SUB =
+  "Every skill, tool and app your Mind can use, in one map. What it touches lights up as it works, so if something looks off, you see it right away.";
+
 export function SeeInside() {
-  // Dark, like the night sky the approvals scroll ends in, so the page continues into it.
+  // Dark, like the night the approvals scroll ends in. On desktop the title is shown at the end of that
+  // scroll (ApprovalsScroll), so this section starts with the graph and the page reads as one night.
   return (
     <section id="skills" className="relative overflow-hidden text-[#F2F1EC]" style={{ background: NIGHT_BG }}>
       <Starfield count={180} seed={23} />
-      <div className="relative mx-auto flex max-w-[1200px] flex-col gap-12 px-5 pb-28 pt-24">
-        <div className="flex flex-col items-start gap-3">
-          <h2 className="max-w-[760px] text-[36px] font-medium leading-[1.08] tracking-[-1.2px] md:text-[48px]">Watch your Mind think</h2>
-          <p className="max-w-[600px] text-[17px] leading-[1.5] text-[#F2F1EC]/70">
-            Every skill, tool and app your Mind can use, in one map. What it touches lights up as it works, so if something looks off, you see it right away.
-          </p>
+      <div className="relative mx-auto flex max-w-[1200px] flex-col gap-12 px-5 pb-28 pt-24 md:pt-6">
+        <div className="flex flex-col items-start gap-3 md:hidden">
+          <h2 className="max-w-[760px] text-[36px] font-medium leading-[1.08] tracking-[-1.2px]">Watch your Mind think</h2>
+          <p className="max-w-[600px] text-[17px] leading-[1.5] text-[#F2F1EC]/70">{GRAPH_SUB}</p>
         </div>
         <MindGraph />
       </div>

@@ -4,7 +4,8 @@ import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ApprovalScene, Icon, Point } from "./Sections";
-import { Starfield } from "./Starfield";
+import { GRAPH_SUB } from "./Sections";
+import { NIGHT_BG, Starfield } from "./Starfield";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -53,8 +54,9 @@ export function ApprovalsScroll() {
     //   track 0..1  pinned: the window grows to the whole screen and the stage scales up and moves left,
     //               so the camera passes the Mind and lands on "Tricked?" (desktop only)
     //   up    0..1  still pinned: soft blurred clouds and fog rise from the bottom and slowly cover the
-    //               lawn; behind them it turns to night; then the fog clears upward onto a starry sky,
-    //               so the dark Mind Graph section below continues the same night.
+    //               lawn; behind them it turns to night with the Mind Graph's title already in place;
+    //               then the white clouds fade and the title is there on the stars, with the graph
+    //               (the next section, same night) right below it.
     const STAGE_W = 1680;
     const STAGE_H = 722;
     const visual = q(".ap-visual")[0] as HTMLElement;
@@ -64,7 +66,7 @@ export function ApprovalsScroll() {
     const sky = q(".ap-sky")[0] as HTMLElement;
     const stars = q(".ap-stars")[0] as HTMLElement;
     const fogLight = q(".ap-fog-light")[0] as HTMLElement;
-    const fogDark = q(".ap-fog-dark")[0] as HTMLElement;
+    const graphTitle = q(".ap-graph-title")[0] as HTMLElement;
     const clouds = q(".ap-cloud") as HTMLElement[];
     const st = { open: 0, track: 0, up: 0 };
     const clamp = (v: number) => Math.min(1, Math.max(0, v));
@@ -110,24 +112,18 @@ export function ApprovalsScroll() {
       // nothing pops in.
       const u = st.up;
       sky.style.visibility = u > 0 ? "visible" : "hidden";
-      sky.style.opacity = String(smooth(0.4, 0.56, u));
-      stars.style.opacity = String(smooth(0.62, 1, u));
-      fogLight.style.opacity = String(smooth(0.22, 0.47, u) * (1 - smooth(0.5, 0.64, u)));
-      fogDark.style.opacity = String(0.75 * smooth(0.48, 0.58, u) * (1 - smooth(0.68, 0.95, u)));
-      fogLight.style.transform = fogDark.style.transform = `translate3d(0, ${H * (0.55 - 1.1 * u)}px, 0)`;
-      // day clouds rise from below and fill the screen; night clouds (the same, darkened) carry on
-      // rising out of the top while the stars come through
+      sky.style.opacity = String(smooth(0.4, 0.5, u));
+      stars.style.opacity = String(smooth(0.45, 0.55, u));
+      fogLight.style.opacity = String(smooth(0.18, 0.45, u) * (1 - smooth(0.58, 0.9, u)));
+      fogLight.style.transform = `translate3d(0, ${H * (0.55 - 0.9 * u)}px, 0)`;
       clouds.forEach((c, i) => {
-        const night = i >= 4;
-        const j = i % 4;
-        const k = [1, 1.2, 0.9, 1.35][j];
-        const v = night ? u - 0.42 : u;
-        const y = H * (night ? 0.55 + j * 0.1 - 2.1 * v * k : 1.0 + j * 0.12 - 1.7 * v * k);
+        const k = [1, 1.2, 0.9, 1.35][i];
+        const y = H * (1.0 + i * 0.12 - 1.5 * u * k);
         c.style.transform = `translate3d(0, ${y}px, 0) scale(${1.1 + 0.3 * u})`;
-        c.style.opacity = String(
-          night ? smooth(0.44, 0.56, u) * (1 - smooth(0.78, 0.98, u)) : smooth(0.0, 0.3, u) * (1 - smooth(0.5, 0.6, u)),
-        );
+        c.style.opacity = String(smooth(0.0, 0.3, u) * (1 - smooth(0.58, 0.85, u)));
       });
+      // the Mind Graph's title waits behind the clouds and settles as they clear
+      graphTitle.style.transform = `translate3d(0, ${24 * (1 - smooth(0.55, 0.9, u))}px, 0)`;
       // the copy slides left with the photo, by the same distance (no fade)
       copy.style.transform = `translate3d(${sx - x0}px,0,0)`;
       // "Tricked?" sits at the photo's edge at rest; it comes in as the camera starts to move
@@ -149,7 +145,7 @@ export function ApprovalsScroll() {
           scrollTrigger: {
             trigger: el,
             start: "top top",
-            end: "+=3300",
+            end: "+=3150",
             pin: q(".ap-pin")[0],
             scrub: 0.8,
             onRefresh: render,
@@ -157,7 +153,7 @@ export function ApprovalsScroll() {
         })
         .to(st, { track: 1, duration: 1600 })
         .to({}, { duration: 250 }) // a short hold on "Tricked?"
-        .to(st, { up: 1, duration: 1450 });
+        .to(st, { up: 1, duration: 1300 });
       render();
       return () => {
         copy.style.transform = "";
@@ -206,9 +202,17 @@ export function ApprovalsScroll() {
         <div className="ap-visual relative mt-8 h-[520px] w-full overflow-hidden bg-[#4f7a2a] md:absolute md:inset-0 md:mt-0 md:h-auto md:[clip-path:inset(0_0_0_100%)]">
           <ApprovalScene />
           {/* Into the clouds (desktop only): the night behind, then the fog and blurred clouds in front. */}
-          <div className="ap-sky invisible absolute inset-0 hidden opacity-0 md:block" style={{ background: "linear-gradient(#04050b, #0a0d1c)" }} aria-hidden="true">
+          <div className="ap-sky invisible absolute inset-0 hidden opacity-0 md:block" style={{ background: NIGHT_BG }} aria-hidden="true">
             <div className="ap-stars absolute inset-0 opacity-0">
               <Starfield count={160} seed={11} />
+            </div>
+            {/* The Mind Graph's title, on the same night as the section below, so it is already there
+                when the clouds clear and the graph follows right under it. */}
+            <div className="absolute inset-x-0 bottom-[8vh]">
+              <div className="ap-graph-title mx-auto flex max-w-[1200px] flex-col items-start gap-3 px-5 text-[#F2F1EC]">
+                <h2 className="max-w-[760px] text-[48px] font-medium leading-[1.08] tracking-[-1.2px]">Watch your Mind think</h2>
+                <p className="max-w-[600px] text-[17px] leading-[1.5] text-[#F2F1EC]/70">{GRAPH_SUB}</p>
+              </div>
             </div>
           </div>
           {[
@@ -216,15 +220,7 @@ export function ApprovalsScroll() {
             ["cumulus-right", "-right-[15%] w-[90%]"],
             ["cumulus-right", "left-[10%] w-[80%]"],
             ["cumulus-left", "-right-[5%] w-[95%]"],
-          ]
-            .flatMap((c) => [c])
-            .concat([
-              ["cumulus-left", "-left-[15%] w-[85%]"],
-              ["cumulus-right", "-right-[15%] w-[90%]"],
-              ["cumulus-right", "left-[10%] w-[80%]"],
-              ["cumulus-left", "-right-[5%] w-[95%]"],
-            ])
-            .map(([img, pos], i) => (
+          ].map(([img, pos], i) => (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               key={i}
@@ -232,13 +228,10 @@ export function ApprovalsScroll() {
               alt=""
               aria-hidden="true"
               className={`ap-cloud pointer-events-none absolute top-0 hidden opacity-0 will-change-transform md:block ${pos}`}
-              style={{
-                filter: `blur(${[10, 16, 22, 28][i % 4]}px)${i >= 4 ? " brightness(0.32) saturate(0.7) hue-rotate(200deg)" : ""}`,
-              }}
+              style={{ filter: `blur(${[10, 16, 22, 28][i]}px)` }}
             />
           ))}
           <div className="ap-fog-light pointer-events-none absolute inset-x-0 -top-[60%] hidden h-[220%] opacity-0 will-change-transform md:block" style={{ background: "linear-gradient(transparent, #EEF0EC 30%, #EEF0EC 70%, transparent)" }} aria-hidden="true" />
-          <div className="ap-fog-dark pointer-events-none absolute inset-x-0 -top-[60%] hidden h-[220%] opacity-0 will-change-transform md:block" style={{ background: "linear-gradient(transparent, #1b2240 30%, #141a33 70%, transparent)" }} aria-hidden="true" />
           <div className="grain pointer-events-none absolute inset-0" aria-hidden="true" />
         </div>
       </div>
