@@ -217,16 +217,6 @@ export function fromCanvas(c: Canvas, fallbackZone: string): Draft | null {
   return { name: c.name, ...rep, timezone: trigger.data.schedule?.timezone ?? fallbackZone, line }
 }
 
-/** Moves a step so it lands at place `to` in the line as it was before the move (a drop spot's index). */
-export function moveStepIn<T extends { id: string }>(steps: T[], id: string, to: number): T[] {
-  const from = steps.findIndex((s) => s.id === id)
-  if (from < 0) return steps
-  const out = [...steps]
-  const [moved] = out.splice(from, 1)
-  out.splice(to > from ? to - 1 : to, 0, moved)
-  return out
-}
-
 /** "Morning inbox!" -> "morning-inbox", unique among `taken` (engine rule: lowercase words and dashes, max 48). */
 export function workflowIdFor(name: string, taken: string[]): string {
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40).replace(/-+$/, "")
@@ -487,26 +477,6 @@ export function tokenLabels(results: Token[]): Map<string, string> {
     out.set(`${r.stepId}.${r.name}`, n === 1 ? base : `${base} ${n}`)
   }
   return out
-}
-
-/** A prompt as people read and type it: each earlier result is a {Label} (Ancung, 10 Nov). */
-export function promptToDisplay(prompt: string, results: Token[]): string {
-  const labels = tokenLabels(results)
-  return prompt.replace(REF, (whole, id: string, field: string) => {
-    const l = labels.get(`${id}.${field}`)
-    return l ? `{${l}}` : whole
-  })
-}
-
-/** Back to what the engine reads: {Label} becomes {{steps.id.field}}; other braces stay as typed. */
-export function promptFromDisplay(text: string, results: Token[]): string {
-  const byLabel = new Map([...tokenLabels(results)].map(([key, l]) => [l, key]))
-  return text.replace(/\{([^{}]+)\}/g, (whole, l: string) => {
-    const key = byLabel.get(l.trim())
-    if (!key) return whole
-    const [id, field] = key.split(".")
-    return ref(id, field)
-  })
 }
 
 /** A prompt split into text and result chips (Ancung, 10 Nov: chips in the field, not {Label}). */

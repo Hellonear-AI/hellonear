@@ -84,7 +84,6 @@ export const HTTP_FIELDS: BuilderTool["fields"] = [
 ]
 
 export const toolInfo = (tool: string) => TOOLS.find((t) => t.tool === tool) ?? null
-export const fieldInfo = (tool: string, field: string) => toolInfo(tool)?.fields.find((f) => f.name === field) ?? null
 
 /** NEAR testnet account ids: named (`shop.testnet`) or implicit (64 hex). */
 export const NEAR_ACCOUNT = /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/

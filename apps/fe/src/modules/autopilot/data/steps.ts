@@ -120,36 +120,3 @@ export function flatSteps(tree: JobStep[]): JobStep[] {
   return tree.flatMap((s) => [s, ...flatSteps(s.then ?? []), ...flatSteps(s.else ?? [])])
 }
 
-/** Steps in run order: the chain from the trigger, then the condition's yes and no endings. */
-/** `address` is the Mind's own wallet, so a step on it reads "Check Omaga's wallet". */
-export function jobSteps(canvas: Canvas, mind: string, address?: string): JobStep[] {
-  const self = address ? { name: mind, address } : undefined
-  const byId = new Map(canvas.nodes.map((n) => [n.id, n]))
-  const results = resultsOf(canvas, self)
-  const out: JobStep[] = []
-  let at: CanvasNode | undefined = canvas.nodes.find((n) => n.type === "trigger")
-  const seen = new Set<string>()
-  while (at && !seen.has(at.id)) {
-    const here: CanvasNode = at
-    seen.add(here.id)
-    out.push(stepOf(here, mind, results, self))
-    if (here.type === "condition") {
-      // Each way to its end: a way can be a chain of steps (#153, engine #160).
-      for (const handle of ["then", "else"] as const) {
-        const e = canvas.edges.find((x) => x.source === here.id && x.sourceHandle === handle)
-        let t = e && byId.get(e.target)
-        while (t && !seen.has(t.id)) {
-          seen.add(t.id)
-          out.push({ ...stepOf(t, mind, results, self), branch: handle })
-          const id: string = t.id
-          const next = canvas.edges.find((x) => x.source === id)
-          t = next ? byId.get(next.target) : undefined
-        }
-      }
-      break
-    }
-    const next: Canvas["edges"][number] | undefined = canvas.edges.find((x) => x.source === here.id)
-    at = next ? byId.get(next.target) : undefined
-  }
-  return out
-}
