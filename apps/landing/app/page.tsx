@@ -17,7 +17,7 @@ export default function Home() {
         <PoweredBy />
         <MeetMinds />
         <ApprovalsScroll />
-        <div className="md:hidden">
+        <div className="lg:hidden">
           <Safety />
         </div>
         <SeeInside />

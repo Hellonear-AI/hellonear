@@ -54,7 +54,7 @@ function Card({ m, k, dealt }: { m: (typeof MINDS)[number]; k: number; dealt: bo
   const href = `${APP_URL}/minds/new?template=${m.id}`;
   return (
     <div
-      className="mind-card-hover group block [perspective:1400px]"
+      className="mind-card-hover group block min-w-0 [perspective:1400px]"
       style={{ "--tilt": `${tilt}deg` } as React.CSSProperties}
       onMouseEnter={() => {
         setTilt((Math.random() < 0.5 ? -1 : 1) * (1.5 + Math.random() * 2));
@@ -93,17 +93,17 @@ function Card({ m, k, dealt }: { m: (typeof MINDS)[number]; k: number; dealt: bo
             </div>
           </div>
           <div className="flex items-center justify-between gap-3 px-1.5 pb-1">
-            <div className="flex items-center gap-3">
-              <span className="relative size-10 overflow-hidden rounded-full" style={{ backgroundColor: m.tint }}>
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="relative size-10 shrink-0 overflow-hidden rounded-full" style={{ backgroundColor: m.tint }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={`/minds/${m.id}.webp`} alt="" aria-hidden="true" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-contain p-0.5" />
               </span>
-              <span className="flex flex-col">
-                <span className="text-[15px] font-medium">@{m.id.replace("-", "")}</span>
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate text-[15px] font-medium">@{m.id.replace("-", "")}</span>
                 <span className="text-[13px] text-[var(--color-text-3)]">{m.meta}</span>
               </span>
             </div>
-            <a href={href} className="mind-card-cta" aria-label={`Choose ${m.name}`}>
+            <a href={href} className="mind-card-cta shrink-0" aria-label={`Choose ${m.name}`}>
               Choose
               <Arrow />
             </a>
@@ -144,7 +144,7 @@ export function MeetMinds() {
           Each one comes with a personality, a few starter skills and its own wallet. Change any of it later.
         </p>
       </div>
-      <div ref={cardsRef} className="grid gap-6 md:grid-cols-3">
+      <div ref={cardsRef} className="mx-auto grid w-full max-w-[420px] gap-6 lg:max-w-none lg:grid-cols-3">
         {MINDS.map((m, k) => (
           <Card key={m.id} m={m} k={k} dealt={dealt} />
         ))}

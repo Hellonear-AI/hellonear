@@ -17,7 +17,7 @@ export function Footer() {
   return (
     <footer className="relative">
       {/* Phones: the text on the page, above the meadow */}
-      <div className="mx-auto flex max-w-[1200px] flex-col gap-8 px-5 pb-6 pt-10 md:hidden">
+      <div className="mx-auto flex max-w-[1200px] flex-col gap-8 px-5 pb-6 pt-10 lg:hidden">
         <Brand />
         <Links className="text-[var(--color-text-2)]" head="text-[var(--color-text)]" />
       </div>
@@ -32,12 +32,12 @@ export function Footer() {
           width={3200}
           height={1074}
           loading="lazy"
-          className="block h-auto min-h-[380px] w-full object-cover object-bottom md:min-h-[560px]"
+          className="block h-auto min-h-[380px] w-full object-cover object-bottom lg:min-h-[560px]"
         />
         {/* Shade on the grass behind the text (darker low and at the sides, clear around the Mind and
             the hills), so the white text reads on the bright grass. */}
         <div
-          className="pointer-events-none absolute inset-0 hidden md:block"
+          className="pointer-events-none absolute inset-0 hidden lg:block"
           aria-hidden="true"
           style={{
             background: [
@@ -54,7 +54,7 @@ export function Footer() {
           style={{ background: "linear-gradient(to bottom, transparent, rgb(15 30 8 / 0.45))" }}
         />
         {/* Desktop: the text on the grass */}
-        <div className="absolute inset-x-0 bottom-0 top-[42%] hidden md:block">
+        <div className="absolute inset-x-0 bottom-0 top-[42%] hidden lg:block">
           <div className="footer-on-grass flex h-full items-start justify-between gap-10 px-[4vw] pt-6 text-white">
             <Brand light />
             <Links className="text-white/85" head="text-white" />
@@ -84,7 +84,7 @@ function Brand({ light = false }: { light?: boolean }) {
 
 function Links({ className, head }: { className: string; head: string }) {
   return (
-    <nav aria-label="Footer" className="grid grid-cols-3 gap-10 text-[14px] md:gap-14">
+    <nav aria-label="Footer" className="grid grid-cols-3 gap-10 text-[14px] sm:gap-14">
       {COLUMNS.map(([title, links]) => (
         <div key={title} className="flex flex-col gap-2.5">
           <span className={`font-medium ${head}`}>{title}</span>

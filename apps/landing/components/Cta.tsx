@@ -31,10 +31,10 @@ export function Cta() {
   const words = TITLE.split(" ");
 
   return (
-    <section ref={ref} className="relative overflow-hidden py-24 md:flex md:min-h-[86vh] md:items-center md:py-0">
+    <section ref={ref} className="relative overflow-hidden py-24 lg:flex lg:min-h-[86vh] lg:items-center lg:py-0">
       <div className="relative z-10 mx-auto w-full max-w-[1200px] px-5">
         <div className="flex max-w-[480px] flex-col gap-4">
-          <h2 className="text-[40px] font-medium leading-[1.04] tracking-[-1.6px] md:text-[60px]" aria-label={TITLE}>
+          <h2 className="text-[40px] font-medium leading-[1.04] tracking-[-1.6px] sm:text-[52px] lg:text-[60px]" aria-label={TITLE}>
             {words.map((w, i) => (
               <span key={i} className="inline-block overflow-hidden pb-[0.08em] align-bottom" aria-hidden="true">
                 <span className={`inline-block ${seen ? "word-up" : "translate-y-full"}`} style={{ animationDelay: `${i * 70}ms` }}>
@@ -60,7 +60,7 @@ export function Cta() {
 
       {/* The flying Mind: its flames run off the screen's right edge. */}
       <div
-        className={`pointer-events-none relative mt-10 w-[135%] md:absolute md:right-[-4vw] md:top-1/2 md:mt-0 md:w-[min(64vw,1080px)] md:-translate-y-1/2 ${seen ? "cta-fly-in" : "opacity-0"}`}
+        className={`pointer-events-none relative ml-[8%] mt-10 w-[120%] sm:w-[95%] lg:absolute lg:right-[-4vw] lg:top-1/2 lg:ml-0 lg:mt-0 lg:w-[min(60vw,1080px)] lg:-translate-y-1/2 ${seen ? "cta-fly-in" : "opacity-0"}`}
         aria-hidden="true"
       >
         <div className="float-idle">

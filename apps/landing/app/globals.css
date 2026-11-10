@@ -226,7 +226,9 @@ body {
 }
 
 @media (max-width: 900px) {
+  /* no middle links: the logo on the left, Open app on the right */
   .nav-shell {
+    grid-template-columns: 1fr auto;
     padding: 0 20px;
   }
   .nav-links {
@@ -722,7 +724,7 @@ body {
 /* The Mind Graph section: night everywhere; on desktop its top part (which overlaps the end of the
    approvals scroll) is see-through, so the same night behind it shows. */
 .graph-section { background: var(--night); }
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .graph-section { background: linear-gradient(transparent calc(50vh - 130px), var(--night) calc(50vh - 130px)); }
 }
 
@@ -731,3 +733,10 @@ body {
 .footer-logo .logo-head { fill: #fff; }
 .footer-logo .logo-eye { fill: #161614; }
 .footer-logo svg { filter: drop-shadow(0 1px 6px rgb(20 40 10 / 0.45)); }
+
+/* Very narrow phones: a smaller logo and button so the nav pill never crowds. */
+@media (max-width: 420px) {
+  .nav-logo svg { height: 24px; }
+  .nav[data-scrolled="true"] .nav-shell { padding: 0 8px 0 16px; }
+  .nav-cta { height: 38px; padding: 0 14px; font-size: 14px; }
+}

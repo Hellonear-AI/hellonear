@@ -254,7 +254,7 @@ export function MindGraph() {
     const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const font = getComputedStyle(document.body).fontFamily;
     // Fewer Minds on phones and slower machines, so it stays smooth there.
-    const small = window.innerWidth < 768 || (navigator.hardwareConcurrency || 8) <= 4;
+    const small = window.innerWidth < 1024 || (navigator.hardwareConcurrency || 8) <= 4;
     const { nodes, links, penny } = buildWorld(small ? 30 : 64);
     let alpha = 0;
     // The layout settles before it is seen, a few ticks per frame (never one long freeze): it starts

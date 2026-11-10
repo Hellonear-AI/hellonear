@@ -42,7 +42,7 @@ const DEPTH = { sky: [4, 24], clouds: [10, 18], mid: [24, 8], fg: [34, 0], copy:
 function useParallax(ref: React.RefObject<HTMLElement | null>) {
   useEffect(() => {
     const el = ref.current;
-    if (!el || window.matchMedia("(prefers-reduced-motion: reduce), (max-width: 767px)").matches) return;
+    if (!el || window.matchMedia("(prefers-reduced-motion: reduce), (max-width: 1023px)").matches) return;
     const target = { x: 0, y: 0 };
     const cur = { x: 0, y: 0 };
     const onMove = (e: PointerEvent) => {
@@ -175,8 +175,9 @@ function HeroCopy() {
               An AI helper with its own wallet. You set the limits, it can&apos;t change them.
             </p>
             {/* Buttons and the app row share one width, so both edges line up. */}
-          <div className="mt-1 flex w-fit flex-col gap-4">
-            <div className="grid grid-cols-2 gap-2.5">
+          <div className="mt-1 flex w-full flex-col gap-4 min-[400px]:w-fit">
+            {/* side by side, the same width; stacked on very narrow phones */}
+            <div className="grid grid-cols-1 gap-2.5 min-[400px]:grid-cols-2">
               <a href="#minds" className="hero-btn hero-btn-primary hero-btn-lg justify-between">
                 Meet your Mind
                 <span className="hero-btn-dot" aria-hidden="true">
@@ -221,8 +222,10 @@ function HeroMobile() {
   // (65% to 99% of its width) is about 500 px wide and 16 px down, wide enough for the Mind.
   const mind: React.CSSProperties = { width: "min(94vw, 460px)", left: "50%", transform: "translateX(-50%)", top: `calc(${M_CREST}px - min(94vw, 460px) * ${(610 / 720) * 0.8711})` };
   return (
-    <section className="hero relative overflow-hidden bg-[#7DA5D2] md:hidden">
-      <div className="absolute left-1/2 top-0 h-full w-[1440px] -translate-x-1/2">
+    <section className="hero relative overflow-hidden bg-[#7DA5D2] lg:hidden">
+      {/* Centred on wide screens; on narrower ones (down to 1024) it slides left only as far as keeps the
+          copy on screen (40 px in), and the Mind is cut by the right edge instead. */}
+      <div className="absolute top-0 h-full w-[1440px]" style={{ left: "max(-80px, calc(50% - 720px))" }}>
         <Sky />
       </div>
       <div className="relative z-10 flex flex-col items-start gap-4 px-5 pt-[104px] [&_.hero-btn]:h-11 [&_.hero-btn]:px-4 [&_.hero-btn]:text-[14px] [&_.hero-btn]:whitespace-nowrap [&_h1]:text-[34px] [&_ul]:flex-wrap [&_ul]:gap-x-2 [&_ul]:gap-y-1">
@@ -272,7 +275,7 @@ export function Hero() {
   // The 3D Mind loads only on screens wide enough for the desktop hero.
   const [wide, setWide] = useState(false);
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 768px)");
+    const mq = window.matchMedia("(min-width: 1024px)");
     const set = () => setWide(mq.matches);
     set();
     mq.addEventListener("change", set);
@@ -284,14 +287,16 @@ export function Hero() {
     <HeroMobile />
     <section
       ref={ref}
-      className="hero relative hidden overflow-hidden bg-[#7DA5D2] md:block"
+      className="hero relative hidden overflow-hidden bg-[#7DA5D2] lg:block"
       style={{ height: SECTION_H }}
     >
       {/* Ground below the front hill art (its bottom colour), for tall or wide screens. */}
       <div className="absolute inset-x-0 bottom-0 bg-[#406708]" style={{ top: CREST_Y + 220 }} />
 
 
-      <div className="absolute left-1/2 top-0 h-full w-[1440px] -translate-x-1/2">
+      {/* Centred on wide screens; on narrower ones (down to 1024) it slides left only as far as keeps the
+          copy on screen (40 px in), and the Mind is cut by the right edge instead. */}
+      <div className="absolute top-0 h-full w-[1440px]" style={{ left: "max(-80px, calc(50% - 720px))" }}>
         {/* Our own sky (colours sampled from the reference sky art): deep blue at the top, light near
             the horizon, a warm sun glow in the top-left corner and a few thin cirrus streaks. */}
         <div className="absolute inset-0" style={layer("sky")}>

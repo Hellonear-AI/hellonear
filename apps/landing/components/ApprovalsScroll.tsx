@@ -78,7 +78,7 @@ export function ApprovalsScroll() {
     const render = () => {
       const W = visual.clientWidth;
       const H = visual.clientHeight;
-      const desktop = window.innerWidth >= 768;
+      const desktop = window.innerWidth >= 1024;
       if (!desktop) {
         // phones: the frame is a plain block; the stage fills its height from the left
         const s0 = H / STAGE_H;
@@ -128,7 +128,7 @@ export function ApprovalsScroll() {
       tricked.style.opacity = String(Math.min(1, Math.max(0, (st.track - 0.12) / 0.25)));
     };
 
-    mm.add("(min-width: 768px) and (prefers-reduced-motion: no-preference)", () => {
+    mm.add("(min-width: 1024px) and (prefers-reduced-motion: no-preference)", () => {
       st.open = 0;
       st.track = 0;
       gsap.to(st, {
@@ -159,7 +159,7 @@ export function ApprovalsScroll() {
       };
     });
     // Phones and reduced motion: the opened state, no pin.
-    mm.add("(max-width: 767px), (prefers-reduced-motion: reduce)", () => {
+    mm.add("(max-width: 1023px), (prefers-reduced-motion: reduce)", () => {
       st.open = 1;
       st.track = 0;
       render();
@@ -175,10 +175,10 @@ export function ApprovalsScroll() {
 
   return (
     <section ref={root} id="how-it-works" className="relative">
-      <div className="ap-pin relative flex min-h-[100svh] items-center overflow-hidden">
+      <div className="ap-pin relative flex flex-col overflow-hidden lg:min-h-[100svh] lg:flex-row lg:items-center">
         {/* Copy: left column of the 1200 px container. */}
         <div className="relative z-10 mx-auto w-full max-w-[1200px] px-5 py-24">
-          <div className="ap-copy flex w-full flex-col gap-5 md:w-[440px]">
+          <div className="ap-copy flex w-full flex-col gap-5 lg:w-[440px]">
             <h2 className="text-[40px] font-medium leading-[1.04] tracking-[-1.6px] md:text-[60px]" aria-label={LINES.join(" ")}>
               {LINES.map((line) => (
                 <span key={line} className="block" aria-hidden="true">
@@ -197,10 +197,10 @@ export function ApprovalsScroll() {
           </div>
         </div>
         {/* The scene window: covers the whole pinned screen on desktop, shown through a clip-path. */}
-        <div className="ap-visual relative mt-8 h-[520px] w-full overflow-hidden bg-[#4f7a2a] md:absolute md:inset-0 md:mt-0 md:h-auto md:[clip-path:inset(0_0_0_100%)]">
+        <div className="ap-visual relative mt-8 h-[520px] w-full overflow-hidden bg-[#4f7a2a] sm:h-[620px] lg:absolute lg:inset-0 lg:mt-0 lg:h-auto lg:[clip-path:inset(0_0_0_100%)]">
           <ApprovalScene />
           {/* Into the clouds (desktop only): the night behind, then the fog and blurred clouds in front. */}
-          <div className="ap-sky invisible absolute inset-0 hidden opacity-0 md:block" style={{ background: NIGHT_BG }} aria-hidden="true">
+          <div className="ap-sky invisible absolute inset-0 hidden opacity-0 lg:block" style={{ background: NIGHT_BG }} aria-hidden="true">
             {/* The Mind Graph's title, on the same night as the section below, so it is already there
                 when the clouds clear and the graph follows right under it. */}
             <div className="absolute inset-0 grid place-items-center">
@@ -222,11 +222,11 @@ export function ApprovalsScroll() {
               src={`/hero/${img}.webp`}
               alt=""
               aria-hidden="true"
-              className={`ap-cloud pointer-events-none absolute top-0 hidden opacity-0 will-change-transform md:block ${pos}`}
+              className={`ap-cloud pointer-events-none absolute top-0 hidden opacity-0 will-change-transform lg:block ${pos}`}
               style={{ filter: `blur(${[10, 16, 22, 28][i]}px)` }}
             />
           ))}
-          <div className="ap-fog-light pointer-events-none absolute inset-x-0 -top-[60%] hidden h-[220%] opacity-0 will-change-transform md:block" style={{ background: "linear-gradient(transparent, #EEF0EC 30%, #EEF0EC 70%, transparent)" }} aria-hidden="true" />
+          <div className="ap-fog-light pointer-events-none absolute inset-x-0 -top-[60%] hidden h-[220%] opacity-0 will-change-transform lg:block" style={{ background: "linear-gradient(transparent, #EEF0EC 30%, #EEF0EC 70%, transparent)" }} aria-hidden="true" />
           <div className="grain pointer-events-none absolute inset-0" aria-hidden="true" />
         </div>
       </div>

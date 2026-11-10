@@ -64,7 +64,10 @@ Ready to meet your Mind? (`components/Cta.tsx`): no card, straight on the page, 
 
 Footer (`components/Footer.tsx`): a meadow with rolling hills and the Mind sitting in the middle, facing you (`public/scenes/footer-meadow.webp`, 3200 x 1074 with alpha, 470 KB; generated, upscaled 4x with Real-ESRGAN, then the sky cut out by growing the pale/blue sky region down from the top edge, so the hills rise straight from the page; master `design/hellonear-assets/sections/footer-meadow.png`). Desktop: a big logo (white, `.footer-logo`, 56 to 92 px tall), one line and three link columns (Product, Project, Built on) sit on the grass near the screen edges (4vw in from each side, not the 1200 px column) in white with a soft shadow (`.footer-on-grass`), over a shade on the grass (darker at the sides and the bottom, clear around the Mind and the hills) so the text reads; the copyright is at the bottom centre. Phones: the logo and links sit on the page above the meadow. No made-up social accounts.
 
-## Performance (10 Nov)
+## Responsive (10 Nov)
+
+Checked at 360, 390, 768, 1024, 1280, 1440, 1920 and 2560 px wide (Playwright, every section), no sideways scroll at any of them. The desktop layout starts at **1024 px** (Tailwind `lg`), not 768: below it the hero is the phone hero, the approvals section is copy then photo (no pin, no camera track, no clouds) with the separate Tricked section, the Mind Graph section keeps its own title, the Minds cards are one centred column, the CTA stacks the Mind under the copy, and the footer text sits above the meadow. From 1024 to 1439 px the hero's 1440 px stage slides left only as far as keeps the copy 40 px in (the Mind is cut by the right edge). On phones under 400 px the hero buttons stack, and under 420 px the nav logo and Open app get smaller. Under 900 px the nav has no middle links, so its grid is two columns (logo left, Open app right).
+
 
 Measured on the production build (`bun run build && bun x next start`), Chrome at 1512 x 805: the longest task at load went from 1.9 s to about 60 ms, the first load from 5.2 MB to 4.4 MB (desktop) and 2.1 MB on phones, no long tasks while scrolling. Keep it that way:
 - three.js and the 3D Mind load on their own (`next/dynamic` in `Hero.tsx`), only on screens wide enough for them; phones never fetch them.
