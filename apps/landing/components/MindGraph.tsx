@@ -18,9 +18,12 @@ type Kind = "mind" | "skill" | "leaf";
 type N = { x: number; y: number; vx: number; vy: number; r: number; m: number; kind: Kind; label: string; c: number; hx: number; hy: number; pinned: boolean };
 type L = { a: number; b: number; rest: number };
 
-const NODE = "#C9C7C0";
-const LINE = "rgba(242,241,236,0.13)";
-const LIME = "#D8F04A";
+// One tone (the brand's lime) at three strengths, and white for what is lit.
+const SKILL = "#D8F04A";
+const LEAF = "#93A63A";
+const LINE = "rgba(216,240,74,0.15)";
+const LIME = "#FFFFFF";
+const AVATARS = ["/minds/payments-mind.webp", "/minds/general-assistant.webp", "/minds/email-manager.webp"];
 const AMBER = "#F0B43C";
 const NIGHT = "#0a0d1c";
 
@@ -90,13 +93,14 @@ function buildWorld() {
     if (parent) links.push({ a: ids.get(parent)!, b: id, rest: kind === "skill" ? 170 : 85 });
   });
 
-  // The other Minds, on a sunflower around Penny; a few are big, most are small.
+  // The other Minds, packed around Penny on a sunflower (gravity pulls them together into one
+  // disc, like Obsidian's graph view); a few are big, most are small.
   const COUNT = 64;
   for (let k = 1; k <= COUNT; k++) {
     const a = k * 2.39996 + 0.6;
-    const d = 380 + 150 * Math.sqrt(k);
-    const hx = Math.cos(a) * d * 1.25;
-    const hy = Math.sin(a) * d * 0.9;
+    const d = 230 + 92 * Math.sqrt(k);
+    const hx = Math.cos(a) * d * 1.15;
+    const hy = Math.sin(a) * d * 0.95;
     const big = r() < 0.12;
     const hub = add({ x: hx, y: hy, r: big ? 11 : 7 + r() * 3, kind: "mind", label: NAMES[k % NAMES.length], c: k, hx, hy });
     const skills = [...SKILLS].sort(() => r() - 0.5).slice(0, 2 + Math.floor(r() * 4));
@@ -139,11 +143,11 @@ function tick(nodes: N[], links: L[], alpha: number) {
     b.vx -= dx * f * wb;
     b.vy -= dy * f * wb;
   }
-  // each Mind drifts back home (so the world keeps its shape after a drag)
+  // gravity: every Mind is pulled to the middle, so the graphs pack together into one disc
   for (const n of nodes)
     if (n.kind === "mind") {
-      n.vx += (n.hx - n.x) * 0.006 * alpha;
-      n.vy += (n.hy - n.y) * 0.006 * alpha;
+      n.vx -= n.x * 0.004 * alpha;
+      n.vy -= n.y * 0.004 * alpha;
     }
   const grid = new Map<number, number[]>();
   const key = (cx: number, cy: number) => cx * 73856093 + cy * 19349663;
@@ -217,7 +221,12 @@ export function MindGraph() {
     const font = getComputedStyle(document.body).fontFamily;
     const { nodes, links, penny } = buildWorld();
     let alpha = 1;
-    for (let i = 0; i < 260; i++) tick(nodes, links, Math.max(0.15, 1 - i / 260));
+    for (let i = 0; i < 360; i++) tick(nodes, links, Math.max(0.15, 1 - i / 360));
+    const pics = AVATARS.map((src) => {
+      const im = new Image();
+      im.src = src;
+      return im;
+    });
     alpha = 0;
 
     // neighbours, for hover and Penny's trail
@@ -371,23 +380,25 @@ export function MindGraph() {
         }
       ctx.globalAlpha = 1;
 
-      // Bubbles: the quiet ones in one path, then the lit ones.
-      ctx.fillStyle = NODE;
+      // Bubbles: the quiet ones in one path per tone, then the lit ones, then the Minds.
       ctx.globalAlpha = focus ? 0.45 : 1;
-      ctx.beginPath();
       const hot: number[] = [];
-      nodes.forEach((n, i) => {
-        if (!seen(n)) return;
-        if ((focus && focus.has(i)) || R.on.has(i) || R.trail.has(i)) {
-          hot.push(i);
-          return;
-        }
-        // a bubble never gets smaller than about a pixel on screen
-        const r = Math.max(n.r, 0.9 / k);
-        ctx.moveTo(n.x + r, n.y);
-        ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
-      });
-      ctx.fill();
+      for (const kind of ["leaf", "skill"] as const) {
+        ctx.fillStyle = kind === "skill" ? SKILL : LEAF;
+        ctx.beginPath();
+        nodes.forEach((n, i) => {
+          if (n.kind !== kind || !seen(n)) return;
+          if ((focus && focus.has(i)) || R.on.has(i) || R.trail.has(i)) {
+            hot.push(i);
+            return;
+          }
+          // a bubble never gets smaller than about a pixel on screen
+          const r = Math.max(n.r, 0.9 / k);
+          ctx.moveTo(n.x + r, n.y);
+          ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+        });
+        ctx.fill();
+      }
       ctx.globalAlpha = 1;
       for (const i of hot) {
         const n = nodes[i];
@@ -402,11 +413,35 @@ export function MindGraph() {
           ctx.stroke();
           ctx.globalAlpha = 1;
         }
-        ctx.fillStyle = s?.wait ? AMBER : (focus && focus.has(i)) || s || R.trail.has(i) ? LIME : NODE;
+        ctx.fillStyle = s?.wait ? AMBER : LIME;
         ctx.beginPath();
         ctx.arc(n.x, n.y, Math.max(n.r, 0.9 / k), 0, Math.PI * 2);
         ctx.fill();
       }
+      // The Minds, as in Ancung's app: the profile picture in a circle with a light ring.
+      nodes.forEach((n, i) => {
+        if (n.kind !== "mind" || !seen(n)) return;
+        const r = Math.max(n.r, 1.5 / k);
+        ctx.globalAlpha = focus && !focus.has(i) ? 0.45 : 1;
+        const img = pics[n.c % pics.length];
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = "#F2F1EC";
+        ctx.fill();
+        if (r * k > 4 && img.complete && img.naturalWidth) {
+          ctx.clip();
+          const s2 = r * 2.1;
+          ctx.drawImage(img, n.x - s2 / 2, n.y - s2 / 2 + r * 0.12, s2, s2);
+        }
+        ctx.restore();
+        ctx.strokeStyle = focus && focus.has(i) ? LIME : "#F2F1EC";
+        ctx.lineWidth = (n.c === 0 ? 2 : 1.4) / k;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+        ctx.stroke();
+      });
+      ctx.globalAlpha = 1;
 
       // Labels fade in as you zoom in, like Obsidian: Minds first, then skills; Penny's always.
       ctx.textAlign = "center";
@@ -506,11 +541,6 @@ export function MindGraph() {
         const n = nodes[drag.id];
         n.x = wpt.x;
         n.y = wpt.y;
-        // dragging a Mind moves its home too, so it stays where it is put
-        if (n.kind === "mind") {
-          n.hx = n.x;
-          n.hy = n.y;
-        }
         alpha = 1; // fully warm while dragging, so the bubbles follow and others get pushed aside
       } else {
         view.x = drag.vx + (p.x - drag.x);
