@@ -24,6 +24,7 @@ import { useRouter } from "next/navigation"
 import { useSearchParams } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { cn } from "cn"
+import { EmptyState } from "@/components/elements/EmptyState"
 import { Spinner } from "@/components/elements/Spinner"
 import { PageTitle } from "@/components/elements/PageTitle"
 import { mindHref } from "@/components/layout/nav"
@@ -517,18 +518,15 @@ function RunRow({
 
 function NoJobs({ mindId, name, demo, onAdded }: { mindId: string; name: string; demo: boolean; onAdded: (id: string) => void }) {
   return (
-    <div className="flex flex-col items-center gap-4 rounded-lg border border-border bg-surface px-6 py-12 text-center">
-      <span className="flex size-12 items-center justify-center rounded-full bg-muted">
-        <RepeatIcon className="size-5 text-muted-foreground" />
-      </span>
-      <div className="flex flex-col gap-1">
-        <p className="text-[15px] font-semibold text-foreground">No jobs yet</p>
-        <p className="max-w-md text-sm text-muted-foreground">A job is a few steps {name} runs on a schedule. Start from one of these, or build your own with New job.</p>
-      </div>
-      <ul className="grid w-full max-w-2xl gap-3 text-left md:grid-cols-2">
+    <EmptyState
+      icon={<RepeatIcon />}
+      title="No jobs yet"
+      description={`A job is a few steps ${name} runs on a schedule. Start from one of these, or build your own with New job.`}
+    >
+      <ul className="mt-1 grid w-full max-w-2xl gap-3 text-left md:grid-cols-2">
         <Ideas mindId={mindId} name={name} demo={demo} taken={[]} onAdded={onAdded} />
       </ul>
-    </div>
+    </EmptyState>
   )
 }
 

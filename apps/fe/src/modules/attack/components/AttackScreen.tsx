@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { cn } from "cn"
+import { EmptyState } from "@/components/elements/EmptyState"
 import { attackKeys } from "@/lib/queryKeys"
 import { Spinner } from "@/components/elements/Spinner"
 import { PageTitle } from "@/components/elements/PageTitle"
@@ -177,15 +178,12 @@ export function AttackScreen() {
           {run ? (
             <RunPanel run={run} wallet={wallet.data ?? null} onAnswer={answer} />
           ) : (
-            <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-surface px-6 py-16 text-center">
-              <span className="flex size-12 items-center justify-center rounded-full bg-muted">
-                <SwordsIcon className="size-5 text-muted-foreground" />
-              </span>
-              <p className="text-[15px] font-semibold text-foreground">Pick an attack to start</p>
-              <p className="max-w-md text-sm text-muted-foreground">
-                Each one runs on testnet with a test Mind and a shared test wallet, never your own. Nothing you do here costs real money.
-              </p>
-            </div>
+            <EmptyState
+              className="py-16"
+              icon={<SwordsIcon />}
+              title="Pick an attack to start"
+              description="Each one runs on testnet with a test Mind and a shared test wallet, never your own. Nothing you do here costs real money."
+            />
           )}
         </div>
       </div>

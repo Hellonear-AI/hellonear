@@ -3,6 +3,7 @@
 import { CheckIcon, CircleSlashIcon, CopyIcon, HourglassIcon, LockIcon, PlusIcon, SnowflakeIcon, WalletIcon, XIcon } from "lucide-react"
 import { useState, type ReactNode } from "react"
 import { cn } from "cn"
+import { EmptyState } from "@/components/elements/EmptyState"
 import { PageTitle } from "@/components/elements/PageTitle"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -334,16 +335,13 @@ function Row({ label, value }: { label: string; value: string }) {
 /** W1.6: a Mind made without a wallet. It can chat and plan; paying needs a wallet, limits first. */
 function NoWallet({ name, onSetUp }: { name: string; onSetUp: () => void }) {
   return (
-    <Card className="items-center px-6 py-12 text-center">
-      <span className="flex size-12 items-center justify-center rounded-full bg-muted">
-        <WalletIcon className="size-5 text-muted-foreground" />
-      </span>
-      <p className="text-[15px] font-semibold text-foreground">{name} doesn&apos;t have a wallet yet</p>
-      <p className="max-w-md text-sm text-muted-foreground">
-        {name} can chat and plan without one. To let it pay for things, set up a wallet; you choose its limits first.
-      </p>
+    <EmptyState
+      icon={<WalletIcon />}
+      title={`${name} doesn't have a wallet yet`}
+      description={`${name} can chat and plan without one. To let it pay for things, set up a wallet; you choose its limits first.`}
+    >
       <Button onClick={onSetUp}>Set up a wallet</Button>
-    </Card>
+    </EmptyState>
   )
 }
 
