@@ -27,6 +27,7 @@ import type { ApiWallet } from "@/modules/minds/api"
 import { templateLabel } from "@/modules/minds/data/minds"
 import { useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
 import { LiveView } from "@/modules/graph/components/LiveView"
+import { setLiveOpen, useLiveOpen } from "@/modules/graph/data/liveOpen"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer"
 
@@ -56,31 +57,16 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   const limit = wallet?.policy?.perTransactionNear ?? null
 
   // The live view (C2, #17): beside the chat from 1280 px, remembered per device; a sheet below that.
-  const [liveOpen, setLiveOpen] = useState(true)
+  const liveOpen = useLiveOpen()
   const [liveSheet, setLiveSheet] = useState(false)
   // Phones get it as a drawer from the bottom (Ancung, 10 Nov), tablets as a sheet from the right.
   const [liveDrawer, setLiveDrawer] = useState(false)
   const [liveAnimate, setLiveAnimate] = useState(false)
-  useEffect(() => {
-    try {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- read once from this device
-      if (localStorage.getItem("hellonear.chat.live") === "off") setLiveOpen(false)
-    } catch {
-      // no storage: keep it open
-    }
-  }, [])
   const toggleLive = () => {
     if (!window.matchMedia("(min-width: 768px)").matches) return setLiveDrawer(true)
     if (!window.matchMedia("(min-width: 1280px)").matches) return setLiveSheet(true)
     setLiveAnimate(true)
-    setLiveOpen((o) => {
-      try {
-        localStorage.setItem("hellonear.chat.live", o ? "off" : "on")
-      } catch {
-        // no storage
-      }
-      return !o
-    })
+    setLiveOpen(!liveOpen)
   }
 
   // The run in progress belongs here if it's this thread's, or a new chat still waiting for its id.
