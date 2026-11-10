@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import { cn } from "cn"
-import { GmailLogo, GoogleCalendarLogo, GoogleMeetLogo } from "@/components/elements/AppLogos"
+import { APPS } from "@/modules/connections/data/apps"
 import type { GraphLink, GraphNode } from "@/modules/graph/data/graph"
 import { settle, stepSim, syncSim, type Sim } from "@/modules/graph/data/sim"
 import { MEDIA } from "@/lib/media"
@@ -596,15 +596,12 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       <canvas ref={canvas} role="img" aria-label={label} className="absolute inset-0 size-full" />
       {/* The apps' own logos (AppLogos), read once into images for the canvas. */}
       <div ref={logos} aria-hidden className="hidden">
-        <span data-wrap="gmail">
-          <GmailLogo />
-        </span>
-        <span data-wrap="googlecalendar">
-          <GoogleCalendarLogo />
-        </span>
-        <span data-wrap="googlemeet">
-          <GoogleMeetLogo />
-        </span>
+        {/* Every app Connections offers (#211 added six), from the same list. */}
+        {APPS.map((a) => (
+          <span key={a.toolkit} data-wrap={a.toolkit}>
+            {a.logo}
+          </span>
+        ))}
       </div>
       <button
         type="button"
