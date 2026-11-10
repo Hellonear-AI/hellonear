@@ -2141,14 +2141,15 @@ describe('Telegram approvals (#208)', () => {
     assert.fail(`timed out waiting for ${what}`)
   }
 
-  // A Payments Mind with its own wallet (1 NEAR, 0.05 NEAR per payment, the given address list) and its own bot, linked
-  // to the owner's Telegram account. `say` sends the owner's message; `press` presses a button as `from`.
-  async function linkedMind(whitelist = ['shop.testnet']) {
+  // A Payments Mind with its own wallet (1 NEAR unless `balanceYocto` says otherwise, 0.05 NEAR per payment, the given
+  // address list) and its own bot, linked to the owner's Telegram account. `say` sends the owner's message; `press`
+  // presses a button as `from`.
+  async function linkedMind(whitelist = ['shop.testnet'], balanceYocto = 10n ** 24n) {
     const a = await signIn()
     const mindId = (await (await a.call('POST', '/v1/minds', { templateId: 'payments-mind', name: `Tg ${randomBytes(3).toString('hex')}` }, origin)).json()).mind.id as string
     const { wallet } = await (await a.call('POST', `/v1/minds/${mindId}/wallet`, {}, origin)).json()
     const w = fakeOutlayer.byAccount(wallet.address)
-    w.balance = (10n ** 24n).toString()
+    w.balance = balanceYocto.toString()
     const { transaction } = await (await a.call('POST', `/v1/minds/${mindId}/wallet/policy`, { perTransactionNear: '0.05', whitelist }, origin)).json()
     fakeOutlayer.store(transaction.actions[0].params.args.encrypted_data)
 
@@ -2250,6 +2251,41 @@ describe('Telegram approvals (#208)', () => {
     const unlisted = await m.nextAsk(2)
     assert.match(unlisted.text, /✗ Not on your list: blocked even if you approve/)
     assert.deepEqual(Object.keys(unlisted.buttons), ['Decline', 'Add the address first'])
+  })
+
+  test('a wallet holding less than the payment has no Approve button, only the reason and a button to Wallet (#228)', async () => {
+    const m = await linkedMind(['shop.testnet'], 5n * 10n ** 21n) // 0.005 NEAR
+    await m.say('pay 0.01 NEAR to shop.testnet')
+    const ask = await m.nextAsk(1)
+    assert.equal(ask.text, "<b>Pay 0.01 NEAR to shop.testnet</b>\n\n✓ Within your 0.05 NEAR limit\n✓ On your list of addresses\n✗ Not enough balance: 0.00 NEAR\n\nApproving now would fail: the wallet doesn't hold enough NEAR. Add NEAR in Wallet first.\n\nWaiting for you.")
+    assert.doesNotMatch(ask.text, /refused by the wallet policy/)
+    assert.deepEqual(ask.buttons, { Decline: ask.buttons.Decline, "Add NEAR to this Mind's wallet first": `http://localhost:3000/minds/${m.mindId}/wallet` })
+    assert.deepEqual((await query('select action from telegram_approvals where mind_id = $1', [m.mindId])).map((r) => r.action), ['decline'])
+  })
+
+  test("an unfunded wallet (its account isn't on chain yet, OutLayer reads balance 0) has no Approve button either (#228)", async () => {
+    // A wallet the backend just registered is never funded: the fake answers 200 { balance: "0" }, as OutLayer did for
+    // the spike's unfunded wallet (spike 01, 4 Nov), and a transfer from it fails with 422 chain_refused.
+    const m = await linkedMind(['shop.testnet'], 0n)
+    await m.say('pay 0.01 NEAR to shop.testnet')
+    const ask = await m.nextAsk(1)
+    assert.match(ask.text, /✗ Not enough balance: 0\.00 NEAR/)
+    assert.match(ask.text, /Add NEAR in Wallet first\./)
+    assert.deepEqual(Object.keys(ask.buttons), ['Decline', "Add NEAR to this Mind's wallet first"])
+    assert.deepEqual((await query('select action from telegram_approvals where mind_id = $1', [m.mindId])).map((r) => r.action), ['decline'])
+    // Declining still works, and nothing was attempted.
+    await m.press(ask.buttons.Decline, ask.messageId)
+    await until(() => fakeTelegram.sent(m.token).at(-1).text === 'Not paying shop.testnet.', 'the reply after the decline')
+    assert.deepEqual(await m.payments(), [])
+  })
+
+  test('a policy reason comes before a short balance: over the limit and unfunded asks to change limits first (#228)', async () => {
+    const m = await linkedMind(['shop.testnet'], 0n)
+    await m.say('pay 0.5 NEAR to shop.testnet')
+    const ask = await m.nextAsk(1)
+    assert.match(ask.text, /✗ Over your 0\.05 NEAR limit: blocked even if you approve\n✓ On your list of addresses\n✗ Not enough balance: 0\.00 NEAR/)
+    assert.match(ask.text, /refused by the wallet policy before signing/)
+    assert.deepEqual(Object.keys(ask.buttons), ['Decline', 'Change limits first'])
   })
 
   test('a payment the wallet policy refuses after the press says so, before signing, with no tx link', async () => {
