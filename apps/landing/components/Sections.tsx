@@ -1,7 +1,6 @@
 // The landing sections under the hero, following "Landing v0.2" in design/landing.pen.
 // First pass so the layout can be judged in the browser; visuals marked "placeholder" come later.
 
-import { LivingPhoto } from "./LivingPhoto";
 import { MindGraph } from "./MindGraph";
 
 export const Icon = {
@@ -101,7 +100,8 @@ export function ApprovalScene() {
     // once in these units and only ever scaled and moved together (ApprovalsScroll), like a real print.
     <div className="ap-stage absolute left-0 top-0 h-[722px] w-[1680px] origin-top-left will-change-transform">
       <div className="absolute inset-0">
-        <LivingPhoto src="/scenes/approval-scene.webp" alt="The Payments Mind lying on a sunny lawn, glancing at the approval card" className="absolute inset-0" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/scenes/approval-scene.webp" alt="The Payments Mind lying on a sunny lawn, glancing at the approval card" className="absolute inset-0 h-full w-full" />
 
         {/* No outer card: Penny's bubble and the approval card float on their own, close together,
             lying on the lawn in its perspective. Each is light frosted glass with its own shadow. */}
