@@ -240,3 +240,20 @@ describe("Autopilot run text (10 Nov)", () => {
     expect(plainText("Good morning!\n## 💰 Wallet **5.39 NEAR** [link](https://x.io)\n- one")).toBe("Good morning! 💰 Wallet 5.39 NEAR link one")
   })
 })
+
+describe("Prompt chips (10 Nov)", () => {
+  it("splits a prompt into text and named result chips", async () => {
+    const { promptParts } = await import("@/modules/builder/data/draft")
+    const results = [
+      { stepId: "t", name: "balanceNear", label: "Balance (NEAR)", who: "Omaga", stepKind: "tool" as const },
+      { stepId: "w", name: "body", label: "Answer", stepKind: "http" as const },
+    ]
+    expect(promptParts("Has {{steps.t.balanceNear}} NEAR, price {{steps.w.body}}. {{steps.x.y}}", results)).toEqual([
+      { text: "Has " },
+      { chip: "Balance of Omaga", ref: "{{steps.t.balanceNear}}", tone: "tool" },
+      { text: " NEAR, price " },
+      { chip: "Answer", ref: "{{steps.w.body}}", tone: "http" },
+      { text: ". {{steps.x.y}}" },
+    ])
+  })
+})

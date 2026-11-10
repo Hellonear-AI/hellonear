@@ -3,11 +3,11 @@
 
 import type { Canvas, CanvasNode } from "@/modules/autopilot/api"
 import { scheduleText, zoneName } from "@/modules/autopilot/data/schedule"
-import { accountWho, promptToDisplay, type Self } from "@/modules/builder/data/draft"
+import { accountWho, promptParts, type PromptPart, type Self } from "@/modules/builder/data/draft"
 import { HTTP_FIELDS, toolInfo } from "@/modules/builder/data/tools"
 import { shortAddress } from "@/modules/wallet/data/address"
 
-export type JobStep = { id: string; kind: CanvasNode["type"]; title: string; note?: string; branch?: "then" | "else" }
+export type JobStep = { id: string; kind: CanvasNode["type"]; title: string; note?: string; branch?: "then" | "else"; /** An Ask step's prompt with result chips. */ prompt?: PromptPart[] }
 
 const OP: Record<string, string> = { eq: "is", ne: "is not", lt: "is under", lte: "is at most", gt: "is over", gte: "is at least" }
 
@@ -33,7 +33,7 @@ function resultsOf(canvas: Canvas, self?: Self) {
   return canvas.nodes.flatMap((n) => {
     const fields = n.type === "tool" ? (toolInfo(n.data.tool)?.fields ?? []) : n.type === "http" ? HTTP_FIELDS : []
     const account = n.type === "tool" && n.data.tool === "near_view_account" && typeof n.data.args?.accountId === "string" ? n.data.args.accountId : null
-    return fields.map((f) => ({ stepId: n.id, name: f.name, label: f.label, who: account ? accountWho(account, self) : undefined }))
+    return fields.map((f) => ({ stepId: n.id, name: f.name, label: f.label, who: account ? accountWho(account, self) : undefined, stepKind: n.type === "http" ? ("http" as const) : ("tool" as const) }))
   })
 }
 
@@ -63,9 +63,8 @@ function stepOf(n: CanvasNode, mind: string, results: Results, self?: Self): Job
       return { id: n.id, kind: n.type, title: `If ${refName(n.data.left)} ${OP[n.data.op] ?? n.data.op} ${String(n.data.right)}${unit}` }
     }
     case "agent": {
-      // Earlier results read {Balance}, as in the Builder.
-      const p = promptToDisplay(n.data.prompt, results).trim()
-      return { id: n.id, kind: n.type, title: `${mind} writes you a note`, note: p.length > 90 ? `${p.slice(0, 90)}...` : p }
+      // Earlier results show as chips, as in the Builder.
+      return { id: n.id, kind: n.type, title: `${mind} writes you a note`, prompt: promptParts(n.data.prompt.trim(), results) }
     }
   }
 }

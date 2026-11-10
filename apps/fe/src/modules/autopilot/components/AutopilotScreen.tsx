@@ -45,6 +45,7 @@ import { scheduleText, whenNext, zoneName } from "@/modules/autopilot/data/sched
 import { jobSteps, type JobStep } from "@/modules/autopilot/data/steps"
 import { fromCanvas } from "@/modules/builder/data/draft"
 import { TONE, TONE_OF_NODE } from "@/modules/builder/data/tone"
+import { PromptPreview } from "@/modules/builder/components/PromptText"
 import { useAddJob, useAutopilotState, useRemoveJob, useSetAutopilot, useWorkflow, useWorkflowRuns, useWorkflows } from "@/modules/autopilot/hooks/useAutopilot"
 import { useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
 import { skillCopy } from "@/modules/skills/data/skills"
@@ -385,6 +386,7 @@ function StepsTimeline({ steps }: { steps: JobStep[] }) {
               <div className="flex min-w-0 flex-col pt-1">
                 <span className="text-sm font-medium text-foreground">{x.title}</span>
                 {x.note && <span className="text-xs break-words text-muted-foreground">{x.note}</span>}
+                {x.prompt && <PromptPreview parts={x.prompt} className="line-clamp-3 text-xs break-words text-muted-foreground" />}
               </div>
             </li>
           )
@@ -405,6 +407,7 @@ function StepsTimeline({ steps }: { steps: JobStep[] }) {
                     <div className="flex min-w-0 flex-col">
                       <span className="text-sm font-medium text-foreground">{step.title}</span>
                       {step.note && <span className="text-xs break-words text-muted-foreground">{step.note}</span>}
+                      {step.prompt && <PromptPreview parts={step.prompt} className="line-clamp-3 text-xs break-words text-muted-foreground" />}
                     </div>
                   </div>
                 ) : (

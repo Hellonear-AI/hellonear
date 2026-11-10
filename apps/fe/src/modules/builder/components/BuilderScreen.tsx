@@ -24,7 +24,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
 import { cn } from "cn"
 import { mindHref } from "@/components/layout/nav"
 import { ChoiceSelect } from "@/components/elements/ChoiceSelect"
@@ -40,6 +40,7 @@ import { ApiError } from "@/lib/api"
 import { autopilotApi } from "@/modules/autopilot/api"
 import { nodeSummary, type NodeRun } from "@/modules/builder/data/testRun"
 import { TONE, type Tone } from "@/modules/builder/data/tone"
+import { PromptEditor, PromptPreview, type PromptEditorHandle } from "@/modules/builder/components/PromptText"
 import { useCanvasView } from "@/modules/builder/hooks/useCanvasView"
 import { useLeaveGuard } from "@/modules/builder/hooks/useLeaveGuard"
 import { scheduleText, zoneName } from "@/modules/autopilot/data/schedule"
@@ -57,7 +58,7 @@ import {
   moveStepIn,
   tokenLabels,
   promptFromDisplay,
-  promptToDisplay,
+  promptParts,
   type Self,
   resultsBefore,
   stepFields,
@@ -1047,7 +1048,7 @@ function StepCard({
         icon={<BotIcon />}
         kind={`Ask ${name}`}
         nodeId={step.id}
-        title={step.prompt.trim() ? short(promptToDisplay(step.prompt, results)) : "Say what to do"}
+        title={step.prompt.trim() ? <PromptPreview parts={promptParts(step.prompt.trim(), results)} className="line-clamp-2" /> : "Say what to do"}
         line={step.prompt.trim() ? undefined : "Not set yet"}
         active={active}
         warn={problem}
@@ -1112,7 +1113,7 @@ function BlockCard({
   tone: Tone
   icon: ReactNode
   kind: string
-  title: string
+  title: ReactNode
   line?: string
   mono?: boolean
   active: boolean
@@ -1303,38 +1304,14 @@ function PromptField({
   placeholder?: string
 }) {
   const labels = tokenLabels(results)
-  const shown = promptToDisplay(value, results)
-  const box = useRef<HTMLTextAreaElement>(null)
-  // Where the caret last was; null until the field is used, so a chip then goes at the end.
-  const caret = useRef<{ start: number; end: number } | null>(null)
-  /** Puts {Label} where the caret is, with a space on each side when needed (Ancung, 10 Nov: it always went at the end). */
-  function insert(r: Result) {
-    const token = `{${labels.get(`${r.stepId}.${r.name}`)}}`
-    const at = caret.current ?? { start: shown.length, end: shown.length }
-    const before = shown.slice(0, at.start)
-    const after = shown.slice(at.end)
-    const head = `${before}${before && !/\s$/.test(before) ? " " : ""}${token}`
-    const next = `${head}${after && !/^\s/.test(after) ? " " : ""}${after}`
-    onChange(promptFromDisplay(next, results))
-    caret.current = { start: head.length, end: head.length }
-    requestAnimationFrame(() => {
-      box.current?.focus()
-      box.current?.setSelectionRange(head.length, head.length)
-    })
-  }
+  const editor = useRef<PromptEditorHandle>(null)
+  const labelId = useId()
   return (
     <div className={field}>
-      <span className={label}>{labelText ?? `What should ${name} do?`}</span>
-      {/* Earlier results read as {Balance} here; they are saved as the engine's {{steps.…}} references. */}
-      <Textarea
-        ref={box}
-        value={shown}
-        onSelect={(e) => (caret.current = { start: e.currentTarget.selectionStart, end: e.currentTarget.selectionEnd })}
-        maxLength={PROMPT_MAX}
-        rows={6}
-        placeholder={placeholder}
-        onChange={(e) => onChange(promptFromDisplay(e.target.value, results))}
-      />
+      <span id={labelId} className={label}>
+        {labelText ?? `What should ${name} do?`}
+      </span>
+      <PromptEditor ref={editor} value={value} parts={promptParts(value, results)} onChange={onChange} placeholder={placeholder} labelledBy={labelId} />
       {/* Results grouped by the step they come from, so two balances say whose they are (Ancung, 10 Nov). */}
       {results.length > 0 && (
         <div className="flex flex-col gap-2 rounded-md bg-muted/50 p-3">
@@ -1350,8 +1327,10 @@ function PromptField({
                   <button
                     key={r.name}
                     type="button"
-                    onClick={() => insert(r)}
-                    title={`Puts {${labels.get(`${r.stepId}.${r.name}`)}} in the text`}
+                    // Keep the caret in the field while the chip is clicked.
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => editor.current?.insert(ref(r.stepId, r.name), labels.get(`${r.stepId}.${r.name}`) ?? r.label, r.stepKind === "http" ? "http" : "tool")}
+                    title={`Puts ${labels.get(`${r.stepId}.${r.name}`)} in the text`}
                     className="inline-flex h-7 items-center gap-1 rounded-full border border-border bg-surface px-2.5 text-xs text-foreground outline-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus"
                   >
                     <PlusIcon className="size-3 text-muted-foreground" />

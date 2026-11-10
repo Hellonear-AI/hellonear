@@ -311,7 +311,7 @@ export function draftProblems(d: Draft): DraftProblem[] {
 const REF = /\{\{\s*steps\.([\w-]+)\.(\w+)\s*\}\}/g
 
 /** "Balance (NEAR)" -> "Balance"; a second "Balance" from another step becomes "Balance 2". */
-type Token = { stepId: string; name: string; label: string; who?: string }
+type Token = { stepId: string; name: string; label: string; who?: string; stepKind?: Step["kind"] }
 
 export function tokenLabels(results: Token[]): Map<string, string> {
   const out = new Map<string, string>()
@@ -344,4 +344,24 @@ export function promptFromDisplay(text: string, results: Token[]): string {
     const [id, field] = key.split(".")
     return ref(id, field)
   })
+}
+
+/** A prompt split into text and result chips (Ancung, 10 Nov: chips in the field, not {Label}). */
+export type PromptPart = { text: string } | { chip: string; ref: string; tone?: "tool" | "http" }
+
+export function promptParts(prompt: string, results: Token[]): PromptPart[] {
+  const labels = tokenLabels(results)
+  const out: PromptPart[] = []
+  let at = 0
+  for (const m of prompt.matchAll(REF)) {
+    const key = `${m[1]}.${m[2]}`
+    const label = labels.get(key)
+    if (!label) continue
+    if (m.index > at) out.push({ text: prompt.slice(at, m.index) })
+    const kind = results.find((r) => `${r.stepId}.${r.name}` === key)?.stepKind
+    out.push({ chip: label, ref: m[0], tone: kind === "http" ? "http" : "tool" })
+    at = m.index + m[0].length
+  }
+  if (at < prompt.length) out.push({ text: prompt.slice(at) })
+  return out
 }
