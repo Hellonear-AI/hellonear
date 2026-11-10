@@ -88,4 +88,44 @@ describe("Mind Graph (#17)", () => {
     expect(now.find((n) => n.id === "tool:get_time")?.state).toBe("running")
     expect(now.find((n) => n.id === "wallet:m1")?.state).toBe("waiting")
   })
+
+  it("leaves no label on another and no bubble on a line, for a Mind as busy as Omaga", () => {
+    const busy: ApiSkill[] = [
+      ...catalog,
+      { skillId: "email-triage", description: "", status: "available", connections: ["gmail"], tools: ["gmail_list_emails", "gmail_read_email", "get_time"] },
+      { skillId: "email-address", description: "", status: "available", connections: [], tools: ["mail_send", "mail_list"] },
+      { skillId: "near-account", description: "", status: "available", connections: [], tools: ["near_view_account"] },
+      { skillId: "http-request", description: "", status: "available", connections: [], tools: ["http_request"] },
+    ]
+    const g = buildGraph({ mindId: "m1", name: "Omaga", skills: busy.map((b) => b.skillId), catalog: busy, events: [] })
+    // A tool shared by several skills hangs off one of them only.
+    expect(g.links.filter((l) => l.target === "tool:get_time")).toHaveLength(1)
+    const sim = syncSim(null, g.nodes, g.links, "mind:m1")
+    const kinds = new Map(g.nodes.map((n) => [n.id, n.kind]))
+    for (let t = 0; t < 3000 && stepSim(sim, kinds); t++);
+    const bodies = [...sim.bodies.values()]
+    let overlaps = 0
+    for (let i = 0; i < bodies.length; i++)
+      for (let j = i + 1; j < bodies.length; j++) {
+        const p = bodies[i]
+        const q = bodies[j]
+        const ox = Math.max(p.r, p.lw / 2) + Math.max(q.r, q.lw / 2) - Math.abs(q.x - p.x)
+        const oy = p.r + q.r + 16 - Math.abs(q.y - p.y)
+        if (ox > 4 && oy > 4) overlaps++
+      }
+    expect(overlaps).toBe(0)
+    let onLine = 0
+    for (const l of g.links) {
+      const a = sim.bodies.get(l.source)!
+      const b = sim.bodies.get(l.target)!
+      for (const n of bodies) {
+        if (n.id === l.source || n.id === l.target) continue
+        const ex = b.x - a.x
+        const ey = b.y - a.y
+        const t = Math.max(0, Math.min(1, ((n.x - a.x) * ex + (n.y - a.y) * ey) / (ex * ex + ey * ey || 1)))
+        if (Math.hypot(n.x - (a.x + ex * t), n.y - (a.y + ey * t)) < n.r) onLine++
+      }
+    }
+    expect(onLine).toBe(0)
+  })
 })

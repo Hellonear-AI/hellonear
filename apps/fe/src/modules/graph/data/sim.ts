@@ -4,7 +4,11 @@
 
 import type { GraphLink, GraphNode, NodeKind } from "@/modules/graph/data/graph"
 
-export type Body = { id: string; x: number; y: number; vx: number; vy: number; r: number; pinned: boolean }
+/** `lw`: the label's width under the bubble, in world units, so labels get room too. */
+export type Body = { id: string; x: number; y: number; vx: number; vy: number; r: number; lw: number; pinned: boolean }
+
+/** About how wide a label is at 11.5 px (Geist averages near 6.2 px a character). */
+const labelWidth = (label: string) => label.length * 6.2 + 8
 
 export type Sim = { bodies: Map<string, Body>; links: GraphLink[]; alpha: number }
 
@@ -26,7 +30,7 @@ export function syncSim(prev: Sim | null, nodes: GraphNode[], links: GraphLink[]
   nodes.forEach((n, i) => {
     const old = prev?.bodies.get(n.id)
     if (old) {
-      bodies.set(n.id, { ...old, r: radiusOf(n) })
+      bodies.set(n.id, { ...old, r: radiusOf(n), lw: labelWidth(n.label) })
       return
     }
     added += 1
@@ -40,6 +44,7 @@ export function syncSim(prev: Sim | null, nodes: GraphNode[], links: GraphLink[]
       vx: 0,
       vy: 0,
       r: radiusOf(n),
+      lw: labelWidth(n.label),
       pinned: n.id === mindId,
     })
   })
@@ -106,6 +111,64 @@ export function stepSim(sim: Sim, kinds: Map<string, NodeKind>): boolean {
     b.vy *= 0.82
     b.x += b.vx
     b.y += b.vy
+  }
+  // Each bubble with its label is a box; boxes that overlap are pushed apart along the shorter
+  // overlap (Ancung, 10 Nov: "NEAR account lookup" sat on the wallet).
+  const push = Math.min(1, a * 6) * 0.5
+  for (let i = 0; i < list.length; i++) {
+    for (let j = i + 1; j < list.length; j++) {
+      const p = list[i]
+      const q = list[j]
+      const hwp = Math.max(p.r, p.lw / 2) + 6
+      const hwq = Math.max(q.r, q.lw / 2) + 6
+      // The box runs from the top of the bubble to under its label.
+      const cyp = p.y + 8
+      const cyq = q.y + 8
+      const hh = (b: Body) => b.r + 12
+      const ox = hwp + hwq - Math.abs(q.x - p.x)
+      const oy = hh(p) + hh(q) - Math.abs(cyq - cyp)
+      if (ox <= 0 || oy <= 0) continue
+      const sx = q.x >= p.x ? 1 : -1
+      const sy = cyq >= cyp ? 1 : -1
+      const mx = ox < oy ? (ox / 2) * push * sx : 0
+      const my = ox < oy ? 0 : (oy / 2) * push * sy
+      if (!p.pinned) {
+        p.x -= mx
+        p.y -= my
+      }
+      if (!q.pinned) {
+        q.x += mx
+        q.y += my
+      }
+    }
+  }
+  // Bubbles keep off lines that aren't theirs, so a line never runs through a bubble.
+  for (const l of sim.links) {
+    const s0 = sim.bodies.get(l.source)
+    const t0 = sim.bodies.get(l.target)
+    if (!s0 || !t0) continue
+    const ex = t0.x - s0.x
+    const ey = t0.y - s0.y
+    const len2 = ex * ex + ey * ey || 1
+    for (const b of list) {
+      if (b.pinned || b.id === l.source || b.id === l.target) continue
+      const t = Math.max(0, Math.min(1, ((b.x - s0.x) * ex + (b.y - s0.y) * ey) / len2))
+      const px = s0.x + ex * t
+      const py = s0.y + ey * t
+      let dx = b.x - px
+      let dy = b.y - py
+      let d = Math.hypot(dx, dy)
+      const room = b.r + 14
+      if (d >= room) continue
+      if (d < 0.01) {
+        dx = -ey
+        dy = ex
+        d = Math.hypot(dx, dy) || 1
+      }
+      const f = (room - d) * push
+      b.x += (dx / d) * f
+      b.y += (dy / d) * f
+    }
   }
   sim.alpha *= 0.985
   return true

@@ -127,8 +127,11 @@ export function buildGraph({
     link(mind, s)
     for (const tool of info.tools) {
       const t = nodeIdFor(mindId, tool)
+      // One parent each, like a tree: a tool several skills share (the clock) hangs off the first,
+      // so lines don't cross the graph (Ancung, 10 Nov).
+      const shared = nodes.has(t)
       add(t)
-      link(s, t)
+      if (!shared) link(s, t)
     }
     // Apps a skill connects (Google Meet comes with Daily planner's meetings).
     for (const c of info.connections) {
