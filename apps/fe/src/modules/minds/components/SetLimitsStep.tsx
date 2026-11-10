@@ -17,7 +17,7 @@ import {
 import { cn } from "cn"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { templateImage, templateLabel } from "@/modules/minds/data/minds"
+import { templateAvatar, templateLabel } from "@/modules/minds/data/minds"
 import { MAX_ADDRESSES, MAX_PER_PAYMENT_NEAR, type LimitsCheck } from "@/modules/minds/data/limits"
 import type { SetUpStage } from "@/modules/minds/hooks/useSetUpMind"
 import { StepHeader } from "@/modules/minds/components/StepHeader"
@@ -149,7 +149,7 @@ export function SetLimitsStep({
           <aside className="flex flex-col gap-[18px] rounded-xl border border-border bg-surface p-5 md:p-6 xl:sticky xl:top-6 xl:w-[420px] xl:shrink-0">
             <div className="flex items-center gap-3">
               <span className="relative size-14 shrink-0 overflow-hidden rounded-full bg-muted">
-                <Image src={templateImage(templateId)} alt="" fill sizes="56px" className="object-cover" />
+                <Image src={templateAvatar(templateId)} alt="" fill sizes="56px" quality={90} className="object-cover" />
               </span>
               <div className="flex min-w-0 flex-col gap-0.5">
                 <span className="truncate text-lg font-semibold text-foreground">{name}</span>

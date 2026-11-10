@@ -3,7 +3,7 @@ import Link from "next/link"
 import { CheckIcon, MessageCircleIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { mindHref } from "@/components/layout/nav"
-import { templateImage } from "@/modules/minds/data/minds"
+import { templateAvatar } from "@/modules/minds/data/minds"
 
 // L3.5: one calm moment that repeats the limits in words, then straight into the chat.
 export function MindReady({
@@ -21,7 +21,7 @@ export function MindReady({
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-5 bg-background px-6 py-12 text-center">
       <span className="relative size-28 overflow-hidden rounded-full bg-muted animate-in fade-in-0 zoom-in-90 duration-500 ease-out motion-reduce:animate-none md:size-32">
-        <Image src={templateImage(templateId)} alt="" fill sizes="128px" className="object-cover" priority />
+        <Image src={templateAvatar(templateId)} alt="" fill sizes="128px" quality={90} className="object-cover" priority />
       </span>
       <div className="flex max-w-md flex-col gap-2 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 ease-out motion-reduce:animate-none">
         <h1 className="text-[30px] leading-tight font-medium tracking-tight text-foreground md:text-[40px]">{name} is ready</h1>

@@ -587,7 +587,7 @@ function FirstChat({
   const { intro, suggestions } = introFor(templateId, limit, null)
   return (
     <Centered>
-      <MindAvatar templateId={templateId} size={64} className="size-24! md:size-28!" />
+      <MindAvatar templateId={templateId} size={64} shown={112} className="size-24! md:size-28!" />
       <h2 className="text-2xl font-medium tracking-tight text-foreground md:text-[28px]">Hi, I&apos;m {name}.</h2>
       <p className="max-w-md text-[15px] text-muted-foreground">{intro}</p>
       {suggestions.length > 0 && (
