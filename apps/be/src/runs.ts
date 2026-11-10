@@ -4,6 +4,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { query } from './db.ts'
 import { UPSTREAM_ERROR, logServerError } from './http.ts'
 import { sseEvents } from './sse.ts'
+import { NOT_DELETED } from './threads.ts'
 
 type Event = Record<string, any> & { runId?: string; seq: number; type: string; ts: string }
 // `controller` aborts the engine request (passed to engineFetch as its signal) when the run is canceled (#121).
@@ -160,14 +161,14 @@ const toRun = (r: any): RunSummary => ({
 
 export async function listRuns(mindId: string, limit: number, threadId?: string): Promise<RunSummary[]> {
   const rows = threadId
-    ? await query('select * from runs where mind_id = $1 and thread_id = $2 order by started_at desc limit $3', [mindId, threadId, limit])
-    : await query('select * from runs where mind_id = $1 order by started_at desc limit $2', [mindId, limit])
+    ? await query(`select * from runs r where r.mind_id = $1 and r.thread_id = $2 and ${NOT_DELETED} order by r.started_at desc limit $3`, [mindId, threadId, limit])
+    : await query(`select * from runs r where r.mind_id = $1 and ${NOT_DELETED} order by r.started_at desc limit $2`, [mindId, limit])
   return rows.map(toRun)
 }
 
 // A run of a Mind the user owns, or null.
 export async function getRun(userId: string, runId: string): Promise<(RunSummary & { mindId: string }) | null> {
-  const [row] = await query('select r.* from runs r join minds m on m.id = r.mind_id where r.id = $1 and m.user_id = $2', [runId, userId])
+  const [row] = await query(`select r.* from runs r join minds m on m.id = r.mind_id where r.id = $1 and m.user_id = $2 and ${NOT_DELETED}`, [runId, userId])
   return row ? { ...toRun(row), mindId: row.mind_id } : null
 }
 
