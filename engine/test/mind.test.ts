@@ -48,7 +48,6 @@ test('every Mind answers greetings and small talk without tools, and still calls
     const mind = mindSchema.parse({ templateId, name: 'Penny', soul: { identity: 'You help.' } })
     assert.ok(buildInstructions(mind).includes(SMALL_TALK_RULE))
   }
-  assert.match(SMALL_TALK_RULE, /"halo"/)
   assert.match(SMALL_TALK_RULE, /no tool calls: do not load a skill, check the time, read the calendar or inbox, or update your memory/)
   // Real requests still get their tools: "what time is it", "plan my day", a payment.
   assert.match(SMALL_TALK_RULE, /Call a tool only when the message asks for something that tool does \(the time, the calendar, a plan for the day, a payment\)/)
@@ -59,12 +58,10 @@ test('every Mind replies in the owner\'s language with standard spelling, KBBI w
   const prompt = buildInstructions(mind)
   assert.ok(prompt.includes(LANGUAGE_RULE))
   assert.match(LANGUAGE_RULE, /same language as the owner's latest message/)
-  // An English message gets an English reply: the first version named Indonesian unconditionally and English chats got Indonesian replies (11 Nov).
-  assert.match(LANGUAGE_RULE, /English message gets an English reply/)
-  assert.match(LANGUAGE_RULE, /When the owner writes in Indonesian/)
-  assert.match(LANGUAGE_RULE, /Never correct yourself/)
+    assert.match(LANGUAGE_RULE, /Never correct yourself/)
   assert.match(LANGUAGE_RULE, /never invent words/)
-  assert.match(LANGUAGE_RULE, /KBBI/)
+  // It names no language: naming Indonesian made English chats get Indonesian replies.
+  assert.doesNotMatch(LANGUAGE_RULE + SMALL_TALK_RULE, /Indonesian|KBBI|halo/i)
   assert.match(LANGUAGE_RULE, /short and simple/)
   // Both house rules sit with the writing style rule, before the skills line.
   assert.ok(prompt.indexOf(LANGUAGE_RULE) < prompt.indexOf('Your skills') && prompt.indexOf(SMALL_TALK_RULE) < prompt.indexOf('Your skills'))
