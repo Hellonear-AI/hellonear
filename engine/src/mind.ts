@@ -54,8 +54,10 @@ export function skillsLine(skillIds: string[]): string {
   const mine = skillIds.filter((id) => skillCatalog.has(id) && !skillCatalog.get(id)!.builtin).map(named)
   const more = equippableSkills().filter((s) => s.status !== 'blocked' && !skillIds.includes(s.name)).map((s) => named(s.name))
   return [
-    `Your skills: ${mine.length ? mine.join('; ') : 'none yet'}.`,
-    more.length ? `Skills the owner can add on the Skills screen: ${more.join('; ')}.` : '',
+    `Your skills, what you can do right now: ${mine.length ? mine.join('; ') : 'none yet'}.`,
+    more.length ? `Not yours yet; the owner can add them on the Skills screen: ${more.join('; ')}.` : '',
+    // Asked "what can you do?", the Mind listed Payments and Gmail as its own in 7 of 10 replies (10 Nov).
+    'When the owner asks what you can do, describe only your own skills. Never present a skill you do not have as something you can do; at most, end with one short line naming a few the owner could add on the Skills screen.',
     'If the owner asks for something none of your skills can do, say so plainly and name the skill that would do it, if one exists.',
   ].filter(Boolean).join(' ')
 }
