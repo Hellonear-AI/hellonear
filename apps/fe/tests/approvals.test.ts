@@ -4,7 +4,7 @@ import { timeAgo } from "@/lib/format"
 import { mindsApi, type ApiWallet } from "@/modules/minds/api"
 import { approvalChecks } from "@/modules/wallet/data/checks"
 import { freezeErrorText } from "@/modules/wallet/components/FreezeDialog"
-import { FreezeError } from "@/modules/wallet/hooks/useFreeze"
+import { OwnerActionError } from "@/modules/wallet/data/ownerAction"
 import { WrongAccountError } from "@/modules/wallet/hooks/useOwnerTransaction"
 import { answerOutcome } from "@/modules/chat/data/answer"
 import { ApiError } from "@/lib/api"
@@ -80,8 +80,8 @@ describe("freeze", () => {
     expect(urls).toEqual(["/api/v1/minds/m1/wallet/freeze", "/api/v1/minds/m1/wallet/unfreeze"])
   })
   it("says what happened when it fails", () => {
-    expect(freezeErrorText(new FreezeError("sign", new Error("User rejected")), true)).toBe("Meteor didn't sign, so the wallet wasn't frozen.")
-    expect(freezeErrorText(new FreezeError("sign", new WrongAccountError("me.testnet", ["you.testnet"])), true)).toContain("Switch it to me.testnet")
+    expect(freezeErrorText(new OwnerActionError("sign", new Error("User rejected")), true)).toBe("Meteor didn't sign, so the wallet wasn't frozen.")
+    expect(freezeErrorText(new OwnerActionError("sign", new WrongAccountError("me.testnet", ["you.testnet"])), true)).toContain("Switch it to me.testnet")
   })
 })
 

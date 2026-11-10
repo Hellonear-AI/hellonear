@@ -5,7 +5,8 @@ import { ownerAvailableNear } from "@/modules/wallet/api"
 import { activityLine, addNear, filterActivity, spentToday } from "@/modules/wallet/data/activity"
 import { shortAddress } from "@/modules/wallet/data/address"
 import { walletActionText } from "@/modules/wallet/data/errors"
-import { sameLimits, WalletActionError } from "@/modules/wallet/hooks/useWalletActions"
+import { OwnerActionError } from "@/modules/wallet/data/ownerAction"
+import { sameLimits } from "@/modules/wallet/hooks/useWalletActions"
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -53,8 +54,8 @@ describe("wallet helpers", () => {
     expect(sameLimits(null, { perTransactionNear: "2", whitelist: [] })).toBe(false)
   })
   it("says what changed when an owner action fails", () => {
-    expect(walletActionText(new WalletActionError("sign", new Error("rejected")), "limits")).toBe("Meteor did not sign the transaction, so the limits were not saved.")
-    expect(walletActionText(new WalletActionError("sign", new Error("rejected")), "funds")).toBe("Meteor did not sign the transaction, so no funds were sent.")
+    expect(walletActionText(new OwnerActionError("sign", new Error("rejected")), "limits")).toBe("Meteor did not sign the transaction, so the limits were not saved.")
+    expect(walletActionText(new OwnerActionError("sign", new Error("rejected")), "funds")).toBe("Meteor did not sign the transaction, so no funds were sent.")
   })
   it("reads what the owner can send: balance minus storage over the free 770 bytes", async () => {
     const rpc = (amount: string, storage_usage: number) => vi.fn(async () => Response.json({ result: { amount, storage_usage } }))
@@ -62,5 +63,26 @@ describe("wallet helpers", () => {
     await expect(ownerAvailableNear("me.testnet")).resolves.toBe("5")
     vi.stubGlobal("fetch", rpc("5000000000000000000000000", 1000))
     await expect(ownerAvailableNear("me.testnet")).resolves.toBe("4.99")
+  })
+})
+
+describe("owner actions (one error, one read-back)", () => {
+  it("wraps a failure as its step once, and keeps an owner error as it is", async () => {
+    const { ownerStep } = await import("@/modules/wallet/data/ownerAction")
+    const signFail = ownerStep("sign", async () => {
+      throw new Error("rejected")
+    })
+    await expect(signFail).rejects.toMatchObject({ step: "sign" })
+    const inner = new OwnerActionError("check", null)
+    await expect(ownerStep("build", async () => Promise.reject(inner))).rejects.toBe(inner)
+  })
+
+  it("says which account the wallet is on, only for that error", async () => {
+    const { wrongAccountText } = await import("@/modules/wallet/data/ownerAction")
+    const { WrongAccountError } = await import("@/modules/wallet/hooks/useOwnerTransaction")
+    expect(wrongAccountText(new OwnerActionError("sign", new WrongAccountError("me.testnet", ["you.testnet"])))).toBe(
+      "Your wallet is signed in as you.testnet. Switch it to me.testnet, then try again."
+    )
+    expect(wrongAccountText(new OwnerActionError("sign", new Error("rejected")))).toBeNull()
   })
 })

@@ -3,19 +3,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { mindsApi } from "@/modules/minds/api"
 import { mindKeys } from "@/modules/minds/hooks/useMinds"
+import { ownerStep, readWalletUntil } from "@/modules/wallet/data/ownerAction"
 import { useOwnerTransaction } from "@/modules/wallet/hooks/useOwnerTransaction"
-
-/** Where freezing stopped: building the transaction, the owner's signature, or reading it back. */
-export class FreezeError extends Error {
-  constructor(
-    readonly step: "build" | "sign" | "check",
-    readonly cause: unknown
-  ) {
-    super(`Freeze failed at ${step}`)
-  }
-}
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 /**
  * Freeze or unfreeze a Mind's wallet (design W3): the backend builds `freeze_wallet` /
@@ -28,23 +17,10 @@ export function useFreeze(mindId: string) {
 
   return useMutation({
     mutationFn: async (freeze: boolean) => {
-      let transaction
-      try {
-        transaction = await mindsApi.freezeTransaction(mindId, freeze)
-      } catch (err) {
-        throw new FreezeError("build", err)
-      }
-      try {
-        await sign(transaction)
-      } catch (err) {
-        throw new FreezeError("sign", err)
-      }
-      for (let i = 0; i < 5; i++) {
-        const wallet = await mindsApi.wallet(mindId).catch(() => null)
-        if (wallet && wallet.frozen === freeze) return { at: new Date().toISOString(), wallet }
-        await sleep(1500)
-      }
-      throw new FreezeError("check", null)
+      const transaction = await ownerStep("build", () => mindsApi.freezeTransaction(mindId, freeze))
+      await ownerStep("sign", () => sign(transaction))
+      const wallet = await readWalletUntil(mindId, (w) => w.frozen === freeze)
+      return { at: new Date().toISOString(), wallet }
     },
     // Show the wallet as read back at once, so the page flips with the dialog (Ancung, 9 Nov:
     // it still said "Freeze wallet" behind "Wallet frozen").
