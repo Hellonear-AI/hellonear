@@ -155,7 +155,7 @@ const slackChannels = createTool({
 
 const slackSend = createTool({
   id: 'slack_send_message',
-  description: 'Post a message to a Slack channel the owner named, as the owner. Always waits for the owner to approve.',
+  description: 'Post a message to a Slack channel the owner named, as the owner. Call slack_list_channels first to check the channel exists. Always waits for the owner to approve.',
   inputSchema: z.object({ channel: z.string().min(1).max(100), text: z.string().min(1).max(4000) }),
   outputSchema: z.object({ source: z.string(), channel: z.string(), ts: z.string(), status: z.literal('sent') }),
   requireApproval: true,

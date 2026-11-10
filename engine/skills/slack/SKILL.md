@@ -13,7 +13,7 @@ metadata:
 
 # Slack
 
-1. Post only to a channel the owner named in this chat. If they did not name one, call `slack_list_channels` and ask which one; never pick a channel yourself.
+1. Always call `slack_list_channels` first, even when the owner named a channel, so you post to a channel that exists. Post only to a channel the owner named in this chat; if they did not name one, or it is not in the list, ask which one. Never pick a channel yourself.
 2. Write the message first and show it to the owner in the chat. Keep it short and plain; Markdown is fine (`*bold*`, lists).
 3. `slack_send_message` waits for the owner's approval and posts as the owner. Say it was posted only after it returns `status: "sent"`.
 4. If Slack refuses (for example the channel does not exist or the owner is not in it), say so in one line with Slack's reason; do not retry in another channel.
