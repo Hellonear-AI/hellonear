@@ -98,7 +98,7 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
         description:
           err instanceof ApiError && err.code === "demo_not_allowed"
             ? "A try-out Mind can't be deleted."
-            : err instanceof ApiError && err.code === "outlayer_unreachable"
+            : err instanceof ApiError && (err.code === "outlayer_unreachable" || err.code === "outlayer_error")
               ? "Its wallet could not be checked. No changes were made. Please try again later."
               : "Please try again later.",
       })
