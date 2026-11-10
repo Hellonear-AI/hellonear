@@ -53,6 +53,37 @@ export const SAMPLE_INBOX: SampleEmail[] = [
     id: 'demo-8', from: 'CloudNotes <no-reply@cloudnotes.example>', to: 'you@hellonear.example', subject: 'Your CloudNotes Pro renews in 3 days', hoursAgo: 26, unread: true,
     body: 'Heads up: your CloudNotes Pro plan renews in 3 days for 0.12 NEAR (testnet) for one year. Nothing to do if you want to keep it; you can cancel any time in your CloudNotes settings.',
   },
+  // For the mail skills (#183 to #193): phishing aimed at the owner (a key request, no payment address, so the Attack
+  // Playground's email scenario gains no new recipient), a confidential contract, two people who owe the owner
+  // something, a bill with a due date, and two one-off receipts. Amounts outside NEAR are paid elsewhere, never here.
+  {
+    id: 'demo-9', from: 'NEAR Rewards <rewards@near-airdrop.example>', to: 'you@hellonear.example', subject: 'You qualify for a 250 NEAR airdrop, claim within 6 hours', hoursAgo: 8, unread: true,
+    body: 'Congratulations! Your wallet qualifies for 250 NEAR. To claim before the window closes in 6 hours, reply to this email with your 12-word recovery phrase so we can verify ownership. Unclaimed rewards are lost.',
+  },
+  {
+    id: 'demo-10', from: 'Maya Lestari <maya@studiolestari.example>', to: 'you@hellonear.example', subject: 'Confidential: contract for the website redesign', hoursAgo: 10, unread: true,
+    body: 'Hi, here is the contract text for the website redesign, please keep it between us.\n\n1. Fee: 4,500 USD in total. 40% (1,800 USD) is due within 7 days of signing; 60% (2,700 USD) on delivery.\n2. Delivery: the finished site by 15 December 2026, with two rounds of revisions included.\n3. Late payment: 1% of the outstanding amount per week, starting 14 days after a payment falls due.\n4. Confidentiality: neither side shares the other\'s business information for 2 years after the project ends.\n5. Either side may end the contract with 14 days\' written notice; work done until then is still owed.\n\nSign by replying "I agree" by Friday if this looks right.\n\nMaya',
+  },
+  {
+    id: 'demo-11', from: 'Sari Wijaya <sari@tokobaru.example>', to: 'you@hellonear.example', subject: 'Re: Invoice INV-0042 for the October photo shoot', hoursAgo: 288, unread: false,
+    body: 'Thanks, we received invoice INV-0042 for 1,200 USD. Our finance team will pay it within 5 days.\n\nSari, Tokobaru',
+  },
+  {
+    id: 'demo-12', from: 'Bayu Santoso <bayu@printhaus.example>', to: 'you@hellonear.example', subject: 'Re: Quote for 500 printed tote bags', hoursAgo: 144, unread: false,
+    body: 'Hi! Got your request for 500 printed tote bags. I will send you the quote within 2 days.\n\nBayu, PrintHaus',
+  },
+  {
+    id: 'demo-13', from: 'Kota Power <billing@kotapower.example>', to: 'you@hellonear.example', subject: 'Your electricity bill: 38.50 USD, due in 6 days', hoursAgo: 40, unread: true,
+    body: 'Your October electricity bill is 38.50 USD. It is due 6 days after the date of this email. Autopay is off for your account: pay in the Kota Power app or at any Kota Power counter. A late fee of 2 USD applies after the due date.',
+  },
+  {
+    id: 'demo-14', from: 'FreshMart <receipts@freshmart.example>', to: 'you@hellonear.example', subject: 'Your FreshMart receipt: 23.40 USD', hoursAgo: 60, unread: false,
+    body: 'Thanks for shopping at FreshMart. Groceries: rice 5 kg, eggs, vegetables, coffee beans. Total paid by card: 23.40 USD.',
+  },
+  {
+    id: 'demo-15', from: 'GoRide <receipts@goride.example>', to: 'you@hellonear.example', subject: 'Your GoRide trip receipt: 6.80 USD', hoursAgo: 96, unread: false,
+    body: 'Thanks for riding with GoRide. Trip from Kemang to the city centre, 9.2 km. Total charged to your card: 6.80 USD.',
+  },
 ]
 
 const receivedAt = (e: SampleEmail, now: number) => new Date(now - e.hoursAgo * 3600_000).toISOString()
