@@ -459,6 +459,9 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
    * side, each a line of its own (that may hold more Ifs) with a slot to add the next block. A way
    * without End carries on after its If, so the line goes on below, centred.
    */
+  // What each block shows after a Test run, Ifs included (they send no events of their own).
+  const lit = withIf(test?.nodes ?? {}, draft.line, Boolean(test && !test.running && !test.failed && test.status !== "failed"))
+
   const renderLine = (line: Block[], path: LinePath): ReactNode =>
     line.map((blk, i) => {
       const at = { path, index: i }
@@ -466,7 +469,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       return (
         <div key={blk.id} className="flex flex-col items-center">
           {spot(at)}
-          <Linked>
+          <Linked nodeId={blk.id}>
             <div
               draggable={blk.kind !== "end"}
               onDragStart={(e) => {
@@ -491,16 +494,18 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             // a bar across to the middle of each way, then a line down to Yes and to No. Each way
             // draws its half of the bar, so it meets in the middle whatever the ways' widths.
             <div className="flex flex-col items-center">
-              <span aria-hidden className="h-5 w-px bg-border-strong" />
+              <Wire run={lit[blk.id] && { status: "ok" }} className="h-5" />
               <div className="flex items-start justify-center gap-6">
               {(["then", "else"] as const).map((h) => {
                 const wayPath: LinePath = [...path, { at: blk.id, h }]
                 const way = blk[h]
                 const end = { path: wayPath, index: way.length }
+                // The way that ran turns green from the If down to its first block.
+                const ran = lit[blk.id]?.note === (h === "then" ? "Yes" : "No") ? ({ status: "ok" } as const) : undefined
                 return (
                   <div key={h} className="relative flex min-w-[300px] flex-col items-center">
-                    <span aria-hidden className={cn("absolute top-0 h-px bg-border-strong", h === "then" ? "right-[-12px] left-1/2" : "right-1/2 left-[-12px]")} />
-                    <span aria-hidden className="h-6 w-px bg-border-strong" />
+                    <span aria-hidden className={cn("absolute top-0 h-px", ran ? "bg-success" : "bg-border-strong", h === "then" ? "right-[-12px] left-1/2" : "right-1/2 left-[-12px]")} />
+                    <Wire run={ran} className="h-6" />
                     <span className="pb-1.5 text-xs font-medium text-muted-foreground">{h === "then" ? "Yes" : "No"}</span>
                     {renderLine(way, wayPath)}
                     {/* The next block on this way; none after an If, which goes on in its own ways. */}
@@ -717,7 +722,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       )}
       {dirty && workflowId && <p className="mx-4 mt-3 text-xs text-muted-foreground md:mx-6">Save your changes to test them.</p>}
 
-      <TestRun.Provider value={withIf(test?.nodes ?? {}, draft.line, Boolean(test && !test.running && !test.failed && test.status !== "failed"))}>
+      <TestRun.Provider value={lit}>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row">
         {/* The Blocks panel folds like the app's sidebar (AppShell): the width slides 240 <-> 72
             (ease-in-out, 200 ms) and the full list crossfades with the icon rail. Phones and
@@ -1045,10 +1050,20 @@ function DropSpot({ id, over, setOver, onDrop, label }: { id: string; over: stri
   )
 }
 
-function Linked({ children }: { children: ReactNode }) {
+/** The line from the block above, coloured by how the block below went in a Test run. */
+function Wire({ run, className }: { run?: NodeRun; className?: string }) {
+  return <span aria-hidden className={cn(className, wireTone(run))} />
+}
+
+/** Grey at rest; while its block works a light runs down it (`wire-flow`); then green or red. */
+const wireTone = (run?: NodeRun) =>
+  run?.status === "running" ? "wire-flow" : run?.status === "ok" ? "w-px bg-success" : run?.status === "error" ? "w-px bg-danger" : "w-px bg-border-strong"
+
+function Linked({ nodeId, children }: { nodeId?: string; children: ReactNode }) {
+  const run = useContext(TestRun)[nodeId ?? ""]
   return (
     <div className="flex flex-col items-center">
-      <span aria-hidden className="h-6 w-px bg-border-strong" />
+      <Wire run={run} className="h-6 transition-colors duration-300 ease-out" />
       {children}
     </div>
   )
@@ -1174,7 +1189,7 @@ function BlockCard({
                 : "border-border",
         // ...and the picked block gets its own outline, a gap away, lifted (Ancung, 9 Nov: a 1 px
         // edge didn't show which block was picked, and the amber ones drew the eye instead).
-        active ? "shadow-md ring-2 ring-foreground ring-offset-2 ring-offset-background" : run?.status === "running" ? "ring-2 ring-info/30" : "hover:bg-surface-hover"
+        active ? "shadow-md ring-2 ring-foreground ring-offset-2 ring-offset-background" : run?.status === "running" ? "node-glow" : "hover:bg-surface-hover"
       )}
     >
       <span className="flex items-center gap-2 text-xs text-muted-foreground">
