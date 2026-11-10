@@ -53,7 +53,7 @@ export function Footer() {
         />
         {/* Desktop: the text on the grass */}
         <div className="absolute inset-x-0 bottom-0 top-[42%] hidden md:block">
-          <div className="footer-on-grass mx-auto flex h-full max-w-[1200px] items-start justify-between gap-10 px-5 pt-6 text-white">
+          <div className="footer-on-grass flex h-full items-start justify-between gap-10 px-[4vw] pt-6 text-white">
             <Brand light />
             <Links className="text-white/85" head="text-white" />
           </div>
