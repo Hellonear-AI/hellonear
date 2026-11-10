@@ -1,1 +1,4 @@
 *.tsbuildinfo
+
+# editor tool caches
+.impeccable/
