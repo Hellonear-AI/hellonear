@@ -178,6 +178,37 @@ describe("while an approval is being answered", () => {
   })
 })
 
+describe("a second approval in the same run (split bill, #177)", () => {
+  const firstPaused = () => [ev("tool.approval_required", { toolCallId: "c1", tool: "send_payment" }), ev("run.finished"), ev("run.verified")]
+  it("keeps the next payment waiting after the first one was approved and sent", () => {
+    seq = 0
+    const v = foldRun([
+      ...firstPaused(),
+      ev("tool.result", { toolCallId: "c1", tool: "send_payment", result: { status: "sent", txHash: "Tx1" } }),
+      ev("step.started"),
+      ev("tool.called", { toolCallId: "c2", tool: "send_payment" }),
+      ev("tool.approval_required", { toolCallId: "c2", tool: "send_payment" }),
+      ev("run.finished"),
+      ev("run.verified"),
+    ])
+    expect(v.tools.map((t) => [t.toolCallId, t.status])).toEqual([["c1", "ok"], ["c2", "awaiting_approval"]])
+    expect(v.status).toBe("awaiting_approval")
+  })
+
+  it("a first payment the run went past is declined, the next one still waits", () => {
+    seq = 0
+    const v = foldRun([
+      ...firstPaused(),
+      ev("text.delta", { text: "Skipping that one." }),
+      ev("tool.called", { toolCallId: "c2", tool: "send_payment" }),
+      ev("tool.approval_required", { toolCallId: "c2", tool: "send_payment" }),
+      ev("run.finished"),
+    ])
+    expect(v.tools.map((t) => [t.toolCallId, t.status])).toEqual([["c1", "declined"], ["c2", "awaiting_approval"]])
+    expect(v.status).toBe("awaiting_approval")
+  })
+})
+
 describe("reply parts", () => {
   it("keeps text and tools in the order they happened", () => {
     seq = 0

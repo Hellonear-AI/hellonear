@@ -134,6 +134,12 @@ export function foldRun(events: RunEvent[]): RunView {
         if (!e.toolCallId) break
         const step = byCall.get(e.toolCallId) ?? { toolCallId: e.toolCallId, tool: e.tool ?? "", nodeId: e.nodeId, status: "running" as ToolStatus, args: e.args, result: undefined, startedAt: e.ts }
         if (e.type === "tool.approval_required") {
+          // A new pause after a resume (split bill: the next person's payment): approvals from the earlier
+          // pause that never ran were declined, and this one waits like the first did.
+          if (resumed) {
+            for (const t of view.tools) if (t.status === "awaiting_approval" && t.toolCallId !== e.toolCallId) t.status = "declined"
+            resumed = false
+          }
           step.status = "awaiting_approval"
           paused = true
         }
