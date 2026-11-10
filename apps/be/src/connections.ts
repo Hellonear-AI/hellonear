@@ -80,6 +80,23 @@ export async function connect(userId: string, toolkit: Toolkit): Promise<{ redir
   return { redirectUrl: link.redirect_url }
 }
 
+// The address of the owner's connected Gmail (#146), for Autopilot's "Email me": Google proved it at OAuth time, so it
+// needs no confirmation code. Composio GMAIL_GET_PROFILE (schema read 10 Nov 2026: `emailAddress`, "may be wrapped
+// under a top-level data field"); a user without Gmail gets 404 ActionExecute_ConnectedAccountNotFound (checked live).
+export async function gmailAddress(userId: string): Promise<string> {
+  let body: any
+  try {
+    body = await composio('POST', '/tools/execute/GMAIL_GET_PROFILE', { user_id: userId, arguments: { user_id: 'me' } })
+  } catch (e) {
+    if (e instanceof HttpError && e.extra.composioStatus === 404) throw new HttpError(409, 'gmail_not_connected')
+    throw e
+  }
+  const address = body?.data?.emailAddress ?? body?.data?.data?.emailAddress
+  const parsed = z.string().trim().toLowerCase().email().max(254).safeParse(address)
+  if (body?.successful === false || !parsed.success) throw new HttpError(UPSTREAM_ERROR, 'composio_error', { action: 'gmail_profile' })
+  return parsed.data
+}
+
 // Deletes every connection of this user for the toolkit (Composio revokes the stored tokens). false = none existed.
 export async function disconnect(userId: string, toolkit: Toolkit): Promise<boolean> {
   const existing = await accounts(userId, toolkit)

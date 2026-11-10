@@ -3,12 +3,12 @@ name: email-address
 description: Use when the owner asks this Mind to send an email from its own address, asks what its email address is, or asks about mail that arrived at that address.
 metadata:
   hellonear:
-    tools: [mail_send, mail_list, mail_read, get_time]
+    tools: [mail_send, mail_list, mail_read, get_time, mail_send_to_owner]
     connections: [agentmail]
     status: available
     title: Email address
     blurb: gives this Mind its own email address and sends email after the owner approves
-    note: The Mind's own AgentMail address, created when the owner turns this skill on (#96). Try-out visitors share one demo address and can only email that address itself.
+    note: The Mind's own AgentMail address, created when the owner turns this skill on (#96). Try-out visitors share one demo address and can only email that address itself. Autopilot jobs can also use it to email the owner (Email me, #146), never offered in chat.
 ---
 
 # Email address

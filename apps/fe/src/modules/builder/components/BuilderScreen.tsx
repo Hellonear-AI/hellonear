@@ -60,6 +60,7 @@ import {
   promptFromDisplay,
   promptParts,
   type Self,
+  notesBefore,
   resultsBefore,
   stepFields,
   toCanvas,
@@ -844,6 +845,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
               step={step}
               address={address}
               name={name}
+              notes={notesBefore(draft.steps, draft.steps.indexOf(step))}
               missingSkill={missingSkills.find((s) => catalog?.find((c) => c.skillId === s)?.tools.includes(step.tool))}
               onChange={(patch) => setStep(step.id, patch)}
               onDelete={() => removeStep(step.id)}
@@ -861,7 +863,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
               ) : e.kind === "http" ? (
                 <HttpPanel step={e} results={resultsBefore(draft.steps, undefined, self)} missingSkill={missingSkills.find((x) => catalog?.find((c) => c.skillId === x)?.tools.includes("http_request"))} name={name} onChange={patch} onDelete={remove} />
               ) : (
-                <ToolPanel step={e} address={address} name={name} missingSkill={missingSkills.find((x) => catalog?.find((c) => c.skillId === x)?.tools.includes(e.tool))} onChange={patch} onDelete={remove} />
+                <ToolPanel step={e} address={address} name={name} notes={notesBefore(draft.steps)} missingSkill={missingSkills.find((x) => catalog?.find((c) => c.skillId === x)?.tools.includes(e.tool))} onChange={patch} onDelete={remove} />
               )
             })()
           ) : b && ending ? (
@@ -1079,6 +1081,7 @@ function StepCard({
   }
   const info = toolInfo(step.tool)
   const account = step.args.accountId
+  const own = step.tool === "googlecalendar_block_time" ? `${step.args.title?.trim() || "An event"} at ${step.args.at || "09:00"}` : step.tool === "mail_send_to_owner" ? step.args.subject?.trim() || "No subject yet" : null
   return (
     <BlockCard
       tone="tool"
@@ -1086,7 +1089,7 @@ function StepCard({
       kind="Use a tool"
       nodeId={step.id}
       title={info?.title ?? "A tool"}
-      line={account ? shortAddress(account) : info?.line}
+      line={account ? shortAddress(account) : own ?? info?.line}
       mono={Boolean(account)}
       active={active}
       warn={problem}
@@ -1295,6 +1298,7 @@ function PromptField({
   onChange,
   labelText,
   placeholder = "Sum up the emails that need me today, in three lines.",
+  hint,
 }: {
   name: string
   value: string
@@ -1302,6 +1306,8 @@ function PromptField({
   onChange: (p: string) => void
   labelText?: string
   placeholder?: string
+  /** Replaces the line under the field (an Ask step's says what the Mind can't do alone). */
+  hint?: ReactNode
 }) {
   const labels = tokenLabels(results)
   const editor = useRef<PromptEditorHandle>(null)
@@ -1342,7 +1348,7 @@ function PromptField({
           ))}
         </div>
       )}
-      <span className="text-xs text-muted-foreground">{name} uses the skills it has. It can&apos;t pay, ask you to approve, or use keys while it runs alone.</span>
+      {hint ?? <span className="text-xs text-muted-foreground">{name} uses the skills it has. It can&apos;t pay, ask you to approve, or use keys while it runs alone.</span>}
     </div>
   )
 }
@@ -1372,6 +1378,7 @@ function ToolPanel({
   step,
   address,
   name,
+  notes,
   missingSkill,
   onChange,
   onDelete,
@@ -1379,11 +1386,14 @@ function ToolPanel({
   step: Extract<Step, { kind: "tool" }>
   address: string
   name: string
+  /** Notes from earlier Ask steps, the only results "Email me" may send (#146). */
+  notes: Result[]
   missingSkill?: string
   onChange: (patch: Partial<Step>) => void
   onDelete: () => void
 }) {
   const info = toolInfo(step.tool)
+  const setArg = (k: string, v: string) => onChange({ args: { ...step.args, [k]: v } })
   return (
     <>
       <PanelHead tone="tool" icon={<SearchIcon />} title="Use a tool" />
@@ -1392,29 +1402,60 @@ function ToolPanel({
         <ChoiceSelect
           aria-label="Tool"
           value={step.tool}
-          onChange={(tool) => onChange({ tool, args: tool === "near_view_account" ? { accountId: address } : {} })}
+          onChange={(tool) => onChange({ tool, args: tool === "near_view_account" ? { accountId: address } : { ...(toolInfo(tool)?.defaults ?? {}) } })}
           options={TOOLS.map((t) => ({ value: t.tool, label: t.title }))}
         />
         <span className="text-xs text-muted-foreground">{info?.line}</span>
       </div>
-      {info?.args.map((a) => (
-        <label key={a.name} className={field}>
-          <span className={label}>{a.label}</span>
-          <Input
-            value={step.args[a.name] ?? ""}
-            placeholder="shop.testnet"
-            className="font-mono"
-            autoCapitalize="none"
-            spellCheck={false}
-            onChange={(e) => onChange({ args: { ...step.args, [a.name]: e.target.value.trim().toLowerCase() } })}
-          />
-          {address && step.args[a.name] !== address && (
-            <button type="button" className="w-fit text-xs font-medium text-foreground underline underline-offset-2" onClick={() => onChange({ args: { ...step.args, [a.name]: address } })}>
-              Use {name}&apos;s own wallet
-            </button>
-          )}
-        </label>
-      ))}
+      {info?.args.map((a) =>
+        a.kind === "account" ? (
+          <label key={a.name} className={field}>
+            <span className={label}>{a.label}</span>
+            <Input
+              value={step.args[a.name] ?? ""}
+              placeholder="shop.testnet"
+              className="font-mono"
+              autoCapitalize="none"
+              spellCheck={false}
+              onChange={(e) => setArg(a.name, e.target.value.trim().toLowerCase())}
+            />
+            {address && step.args[a.name] !== address && (
+              <button type="button" className="w-fit text-xs font-medium text-foreground underline underline-offset-2" onClick={() => setArg(a.name, address)}>
+                Use {name}&apos;s own wallet
+              </button>
+            )}
+          </label>
+        ) : a.kind === "note" ? (
+          <div key={a.name} className="flex flex-col gap-2">
+            <PromptField
+              name={name}
+              labelText={a.label}
+              placeholder={a.placeholder}
+              value={step.args[a.name] ?? ""}
+              results={notes}
+              onChange={(v) => setArg(a.name, v)}
+              hint={<span className="text-xs text-muted-foreground">Sent from {name}&apos;s own address to the Gmail you connected, and nobody else.</span>}
+            />
+            {!notes.length && <p className="text-xs text-muted-foreground">Add an Ask step before this one: the email sends what {name} wrote, never an email or a web page as it came in.</p>}
+          </div>
+        ) : a.kind === "time" ? (
+          <div key={a.name} className={field}>
+            <span className={label}>{a.label}</span>
+            <TimePicker aria-label={a.label} value={step.args[a.name] || "09:00"} onChange={(v) => setArg(a.name, v)} />
+            <span className="text-xs text-muted-foreground">Today, in the job&apos;s time zone.</span>
+          </div>
+        ) : (
+          <label key={a.name} className={field}>
+            <span className={label}>{a.label}</span>
+            <Input
+              value={step.args[a.name] ?? ""}
+              placeholder={a.placeholder}
+              inputMode={a.kind === "minutes" ? "numeric" : undefined}
+              onChange={(e) => setArg(a.name, a.kind === "minutes" ? e.target.value.replace(/\D/g, "").slice(0, 3) : e.target.value)}
+            />
+          </label>
+        )
+      )}
       {missingSkill && <p className="text-xs text-muted-foreground">This tool comes with {skillCopy(missingSkill).title}. Saving adds that skill to {name}.</p>}
       <DeleteBlock onClick={onDelete} />
     </>

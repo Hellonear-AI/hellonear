@@ -1311,6 +1311,51 @@ describe('Mind email addresses through AgentMail (#96)', () => {
     }
   })
 
+  test('Email me (#146): only to the owner\'s Gmail address, engine key only, never for a try-out user', async () => {
+    const a = await signIn()
+    const userId = (await (await a.call('GET', '/v1/me')).json()).user.id as string
+    const { mindId, email } = await inboxMind(a, 'Asisten')
+    const owner = (body: Record<string, unknown>, key = ENGINE_KEY) => fetch(base + '/internal/v1/mail/owner', {
+      method: 'POST', headers: { 'x-engine-key': key, 'content-type': 'application/json' }, body: JSON.stringify({ userId, mindId, subject: 'Your morning', text: 'Two meetings today.', ...body }),
+    })
+
+    // No Gmail connected: nothing is sent.
+    const before = fakeAgentmail.requests.length
+    let res = await owner({})
+    assert.equal(res.status, 409)
+    assert.equal((await res.json()).error, 'gmail_not_connected')
+    assert.equal(fakeAgentmail.requests.length, before)
+
+    const now = new Date().toISOString()
+    fakeComposio.accounts.push({ id: `ca_${randomBytes(4).toString('hex')}`, user_id: userId, status: 'ACTIVE', toolkit: { slug: 'gmail' }, created_at: now, updated_at: now })
+    fakeComposio.profiles.set(userId, 'Owner@Gmail.example')
+    res = await owner({ idempotencyKey: 'run_1.email' })
+    assert.equal(res.status, 200, await res.clone().text())
+    const sent = await res.json()
+    assert.deepEqual([sent.status, sent.from, sent.to], ['sent', email, ['owner@gmail.example']])
+    const req = fakeAgentmail.requests.findLast((r) => r.path.endsWith('/messages/send'))!
+    assert.deepEqual(req.body.to, ['owner@gmail.example'])
+    assert.match(req.body.text, /^Two meetings today\.\n\n--\nSent by Asisten, your HelloNear Mind, from an Autopilot job\./)
+    assert.equal(fakeComposio.requests.findLast((r) => r.path === '/tools/execute/GMAIL_GET_PROFILE')!.body.user_id, userId)
+
+    // A recipient in the body is not part of the schema: refused, never used.
+    res = await owner({ to: ['stranger@example.com'] })
+    assert.equal(res.status, 400)
+    // Wrong engine key, another user's Mind, a try-out user.
+    assert.equal((await owner({}, 'nope')).status, 401)
+    const b = await signIn()
+    const otherId = (await (await b.call('GET', '/v1/me')).json()).user.id as string
+    assert.equal((await owner({ userId: otherId })).status, 404)
+    await query('update users set is_demo = true where id = $1', [userId])
+    try {
+      res = await owner({})
+      assert.equal(res.status, 403)
+      assert.equal((await res.json()).error, 'demo_not_allowed')
+    } finally {
+      await query('update users set is_demo = false where id = $1', [userId])
+    }
+  })
+
   test('owners: at most sendsPerMindPerDay per Mind, then refusals without calling AgentMail', async () => {
     const { config } = await import('../src/config.ts')
     const saved = config.mail.sendsPerMindPerDay

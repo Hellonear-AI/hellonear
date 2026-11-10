@@ -5,7 +5,7 @@ import { parseSkillMd, skillCatalog, skillCatalogSummaries, usableSkills } from 
 
 test('every SKILL.md in engine/skills parses and only uses registered tools', () => {
   assert.deepEqual([...skillCatalog.keys()], ['daily-planner', 'email-address', 'email-triage', 'hellonear-guide', 'http-request', 'meeting-prep', 'morning-briefing', 'near-account', 'payments', 'subscriptions'])
-  assert.deepEqual(skillCatalog.get('daily-planner')?.tools, ['get_time', 'add_numbers', 'googlecalendar_list_events', 'googlecalendar_create_event', 'googlecalendar_create_meeting'])
+  assert.deepEqual(skillCatalog.get('daily-planner')?.tools, ['get_time', 'add_numbers', 'googlecalendar_list_events', 'googlecalendar_create_event', 'googlecalendar_create_meeting', 'googlecalendar_block_time'])
   assert.deepEqual(skillCatalog.get('daily-planner')?.connections, ['googlecalendar', 'googlemeet'])
   assert.equal(skillCatalog.get('payments')?.status, 'available')
   assert.deepEqual(skillCatalog.get('payments')?.tools, ['send_payment', 'get_balance', 'list_payments', 'get_time', 'near_view_account'])

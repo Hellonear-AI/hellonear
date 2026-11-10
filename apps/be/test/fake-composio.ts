@@ -10,6 +10,8 @@ export const fakeComposio = {
   requests: [] as { method: string; path: string; body: any }[],
   accounts: [] as Account[],
   sessions: new Map<string, string>(),
+  // Gmail addresses by user id, for GMAIL_GET_PROFILE (only answered while the user's gmail account is ACTIVE).
+  profiles: new Map<string, string>(),
   failNext: 0,
   activate(userId: string, toolkit = 'gmail') {
     for (const a of this.accounts) if (a.user_id === userId && a.toolkit.slug === toolkit) a.status = 'ACTIVE'
@@ -56,6 +58,13 @@ export const composioServer = createServer(async (req, res) => {
     const account = { id: id('ca'), user_id: userId, status: 'INITIALIZING', toolkit: { slug: body.toolkit }, created_at: now, updated_at: now }
     fakeComposio.accounts.push(account)
     return send(res, 201, { link_token: id('lk'), redirect_url: `https://connect.composio.invalid/link/${account.id}`, connected_account_id: account.id })
+  }
+  // Direct tool execution (#146). Not connected: the 404 body checked live on 10 Nov 2026.
+  if (req.method === 'POST' && url.pathname === '/tools/execute/GMAIL_GET_PROFILE') {
+    const address = fakeComposio.profiles.get(body.user_id)
+    const active = fakeComposio.accounts.some((a) => a.user_id === body.user_id && a.toolkit.slug === 'gmail' && a.status === 'ACTIVE')
+    if (!address || !active) return send(res, 404, { error: { message: `No connected account found for user ID ${body.user_id} for toolkit gmail`, code: 1810, slug: 'ActionExecute_ConnectedAccountNotFound', status: 404 } })
+    return send(res, 200, { data: { emailAddress: address, messagesTotal: 12, threadsTotal: 9, historyId: '1234' }, error: null, successful: true })
   }
   send(res, 404, { error: { message: 'unknown route' } })
 })
