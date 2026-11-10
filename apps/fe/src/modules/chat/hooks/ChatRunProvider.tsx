@@ -41,6 +41,8 @@ type ChatRun = {
   resume: (answer: Answer & { threadId: string | null }) => void
   /** Stop the reply in progress (#121). The backend ends its stream with run.finished "canceled". */
   stop: () => void
+  /** Stop was pressed and the run hasn't ended yet. */
+  stopping: boolean
 }
 
 const ChatRunContext = createContext<ChatRun | null>(null)
@@ -56,6 +58,22 @@ export function ChatRunProvider({ mindId, children }: { mindId: string; children
   const pathname = usePathname()
   const [active, setActive] = useState<ActiveRun | null>(null)
   const nextId = useRef(1)
+  // Stop pressed for this run (by its local id). The run id only comes with the first event, and
+  // the engine can think for a while before it: a Stop pressed then waits for it (Ancung, 10 Nov:
+  // Stop during "Thinking..." sent nothing).
+  const stopFor = useRef<number | null>(null)
+  const cancelSent = useRef<string | null>(null)
+  const [stopping, setStopping] = useState(false)
+  const sendCancel = useCallback((runId: string) => {
+    if (cancelSent.current === runId) return
+    cancelSent.current = runId
+    // 409 not_running: it ended on its own first; nothing to tell the owner.
+    chatApi.cancel(runId).catch((err) => {
+      if (err instanceof Error && "status" in err && (err as { status: number }).status === 409) return
+      setStopping(false)
+      toast.error("Could not stop the reply", { description: "Please try again." })
+    })
+  }, [])
   const pathRef = useRef(pathname)
   useEffect(() => {
     pathRef.current = pathname
@@ -79,6 +97,7 @@ export function ChatRunProvider({ mindId, children }: { mindId: string; children
       try {
         await open((e) => {
           events.push(e)
+          if (stopFor.current === id && e.runId) sendCancel(e.runId)
           if (!threadId && e.type === "run.started" && e.threadId) {
             threadId = e.threadId
             // A new thread got its id: give it its own URL (the layout, and this run, stay mounted).
@@ -89,9 +108,17 @@ export function ChatRunProvider({ mindId, children }: { mindId: string; children
           update({ threadId })
         })
         update({ streaming: false, threadId })
+        if (stopFor.current === id) {
+          stopFor.current = null
+          setStopping(false)
+        }
       } catch (err) {
         failed = err
         update({ streaming: false, failed: err, threadId })
+        if (stopFor.current === id) {
+          stopFor.current = null
+          setStopping(false)
+        }
       }
 
       // Read the stored thread back; once it holds this run, the thread shows it from there.
@@ -103,10 +130,10 @@ export function ChatRunProvider({ mindId, children }: { mindId: string; children
       ])
       return { view: foldRun(events), failed }
     },
-    [mindId, queryClient, router]
+    [mindId, queryClient, router, sendCancel]
   )
 
-  const value = useMemo<Omit<ChatRun, "stop">>(
+  const value = useMemo<Omit<ChatRun, "stop" | "stopping">>(
     () => ({
       active,
       send: (message, threadId) =>
@@ -136,14 +163,14 @@ export function ChatRunProvider({ mindId, children }: { mindId: string; children
     [active, mindId, queryClient, run]
   )
   const stop = useCallback(() => {
-    const runId = active?.streaming ? (active.view.runId ?? active.events.find((e) => e.runId)?.runId) : null
-    if (!runId) return
-    // 409 not_running: it ended on its own first; nothing to tell the owner.
-    chatApi.cancel(runId).catch((err) => {
-      if (!(err instanceof Error && "status" in err && (err as { status: number }).status === 409)) toast.error("Could not stop the reply", { description: "Please try again." })
-    })
-  }, [active])
-  const withStop = useMemo(() => ({ ...value, stop }), [value, stop])
+    if (!active?.streaming) return
+    stopFor.current = active.id
+    setStopping(true)
+    const runId = active.view.runId ?? active.events.find((e) => e.runId)?.runId
+    // No run id yet: it is sent as soon as the first event brings one (see `run`).
+    if (runId) sendCancel(runId)
+  }, [active, sendCancel])
+  const withStop = useMemo(() => ({ ...value, stop, stopping }), [value, stop, stopping])
 
   return <ChatRunContext.Provider value={withStop}>{children}</ChatRunContext.Provider>
 }

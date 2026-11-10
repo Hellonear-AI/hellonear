@@ -42,7 +42,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   const wallet = useMindWallet(mindId).data ?? null
   const session = useSession()
   const thread = useThread(mindId, threadId)
-  const { active, send, resume, stop } = useChatRun()
+  const { active, send, resume, stop, stopping } = useChatRun()
 
   const name = mind?.name ?? "Your Mind"
   const templateId = mind?.templateId ?? "general-assistant"
@@ -305,6 +305,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
               locked={outOfMessages ? "Try-out finished" : undefined}
               onSend={(text) => send(text, threadId)}
               onStop={stop}
+              stopping={stopping}
               draftKey={`hellonear.draft.${mindId}.${threadId ?? "new"}`}
             />
           </div>

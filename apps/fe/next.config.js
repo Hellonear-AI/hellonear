@@ -10,6 +10,11 @@ const OTHER_HOSTS = ["hellonear.xyz", "hellonear.jameshub.fun"]
 /** @type {import('next').NextConfig} */
 module.exports = {
   reactStrictMode: true,
+  // Only when /api/v1 goes through this app (local dev, no NEXT_PUBLIC_API_URL): compressing the
+  // forwarded chat stream can hold its events back until the end, so steps, text and Stop's run id
+  // came all at once (Ancung, 10 Nov; the cause is not proven). The hosted build calls the API
+  // directly and keeps compression.
+  compress: Boolean(process.env.NEXT_PUBLIC_API_URL),
   // The public web app is https://app.hellonear.xyz. The other names send visitors there, because
   // the build calls one API (api.hellonear.xyz) and the session cookie only reaches it from the same site.
   async redirects() {

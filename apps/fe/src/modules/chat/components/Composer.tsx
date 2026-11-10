@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowUpIcon, SquareIcon } from "lucide-react"
+import { ArrowUpIcon, Loader2Icon, SquareIcon } from "lucide-react"
 import { useEffect, useState, type KeyboardEvent } from "react"
 import { Button } from "@/components/ui/button"
 
@@ -14,6 +14,7 @@ export function Composer({
   note,
   onSend,
   onStop,
+  stopping = false,
   draftKey,
   locked,
 }: {
@@ -23,6 +24,8 @@ export function Composer({
   onSend: (message: string) => void
   /** Stops the reply in progress; without it the button just waits. */
   onStop?: () => void
+  /** Stop was pressed; the button waits for the run to end. */
+  stopping?: boolean
   /** Where the unsent text is kept on this device, one per chat (Ancung, 10 Nov, like Claude). */
   draftKey?: string
   /** Why nothing can be sent (a try-out with no messages left, T1.5): the box shows this and locks. */
@@ -85,13 +88,13 @@ export function Composer({
           onKeyDown={onKeyDown}
           rows={1}
           maxLength={4000}
-          placeholder={locked ?? (busy ? `${name} is replying` : `Message ${name}`)}
+          placeholder={locked ?? (stopping ? "Stopping..." : busy ? `${name} is replying` : `Message ${name}`)}
           disabled={Boolean(locked)}
           className="field-sizing-content max-h-40 min-h-10 flex-1 resize-none bg-transparent py-2 text-base text-foreground outline-none placeholder:text-tertiary-foreground md:text-[15px]"
         />
         {busy && onStop ? (
-          <Button type="button" size="icon" onClick={onStop} aria-label={`Stop ${name}'s reply`} title="Stop">
-            <SquareIcon className="fill-current" />
+          <Button type="button" size="icon" onClick={onStop} disabled={stopping} aria-label={stopping ? "Stopping" : `Stop ${name}'s reply`} title={stopping ? "Stopping" : "Stop"}>
+            {stopping ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <SquareIcon className="fill-current" />}
           </Button>
         ) : (
           <Button type="submit" size="icon" disabled={!canSend} aria-label="Send">
