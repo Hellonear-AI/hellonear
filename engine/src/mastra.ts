@@ -19,7 +19,7 @@ export const storage = new PostgresStore({
   id: 'engine-storage', connectionString: config.databaseUrl, schemaName: 'mastra', max: 5,
   retention: { workflows: { workflowSnapshot: keep }, schedules: { triggers: keep } },
 })
-const vector = new PgVector({ id: 'engine-vector', connectionString: config.databaseUrl, schemaName: 'mastra', max: 5 })
+export const vector = new PgVector({ id: 'engine-vector', connectionString: config.databaseUrl, schemaName: 'mastra', max: 5 })
 
 const memory = new Memory({
   vector,
