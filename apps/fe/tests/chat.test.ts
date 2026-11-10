@@ -271,3 +271,13 @@ describe("thinking sent as text (GLM, 11 Nov)", () => {
     expect(view.parts).toEqual([{ kind: "text", text: "Hi Ancung." }])
   })
 })
+
+describe("a skill the Mind doesn't have (11 Nov)", () => {
+  it("reads as failed, not as picked up", () => {
+    const view = foldRun([
+      { type: "tool.called", runId: "r", seq: 1, ts: "2026-11-11T00:00:01Z", toolCallId: "c", tool: "skill", args: { name: "notion" } },
+      { type: "tool.result", runId: "r", seq: 2, ts: "2026-11-11T00:00:02Z", toolCallId: "c", result: 'Skill "notion" not found. Available skills: payments (inline/payments)' },
+    ] as RunEvent[])
+    expect(view.tools[0]).toMatchObject({ status: "error", error: "This Mind doesn't have that skill. Add it in Skills." })
+  })
+})

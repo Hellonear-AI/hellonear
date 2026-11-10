@@ -187,6 +187,12 @@ export function foldRun(events: RunEvent[]): RunView {
           const message = (e.result as { message?: unknown }).message
           step.error = typeof message === "string" ? message : undefined
         }
+        // Mastra answers a skill the Mind doesn't have with a plain result, 'Skill "notion" not found…': it
+        // read "Picked up a skill" with a check (Ancung, 11 Nov). It failed.
+        if (e.type === "tool.result" && (step.tool === "skill" || step.tool === "skill_read") && typeof e.result === "string" && /^Skill ".*" not found/.test(e.result)) {
+          step.status = "error"
+          step.error = "This Mind doesn't have that skill. Add it in Skills."
+        }
         break
       }
       case "run.finished":
