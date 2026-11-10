@@ -31,8 +31,10 @@ after(async () => {
 type Ev = Record<string, any>
 const call = (method: string, path: string, body?: unknown) =>
   fetch(base + path, { method, headers: { 'content-type': 'application/json', 'x-engine-key': key }, body: body === undefined ? undefined : JSON.stringify(body) })
+// A run is listed as pending before it is running, so wait for an end state, not for "not running" (11 Nov).
+const DONE = new Set(['success', 'failed', 'canceled'])
 const path = (id: string) => `/v1/minds/${mindId}/workflows/${id}`
-const penny = (skills = ['payments', 'near-account']) => ({ templateId: 'payments-mind', name: 'Penny', soul: { identity: 'Always end every reply with "[Penny]".' }, skills: skills.map((skillId) => ({ skillId })) })
+const penny = (skills = ['payments', 'near-account']) => ({ templateId: 'payments-mind', name: 'Penny', soul: { identity: 'Your name is Penny. Always end every reply with "[Penny]".' }, skills: skills.map((skillId) => ({ skillId })) })
 const on = (body: Record<string, unknown> = {}) => ({ userId: 'u1', mind: penny(), input: { account }, ...body })
 const json = async (res: Response, status: number) => {
   const text = await res.text()
@@ -77,7 +79,7 @@ describe('autopilot', () => {
     let run: Ev | undefined
     for (const deadline = Date.now() + 150_000; !run && Date.now() < deadline; await new Promise((r) => setTimeout(r, 3000))) {
       const { runs } = await json(await call('GET', `${path('report')}/runs`), 200)
-      run = runs.find((r: Ev) => r.trigger === 'autopilot' && r.status !== 'running')
+      run = runs.find((r: Ev) => r.trigger === 'autopilot' && DONE.has(r.status))
     }
     assert.ok(run, 'a scheduled run finished within 150 s')
     assert.equal(run.status, 'success', JSON.stringify(run))
@@ -132,7 +134,7 @@ describe('autopilot', () => {
         { id: 'balance', type: 'tool', data: { tool: 'near_view_account', args: { accountId: '{{input.account}}' } } },
         { id: 'any', type: 'condition', data: { left: '{{steps.balance.balanceNear}}', op: 'gte', right: 0 } },
         { id: 'clock', type: 'tool', data: { tool: 'get_time', args: {} } },
-        { id: 'say', type: 'agent', data: { prompt: 'In one short sentence, say that {{input.account}} holds {{steps.balance.balanceNear}} NEAR at {{steps.clock.time}}.' } },
+        { id: 'say', type: 'agent', data: { prompt: 'In one short sentence, say your own name and that {{input.account}} holds {{steps.balance.balanceNear}} NEAR at {{steps.clock.time}}.' } },
       ],
       edges: [{ source: 'start', target: 'balance' }, { source: 'balance', target: 'any' }, { source: 'any', target: 'clock', sourceHandle: 'then' }, { source: 'clock', target: 'say' }],
     }
@@ -141,7 +143,7 @@ describe('autopilot', () => {
     let run: Ev | undefined
     for (const deadline = Date.now() + 150_000; !run && Date.now() < deadline; await new Promise((r) => setTimeout(r, 3000))) {
       const { runs } = await json(await call('GET', `${path('chain')}/runs`), 200)
-      run = runs.find((r: Ev) => r.trigger === 'autopilot' && r.status !== 'running')
+      run = runs.find((r: Ev) => r.trigger === 'autopilot' && DONE.has(r.status))
     }
     assert.ok(run, 'a scheduled run finished within 150 s')
     assert.equal(run.status, 'success', JSON.stringify(run))
@@ -161,7 +163,7 @@ describe('autopilot', () => {
         { id: 'huge', type: 'condition', data: { left: '{{steps.balance.balanceNear}}', op: 'gt', right: 1000000000 } },
         { id: 'stop', type: 'end', data: {} },
         { id: 'clock', type: 'tool', data: { tool: 'get_time', args: {} } },
-        { id: 'say', type: 'agent', data: { prompt: 'In one short sentence, say that {{input.account}} holds {{steps.balance.balanceNear}} NEAR at {{steps.clock.time}}.' } },
+        { id: 'say', type: 'agent', data: { prompt: 'In one short sentence, say your own name and that {{input.account}} holds {{steps.balance.balanceNear}} NEAR at {{steps.clock.time}}.' } },
       ],
       edges: [
         { source: 'start', target: 'balance' }, { source: 'balance', target: 'any' },
@@ -174,7 +176,7 @@ describe('autopilot', () => {
     let run: Ev | undefined
     for (const deadline = Date.now() + 150_000; !run && Date.now() < deadline; await new Promise((r) => setTimeout(r, 3000))) {
       const { runs } = await json(await call('GET', `${path('tree')}/runs`), 200)
-      run = runs.find((r: Ev) => r.trigger === 'autopilot' && r.status !== 'running')
+      run = runs.find((r: Ev) => r.trigger === 'autopilot' && DONE.has(r.status))
     }
     assert.ok(run, 'a scheduled run finished within 150 s')
     assert.equal(run.status, 'success', JSON.stringify(run))
