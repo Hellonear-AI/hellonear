@@ -35,16 +35,16 @@ test('inline code and fenced code, nothing inside is formatted', () => {
 })
 
 test('links: http and https only, bare URLs too, & escaped in the href', () => {
-  assert.equal(html('[NEAR docs](https://docs.near.org)'), '<a href="https://docs.near.org">NEAR docs</a>')
+  assert.equal(html('[NEAR docs](https://docs.near.org)'), '<a href="https://docs.near.org">NEAR docs</a> (docs.near.org)')
   assert.equal(html('see https://x.test/?a=1&b=2.'), 'see <a href="https://x.test/?a=1&amp;b=2">https://x.test/?a=1&amp;b=2</a>.')
-  assert.equal(html('[q](https://x.test/?a=1&b="2")'), '<a href="https://x.test/?a=1&amp;b=&quot;2&quot;">q</a>')
-  assert.equal(html('[wiki](https://en.wikipedia.org/wiki/Rust_(language))'), '<a href="https://en.wikipedia.org/wiki/Rust_(language)">wiki</a>')
+  assert.equal(html('[q](https://x.test/?a=1&b="2")'), '<a href="https://x.test/?a=1&amp;b=&quot;2&quot;">q</a> (x.test)')
+  assert.equal(html('[wiki](https://en.wikipedia.org/wiki/Rust_(language))'), '<a href="https://en.wikipedia.org/wiki/Rust_(language)">wiki</a> (en.wikipedia.org)')
   assert.equal(html('(https://a.test/x_y_z)'), '(<a href="https://a.test/x_y_z">https://a.test/x_y_z</a>)')
   // Any other scheme stays visible as text, never a link.
   assert.equal(html('[click](javascript:alert(1))'), 'click (javascript:alert(1))')
   assert.equal(html('[me](tg://user?id=1)'), 'me (tg://user?id=1)')
   // Formatting in link text; no link inside a link.
-  assert.equal(html('[**bold** https://b.test](https://a.test)'), '<a href="https://a.test"><b>bold</b> https://b.test</a>')
+  assert.equal(html('[**bold** https://b.test](https://a.test)'), '<a href="https://a.test"><b>bold</b> https://b.test</a> (a.test)')
 })
 
 test('headings are bold lines; lists use • and numbers, nested bold in a list', () => {
@@ -99,4 +99,13 @@ test('a long reply splits into chunks of at most 4096, each valid on its own', (
 
 test('plainOf reads a chunk back as plain text, links as "text (url)"', () => {
   assert.equal(plainOf(telegramHtml('**Paid** [receipt](https://x.test/?a=1&b=2) & https://y.test')), 'Paid receipt (https://x.test/?a=1&b=2) & https://y.test')
+})
+
+test('a link label never hides the host it goes to (review on #223)', () => {
+  const html = telegramHtml('[Your bank](http://evil.example/login)')
+  assert.equal(html, '<a href="http://evil.example/login">Your bank</a> (evil.example)')
+  assert.equal(telegramHtmlError(html), null)
+  // A label that already names the host gets nothing more.
+  assert.equal(telegramHtml('[docs.near.org](https://docs.near.org/x)'), '<a href="https://docs.near.org/x">docs.near.org</a>')
+  assert.equal(telegramHtml('[NearBlocks testnet.nearblocks.io](https://www.testnet.nearblocks.io/txns/abc)'), '<a href="https://www.testnet.nearblocks.io/txns/abc">NearBlocks testnet.nearblocks.io</a>')
 })

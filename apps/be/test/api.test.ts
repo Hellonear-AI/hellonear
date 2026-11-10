@@ -2271,7 +2271,7 @@ describe('Telegram approvals (#208)', () => {
     await until(async () => (await m.runOf())?.status === 'finished' && shown(m.token).text.startsWith('<b>Paid</b>'), 'the formatted reply')
     const reply = shown(m.token)
     assert.equal(reply.parse_mode, 'HTML')
-    assert.equal(reply.text, '<b>Paid</b> &lt;you&gt; &amp; <a href="https://x.test/?a=1&amp;b=2">receipt</a>\n\n• one\n• <code>two</code>')
+    assert.equal(reply.text, '<b>Paid</b> &lt;you&gt; &amp; <a href="https://x.test/?a=1&amp;b=2">receipt</a> (x.test)\n\n• one\n• <code>two</code>')
     // Fixed messages go the same way.
     assert.equal(fakeTelegram.sent(m.token).find((s) => /^Linked\./.test(s.text)).parse_mode, 'HTML')
   })
@@ -2353,7 +2353,7 @@ describe('Telegram approvals (#208)', () => {
     fake.scripts.set('stream it', { text: reply, pieces: 30, delayMs: 40, verifyMs: 300 })
     const from = fakeTelegram.calls.length
     await m.say('stream it')
-    await until(() => shown(m.token).text.endsWith('</a>.'), 'the full reply')
+    await until(() => shown(m.token).text.endsWith('(docs.near.org).'), 'the full reply')
     const calls = replyCalls(m.token, from).filter((c) => c.method !== 'sendChatAction')
     assert.equal(calls[0].method, 'sendMessage')
     const id = fakeTelegram.calls.indexOf(calls[0]) + 1
@@ -2365,7 +2365,7 @@ describe('Telegram approvals (#208)', () => {
     for (let i = 1; i < mid.length; i++) assert.ok(mid[i].at - mid[i - 1].at >= 180, `edits ${mid[i].at - mid[i - 1].at} ms apart`)
     assert.ok(edits.length <= 9, `${edits.length} edits`)
     // Each mid-stream text is a prefix of the reply; the last is the reply, formatted.
-    assert.equal(edits.at(-1)!.body.text, '<b>Plan</b> for today: ' + Array.from({ length: 30 }, (_, i) => `item${i}`).join(' ') + '. See <a href="https://docs.near.org">docs</a>.')
+    assert.equal(edits.at(-1)!.body.text, '<b>Plan</b> for today: ' + Array.from({ length: 30 }, (_, i) => `item${i}`).join(' ') + '. See <a href="https://docs.near.org">docs</a> (docs.near.org).')
     assert.equal(calls.filter((c) => c.method === 'sendMessage').length, 1)
   }))
 

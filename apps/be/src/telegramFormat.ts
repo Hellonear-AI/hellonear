@@ -55,11 +55,17 @@ function inline(src: string, links = true): string {
   s = s.replace(/(`+)([^`\n]+?)\1(?!`)/g, (_, _ticks, code: string) => hold(`<code>${escapeHtml(code.trim() || code)}</code>`))
   // A backslash keeps the next mark literal (\* stays a star).
   s = s.replace(/\\([\\`*_~[\]()#>|!-])/g, (_, c: string) => hold(escapeHtml(c)))
+  // A label never hides where a link goes (Lin1er on #223: [Your bank](http://evil.example/login)): the host follows it
+  // unless the label already names it.
+  const hostNote = (text: string, url: string) => {
+    const host = new URL(url).hostname.replace(/^www\./, '')
+    return text.toLowerCase().includes(host.toLowerCase()) ? '' : ` (${escapeHtml(host)})`
+  }
   if (links) {
     // [text](url), one level of parentheses inside the URL. Only http/https become links; any other scheme (javascript:,
     // tg:, mailto:) stays visible as text, so nothing is hidden behind a label.
     s = s.replace(/\[([^\]\n]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)/g, (_, text: string, url: string) =>
-      isWebUrl(url) ? hold(`<a href="${escapeAttr(url)}">${inline(text, false)}</a>`) : hold(`${inline(text, false)} (${escapeHtml(url)})`))
+      isWebUrl(url) ? hold(`<a href="${escapeAttr(url)}">${inline(text, false)}</a>${hostNote(text, url)}`) : hold(`${inline(text, false)} (${escapeHtml(url)})`))
     s = s.replace(BARE_URL, (raw: string) => {
       const url = trimUrl(raw)
       return hold(`<a href="${escapeAttr(url)}">${escapeHtml(url)}</a>`) + escapeHtml(raw.slice(url.length))
@@ -193,10 +199,13 @@ export function telegramChunks(markdown: string, max = 4096): string[] {
 // written as "text (url)", entities read back.
 export function plainOf(html: string): string {
   return html
-    .replace(/<a href="([^"]*)">([\s\S]*?)<\/a>/g, (_, href: string, text: string) => {
+    // A link reads "text (url)". The host note after a labelled link (hostNote) is dropped: the whole URL shows already.
+    .replace(/<a href="([^"]*)">([\s\S]*?)<\/a>(?: \(([^)<]+)\))?/g, (_, href: string, text: string, note?: string) => {
       const t = text.replace(/<[^>]+>/g, '')
       const url = href.replace(/&quot;/g, '"')
-      return t === url ? t : `${t} (${url})`
+      const host = new URL(url.replace(/&amp;/g, '&')).hostname.replace(/^www\./, '')
+      const rest = note !== undefined && note !== host ? ` (${note})` : ''
+      return (t === url ? t : `${t} (${url})`) + rest
     })
     .replace(/<[^>]+>/g, '')
     .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&')
