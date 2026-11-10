@@ -1,7 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowDownIcon, CircleXIcon, RotateCcwIcon, SnowflakeIcon } from "lucide-react"
+import { cn } from "cn"
+import { ArrowDownIcon, CircleXIcon, NetworkIcon, RotateCcwIcon, SnowflakeIcon } from "lucide-react"
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { MindAvatar } from "@/components/elements/MindAvatar"
 import { Badge } from "@/components/ui/badge"
@@ -24,6 +25,9 @@ import { summaryLabel } from "@/modules/chat/data/steps"
 import type { ApiWallet } from "@/modules/minds/api"
 import { templateLabel } from "@/modules/minds/data/minds"
 import { useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
+import { LiveView } from "@/modules/graph/components/LiveView"
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
+import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer"
 
 type Shown = { key: string; message: string | null; createdAt: string; view: RunView; live: boolean; failed: unknown }
 
@@ -49,6 +53,34 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   const outOfMessages =
     tryOut && (tryOutLeft === 0 || (active?.failed instanceof ApiError && active.failed.code === "demo_run_limit"))
   const limit = wallet?.policy?.perTransactionNear ?? null
+
+  // The live view (C2, #17): beside the chat from 1280 px, remembered per device; a sheet below that.
+  const [liveOpen, setLiveOpen] = useState(true)
+  const [liveSheet, setLiveSheet] = useState(false)
+  // Phones get it as a drawer from the bottom (Ancung, 10 Nov), tablets as a sheet from the right.
+  const [liveDrawer, setLiveDrawer] = useState(false)
+  const [liveAnimate, setLiveAnimate] = useState(false)
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- read once from this device
+      if (localStorage.getItem("hellonear.chat.live") === "off") setLiveOpen(false)
+    } catch {
+      // no storage: keep it open
+    }
+  }, [])
+  const toggleLive = () => {
+    if (!window.matchMedia("(min-width: 768px)").matches) return setLiveDrawer(true)
+    if (!window.matchMedia("(min-width: 1280px)").matches) return setLiveSheet(true)
+    setLiveAnimate(true)
+    setLiveOpen((o) => {
+      try {
+        localStorage.setItem("hellonear.chat.live", o ? "off" : "on")
+      } catch {
+        // no storage
+      }
+      return !o
+    })
+  }
 
   // The run in progress belongs here if it's this thread's, or a new chat still waiting for its id.
   // On a new chat (`/chat`), the run started from this page stays on it until the move to
@@ -91,9 +123,20 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   const pinKey = pinned && activeHere?.message ? `send-${activeHere.id}` : null
   const ready = !thread.isPending || !threadId || shown.length > 0
   const { ref: scrollRef, lastRef, onScroll, atBottom, toBottom, viewHeight } = useChatScroll(ready && shown.length > 0, pinKey)
+  // The floating composer's height, so the content and "Latest" keep clear of it.
+  const composerRef = useRef<HTMLDivElement>(null)
+  const [composerHeight, setComposerHeight] = useState(120)
+  useEffect(() => {
+    const el = composerRef.current
+    if (!el) return
+    const observer = new ResizeObserver(() => setComposerHeight(el.offsetHeight))
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   return (
-    <div className="flex h-[calc(100dvh-3.5rem)] min-h-0 flex-col md:h-dvh">
+    <div className="flex h-[calc(100dvh-3.5rem)] min-h-0 md:h-dvh">
+    <div className="flex min-w-0 flex-1 flex-col">
       {/* No divider: the chat fades out under the header instead (Ancung, 9 Nov). */}
       <header className="hidden items-center gap-3 px-8 py-4 md:flex">
         <div className="flex min-w-0 flex-1 flex-col">
@@ -103,6 +146,10 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
             {tryOut ? ", try-out with a shared test wallet" : limit ? `, asks before every payment, up to ${limit} NEAR each` : ""}
           </p>
         </div>
+        <Button variant="ghost" size="sm" onClick={toggleLive} aria-pressed={liveOpen} className="shrink-0 text-muted-foreground">
+          <NetworkIcon />
+          Live view
+        </Button>
       </header>
 
       {tryOut && (
@@ -128,15 +175,30 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
       )}
 
       <div className="relative min-h-0 flex-1">
-        {/* The text fades out over 24 px under the header and 48 px above the composer instead of
-            being cut at a hard line (Ancung, 9 Nov, like Gemini). A mask, so it works on any background;
-            the content has the same room at both ends so nothing is faded at the start or the end. */}
+        {/* Phones have no chat header, so the live view opens from here (Ancung, 10 Nov). */}
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label="Live view"
+          onClick={() => setLiveDrawer(true)}
+          className="absolute top-2 right-3 z-10 bg-surface/90 shadow-xs backdrop-blur-sm md:hidden"
+        >
+          <NetworkIcon />
+        </Button>
+        {/* The scroll area runs to the bottom of the screen and the composer floats over it, so the
+            scrollbar reaches the bottom like Claude's (Ancung, 10 Nov). The text still fades under the
+            header and into the composer (Ancung, 9 Nov, like Gemini), now with overlays in the page
+            colour instead of a mask, which hid the scrollbar's ends too. They stop short of the
+            scrollbar. The content keeps room at the end for the composer. */}
         <div
           ref={scrollRef}
           onScroll={onScroll}
-          className="relative h-full overflow-y-auto overscroll-contain [mask-image:linear-gradient(to_bottom,transparent,black_24px,black_calc(100%-48px),transparent)]"
+          className="relative h-full overflow-y-auto overscroll-contain"
         >
-          <div className="mx-auto flex min-h-full w-full max-w-[804px] flex-col gap-5 px-4 pt-6 pb-12 md:px-10">
+          <div
+            className="mx-auto flex min-h-full w-full max-w-[804px] flex-col gap-5 px-4 pt-6 md:px-10"
+            style={{ paddingBottom: composerHeight + 32 }}
+          >
             {notFound ? (
               <Centered>
                 <p className="text-sm text-muted-foreground">This chat is no longer available.</p>
@@ -177,7 +239,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
                       ref={i === shown.length - 1 ? lastRef : undefined}
                       className="flex flex-col gap-5"
                       // Room below the pinned turn so it can sit at the top (16 above it, 48 of padding below).
-                      style={pinned && i === shown.length - 1 && viewHeight ? { minHeight: viewHeight - 64 } : undefined}
+                      style={pinned && i === shown.length - 1 && viewHeight ? { minHeight: viewHeight - composerHeight - 32 } : undefined}
                     >
                     <TurnView
                       mindId={mindId}
@@ -201,40 +263,83 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
             )}
           </div>
         </div>
+        <div aria-hidden className="pointer-events-none absolute top-0 right-4 left-0 h-6 bg-gradient-to-b from-background to-transparent" />
         {!atBottom && (
           <Button
             size="sm"
             variant="secondary"
-            className="absolute bottom-3 left-1/2 -translate-x-1/2 cursor-pointer shadow-sm animate-in fade-in-0 duration-150 motion-reduce:animate-none"
+            className="absolute left-1/2 z-10 -translate-x-1/2 cursor-pointer shadow-sm animate-in fade-in-0 duration-150 motion-reduce:animate-none"
+            style={{ bottom: composerHeight + 12 }}
             onClick={toBottom}
           >
             <ArrowDownIcon />
             Latest
           </Button>
         )}
-      </div>
-
-      <div className="mx-auto w-full max-w-[804px] px-4 pt-3 pb-4 md:px-10 md:pb-5">
-        {outOfMessages && (
-          // T1.5: one clear way forward once the try-out's messages are used up.
-          <div className="mb-3 flex flex-col items-start gap-2 rounded-lg border border-border bg-surface p-4">
-            <p className="text-[15px] font-semibold text-foreground">That&apos;s the end of the try-out</p>
-            <p className="text-sm text-muted-foreground">
-              You&apos;ve used all {TRY_OUT_MESSAGES} messages. Connect a wallet to keep going with your own Mind, wallet and limits. This try-out is deleted after 7 days.
-            </p>
-            <Button size="sm" onClick={leaveTryOut}>
-              Connect Meteor
-            </Button>
+        {/* The composer, floating at the bottom over a fade into the page colour. */}
+        <div
+          ref={composerRef}
+          className="pointer-events-none absolute inset-x-0 bottom-0 pt-12"
+        >
+          {/* The fade stops short of the scrollbar; the composer itself stays centred. */}
+          <div aria-hidden className="absolute inset-y-0 right-4 left-0 bg-gradient-to-t from-background from-60% to-transparent" />
+          <div className="pointer-events-auto relative mx-auto w-full max-w-[804px] px-4 pb-4 md:px-10 md:pb-5">
+            {outOfMessages && (
+              // T1.5: one clear way forward once the try-out's messages are used up.
+              <div className="mb-3 flex flex-col items-start gap-2 rounded-lg border border-border bg-surface p-4">
+                <p className="text-[15px] font-semibold text-foreground">That&apos;s the end of the try-out</p>
+                <p className="text-sm text-muted-foreground">
+                  You&apos;ve used all {TRY_OUT_MESSAGES} messages. Connect a wallet to keep going with your own Mind, wallet and limits. This try-out is deleted after 7 days.
+                </p>
+                <Button size="sm" onClick={leaveTryOut}>
+                  Connect Meteor
+                </Button>
+              </div>
+            )}
+            <Composer
+              name={name}
+              busy={busy}
+              note={outOfMessages ? "Connect a wallet to send more messages." : tryOut ? `Try-out payments: ${limit ? `up to ${limit} NEAR, ` : ""}approved addresses only.` : composerNote(name, frozen)}
+              locked={outOfMessages ? "Try-out finished" : undefined}
+              onSend={(text) => send(text, threadId)}
+            />
           </div>
-        )}
-        <Composer
-          name={name}
-          busy={busy}
-          note={outOfMessages ? "Connect a wallet to send more messages." : tryOut ? `Try-out payments: ${limit ? `up to ${limit} NEAR, ` : ""}approved addresses only.` : composerNote(name, frozen)}
-          locked={outOfMessages ? "Try-out finished" : undefined}
-          onSend={(text) => send(text, threadId)}
-        />
+        </div>
       </div>
+    </div>
+      {/* Opens and closes like the app's sidebar (Ancung, 10 Nov): the width slides 0 <-> 360 px
+          (ease-in-out, 200 ms) and the panel fades, while the chat narrows or widens with it.
+          No slide on the first paint, only after a click. */}
+      <aside
+        aria-hidden={!liveOpen}
+        className={cn(
+          "relative hidden shrink-0 overflow-hidden xl:block",
+          liveOpen ? "w-[360px]" : "w-0",
+          liveAnimate && "transition-[width] duration-200 ease-in-out motion-reduce:transition-none"
+        )}
+      >
+        <div
+          inert={!liveOpen}
+          className={cn(
+            "absolute inset-y-0 left-0 flex w-[360px] border-l border-border transition-opacity duration-150 ease-out motion-reduce:transition-none",
+            liveOpen ? "opacity-100 delay-50" : "opacity-0"
+          )}
+        >
+          <LiveView mindId={mindId} className="w-full p-5" />
+        </div>
+      </aside>
+      <Drawer open={liveDrawer} onOpenChange={setLiveDrawer} showSwipeHandle>
+        <DrawerContent style={{ ["--drawer-height" as string]: "85dvh" }} className="md:hidden">
+          <DrawerTitle className="sr-only">Live view</DrawerTitle>
+          {liveDrawer && <LiveView mindId={mindId} className="min-h-0 flex-1 px-4 pt-2 pb-4" />}
+        </DrawerContent>
+      </Drawer>
+      <Sheet open={liveSheet} onOpenChange={setLiveSheet}>
+        <SheetContent side="right" className="w-full p-5 pt-12 sm:max-w-[400px]!">
+          <SheetTitle className="sr-only">Live view</SheetTitle>
+          {liveSheet && <LiveView mindId={mindId} className="h-full" />}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

@@ -31,7 +31,8 @@ import { ChoiceSelect } from "@/components/elements/ChoiceSelect"
 import { TimePicker } from "@/components/elements/TimePicker"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
@@ -890,9 +891,13 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
         )}
       </div>
 
-      {/* Phones (design B1 mobile): the hint, then Test run and Save across the bottom. */}
-      <div className="flex flex-col gap-2 border-t border-border bg-background px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
-        <p className="text-xs text-muted-foreground">Tap + to add a block. Tap a block to change it.</p>
+      {/* Phones (design B1 mobile): Add a block, always there (Ancung, 10 Nov: with an If the Add
+          card is gone and the + between blocks was easy to miss), then Test run and Save. */}
+      <div className="flex flex-col gap-2 border-t border-border bg-background px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
+        <Button variant="secondary" onClick={() => setAddAt(draft.steps.length)}>
+          <PlusIcon />
+          Add a block
+        </Button>
         <div className="grid grid-cols-2 gap-2">
           <Button variant="outline" onClick={() => void runTest()} disabled={!workflowId || Boolean(test?.running) || dirty || saving}>
             {test?.running ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <FlaskConicalIcon />}
@@ -1782,12 +1787,13 @@ function AddBlockSheet({
     { kind: "if", tone: "if", icon: <GitBranchIcon />, title: "If or else", line: "Choose one of two ways", off: ifReason },
   ]
   return (
-    <Sheet open={at !== null} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="bottom" className="max-h-[85dvh] gap-3 rounded-t-xl px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <SheetHeader className="p-0">
-          <SheetTitle>Add a block</SheetTitle>
-          <SheetDescription>{where}</SheetDescription>
-        </SheetHeader>
+    // A drawer from the bottom you can swipe away, like the live view on phones (Ancung, 10 Nov).
+    <Drawer open={at !== null} onOpenChange={(open) => !open && onClose()} showSwipeHandle>
+      <DrawerContent className="gap-3 px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <DrawerHeader className="p-0 text-left">
+          <DrawerTitle>Add a block</DrawerTitle>
+          <DrawerDescription>{where}</DrawerDescription>
+        </DrawerHeader>
         <ul className="flex flex-col gap-2 overflow-y-auto">
           {options.map((o) => (
             <li key={o.kind}>
@@ -1807,7 +1813,7 @@ function AddBlockSheet({
             </li>
           ))}
         </ul>
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
   )
 }
