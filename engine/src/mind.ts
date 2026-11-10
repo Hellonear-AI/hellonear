@@ -90,3 +90,11 @@ export function buildInstructions(mind: Mind, opts: { timeZone?: string } = {}):
 // original key, so Minds that never changed keep their memory.
 export const resourceId = (userId: string, mindId: string, personaVersion?: number) =>
   personaVersion ? `${userId}:${mindId}:v${personaVersion}` : `${userId}:${mindId}`
+
+// True when a memory resource is this user's memory of this Mind, under any persona version (#207: deleting a chat
+// only touches threads of the caller's own Mind).
+export function ownsResource(resource: string | undefined, userId: string, mindId: string): boolean {
+  const base = resourceId(userId, mindId)
+  if (!resource) return false
+  return resource === base || (resource.startsWith(`${base}:v`) && /^\d+$/.test(resource.slice(base.length + 2)))
+}

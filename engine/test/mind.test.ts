@@ -1,7 +1,7 @@
 // The system prompt built from a Mind's config. No network, LLM or database.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { WRITING_STYLE_RULE, buildInstructions, mindSchema, resourceId, skillsLine } from '../src/mind.ts'
+import { WRITING_STYLE_RULE, buildInstructions, mindSchema, ownsResource, resourceId, skillsLine } from '../src/mind.ts'
 
 test('every Mind is told not to use em or en dashes', () => {
   for (const templateId of ['payments-mind', 'email-manager', 'general-assistant']) {
@@ -22,6 +22,17 @@ test('memory is keyed per persona version once the name or soul changed (#116)',
   assert.equal(resourceId('usr_1', 'mnd_1', 2), 'usr_1:mnd_1:v2')
   assert.equal(mindSchema.parse({ templateId: 't', name: 'Rex', soul: { identity: 'x' }, personaVersion: 1 }).personaVersion, 1)
   assert.throws(() => mindSchema.parse({ templateId: 't', name: 'Rex', soul: { identity: 'x' }, personaVersion: -1 }))
+})
+
+test('a chat is only deleted from the caller\'s own memory of that Mind, any persona version (#207)', () => {
+  assert.ok(ownsResource('usr_1:mnd_1', 'usr_1', 'mnd_1'))
+  assert.ok(ownsResource('usr_1:mnd_1:v3', 'usr_1', 'mnd_1'))
+  assert.ok(!ownsResource('usr_2:mnd_1', 'usr_1', 'mnd_1'), 'another user')
+  assert.ok(!ownsResource('usr_1:mnd_2', 'usr_1', 'mnd_1'), 'another Mind')
+  assert.ok(!ownsResource('usr_1:mnd_10', 'usr_1', 'mnd_1'), 'a Mind id that only starts the same')
+  assert.ok(!ownsResource('usr_1:mnd_1:vx', 'usr_1', 'mnd_1'))
+  assert.ok(!ownsResource('usr_1:mnd_1:v', 'usr_1', 'mnd_1'))
+  assert.ok(!ownsResource(undefined, 'usr_1', 'mnd_1'))
 })
 
 test('a Mind knows its skills and what it could add, by the names people see (#114)', () => {
