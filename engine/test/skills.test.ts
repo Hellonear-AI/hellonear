@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { parseSkillMd, skillCatalog, skillCatalogSummaries, usableSkills } from '../src/skills.ts'
 
 test('every SKILL.md in engine/skills parses and only uses registered tools', () => {
-  assert.deepEqual([...skillCatalog.keys()], ['daily-planner', 'email-address', 'email-triage', 'hellonear-guide', 'http-request', 'meeting-prep', 'morning-briefing', 'near-account', 'paid-data', 'payments', 'subscriptions'])
+  assert.deepEqual([...skillCatalog.keys()], ['daily-planner', 'email-address', 'email-triage', 'freeze-advisor', 'hellonear-guide', 'http-request', 'meeting-prep', 'morning-briefing', 'near-account', 'paid-data', 'payments', 'recipient-guard', 'revenue-split', 'spending-audit', 'split-bill', 'subscriptions', 'treasury-report'])
   assert.deepEqual(skillCatalog.get('daily-planner')?.tools, ['get_time', 'add_numbers', 'googlecalendar_list_events', 'googlecalendar_create_event', 'googlecalendar_create_meeting', 'googlecalendar_block_time'])
   assert.deepEqual(skillCatalog.get('daily-planner')?.connections, ['googlecalendar', 'googlemeet'])
   assert.equal(skillCatalog.get('payments')?.status, 'available')
@@ -24,6 +24,24 @@ test('shared references load into the skill for skill_read, once per file, reuse
   const md = (refs: string) => `---\nname: t\ndescription: d\nmetadata:\n  hellonear:\n    tools: []\n    connections: []\n    status: available\n    references: ${refs}\n---\n# Body\n`
   assert.throws(() => parseSkillMd(md('[../secrets.md]'), 't', () => ''), /Invalid|regex|string/i)
   assert.throws(() => parseSkillMd(md('[missing.md]'), 't'), /ENOENT/)
+})
+
+test('wallet skills grant only the wallet tools they need; read-only ones can never pay (#177, #182, #184, #185, #189, #190)', () => {
+  assert.deepEqual(skillCatalog.get('recipient-guard')?.tools, ['near_view_account', 'list_payments', 'send_payment', 'get_balance', 'get_time'])
+  assert.deepEqual(skillCatalog.get('recipient-guard')?.references, ['near-recipients.md'])
+  assert.deepEqual(skillCatalog.get('split-bill')?.tools, ['add_numbers', 'send_payment', 'near_view_account', 'list_payments', 'get_balance', 'get_time'])
+  assert.deepEqual(skillCatalog.get('revenue-split')?.tools, ['get_balance', 'send_payment', 'near_view_account', 'add_numbers', 'list_payments', 'get_time'])
+  for (const id of ['freeze-advisor', 'treasury-report', 'spending-audit']) {
+    const s = skillCatalog.get(id)!
+    assert.ok(!s.tools.includes('send_payment'), `${id} never pays`)
+    assert.ok(s.tools.includes('list_payments') && s.tools.includes('get_balance'), id)
+  }
+  for (const id of ['recipient-guard', 'freeze-advisor', 'split-bill', 'revenue-split', 'treasury-report', 'spending-audit']) {
+    const s = skillCatalog.get(id)!
+    assert.equal(s.status, 'available')
+    assert.deepEqual(s.connections, ['near-wallet'])
+    assert.ok(s.title && s.blurb, `${id} has a title and a blurb for the Skills screen`)
+  }
 })
 
 test('blocked and unknown skills are never usable', () => {

@@ -82,7 +82,7 @@ describe('engine HTTP API', () => {
     const res = await fetch(base + '/v1/skills', { headers: { 'x-engine-key': key } })
     assert.equal(res.status, 200)
     const { skills } = await res.json()
-    assert.deepEqual(skills.map((s: Ev) => s.skillId), ['daily-planner', 'email-address', 'email-triage', 'http-request', 'meeting-prep', 'morning-briefing', 'near-account', 'paid-data', 'payments', 'subscriptions'])
+    assert.deepEqual(skills.map((s: Ev) => s.skillId), ['daily-planner', 'email-address', 'email-triage', 'freeze-advisor', 'http-request', 'meeting-prep', 'morning-briefing', 'near-account', 'paid-data', 'payments', 'recipient-guard', 'revenue-split', 'spending-audit', 'split-bill', 'subscriptions', 'treasury-report'])
     assert.deepEqual(skills.find((s: Ev) => s.skillId === 'near-account'), {
       skillId: 'near-account', description: skills.find((s: Ev) => s.skillId === 'near-account').description, status: 'available', connections: [], tools: ['near_view_account'],
     })
