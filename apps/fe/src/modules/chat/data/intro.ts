@@ -27,7 +27,10 @@ export function introFor(templateId: string, limit: string | null, fallbackQuote
   return { intro: fallbackQuote ?? "What's first?", suggestions: [] }
 }
 
-/** The line under the composer (C1.1, C1.5). */
+/**
+ * The line under the composer (C1.1, C1.5). Like other AI chats it warns that the Mind can be
+ * wrong (Ancung, 10 Nov); payments still wait for the owner, which the approval cards say.
+ */
 export function composerNote(name: string, frozen: boolean): string {
-  return frozen ? `Your wallet is frozen. ${name} can chat, but can't send money.` : `${name} asks you before every payment.`
+  return frozen ? `Your wallet is frozen. ${name} can chat, but can't send money.` : `${name} can make mistakes. Check important details before you approve.`
 }
