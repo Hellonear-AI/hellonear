@@ -642,3 +642,18 @@ body {
     mask-image: none;
   }
 }
+
+/* Fine film grain (an SVG noise tile), soft-light blended: hides the smooth, repeated look of
+   generated textures without darkening them. */
+.grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 1.2 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  mix-blend-mode: soft-light;
+  opacity: 0.55;
+}
+/* The UI lying on the lawn casts a soft shadow away from the sun (upper left). */
+.ap-ui .glass {
+  box-shadow:
+    18px 26px 40px -12px rgb(20 40 10 / 0.45),
+    inset 0 1px 0 rgb(255 255 255 / 0.8);
+}
