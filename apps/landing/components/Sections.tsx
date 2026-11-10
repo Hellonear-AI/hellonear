@@ -110,7 +110,7 @@ export function ApprovalScene() {
         <div className="absolute left-[5%] top-[20%] w-[25%] [perspective:1400px]">
           <div className="flex flex-col gap-2.5 [transform:rotateX(22deg)_rotateZ(12deg)] [transform-style:preserve-3d]">
             <div className="flex items-center gap-2 pl-1">
-              <span className="relative size-7 shrink-0 overflow-hidden rounded-full bg-white/80 shadow-[24px_52px_20.4px_rgb(0_0_0/0.4)]">
+              <span className="relative size-7 shrink-0 overflow-hidden rounded-full bg-white/80 shadow-[18px_45px_10px_rgb(0_0_0/0.45)]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/minds/payments-mind.webp" alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-contain p-0.5" />
               </span>
