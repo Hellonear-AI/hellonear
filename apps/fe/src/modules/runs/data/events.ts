@@ -159,6 +159,13 @@ export function foldRun(events: RunEvent[]): RunView {
         const status = (e.status ?? (e.type === "tool.error" ? "error" : "ok")) as ToolStatus
         step.status = e.type === "tool.result" && paymentRefused(e.result) ? paymentRefused(e.result)! : status
         if (ERROR_STATUSES.includes(step.status)) step.error = typeof e.error === "string" ? e.error : undefined
+        // The backend answers some payments that never went out with a result whose status is `failed` (a try-out's
+        // demo limit, OutLayer erroring): a card reading "Sent" for one was wrong (seen 11 Nov in a split bill).
+        if (e.type === "tool.result" && step.tool === "send_payment" && (e.result as { status?: unknown } | null)?.status === "failed") {
+          step.status = "error"
+          const message = (e.result as { message?: unknown }).message
+          step.error = typeof message === "string" ? message : undefined
+        }
         break
       }
       case "run.finished":

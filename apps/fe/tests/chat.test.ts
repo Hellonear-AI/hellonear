@@ -209,6 +209,19 @@ describe("a second approval in the same run (split bill, #177)", () => {
   })
 })
 
+describe("a payment the backend reports as failed", () => {
+  it("is not shown as sent: the step is an error with the backend's reason", () => {
+    seq = 0
+    const v = foldRun([
+      ev("tool.called", { toolCallId: "c1", tool: "send_payment", args: { to: "bob.testnet", amountNear: "0.01" } }),
+      ev("tool.result", { toolCallId: "c1", tool: "send_payment", status: "ok", result: { paymentId: "p1", status: "failed", to: "bob.testnet", amountNear: "0.01", message: "demo limit: 2 payments per visitor" } }),
+      ev("run.finished"),
+    ])
+    expect(v.tools[0].status).toBe("error")
+    expect(v.tools[0].error).toBe("demo limit: 2 payments per visitor")
+  })
+})
+
 describe("reply parts", () => {
   it("keeps text and tools in the order they happened", () => {
     seq = 0
