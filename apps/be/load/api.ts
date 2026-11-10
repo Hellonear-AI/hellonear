@@ -1,6 +1,8 @@
 // Short local load test of the backend's own overhead: the fake engine (no NEAR AI credit) and the local
 // Postgres. Concurrent users chat (each run stores 47 events) and list their Minds; at the end every run
-// must have all of its events stored. Never point this at a public endpoint.
+// must have all of its events stored. Each user also has a run paused for approval answered twice at once (the app and
+// a Telegram button share `resumeRun`, #208): exactly one answer may resume it (7 events), the other gets 409.
+// Never point this at a public endpoint.
 // Run: bun run load   (env: VUS=10, DURATION_S=10)
 import type { AddressInfo } from 'node:net'
 import { randomBytes } from 'node:crypto'
@@ -30,17 +32,29 @@ async function user() {
   await query(`insert into sessions (token_hash, user_id, expires_at) values ($1, $2, now() + interval '1 hour')`, [sha256(token), id])
   const cookie = `hn_session=${token}`
   const res = await fetch(`${base}/v1/minds`, { method: 'POST', headers: { cookie, 'content-type': 'application/json' }, body: JSON.stringify({ templateId: 'general-assistant', name: 'Load' }) })
-  return { cookie, mindId: (await res.json()).mind.id as string }
+  const second = await fetch(`${base}/v1/minds`, { method: 'POST', headers: { cookie, 'content-type': 'application/json' }, body: JSON.stringify({ templateId: 'payments-mind', name: 'Load approvals' }) })
+  return { cookie, mindId: (await res.json()).mind.id as string, approvalsMindId: (await second.json()).mind.id as string }
 }
 
-const latencies: Record<string, number[]> = { chat: [], list: [] }
+const latencies: Record<string, number[]> = { chat: [], list: [], approve: [] }
 let errors = 0
+let doubleAnswers = 0
 const until = Date.now() + DURATION_S * 1000
 
 async function vu() {
-  const { cookie, mindId } = await user()
+  const { cookie, mindId, approvalsMindId } = await user()
+  const json = { cookie, 'content-type': 'application/json' }
   while (Date.now() < until) {
+    // A run paused for approval, answered by two clients at once.
+    const paused = await fetch(`${base}/v1/minds/${approvalsMindId}/chat`, { method: 'POST', headers: json, body: JSON.stringify({ message: 'pay the bill' }) })
+    const runId = (await paused.text()).match(/"runId":"([^"]+)"/)?.[1]
+    if (paused.status !== 200 || !runId) { errors++; continue }
     let t = performance.now()
+    const answers = await Promise.all([0, 1].map(() => fetch(`${base}/v1/runs/${runId}/approve`, { method: 'POST', headers: json, body: JSON.stringify({ toolCallId: 'call_1' }) })))
+    for (const a of answers) await a.arrayBuffer()
+    if (answers.map((a) => a.status).sort().join(',') !== '200,409') doubleAnswers++
+    latencies.approve.push(performance.now() - t)
+    t = performance.now()
     const chat = await fetch(`${base}/v1/minds/${mindId}/chat`, { method: 'POST', headers: { cookie, 'content-type': 'application/json' }, body: JSON.stringify({ message: 'hi' }) })
     const text = await chat.text()
     if (chat.status !== 200 || !text.includes('run.verified')) errors++
@@ -51,11 +65,12 @@ async function vu() {
     await list.arrayBuffer()
     latencies.list.push(performance.now() - t)
   }
-  return mindId
+  return { mindId, approvalsMindId }
 }
 
 const started = Date.now()
-const minds = await Promise.all(Array.from({ length: VUS }, vu))
+const vus = await Promise.all(Array.from({ length: VUS }, vu))
+const minds = vus.map((v) => v.mindId)
 const seconds = (Date.now() - started) / 1000
 
 const pct = (xs: number[], p: number) => xs.slice().sort((a, b) => a - b)[Math.min(xs.length - 1, Math.floor((p / 100) * xs.length))]?.toFixed(1)
@@ -67,11 +82,18 @@ const [check] = await query<{ runs: number; incomplete: number }>(
    from (select r.id, count(e.seq) as n from runs r left join run_events e on e.run_id = r.id where r.mind_id = any($1) group by r.id) x`,
   [minds],
 )
+// Approval runs: paused (4 events), then resumed exactly once (3 more) and finished.
+const [approvals] = await query<{ runs: number; wrong: number }>(
+  `select count(*)::int as runs, count(*) filter (where n <> 7 or status <> 'finished')::int as wrong
+   from (select r.id, r.status, count(e.seq) as n from runs r left join run_events e on e.run_id = r.id where r.mind_id = any($1) group by r.id) x`,
+  [vus.map((v) => v.approvalsMindId)],
+)
 console.log(`errors: ${errors}; runs stored: ${check.runs}; runs missing events: ${check.incomplete}`)
+console.log(`approvals: ${approvals.runs} runs answered twice at once; not exactly one 200 + one 409: ${doubleAnswers}; runs resumed other than once: ${approvals.wrong}`)
 
 // Clean up the load users (cascades to minds, runs, events, sessions).
 await query(`delete from users where near_account_id like 'load-%'`)
 server.close()
 engine.close()
 await pool.end()
-process.exit(errors || check.incomplete ? 1 : 0)
+process.exit(errors || check.incomplete || doubleAnswers || approvals.wrong ? 1 : 0)

@@ -479,6 +479,31 @@ describe('chat and runs (#14, #17)', () => {
     assert.equal((await alice.call('POST', `/v1/runs/${runId}/approve`, { toolCallId: 'call_1' })).status, 409, 'not twice')
   })
 
+  test('two answers at once resume a paused run once; the other gets 409, and an engine that refuses frees it again (#208)', async () => {
+    const alice = await signIn()
+    const { mind } = await (await alice.call('POST', '/v1/minds', { templateId: 'payments-mind', name: 'Twice' })).json()
+    const paused = await events(await alice.call('POST', `/v1/minds/${mind.id}/chat`, { message: 'pay the bill' }))
+    const runId = paused[0].runId
+    const answers = await Promise.all(['approve', 'decline'].map((a) => alice.call('POST', `/v1/runs/${runId}/${a}`, { toolCallId: 'call_1' })))
+    for (const a of answers) await a.arrayBuffer()
+    assert.deepEqual(answers.map((a) => a.status).sort(), [200, 409])
+    assert.equal(fake.requests.filter((r) => r.path.startsWith(`/v1/runs/${runId}/`)).length, 1)
+    const { events: all } = await (await alice.call('GET', `/v1/runs/${runId}`)).json()
+    assert.equal(all.length, paused.length + 3)
+
+    // The engine answers the resume with an error: the run waits again, so the owner can retry.
+    const again = await events(await alice.call('POST', `/v1/minds/${mind.id}/chat`, { message: 'pay the bill' }))
+    const savedUrl = config.engineUrl
+    config.engineUrl = 'http://127.0.0.1:9'
+    try {
+      assert.equal((await alice.call('POST', `/v1/runs/${again[0].runId}/approve`, { toolCallId: 'call_1' })).status, 503)
+    } finally {
+      config.engineUrl = savedUrl
+    }
+    assert.equal((await (await alice.call('GET', `/v1/runs/${again[0].runId}`)).json()).run.status, 'awaiting_approval')
+    await events(await alice.call('POST', `/v1/runs/${again[0].runId}/approve`, { toolCallId: 'call_1' }))
+  })
+
   test('a resume after an engine restart (seq from 0) is stored after the paused events', async () => {
     const alice = await signIn()
     const { mind } = await (await alice.call('POST', '/v1/minds', { templateId: 'payments-mind', name: 'R' })).json()

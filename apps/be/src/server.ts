@@ -9,7 +9,7 @@ import { engineFetch, engineJson, skills, templates } from './engine.ts'
 import { HttpError, assertSameOrigin, cors, logServerError, readBody, sendJson, setCookie, isLoopback } from './http.ts'
 import { TOOLKITS, connect, disconnect, listConnections, toolkitSchema } from './connections.ts'
 import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, playgroundAttackOf, playgroundMind, requireMind, updateMind, updateMindSchema, type Mind } from './minds.ts'
-import { cancelRun, getRun, listRuns, mindEvents, pendingApprovals, relayRun, runEvents } from './runs.ts'
+import { cancelRun, getRun, isAwaiting, listRuns, mindEvents, pendingApprovals, relayRun, runEvents } from './runs.ts'
 import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema, secretsForRun } from './secrets.ts'
 import { assertWalletEmpty, createWallet, freezeTransaction, getWallet, hasWallet, isDemoMind, policySchema, policyTransaction } from './wallets.ts'
 import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
@@ -85,6 +85,35 @@ async function withInbox(user: User, mind: Mind): Promise<{ mind: Mind; inboxErr
   }
 }
 
+
+// Approve or decline what a paused run waits for, through the engine. Shared, so every way of answering gets the same checks and
+// the same resume (Telegram's buttons will use it too, #208). Only a call of the current pause counts (`isAwaiting`).
+// The run is then claimed (awaiting_approval → running in one update), so two answers at once (the app and Telegram, or
+// a double press) resume it once; the second gets 409. If the engine does not take the resume, the claim is undone.
+async function resumeRun(user: User, found: { runId: string; mindId: string; threadId: string | null }, action: 'approve' | 'decline', body: z.infer<typeof resumeSchema>, req: IncomingMessage, res: ServerResponse) {
+  if (!(await isAwaiting(found.runId, body.toolCallId))) throw new HttpError(409, 'not_awaiting_approval')
+  const mind = await requireMind(user.id, found.mindId)
+  await assertDemoRunAllowed(user, req)
+  const claimed = await query(`update runs set status = 'running' where id = $1 and status = 'awaiting_approval' returning 1`, [found.runId])
+  if (!claimed.length) throw new HttpError(409, 'not_awaiting_approval')
+  const release = () => query(`update runs set status = 'awaiting_approval' where id = $1 and status = 'running'`, [found.runId])
+  const controller = new AbortController()
+  let engineRes: Response
+  try {
+    engineRes = await engineFetch(`/v1/runs/${encodeURIComponent(found.runId)}/${action}?mindId=${encodeURIComponent(mind.id)}`, {
+      method: 'POST', signal: controller.signal,
+      body: {
+        userId: user.id, threadId: found.threadId, mind: mindConfig(mind), secrets: await secretsFor(user.id, mind.id), toolCallId: body.toolCallId, reason: body.reason,
+        ...timeZoneOf(body), ...(await runExtras(user, mind.id)), ...attackOf(await playgroundAttackOf(mind.id)),
+      },
+    })
+  } catch (e) {
+    await release()
+    throw e
+  }
+  if (engineRes.status !== 200) await release()
+  return relayRun(req, res, engineRes, { mindId: mind.id, threadId: found.threadId ?? undefined, resumeOf: found.runId, controller })
+}
 
 // Telegram (#168): one message to a Mind, run like a chat from the app and stored the same way (relayRun into an
 // in-memory sink), then answered as text. Same owner, Mind config, secrets, tokens and try-out limits as the app.
@@ -300,22 +329,8 @@ export const server = createServer(async (req, res) => {
         return sendJson(res, 200, { run: await getRun(user.id, found.runId) })
       }
       if (run[2] && req.method === 'POST') {
-        const body = await readBody(req, resumeSchema)
-        // Only an action the run is actually waiting for can be approved or declined.
-        const [waiting] = await query(
-          `select 1 from run_events where run_id = $1 and type = 'tool.approval_required' and payload->>'toolCallId' = $2`, [found.runId, body.toolCallId])
-        if (found.status !== 'awaiting_approval' || !waiting) throw new HttpError(409, 'not_awaiting_approval')
-        const mind = await requireMind(user.id, found.mindId)
-        await assertDemoRunAllowed(user, req)
-        const controller = new AbortController()
-        const engineRes = await engineFetch(`/v1/runs/${encodeURIComponent(found.runId)}${run[2]}?mindId=${encodeURIComponent(mind.id)}`, {
-          method: 'POST', signal: controller.signal,
-          body: {
-            userId: user.id, threadId: found.threadId, mind: mindConfig(mind), secrets: await secretsFor(user.id, mind.id), toolCallId: body.toolCallId, reason: body.reason,
-            ...timeZoneOf(body), ...(await runExtras(user, mind.id)), ...attackOf(await playgroundAttackOf(mind.id)),
-          },
-        })
-        return relayRun(req, res, engineRes, { mindId: mind.id, threadId: found.threadId ?? undefined, resumeOf: found.runId, controller })
+        // Awaited, so its 409 / 429 lands in the catch below.
+        return await resumeRun(user, found, run[2] === '/approve' ? 'approve' : 'decline', await readBody(req, resumeSchema), req, res)
       }
       throw new HttpError(405, 'method_not_allowed')
     }
