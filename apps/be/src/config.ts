@@ -60,6 +60,11 @@ export const config = {
   // (`a.testnet:1,b.testnet:0.8`); a seller's price is the item's base price times its multiplier. Each account must be
   // on the paying wallet's address list too. Empty: SHOP_PAY_TO is the only seller, at the base price.
   shopSellers: (process.env.SHOP_SELLERS ?? '').trim().toLowerCase(),
+  // Telegram (#168). The Bot API base (tests point it at a fake). The webhook base is the public API URL Telegram
+  // calls (https://api.hellonear.xyz); without it, local dev polls getUpdates instead (TELEGRAM_POLLING=true).
+  telegramApiUrl: process.env.TELEGRAM_API_URL ?? 'https://api.telegram.org',
+  telegramWebhookBase: (process.env.TELEGRAM_WEBHOOK_BASE ?? '').replace(/\/$/, ''),
+  telegramPolling: process.env.TELEGRAM_POLLING === 'true',
   nonceTtlMs: 5 * 60 * 1000,
   sessionTtlMs: 7 * 24 * 60 * 60 * 1000,
 }
