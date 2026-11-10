@@ -1,11 +1,10 @@
 "use client"
 
 import { CheckIcon, ExternalLinkIcon, KeyRoundIcon, PencilIcon, PlusIcon, Trash2Icon, TriangleAlertIcon } from "lucide-react"
-import { useState, type ReactNode } from "react"
+import { useState } from "react"
 import { cn } from "cn"
 import { ErrorRetry } from "@/components/elements/ErrorRetry"
 import { Spinner } from "@/components/elements/Spinner"
-import { GmailLogo, GoogleCalendarLogo, GoogleMeetLogo } from "@/components/elements/AppLogos"
 import { PageTitle } from "@/components/elements/PageTitle"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -21,28 +20,7 @@ import type { ApiConnection } from "@/modules/connections/api"
 import { useMind } from "@/modules/minds/hooks/useMinds"
 import { TOOLKIT_NAME } from "@/modules/skills/data/skills"
 import { connectionStatus, useConnect, useConnections } from "@/modules/connections/hooks/useConnections"
-
-// `paused` and `lost` say what stops when the app's connection ends (Google Meet read like the
-// calendar before, 10 Nov).
-const APPS: { toolkit: ApiConnection["toolkit"]; logo: ReactNode; uses: string; needs: string; paused: string; lost: string }[] = [
-  { toolkit: "gmail", logo: <GmailLogo />, uses: "Used by Email helper to read mail and save drafts.", needs: "Email helper needs it to read your mail and save drafts.", paused: "Email helper", lost: "Email helper can't read mail" },
-  {
-    toolkit: "googlecalendar",
-    logo: <GoogleCalendarLogo />,
-    uses: "Used by Daily planner to read your events and add new ones.",
-    needs: "Daily planner uses it to read your events and add new ones.",
-    paused: "Daily planner's calendar",
-    lost: "Daily planner can't see your calendar",
-  },
-  {
-    toolkit: "googlemeet",
-    logo: <GoogleMeetLogo />,
-    uses: "Used by Daily planner to add a video link to meetings it schedules.",
-    needs: "Daily planner uses it to add a video link to meetings.",
-    paused: "Daily planner's meeting links",
-    lost: "Daily planner can't add video links to meetings",
-  },
-]
+import { APPS } from "@/modules/connections/data/apps"
 
 type Open = { kind: "add" } | { kind: "replace"; secret: ApiSecret } | { kind: "delete"; secret: ApiSecret } | { kind: "disconnect"; toolkit: ApiConnection["toolkit"] } | null
 
@@ -50,7 +28,8 @@ type Open = { kind: "add" } | { kind: "replace"; secret: ApiSecret } | { kind: "
  * Connections (design "6 · Skills and apps", K1, K2): the apps and keys the Mind can use, for the
  * whole account. Apps connect through Composio in a new window and this page updates by itself
  * (K1.3); keys are only ever shown as dots, with replace and delete as the only actions.
- * The design shows Gmail only; Google Calendar (#57) sits beside it.
+ * The design shows Gmail only; Google Calendar (#57), Meet (#97) and the apps for the five tracks
+ * (#195 to #200: Sheets, Drive, Docs, Notion, Outlook, Slack) sit beside it, from `data/apps.tsx`.
  */
 export function ConnectionsScreen({ mindId }: { mindId: string }) {
   const mind = useMind(mindId).data
@@ -125,7 +104,7 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
                           ) : waiting ? (
                             <Badge variant="warning">
                               <Spinner />
-                              Waiting for Google
+                              Waiting for {a.by}
                             </Badge>
                           ) : status === "expired" ? (
                             <Badge variant="destructive">Disconnected</Badge>
@@ -137,9 +116,9 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
                           {status === "connected"
                             ? `${c?.since ? `Since ${shortWhen(c.since)}. ` : ""}${a.uses}`
                             : waiting
-                              ? "Finish signing in to Google in the other window. This page updates by itself."
+                              ? `Finish signing in to ${a.by} in the other window. This page updates by itself.`
                               : status === "expired"
-                                ? `Google ended the connection. ${a.lost} until you reconnect.`
+                                ? `${a.by} ended the connection. ${a.lost} until you reconnect.`
                                 : a.needs}
                         </p>
                       </div>
@@ -172,7 +151,7 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
                 })}
               </ul>
             )}
-            {connect.error && <p className="text-[13px] text-danger">Could not open Google. No changes were made. Please try again later.</p>}
+            {connect.error && <p className="text-[13px] text-danger">Could not open the sign-in page. No changes were made. Please try again later.</p>}
             <p className="text-xs text-muted-foreground">More apps come later. For anything else, add a key below.</p>
           </section>
 
