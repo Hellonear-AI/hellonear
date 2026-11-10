@@ -6,13 +6,16 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
-// A full-width section whose sides draw in as it scrolls away: by the time its bottom is a little
-// above the middle of the screen it is a rounded card about 10% wider than the 1200 px content frame
-// (the Minds cards). Scrolling back up widens it again (scrubbed). Only clip-path changes. Desktop
-// only; reduced motion: stays full width.
+// A full-width section whose sides draw in as it scrolls away, until it is a rounded card as wide as
+// the content frame the Minds cards sit in. It starts only once the night above it (the end of the
+// approvals scroll, a separate element) has left the screen, so the two never look broken apart.
+// Scrolling back up widens it again (scrubbed). Only clip-path changes. Desktop only; reduced
+// motion: stays full width.
 
-const CARD_W = 1276; // the 1160 px content width (1200 minus padding) + 10%
-const RADIUS = 36;
+const CARD_W = 1160; // the content frame: 1200 px minus the side padding
+const RADIUS = 44;
+/** Where the night above ends inside this section (it is pulled up under the title by this much). */
+const OVERLAP = () => window.innerHeight * 0.5 - 130;
 
 export function ShrinkSection({ children, ...props }: React.ComponentProps<"section">) {
   const ref = useRef<HTMLElement>(null);
@@ -30,7 +33,14 @@ export function ShrinkSection({ children, ...props }: React.ComponentProps<"sect
         p: 1,
         ease: "none",
         onUpdate: render,
-        scrollTrigger: { trigger: el, start: "bottom bottom", end: "bottom 45%", scrub: 0.6, onRefresh: render },
+        scrollTrigger: {
+          trigger: el,
+          start: () => `top+=${OVERLAP()} top`,
+          end: "bottom 55%",
+          scrub: 0.6,
+          invalidateOnRefresh: true,
+          onRefresh: render,
+        },
       });
       return () => {
         el.style.clipPath = "";
