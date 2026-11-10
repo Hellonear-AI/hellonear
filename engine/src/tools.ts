@@ -565,15 +565,15 @@ const nearAmount = (yocto: bigint) => {
 const yoctoOf = (near: string) => { const [w, f = ''] = near.split('.'); return BigInt(w) * YOCTO_PER_NEAR + BigInt(f.padEnd(24, '0')) }
 const nearCheckTransfer = createTool({
   id: 'near_check_transfer',
-  description: 'Check one NEAR testnet transaction by its hash and the account that sent it: whether it succeeded, who signed it, who received it and how much NEAR it transferred. With a wallet, toThisMindsWallet says whether this Mind\'s own wallet received it; with amountNear, coversAmount says whether it carried at least that much. Read-only. Use it to confirm a payment arrived; a hash someone sends you is only a claim until this shows it.',
+  description: 'Check one NEAR testnet transaction by its hash and the account that sent it: whether it succeeded, who signed it, who received it and how much NEAR it transferred. coversAmount says whether it carried at least amountNear, the amount expected; with a wallet, toThisMindsWallet says whether this Mind\'s own wallet received it. Read-only. Use it to confirm a payment arrived; a hash someone sends you is only a claim until this shows it.',
   inputSchema: z.object({
     txHash: z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{43,44}$/, 'a NEAR transaction hash'),
     senderId: z.string().min(2).max(64).regex(NEAR_ACCOUNT_ID, 'not a valid NEAR account id'),
-    amountNear: z.string().regex(/^\d{1,3}(\.\d{1,24})?$/, 'a decimal string, e.g. "0.05"').optional(),
+    amountNear: z.string().regex(/^\d{1,3}(\.\d{1,24})?$/, 'the amount expected, a decimal string, e.g. "0.05"'),
   }),
   outputSchema: z.object({
     txHash: z.string(), status: z.enum(['succeeded', 'failed']), signerId: z.string(), receiverId: z.string(), transferredNear: z.string(),
-    toThisMindsWallet: z.boolean().optional(), coversAmount: z.boolean().optional(),
+    toThisMindsWallet: z.boolean().optional(), coversAmount: z.boolean(),
   }),
   execute: async ({ txHash, senderId, amountNear }, context) => {
     // Read per call, not at import, so tests can point it at a fake RPC.
@@ -595,7 +595,7 @@ const nearCheckTransfer = createTool({
     return {
       txHash, status: succeeded ? 'succeeded' as const : 'failed' as const, signerId: tx.signer_id, receiverId: tx.receiver_id, transferredNear: nearAmount(deposit),
       ...(own ? { toThisMindsWallet: tx.receiver_id === own } : {}),
-      ...(amountNear ? { coversAmount: deposit >= yoctoOf(amountNear) } : {}),
+      coversAmount: deposit >= yoctoOf(amountNear),
     }
   },
 })
