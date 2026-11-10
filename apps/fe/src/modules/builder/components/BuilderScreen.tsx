@@ -40,7 +40,11 @@ import { toast } from "sonner"
 import { isApiCode } from "@/lib/api"
 import { browserTimeZone } from "@/lib/stream"
 import { autopilotApi } from "@/modules/autopilot/api"
-import { nodeSummary, type NodeRun } from "@/modules/builder/data/testRun"
+import { finishedWell, nodeSummary, wentWrong, withIf, type NodeRun, type TestState } from "@/modules/builder/data/testRun"
+import { newBlock, type Kind } from "@/modules/builder/data/blocks"
+import { OPS, ifTitle } from "@/modules/builder/data/conditions"
+import { engineIssues as engineIssuesOf } from "@/modules/builder/data/issues"
+import { mainEnd as mainEndOf, parseSlot, placeKey, samePath, slotPlace, type Place } from "@/modules/builder/data/places"
 import { TONE, type Tone } from "@/modules/builder/data/tone"
 import { PromptEditor, PromptPreview, type PromptEditorHandle } from "@/modules/builder/components/PromptText"
 import { useCanvasView } from "@/modules/builder/hooks/useCanvasView"
@@ -73,13 +77,11 @@ import {
   updateBlock,
   withLine,
   type Block,
-  type IfBlock,
   type LinePath,
   promptParts,
   type Self,
   notesBefore,
   resultsBefore,
-  stepFields,
   toCanvas,
   workflowIdFor,
   type AskStep,
@@ -103,14 +105,6 @@ import { readPref, writePref } from "@/lib/storage"
 const PALETTE_KEY = "hellonear.builder.palette"
 const ZONE = () => browserTimeZone() ?? "UTC"
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
-const OPS: { op: Op; label: string; number?: boolean }[] = [
-  { op: "eq", label: "is" },
-  { op: "ne", label: "is not" },
-  { op: "lt", label: "less than", number: true },
-  { op: "lte", label: "at most", number: true },
-  { op: "gt", label: "more than", number: true },
-  { op: "gte", label: "at least", number: true },
-]
 
 /**
  * Builder (design "7 · Automations" B1.0, B1.1, B1.6; #20). Stage 2 (9 Nov, with Ancung): Start,
@@ -142,14 +136,6 @@ function Gone({ mindId, text }: { mindId: string; text: string }) {
 
 /** Test run state per canvas node id, read by every block card (B1.2). */
 const TestRun = createContext<Record<string, NodeRun>>({})
-
-let counter = 0
-/** A block the palette or a slot can add. */
-type Kind = "agent" | "tool" | "http" | "if" | "end"
-/** A place in the tree: the line's path and an index in it. */
-type Place = { path: LinePath; index: number }
-
-const newId = (kind: string) => `${kind}-${Date.now().toString(36)}${counter++}`
 
 function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: string | null; initial: Draft }) {
   const router = useRouter()
@@ -249,7 +235,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   // Unfinished blocks turn amber only once Save was pressed; a new empty block isn't a mistake yet.
   const [tried, setTried] = useState(false)
   const dirtySinceSave = savedTry !== null && savedTry !== JSON.stringify(draft)
-  const [test, setTest] = useState<{ running: boolean; nodes: Record<string, NodeRun>; status: string | null; failed: boolean } | null>(null)
+  const [test, setTest] = useState<TestState | null>(null)
   const abort = useRef<AbortController | null>(null)
   useEffect(() => () => abort.current?.abort(), [])
 
@@ -295,7 +281,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
 
   const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }))
   const setBlock = (id: string, patch: Partial<Block>) => setDraft((d) => ({ ...d, line: updateBlock(d.line, id, patch) }))
-  const mainEnd: Place = { path: [], index: draft.line.length }
+  const mainEnd = mainEndOf(draft.line)
 
   // Drag and drop (B1.7): a block from the palette, or a block (an If with its ways) to a new place.
   const [drag, setDrag] = useState<{ add: Kind } | { move: string } | null>(null)
@@ -321,7 +307,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       const blk = findBlock(d.line, id)
       if (!from || !blk) return d
       const without = withLine(d.line, from.path, (l) => l.filter((x) => x.id !== id))
-      const same = JSON.stringify(from.path) === JSON.stringify(to.path)
+      const same = samePath(from.path, to.path)
       return { ...d, line: insertBlock(without, to.path, same && from.index < to.index ? to.index - 1 : to.index, blk) }
     })
   }
@@ -340,12 +326,11 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       if (!blk || !from) return false
       // Not into its own ways, and not onto its own place.
       if (at.path.some((x) => x.at === drag.move)) return false
-      if (JSON.stringify(from.path) === JSON.stringify(at.path) && (at.index === from.index || at.index === from.index + 1)) return false
+      if (samePath(from.path, at.path) &&(at.index === from.index || at.index === from.index + 1)) return false
       return canPlace(draft.line, at.path, at.index, blk.kind, self)
     }
     return canPlace(draft.line, at.path, at.index, drag.add, self)
   }
-  const placeKey = (at: Place) => `${at.path.map((x) => `${x.at}:${x.h}`).join("/")}#${at.index}`
   const spot = (at: Place) =>
     !desktop && !drag ? (
       canPlace(draft.line, at.path, at.index, "agent", self) ? <TapSpot key={`tap-${placeKey(at)}`} onClick={() => setSheetAt(at)} /> : null
@@ -353,22 +338,9 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       <DropSpot key={`spot-${placeKey(at)}`} id={`spot-${placeKey(at)}`} over={over} setOver={setOver} onDrop={() => dropAt(at)} label="Drop here" />
     ) : null
 
-  const newStep = (kind: "agent" | "tool" | "http"): Step => {
-    const id = newId(kind === "agent" ? "ask" : kind)
-    return kind === "agent"
-      ? { id, kind, prompt: "" }
-      : kind === "http"
-        ? { id, kind, method: "GET", url: "https://", key: "", body: "" }
-        : { id, kind, tool: TOOLS[0].tool, args: { accountId: address } }
-  }
-  /** A new block of `kind` at a place; an If starts on the first value it can compare there. */
+  /** A new block of `kind` at a place. */
   function addAt(kind: Kind, at: Place) {
-    let blk: Block
-    if (kind === "if") {
-      const first = resultsBefore(stepsAt(draft.line, at.path, at.index), undefined, self).find(comparable)
-      blk = { id: newId("check"), kind: "if", stepId: first?.stepId ?? "", field: first?.name ?? "", op: first?.kind === "number" ? "lt" : "eq", right: "", then: [], else: [] }
-    } else if (kind === "end") blk = { id: newId("end"), kind: "end" }
-    else blk = newStep(kind)
+    const blk = newBlock(kind, draft.line, at, self, address)
     setDraft((d) => ({ ...d, line: insertBlock(d.line, at.path, at.index, blk) }))
     setSelected(blk.id)
   }
@@ -407,17 +379,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       setSaving(false)
       if (isApiCode(err, "invalid_workflow")) {
         const issues = (err.details.issues as { path?: string; message?: string }[] | undefined) ?? []
-        // The engine names blocks by their ids ("node ask-x", "nodes.2…"): pin each issue to its block (B1.3).
-        const ids = toCanvas(draft).nodes.map((n) => n.id)
-        setEngineIssues(
-          issues.map((i) => {
-            const where = `${i.path ?? ""} ${i.message ?? ""}`
-            const byId = where.match(/node ([\w-]+)/)?.[1]
-            const byIndex = where.match(/nodes\.(\d+)/)?.[1]
-            const node = byId && ids.includes(byId) ? byId : byIndex !== undefined ? (ids[Number(byIndex)] ?? null) : null
-            return { node, text: (i.message ?? "This job contains something that is not allowed.").replace(/^node [\w-]+:\s*/, "") }
-          })
-        )
+        setEngineIssues(engineIssuesOf(issues, toCanvas(draft).nodes.map((n) => n.id)))
       } else {
         setSaveError("Could not save. No changes were made. Please try again later.")
       }
@@ -428,14 +390,9 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const step = picked && isStep(picked) ? picked : null
   const pickedIf = picked?.kind === "if" ? picked : null
   const pickedEnd = picked?.kind === "end" ? picked : null
-  // An empty or open way's slot is picked as "{ifId}:then" / "{ifId}:else".
-  const slotMatch = selected?.match(/^(.+):(then|else)$/)
-  const slotIf = slotMatch ? findBlock(draft.line, slotMatch[1]) : null
-  const slot = slotIf?.kind === "if" && slotMatch ? { block: slotIf, h: slotMatch[2] as "then" | "else" } : null
-  const slotPlace = (b: IfBlock, h: "then" | "else"): Place => {
-    const here = locate(draft.line, b.id)
-    return { path: [...(here?.path ?? []), { at: b.id, h }], index: b[h].length }
-  }
+  const slotRef = parseSlot(selected)
+  const slotIf = slotRef ? findBlock(draft.line, slotRef.ifId) : null
+  const slot = slotIf?.kind === "if" && slotRef ? { block: slotIf, h: slotRef.h } : null
   const canIf = canPlace(draft.line, mainEnd.path, mainEnd.index, "if", self)
   const canEnd = canPlace(draft.line, mainEnd.path, mainEnd.index, "end", self)
 
@@ -445,7 +402,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
    * without End carries on after its If, so the line goes on below, centred.
    */
   // What each block shows after a Test run, Ifs included (they send no events of their own).
-  const lit = withIf(test?.nodes ?? {}, draft.line, Boolean(test && !test.running && !test.failed && test.status !== "failed"))
+  const lit = withIf(test?.nodes ?? {}, draft.line, finishedWell(test))
 
   const renderLine = (line: Block[], path: LinePath, goesOn = false): ReactNode =>
     line.map((blk, i) => {
@@ -702,10 +659,10 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
           role="status"
           className={cn(
             "mx-4 mt-4 flex items-center gap-2.5 rounded-md px-3.5 py-2.5 text-sm text-foreground md:mx-6",
-            test.failed || test.status === "failed" ? "bg-danger-soft" : "bg-success-soft"
+            wentWrong(test) ? "bg-danger-soft" : "bg-success-soft"
           )}
         >
-          {test.failed || test.status === "failed" ? <XIcon className="size-4 shrink-0 text-danger" /> : <CheckIcon className="size-4 shrink-0 text-success" />}
+          {wentWrong(test) ? <XIcon className="size-4 shrink-0 text-danger" /> : <CheckIcon className="size-4 shrink-0 text-success" />}
           <span className="min-w-0 flex-1">
             {test.failed
               ? "The test run did not start. Please try again later."
@@ -881,7 +838,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             </>
           ) : slot ? (
             (() => {
-              const at = slotPlace(slot.block, slot.h)
+              const at = slotPlace(draft.line, slot.block, slot.h)
               return (
                 <EndingPanel
                   name={name}
@@ -984,31 +941,6 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       </Dialog>
     </div>
   )
-}
-
-/**
- * Conditions send no events (§3): the If lights up from the ending that ran, or, once a run ended
- * well with its checked step done and no ending run, from the "stop" it took.
- */
-function withIf(nodes: Record<string, NodeRun>, line: Block[], finished: boolean): Record<string, NodeRun> {
-  const out = { ...nodes }
-  for (const b of allBlocks(line)) {
-    if (b.kind !== "if") continue
-    const took = (["then", "else"] as const).find((h) => allBlocks(b[h]).some((x) => nodes[x.id]))
-    if (took) out[b.id] = { status: "ok", note: took === "then" ? "Yes" : "No" }
-    else if (finished && nodes[b.stepId]?.status === "ok") out[b.id] = { status: "ok", note: "Carried on" }
-  }
-  return out
-}
-
-function ifTitle(b: Branch, steps: Step[]): string {
-  const field = stepFields(steps.find((s) => s.id === b.stepId)).find((f) => f.name === b.field)
-  if (!field || !b.right.trim()) return "Pick what to check"
-  // "If balance is less than 5 NEAR", "If weekday is Friday", "If weekday is not Sunday".
-  const label = OPS.find((o) => o.op === b.op)?.label ?? b.op
-  const verb = label.startsWith("is") ? label : `is ${label}`
-  const what = field.label.replace(/ \(.*\)$/, "").toLowerCase()
-  return `If ${what} ${verb} ${b.right.trim()}${field.name === "balanceNear" ? " NEAR" : ""}`
 }
 
 /**

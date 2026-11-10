@@ -397,6 +397,61 @@ describe("Ifs anywhere and End (#164)", () => {
   })
 })
 
+describe("engine issues pinned to their blocks (B1.3)", () => {
+  it("finds the block by its id or its index, and drops the id from the words", async () => {
+    const { engineIssues } = await import("@/modules/builder/data/issues")
+    const ids = ["start", "ask-1", "check-1"]
+    expect(
+      engineIssues(
+        [
+          { path: "nodes", message: "node ask-1: prompt is empty" },
+          { path: "nodes.2.data", message: "bad op" },
+          { message: "node gone-9: unknown" },
+          {},
+        ],
+        ids
+      )
+    ).toEqual([
+      { node: "ask-1", text: "prompt is empty" },
+      { node: "check-1", text: "bad op" },
+      { node: null, text: "unknown" },
+      { node: null, text: "This job contains something that is not allowed." },
+    ])
+  })
+})
+
+describe("places, slots and Test run lights", () => {
+  const bal: Block = { id: "bal", kind: "tool", tool: "near_view_account", args: { accountId: "a.testnet" } }
+  const check: IfBlock = { id: "check", kind: "if", stepId: "bal", field: "balanceNear", op: "lt", right: "5", then: [{ id: "note", kind: "agent", prompt: "Low" }], else: [] }
+
+  it("builds and reads a way's slot id, and where it adds", async () => {
+    const { parseSlot, slotId, slotPlace, placeKey, takesMore } = await import("@/modules/builder/data/places")
+    expect(parseSlot(slotId("check", "then"))).toEqual({ ifId: "check", h: "then" })
+    expect(parseSlot("start")).toBeNull()
+    expect(parseSlot(null)).toBeNull()
+    expect(slotPlace([bal, check], check, "then")).toEqual({ path: [{ at: "check", h: "then" }], index: 1 })
+    expect(placeKey({ path: [{ at: "check", h: "else" }], index: 0 })).toBe("check:else#0")
+    expect(takesMore([bal])).toBe(true)
+    expect(takesMore([bal, check])).toBe(false)
+  })
+
+  it("starts a new If on the first value it can compare", async () => {
+    const { newBlock } = await import("@/modules/builder/data/blocks")
+    expect(newBlock("if", [bal], { path: [], index: 1 }, { name: "Omaga", address: "" }, "")).toMatchObject({ kind: "if", stepId: "bal", field: "balanceNear", op: "lt" })
+    expect(newBlock("tool", [], { path: [], index: 0 }, { name: "Omaga", address: "o.testnet" }, "o.testnet")).toMatchObject({ kind: "tool", args: { accountId: "o.testnet" } })
+  })
+
+  it("lights an If from the way that ran, or from carrying on after a run that went well", async () => {
+    const { withIf, finishedWell } = await import("@/modules/builder/data/testRun")
+    expect(withIf({ bal: { status: "ok" }, note: { status: "ok" } }, [bal, check], false).check).toEqual({ status: "ok", note: "Yes" })
+    expect(withIf({ bal: { status: "ok" } }, [bal, check], true).check).toEqual({ status: "ok", note: "Carried on" })
+    expect(withIf({ bal: { status: "ok" } }, [bal, check], false).check).toBeUndefined()
+    expect(finishedWell({ running: false, nodes: {}, status: "ok", failed: false })).toBe(true)
+    expect(finishedWell({ running: false, nodes: {}, status: "failed", failed: false })).toBe(false)
+    expect(finishedWell(null)).toBe(false)
+  })
+})
+
 describe("ways that carry on after their If (a job saved through the API, #165)", () => {
   const inner: IfBlock = { id: "low", kind: "if", stepId: "bal", field: "balanceNear", op: "lt", right: "2", then: [], else: [] }
   const outer: IfBlock = { id: "check", kind: "if", stepId: "bal", field: "balanceNear", op: "lt", right: "10", then: [inner], else: [] }
