@@ -63,7 +63,8 @@ function labelOf(id: string, mindName: string): string {
   if (kind === "wallet") return "Wallet"
   if (kind === "app") return rest === "mail" ? `${mindName}'s email` : (APP_LABEL[rest] ?? rest)
   if (kind === "tool") return TOOL_LABEL[rest] ?? rest.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())
-  if (kind === "workflow") return "A job"
+  // workflow:{workflowId}: the id comes from the job's name ("wallet-watch" -> "Wallet watch").
+  if (kind === "workflow") return rest ? rest.replace(/-\d+$/, "").replace(/-/g, " ").replace(/^\w/, (c) => c.toUpperCase()) : "A job"
   return rest
 }
 
@@ -113,6 +114,8 @@ export function buildGraph({
 
   add(mind)
   for (const skillId of skills) {
+    // The guide every Mind has can't be added or removed (engine `builtin`), so it isn't shown.
+    if (skillId === "hellonear-guide") continue
     const info = catalog.find((c) => c.skillId === skillId)
     if (!info || info.status === "blocked") continue
     const s = `skill:${skillId}`
@@ -137,6 +140,7 @@ export function buildGraph({
     const t = e.ts ? Date.parse(e.ts) : 0
     if (e.type === "tool.called" && e.tool) {
       const id = e.nodeId ?? nodeIdFor(mindId, e.tool, e.args)
+      if (id === "skill:hellonear-guide") continue
       const n = add(id)
       if (![...links.values()].some((l) => l.target === id)) link(mind, id)
       n.uses += 1
@@ -163,6 +167,7 @@ export function buildGraph({
         m.at = t
       }
     } else if (e.type === "workflow.started" && e.nodeId) {
+      // A job is drawn once, however often it ran.
       add(e.nodeId)
       link(mind, e.nodeId)
     }

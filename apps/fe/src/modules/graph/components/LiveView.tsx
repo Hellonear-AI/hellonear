@@ -98,7 +98,7 @@ export function LiveView({ mindId, className }: { mindId: string; className?: st
         selected={selected}
         onSelect={setSelected}
         label={`A map of ${name}'s skills, apps and tools. The steps of this reply are listed below it.`}
-        className="h-[300px] shrink-0 rounded-lg bg-muted/50"
+        className="h-[360px] shrink-0 rounded-lg bg-muted/50"
       />
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">

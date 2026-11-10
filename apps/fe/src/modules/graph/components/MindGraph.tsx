@@ -324,19 +324,31 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
           ctx.stroke()
         }
 
-        // Labels: always for the big ones, tools when zoomed in, hovered, picked or working.
-        const show = n.kind !== "tool" || v.k > 1.15 || hover.current === n.id || n.id === data.current.selected || glowing(n)
-        if (show) {
-          const size2 = (n.kind === "mind" ? 13 : 11.5) / Math.max(0.8, v.k)
-          ctx.font = `${n.kind === "mind" || hover.current === n.id ? 600 : 500} ${size2}px ${font}`
-          ctx.textAlign = "center"
-          ctx.textBaseline = "top"
-          ctx.fillStyle = hover.current === n.id || n.kind === "mind" ? colors.fg : colors.muted
-          ctx.globalAlpha = dim ? 0.22 : n.kind === "tool" && hover.current !== n.id && !glowing(n) ? 0.85 : 1
-          ctx.fillText(n.label, b.x, b.y + b.r + 5 / v.k)
-        }
         ctx.globalAlpha = 1
       }
+
+      // Labels last, over every bubble and line, each with an outline in the panel's colour so it
+      // stays readable where lines cross it (Ancung, 10 Nov: Google Meet hid "Omaga"). Tools get
+      // a quieter label instead of none, so a blue dot always says what it is.
+      ctx.textAlign = "center"
+      ctx.textBaseline = "top"
+      ctx.lineJoin = "round"
+      for (const n of data.current.nodes) {
+        const b = s.bodies.get(n.id)
+        if (!b) continue
+        const dim = lit && !lit.has(n.id)
+        const strong = hover.current === n.id || n.id === data.current.selected || glowing(n)
+        const px = (n.kind === "mind" ? 13 : n.kind === "tool" ? 10.5 : 11.5) / Math.max(0.8, v.k)
+        ctx.font = `${n.kind === "mind" || strong ? 600 : 500} ${px}px ${font}`
+        ctx.globalAlpha = dim ? 0.18 : 1
+        ctx.strokeStyle = colors.bg
+        ctx.lineWidth = 4 / v.k
+        const y = b.y + b.r + 5 / v.k
+        ctx.strokeText(n.label, b.x, y)
+        ctx.fillStyle = strong || n.kind === "mind" ? colors.fg : n.kind === "tool" ? colors.faint : colors.muted
+        ctx.fillText(n.label, b.x, y)
+      }
+      ctx.globalAlpha = 1
     }
 
     // The canvas measures time from the page's start; events use wall clock.

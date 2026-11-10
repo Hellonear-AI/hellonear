@@ -15,7 +15,8 @@ export function radiusOf(n: Pick<GraphNode, "kind" | "uses">): number {
   return base[n.kind] + Math.min(8, Math.sqrt(n.uses) * 2)
 }
 
-const REST: Partial<Record<NodeKind, number>> = { skill: 110, app: 70, wallet: 70, tool: 60 }
+// Room for the labels too (Ancung, 10 Nov: the first layout was too tight).
+const REST: Partial<Record<NodeKind, number>> = { skill: 150, app: 85, wallet: 85, tool: 75, workflow: 120 }
 
 /** Keeps the bodies of nodes still there (so the graph doesn't jump), places new ones near their parent. */
 export function syncSim(prev: Sim | null, nodes: GraphNode[], links: GraphLink[], mindId: string): Sim {
@@ -64,8 +65,9 @@ export function stepSim(sim: Sim, kinds: Map<string, NodeKind>): boolean {
         d2 = dx * dx + dy * dy
       }
       const d = Math.sqrt(d2)
-      const min = p.r + q.r + 14
-      const f = ((1600 / d2) + (d < min ? (min - d) * 0.5 : 0)) * a
+      // Labels sit under the bubbles, so keep more room than the bubbles need.
+      const min = p.r + q.r + 46
+      const f = ((5200 / d2) + (d < min ? (min - d) * 0.6 : 0)) * a
       const fx = (dx / d) * f
       const fy = (dy / d) * f
       p.vx -= fx
@@ -98,8 +100,8 @@ export function stepSim(sim: Sim, kinds: Map<string, NodeKind>): boolean {
       continue
     }
     // A pull to the centre, and friction.
-    b.vx -= b.x * 0.004 * a
-    b.vy -= b.y * 0.004 * a
+    b.vx -= b.x * 0.0025 * a
+    b.vy -= b.y * 0.0025 * a
     b.vx *= 0.82
     b.vy *= 0.82
     b.x += b.vx
