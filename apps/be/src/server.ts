@@ -95,7 +95,9 @@ export const runTelegramChat: RunChat = async (mindId, threadId, text) => {
   if (!owner) return { threadId: thread, text: '', needsApproval: false, error: 'mind_not_found' }
   const user: User = { id: owner.id, nearAccountId: owner.near_account_id, demo: owner.is_demo }
   const mind = await requireMind(user.id, mindId)
-  const fakeReq = Object.assign(new EventEmitter(), { headers: {}, socket: { remoteAddress: 'telegram' }, url: `/v1/telegram/${mindId}`, method: 'POST' }) as unknown as IncomingMessage
+  // Telegram runs have no client IP: key the try-out hourly window per user, so one busy bot can't use up everyone's
+  // (Lin1er's review on #171). The per-user run cap still applies.
+  const fakeReq = Object.assign(new EventEmitter(), { headers: { 'cf-connecting-ip': `telegram:${user.id}` }, socket: { remoteAddress: 'telegram' }, url: `/v1/telegram/${mindId}`, method: 'POST' }) as unknown as IncomingMessage
   try {
     await assertDemoRunAllowed(user, fakeReq)
   } catch (e) {
@@ -359,6 +361,8 @@ export const server = createServer(async (req, res) => {
         // until the owner has seen the balance (#161).
         if (url.searchParams.get('acknowledgeBalance') !== 'true') await assertWalletEmpty(mind.id)
         await deleteAllWorkflows(mind.id)
+        // The bot's webhook would keep pointing at a Mind that is gone, and the bot would go quiet (#171 review).
+        await disconnectTelegram(mind.id).catch(() => {})
         await releaseInbox(mind.id)
         await deleteMind(user.id, mind.id)
         return res.writeHead(204).end()
@@ -451,7 +455,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (applied.length) console.log('migrations applied', applied.join(', '))
   server.listen(config.port, () => console.log(`backend listening on :${config.port}`))
   // Judge try-out users are deleted after the retention: at start and once a day.
-  const sweep = () => cleanupDemoUsers(async (mindId) => { await deleteAllWorkflows(mindId) }).then((n) => { if (n) console.log('demo users removed', n) }, (e) => console.error('demo cleanup failed', e instanceof Error ? e.message : e))
+  const sweep = () => cleanupDemoUsers(async (mindId) => { await deleteAllWorkflows(mindId); await disconnectTelegram(mindId).catch(() => {}) }).then((n) => { if (n) console.log('demo users removed', n) }, (e) => console.error('demo cleanup failed', e instanceof Error ? e.message : e))
   void sweep()
   setInterval(sweep, 24 * 3600_000).unref()
   // Local dev without a public URL (#168): poll Telegram instead of waiting for webhooks.

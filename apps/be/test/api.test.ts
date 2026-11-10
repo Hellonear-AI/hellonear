@@ -1809,6 +1809,13 @@ describe('Telegram (#168)', () => {
       assert.equal(fakeTelegram.calls.findLast((c) => c.token === TOKEN)!.method, 'deleteWebhook')
       assert.equal((await hook(mindId, secret, msg(8, 555, 'still there?'))).status, 401)
       assert.equal((await a.call('DELETE', `/v1/minds/${mindId}/telegram`, undefined, origin)).status, 404)
+
+      // Deleting a Mind with a bot drops the bot's webhook too (#171 review), so the owner can reuse the bot.
+      await a.call('PUT', `/v1/minds/${mindId}/telegram`, { token: TOKEN }, origin)
+      const calls = fakeTelegram.calls.length
+      assert.equal((await a.call('DELETE', `/v1/minds/${mindId}`, undefined, origin)).status, 204)
+      assert.ok(fakeTelegram.calls.slice(calls).some((c) => c.token === TOKEN && c.method === 'deleteWebhook'))
+      assert.equal((await query('select count(*)::int as n from mind_telegram where mind_id = $1', [mindId]))[0].n, 0)
     } finally {
       config.telegramWebhookBase = savedBase
     }
