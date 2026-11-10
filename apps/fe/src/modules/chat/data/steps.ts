@@ -28,6 +28,8 @@ const LABELS: Record<string, [doing: string, done: string]> = {
   skill: ["Picking up a skill", "Picked up a skill"],
   skill_read: ["Picking up a skill", "Picked up a skill"],
   skill_search: ["Looking for a skill", "Looked for a skill"],
+  // Mastra's working memory (engine/src/mastra.ts): what the Mind keeps about the owner between chats.
+  updateWorkingMemory: ["Updating its memory", "Updated its memory"],
 }
 
 export type StepText = { label: string; detail: string | null; tone: "doing" | "done" | "failed" | "stopped" }
