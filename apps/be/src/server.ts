@@ -11,7 +11,7 @@ import { TOOLKITS, connect, disconnect, listConnections, toolkitSchema } from '.
 import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, playgroundAttackOf, playgroundMind, requireMind, updateMind, updateMindSchema, type Mind } from './minds.ts'
 import { cancelRun, getRun, listRuns, mindEvents, pendingApprovals, relayRun, runEvents } from './runs.ts'
 import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema, secretsForRun } from './secrets.ts'
-import { createWallet, freezeTransaction, getWallet, hasWallet, isDemoMind, policySchema, policyTransaction } from './wallets.ts'
+import { assertWalletEmpty, createWallet, freezeTransaction, getWallet, hasWallet, isDemoMind, policySchema, policyTransaction } from './wallets.ts'
 import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
 import { itemSchema, shop, txHashSchema } from './shop.ts'
 import { issueMailToken, issueWalletToken, verifyMailToken, verifyWalletToken } from './walletToken.ts'
@@ -303,6 +303,9 @@ export const server = createServer(async (req, res) => {
         return sendJson(res, 200, { mind: updated, autopilot: await syncAutopilots(user.id, updated), ...(inboxError ? { inboxError } : {}) })
       }
       if (sub === '' && req.method === 'DELETE') {
+        // Deleting drops the wallet's agent key for good, so a Mind whose own wallet still holds NEAR is refused
+        // until the owner has seen the balance (#161).
+        if (url.searchParams.get('acknowledgeBalance') !== 'true') await assertWalletEmpty(mind.id)
         await deleteAllWorkflows(mind.id)
         await releaseInbox(mind.id)
         await deleteMind(user.id, mind.id)
