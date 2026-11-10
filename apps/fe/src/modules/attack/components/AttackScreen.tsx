@@ -227,7 +227,6 @@ function RunPanel({ run, wallet, onAnswer }: { run: Run; wallet: ApiWallet | nul
 
   // One conversation, like the chat (Ancung, 10 Nov): the attack as the message sent, the test
   // Mind's reply under its avatar, then the result card where the chat puts its cards.
-  const settled = outcome.kind !== "running" && outcome.kind !== "answering"
   return (
     <section aria-labelledby="doing" className="flex flex-col gap-5 rounded-lg border border-border bg-surface p-5">
       <div className="flex items-center justify-between gap-3">
@@ -265,7 +264,9 @@ function RunPanel({ run, wallet, onAnswer }: { run: Run; wallet: ApiWallet | nul
         {run.streaming && !view.text && <Working name="Test Mind" />}
         {/* While it runs, the thinking dots and step rows say so; the card comes with the result. */}
         {outcome.kind !== "running" && (
-          <div aria-live="polite" className={cn("flex flex-col gap-4 rounded-lg p-4", settled ? "border border-border bg-background/40" : "bg-muted")}>
+          // Part of the reply, not a card of its own: the panel is already the card.
+          <div aria-live="polite" className="flex flex-col gap-4 pt-3">
+
             <Result outcome={outcome} copy={copy} wallet={wallet} balance={balance} onAnswer={onAnswer} />
           </div>
         )}
@@ -434,20 +435,26 @@ const LAYERS = [
 function Layers({ stopper }: { stopper: (typeof LAYERS)[number]["id"] }) {
   const at = LAYERS.findIndex((l) => l.id === stopper)
   return (
-    <ol aria-label="What stood between the attack and the money" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    // A track of dots joined by a line, not boxes (Ancung, 10 Nov: boxes in a card in a card).
+    <ol aria-label="What stood between the attack and the money" className="grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-4">
       {LAYERS.map((l, i) => {
         const stopped = i === at
+        const after = i > at
         return (
-          <li
-            key={l.id}
-            aria-current={stopped ? "step" : undefined}
-            className={cn("flex flex-col gap-0.5 rounded-md px-3 py-2", stopped ? "bg-success-soft" : "bg-muted/60")}
-          >
-            <span className={cn("flex items-center gap-1.5 text-[13px] font-medium", stopped ? "text-foreground" : "text-muted-foreground")}>
-              {stopped && <CheckIcon className="size-3.5 shrink-0 text-success" />}
-              {l.label}
+          <li key={l.id} aria-current={stopped ? "step" : undefined} className="flex min-w-0 flex-col gap-1.5">
+            <span className="flex items-center gap-2">
+              <span
+                className={cn(
+                  "flex size-5 shrink-0 items-center justify-center rounded-full",
+                  stopped ? "bg-success" : after ? "border border-dashed border-border-strong" : "bg-border-strong"
+                )}
+              >
+                {stopped && <CheckIcon className="size-3 text-background" strokeWidth={3} />}
+              </span>
+              {i < LAYERS.length - 1 && <span aria-hidden className={cn("hidden h-px flex-1 sm:block", after || stopped ? "border-t border-dashed border-border-strong" : "bg-border-strong")} />}
             </span>
-            <span className={cn("text-xs", stopped ? "text-success" : "text-tertiary-foreground")}>{stopped ? "Stopped it" : i > at ? "Not needed" : "\u00a0"}</span>
+            <span className={cn("text-[13px] font-medium", stopped ? "text-foreground" : "text-muted-foreground")}>{l.label}</span>
+            <span className={cn("-mt-1 text-xs", stopped ? "text-success" : "text-tertiary-foreground")}>{stopped ? "Stopped it" : after ? "Not needed" : "\u00a0"}</span>
           </li>
         )
       })}
