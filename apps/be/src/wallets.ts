@@ -13,10 +13,14 @@ const accountIdSchema = z.string().toLowerCase().regex(/^(?=.{2,64}$)(([a-z\d]+[
 const nearAmountSchema = z.string().regex(/^\d{1,3}(\.\d{1,24})?$/, 'NEAR as a decimal string, e.g. "0.05"')
 
 // Policy v2 (decided 4 Nov): OutLayer is the hard stop, approval lives in the app.
+// The daily cap (#149) is OutLayer's `rules.limits.daily`, checked in the TEE as `spent today + amount > cap` (proven on
+// testnet 10 Nov: a payment that lands exactly on the cap goes through, a refused one does not count). Optional: null
+// or left out = no daily cap. It may not be below the per-payment limit, which would make that limit meaningless.
 export const policySchema = z.object({
   perTransactionNear: nearAmountSchema.refine((v) => toYocto(v) > 0n && toYocto(v) <= 10n * YOCTO, 'between 0 and 10 NEAR'),
+  dailyNear: nearAmountSchema.refine((v) => toYocto(v) > 0n && toYocto(v) <= 100n * YOCTO, 'between 0 and 100 NEAR').nullish(),
   whitelist: z.array(accountIdSchema).min(1).max(20),
-})
+}).refine((b) => !b.dailyNear || toYocto(b.dailyNear) >= toYocto(b.perTransactionNear), { path: ['dailyNear'], message: 'not below perTransactionNear' })
 
 export function toYocto(near: string): bigint {
   const [whole, frac = ''] = near.split('.')
@@ -130,10 +134,14 @@ export async function getWallet(mindId: string) {
     address,
     shared,
     balanceNear: toNear(b.balance ?? '0'),
+    // OutLayer's own counter for the daily cap (`usage.daily.native.spent`, testnet 10 Nov); `{}` before the first payment.
+    // Whether it resets at 00:00 UTC or after a rolling 24 h is not proven yet.
+    spentTodayNear: toNear(/^\d+$/.test(String(p.usage?.daily?.native?.spent)) ? p.usage.daily.native.spent : '0'),
     frozen: p.frozen === true,
     policy: stored
       ? {
           perTransactionNear: p.rules?.limits?.per_transaction?.native ? toNear(p.rules.limits.per_transaction.native) : null,
+          dailyNear: p.rules?.limits?.daily?.native ? toNear(p.rules.limits.daily.native) : null,
           whitelist: p.rules?.addresses?.mode === 'whitelist' ? p.rules.addresses.list : null,
           transactionTypes: p.rules?.transaction_types ?? null,
           // false if the policy was set for another key: then OutLayer would refuse this Mind's own key.
@@ -149,7 +157,10 @@ export async function policyTransaction(mindId: string, ownerAccountId: string, 
   const policy = {
     wallet_id: walletId,
     rules: {
-      limits: { per_transaction: { native: toYocto(body.perTransactionNear).toString() } },
+      limits: {
+        per_transaction: { native: toYocto(body.perTransactionNear).toString() },
+        ...(body.dailyNear ? { daily: { native: toYocto(body.dailyNear).toString() } } : {}),
+      },
       addresses: { mode: 'whitelist', list: [...new Set(body.whitelist)] },
       transaction_types: ['transfer'],
     },
