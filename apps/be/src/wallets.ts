@@ -151,6 +151,20 @@ export async function getWallet(mindId: string) {
   }
 }
 
+// Deleting a Mind deletes its `mind_wallets` row, the only copy of the agent key: after that nobody can move what is
+// left in the wallet (the owner never holds the key, #15). So a delete is refused while the Mind's own wallet holds more
+// than dust, unless the owner acknowledged it (#161). Try-out and playground Minds pay from the shared demo wallet and
+// have no row of their own, so they are never refused.
+const DUST_YOCTO = 10n ** 21n // 0.001 NEAR
+export async function assertWalletEmpty(mindId: string) {
+  if (await isDemoMind(mindId)) return
+  const r = await row(mindId)
+  if (!r) return
+  const b = await outlayer('GET', '/wallet/v1/balance?chain=near', decrypt(config.secretsMasterKey, r.key_ciphertext, `wallet:${mindId}`))
+  const balance = BigInt(b.balance ?? '0')
+  if (balance > DUST_YOCTO) throw new HttpError(409, 'wallet_not_empty', { balanceNear: toNear(balance) })
+}
+
 // Builds policy v2 for this wallet, has OutLayer encrypt and sign it, and returns the owner's store_wallet_policy tx.
 export async function policyTransaction(mindId: string, ownerAccountId: string, body: z.infer<typeof policySchema>): Promise<OwnerTransaction> {
   const { walletId, key } = await keyOf(mindId)

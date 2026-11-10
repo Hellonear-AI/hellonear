@@ -729,6 +729,25 @@ describe('payment tools through the backend (#42, option B)', () => {
     assert.equal(wallet.spentTodayNear, '0.03')
   })
 
+  test('deleting a Mind whose own wallet holds NEAR needs the owner to acknowledge it (#161); dust does not count', async () => {
+    const a = await signIn()
+    const { mindId, w } = await walletMind(a, { balanceNear: '0.25', policy: false })
+    let res = await a.call('DELETE', `/v1/minds/${mindId}`, undefined, origin)
+    assert.equal(res.status, 409)
+    assert.deepEqual(await res.json(), { error: 'wallet_not_empty', balanceNear: '0.25' })
+    assert.equal((await a.call('GET', `/v1/minds/${mindId}`)).status, 200)
+    // Only the exact flag counts.
+    assert.equal((await a.call('DELETE', `/v1/minds/${mindId}?acknowledgeBalance=1`, undefined, origin)).status, 409)
+    res = await a.call('DELETE', `/v1/minds/${mindId}?acknowledgeBalance=true`, undefined, origin)
+    assert.equal(res.status, 204)
+    assert.equal((await query('select 1 from mind_wallets where mind_id = $1', [mindId])).length, 0)
+    assert.equal(w.balance, (25n * 10n ** 22n).toString(), 'nothing was moved')
+
+    // 0.001 NEAR or less is dust: deleted without asking.
+    const dust = await walletMind(a, { balanceNear: '0.001', policy: false })
+    assert.equal((await a.call('DELETE', `/v1/minds/${dust.mindId}`, undefined, origin)).status, 204)
+  })
+
   test('the engine gets a wallet token only for a Mind with a wallet, never the key', async () => {
     const a = await signIn()
     const plain = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Plain' }, origin)).json()).mind.id
@@ -895,7 +914,7 @@ describe('payment tools through the backend (#42, option B)', () => {
     assert.equal(res.status, 404)
     res = await engineCall('PUT', '/internal/v1/wallet/balance', token)
     assert.equal(res.status, 405)
-    await a.call('DELETE', `/v1/minds/${mindId}`, undefined, origin)
+    await a.call('DELETE', `/v1/minds/${mindId}?acknowledgeBalance=true`, undefined, origin)
     res = await engineCall('GET', '/internal/v1/wallet/balance', token)
     assert.equal(res.status, 404)
   })
@@ -915,6 +934,15 @@ describe('judge try-out mode (#43)', () => {
     return { user, call: ((m, p, b, h = {}) => call(m, p, b, { 'cf-connecting-ip': fromIp, ...h })) as Client['call'] }
   }
   const lastChatBody = (mindId: string) => fake.requests.findLast((r) => r.path.endsWith(`/v1/minds/${mindId}/chat`))!.body
+
+  test('a try-out user deletes a Mind without the wallet check: it has no wallet of its own (#161)', async () => {
+    const d = await demoSignIn()
+    const mindId = (await (await d.call('POST', '/v1/minds', { templateId: 'payments-mind', name: 'Judge del' }, origin)).json()).mind.id
+    const before = fakeOutlayer.requests.length
+    assert.equal((await d.call('DELETE', `/v1/minds/${mindId}`, undefined, origin)).status, 204)
+    assert.ok(!fakeOutlayer.requests.slice(before).some((r) => r.path.startsWith('/wallet/v1/balance')))
+    assert.equal((await d.call('GET', `/v1/minds/${mindId}`)).status, 404)
+  })
 
   test('a demo session without a wallet; the engine is told; payments use the shared demo wallet', async () => {
     const d = await demoSignIn()
