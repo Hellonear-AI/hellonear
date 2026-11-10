@@ -121,6 +121,33 @@ describe('autopilot', () => {
     assert.equal(lost.autopilot.status, 'paused')
   })
 
+  test('a scheduled fire runs an If way of several steps, with the stored context (#153)', async () => {
+    const chain = {
+      name: 'Chained way',
+      nodes: [
+        { id: 'start', type: 'trigger', data: { schedule: { cron: '* * * * *', timezone: 'Asia/Jakarta' }, inputs: [{ name: 'account', type: 'string' }] } },
+        { id: 'balance', type: 'tool', data: { tool: 'near_view_account', args: { accountId: '{{input.account}}' } } },
+        { id: 'any', type: 'condition', data: { left: '{{steps.balance.balanceNear}}', op: 'gte', right: 0 } },
+        { id: 'clock', type: 'tool', data: { tool: 'get_time', args: {} } },
+        { id: 'say', type: 'agent', data: { prompt: 'In one short sentence, say that {{input.account}} holds {{steps.balance.balanceNear}} NEAR at {{steps.clock.time}}.' } },
+      ],
+      edges: [{ source: 'start', target: 'balance' }, { source: 'balance', target: 'any' }, { source: 'any', target: 'clock', sourceHandle: 'then' }, { source: 'clock', target: 'say' }],
+    }
+    await json(await call('PUT', path('chain'), chain), 200)
+    assert.equal((await json(await call('PUT', `${path('chain')}/autopilot`, on()), 200)).autopilot.status, 'active')
+    let run: Ev | undefined
+    for (const deadline = Date.now() + 150_000; !run && Date.now() < deadline; await new Promise((r) => setTimeout(r, 3000))) {
+      const { runs } = await json(await call('GET', `${path('chain')}/runs`), 200)
+      run = runs.find((r: Ev) => r.trigger === 'autopilot' && r.status !== 'running')
+    }
+    assert.ok(run, 'a scheduled run finished within 150 s')
+    assert.equal(run.status, 'success', JSON.stringify(run))
+    // History keeps the way's final output under its last node (the steps inside it are not in the snapshot).
+    assert.deepEqual(run.nodes.map((n: Ev) => [n.node, n.status]), [['balance', 'ok'], ['say', 'ok']])
+    assert.match(run.nodes[1].output.text, /Penny/, 'the persona reached the agent step inside the way')
+    assert.equal((await call('DELETE', path('chain'))).status, 204)
+  })
+
   test('turning off and deleting the workflow remove the schedule', async () => {
     assert.equal((await call('DELETE', `${path('report')}/autopilot`)).status, 204)
     assert.equal((await call('DELETE', `${path('report')}/autopilot`)).status, 404)

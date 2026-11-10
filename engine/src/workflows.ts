@@ -1,6 +1,6 @@
 // Saved Visual Builder workflows (#20): compile, register live, persist in Postgres
 // (Mastra's workflowDefinitions store), list, load for the editor and delete.
-import { compileCanvas, mastraWorkflowId, type Canvas, type CompiledWorkflow } from './builder.ts'
+import { compileCanvas, mastraWorkflowId, wayWorkflowId, type Canvas, type CompiledWorkflow } from './builder.ts'
 import { deleteAutopilot, syncAutopilot } from './autopilot.ts'
 import { mastra, storage } from './mastra.ts'
 
@@ -25,7 +25,10 @@ const summary = (d: StoredDefinition) => {
 // Replaces any earlier version: new runs use the new graph, running ones keep theirs.
 export async function saveWorkflow(mindId: string, workflowId: string, canvas: unknown) {
   const compiled = compileCanvas(mindId, workflowId, canvas)
+  // Multi-step If ways (#153) are nested workflows: register them first, and drop a way that is no longer one.
+  for (const child of compiled.children) await mastra.addDynamicWorkflow(child as never)
   await mastra.addDynamicWorkflow(compiled.definition as never)
+  await removeWays(mindId, workflowId, new Set(compiled.children.map((c) => c.id)))
   const meta = (compiled.definition.metadata as { hellonear: Meta }).hellonear
   // An Autopilot schedule follows the new cron, or pauses if the new canvas cannot run unattended.
   const autopilot = await syncAutopilot(mindId, workflowId, meta)
@@ -45,11 +48,21 @@ export async function listWorkflows(mindId: string) {
   return definitions.filter((d) => d.id.startsWith(prefix) && d.metadata?.hellonear?.mindId === mindId).map(summary)
 }
 
+async function removeWays(mindId: string, workflowId: string, keep = new Set<string>()) {
+  for (const handle of ['then', 'else'] as const) {
+    const id = wayWorkflowId(mindId, workflowId, handle)
+    if (keep.has(id) || !(await (await store()).get(id))) continue
+    await (await store()).delete(id)
+    try { mastra.removeWorkflow(id) } catch { /* not registered in this process */ }
+  }
+}
+
 export async function deleteWorkflow(mindId: string, workflowId: string): Promise<boolean> {
   if (!(await loadWorkflow(mindId, workflowId))) return false
   const id = mastraWorkflowId(mindId, workflowId)
   await deleteAutopilot(mindId, workflowId)
   await (await store()).delete(id)
   mastra.removeWorkflow(id)
+  await removeWays(mindId, workflowId)
   return true
 }
