@@ -56,6 +56,42 @@ const addNumbers = createTool({
   execute: async ({ a, b }) => ({ sum: a + b }),
 })
 
+// Shares of a NEAR amount, worked out here in yoctoNEAR integers: a revenue split once paid 0.002 and 0.003 for
+// 40% and 60% of 0.05 (11 Nov), a model doing the percent in its head. Each share is rounded down to 4 decimals.
+const YOCTO_DIGITS = 24
+const SHARE_STEP = 10n ** 20n // 0.0001 NEAR
+const toYocto = (near: string) => {
+  const [whole, frac = ''] = near.split('.')
+  return BigInt(whole) * 10n ** 24n + BigInt(frac.padEnd(YOCTO_DIGITS, '0'))
+}
+// Every digit that is there, so a total or a left-over below 0.0001 still shows; shares are already whole steps.
+const fromYocto = (yocto: bigint) => {
+  const whole = yocto / 10n ** 24n
+  const frac = (yocto % 10n ** 24n).toString().padStart(YOCTO_DIGITS, '0').replace(/0+$/, '')
+  return frac ? `${whole}.${frac}` : `${whole}`
+}
+export function splitAmount(amountNear: string, parts: { to: string; weight: number }[]) {
+  const total = toYocto(amountNear)
+  // Weights as integers in millionths, so 33.333333 % and 1 / 1 / 1 both work exactly enough.
+  const units = parts.map((p) => BigInt(Math.round(p.weight * 1e6)))
+  const sum = units.reduce((a, b) => a + b, 0n)
+  if (sum <= 0n) throw new Error('weights must add up to more than 0')
+  const shares = parts.map((p, i) => ({ to: p.to, amountNear: fromYocto(((total * units[i]) / sum / SHARE_STEP) * SHARE_STEP) }))
+  const paid = shares.reduce((a, s) => a + toYocto(s.amountNear), 0n)
+  return { amountNear: fromYocto(total), shares, totalOfShares: fromYocto(paid), leftOver: fromYocto(total - paid) }
+}
+
+const splitAmountTool = createTool({
+  id: 'split_amount',
+  description: 'Work out each person\'s share of a testnet NEAR amount exactly. Weights are percents (40 and 60) or equal parts (1 each). Each share is rounded down to 4 decimals; leftOver is what rounding kept back. Always use this for money shares; never work them out yourself.',
+  inputSchema: z.object({
+    amountNear: z.string().regex(/^\d{1,6}(\.\d{1,24})?$/, 'a decimal string, e.g. "0.05"'),
+    parts: z.array(z.object({ to: z.string().min(2).max(64), weight: z.number().positive().max(1_000_000) })).min(1).max(20),
+  }),
+  outputSchema: z.object({ amountNear: z.string(), shares: z.array(z.object({ to: z.string(), amountNear: z.string() })), totalOfShares: z.string(), leftOver: z.string() }),
+  execute: async ({ amountNear, parts }) => splitAmount(amountNear, parts),
+})
+
 // The Mind's own wallet (#42): calls go through the backend, which holds the OutLayer key.
 const NEAR_ACCOUNT_ID = /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/
 const paymentSchema = z.object({
@@ -617,7 +653,7 @@ const nearCheckTransfer = createTool({
 })
 
 export const toolRegistry = {
-  get_time: getTime, add_numbers: addNumbers, http_request: httpRequest, near_view_account: nearViewAccount, near_check_transfer: nearCheckTransfer,
+  get_time: getTime, add_numbers: addNumbers, split_amount: splitAmountTool, http_request: httpRequest, near_view_account: nearViewAccount, near_check_transfer: nearCheckTransfer,
   buy_data: buyData, get_quotes: getQuotes, sell_offer: sellOffer, buy_from_mind: buyFromMind, send_payment: sendPayment, get_balance: getBalance, list_payments: listPayments,
   gmail_list_emails: gmailListEmails, gmail_read_email: gmailReadEmail, gmail_create_draft: gmailCreateDraft, gmail_organize: gmailOrganize,
   googlecalendar_list_events: calendarListEvents, googlecalendar_create_event: calendarCreateEvent,
