@@ -1,7 +1,7 @@
 // Unit tests for the skill catalog (no network, no database).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseSkillMd, skillCatalog, skillCatalogSummaries, usableSkills } from '../src/skills.ts'
+import { parseSkillMd, skillCatalog, skillCatalogSummaries, skillDetail, usableSkills } from '../src/skills.ts'
 import { needsApproval } from '../src/tools.ts'
 
 test('every SKILL.md in engine/skills parses and only uses registered tools', () => {
@@ -81,6 +81,31 @@ test('the catalog lists every skill an owner can equip, including ones no templa
   const email = all.find((s) => s.skillId === 'email-triage')!
   assert.equal(email.status, 'available')
   assert.ok(email.note)
+})
+
+test('catalog items carry the title and blurb people see, plus every field they had before (#220)', () => {
+  for (const s of skillCatalogSummaries()) {
+    assert.ok(s.title && s.blurb, `${s.skillId} has a title and a blurb`)
+    assert.ok(s.description && s.status && Array.isArray(s.connections) && Array.isArray(s.tools), `${s.skillId} keeps its old fields`)
+  }
+  assert.deepEqual(skillCatalogSummaries().find((s) => s.skillId === 'near-account'), {
+    skillId: 'near-account', description: skillCatalog.get('near-account')!.description, status: 'available', connections: [],
+    title: 'NEAR account lookup', blurb: 'looks up NEAR testnet accounts, cannot spend', tools: ['near_view_account'],
+  })
+})
+
+test('a skill detail is its SKILL.md body without the frontmatter; unknown and built-in skills have none (#220)', () => {
+  const d = skillDetail('near-account')!
+  assert.deepEqual(Object.keys(d), ['skillId', 'title', 'blurb', 'status', 'connections', 'tools', 'markdown'])
+  assert.deepEqual([d.title, d.status, d.tools], ['NEAR account lookup', 'available', ['near_view_account']])
+  assert.match(d.markdown, /^# NEAR account\n/)
+  for (const s of skillCatalogSummaries()) {
+    const markdown = skillDetail(s.skillId)!.markdown
+    assert.ok(markdown.length > 0 && !markdown.startsWith('---') && !/^metadata:|^\s+hellonear:/m.test(markdown), `${s.skillId} has no frontmatter`)
+  }
+  assert.equal(skillDetail('nope'), undefined)
+  assert.equal(skillDetail('hellonear-guide'), undefined, 'built-in skills are not offered')
+  assert.ok(skillCatalog.get('hellonear-guide')?.builtin)
 })
 
 const md = (fm: string) => `---\n${fm}\n---\n# Body\n`

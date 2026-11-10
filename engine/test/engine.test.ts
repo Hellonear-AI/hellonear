@@ -84,8 +84,25 @@ describe('engine HTTP API', () => {
     const { skills } = await res.json()
     assert.deepEqual(skills.map((s: Ev) => s.skillId), ['best-price', 'calendar-conflicts', 'confidential-reader', 'daily-planner', 'docs', 'email-address', 'email-triage', 'follow-ups', 'freeze-advisor', 'health-journal', 'http-request', 'invoice', 'meeting-prep', 'mind-seller', 'morning-briefing', 'near-account', 'notion', 'outlook', 'paid-data', 'payments', 'phishing-detector', 'price-watch', 'recipient-guard', 'redact-before-send', 'revenue-split', 'sheets', 'slack', 'spending-audit', 'spending-tracker', 'split-bill', 'subscriptions', 'treasury-report'])
     assert.deepEqual(skills.find((s: Ev) => s.skillId === 'near-account'), {
-      skillId: 'near-account', description: skills.find((s: Ev) => s.skillId === 'near-account').description, status: 'available', connections: [], tools: ['near_view_account'],
+      skillId: 'near-account', description: skills.find((s: Ev) => s.skillId === 'near-account').description, status: 'available', connections: [],
+      title: 'NEAR account lookup', blurb: 'looks up NEAR testnet accounts, cannot spend', tools: ['near_view_account'],
     })
+  })
+
+  test('one skill with its SKILL.md body, behind the engine key; unknown and built-in skills are 404 (#220)', async () => {
+    assert.equal((await fetch(base + '/v1/skills/near-account')).status, 401)
+    assert.equal((await fetch(base + '/v1/skills/near-account', { headers: { 'x-engine-key': 'wrong' } })).status, 401)
+    const res = await fetch(base + '/v1/skills/near-account', { headers: { 'x-engine-key': key } })
+    assert.equal(res.status, 200)
+    const { skill } = await res.json()
+    assert.deepEqual(Object.keys(skill), ['skillId', 'title', 'blurb', 'status', 'connections', 'tools', 'markdown'])
+    assert.deepEqual([skill.skillId, skill.title, skill.tools], ['near-account', 'NEAR account lookup', ['near_view_account']])
+    assert.match(skill.markdown, /^# NEAR account\n/)
+    assert.doesNotMatch(skill.markdown, /^---|hellonear:/m)
+    for (const id of ['nope', 'hellonear-guide', 'Near-Account', '%zz']) {
+      const r = await fetch(base + `/v1/skills/${id}`, { headers: { 'x-engine-key': key } })
+      assert.deepEqual([r.status, await r.json()], [404, { error: 'not_found' }], id)
+    }
   })
 
   test('persona comes from the request and can change without a restart', async () => {
