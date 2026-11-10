@@ -23,6 +23,8 @@ const LABELS: Record<string, [doing: string, done: string]> = {
   mail_send: ["Sending an email", "Sent an email"],
   mail_list: ["Checking its inbox", "Checked its inbox"],
   mail_read: ["Reading an email", "Read an email"],
+  // Paid data (#150): the first call gets a price, the second the report.
+  buy_data: ["Buying a report", "Asked for a report"],
   skill: ["Picking up a skill", "Picked up a skill"],
   skill_read: ["Picking up a skill", "Picked up a skill"],
   skill_search: ["Looking for a skill", "Looked for a skill"],
@@ -79,6 +81,10 @@ function summary(step: ToolStep): string | null {
       return Array.isArray(r.attendees) && r.attendees.length
         ? `${text(r.title) ?? "Meeting"}, ${r.attendees.length} ${r.attendees.length === 1 ? "guest" : "guests"} invited`
         : text(r.title)
+    case "buy_data":
+      if (r.status === "paid") return "bought, report received"
+      if (r.status === "payment_required") return text(r.priceNear) ? `price ${r.priceNear} NEAR` : "price asked"
+      return r.status === "refused" ? "not sold" : null
     case "skill":
     case "skill_read": {
       // The skill's name people know ("Daily planner"), not its id ("daily-planner").
