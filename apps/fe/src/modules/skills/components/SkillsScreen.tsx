@@ -233,7 +233,8 @@ function SkillCard({
           <SkillLines mindId={mindId} lines={lines} />
         </div>
       )}
-      <div className="mt-auto flex items-center justify-between gap-3 pt-1">
+      {/* Wraps instead of overflowing (Ancung, 11 Nov: "Connect Google Sheets" ran out of the card at 100% zoom). */}
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-1">
         {blocked ? (
           <Badge variant="neutral">Not available</Badge>
         ) : added ? (
@@ -241,9 +242,8 @@ function SkillCard({
             <CheckIcon />
             Added
           </Badge>
-        ) : needsConnecting && app ? (
-          <Badge variant="warning">Needs {app}</Badge>
         ) : (
+          // The button says which app it needs; the badge doesn't repeat it.
           <Badge variant="neutral">Not added</Badge>
         )}
         {blocked ? null : added ? (
@@ -251,8 +251,8 @@ function SkillCard({
             Settings
           </Button>
         ) : (
-          <Button size="sm" onClick={onAdd}>
-            {needsConnecting && app ? `Connect ${app}` : "Add"}
+          <Button size="sm" className="max-w-full min-w-0" onClick={onAdd}>
+            <span className="truncate">{needsConnecting && app ? `Connect ${app}` : "Add"}</span>
           </Button>
         )}
       </div>
