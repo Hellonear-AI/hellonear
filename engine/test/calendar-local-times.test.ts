@@ -71,7 +71,9 @@ for (const n of [1, 2, 3]) {
     assert.match(standup.startLocal, / 17:00$/, 'the tool gives the local time')
     assert.equal(standup.timeZone, 'Asia/Jakarta')
 
-    const lines = text.split('\n').filter((l) => /standup/i.test(l))
+    // Only lines that give the standup a time: a suggestion such as "keep a break after the standup" names it without one
+    // (seen 11 Nov, and the time on the event line was right).
+    const lines = text.split('\n').filter((l) => /standup/i.test(l) && /\b\d{1,2}[:.]\d{2}\b/.test(l))
     assert.ok(lines.length > 0, 'the plan mentions the standup')
     for (const line of lines) {
       assert.match(line, /17[:.]00/, `standup at 17:00: ${line}`)
