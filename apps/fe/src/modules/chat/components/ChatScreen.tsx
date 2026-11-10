@@ -382,7 +382,7 @@ function TurnView({
  * from the moment the message is sent until the first text, thought or step (Ancung, 9 Nov: one
  * word for the whole wait; "Sending" read like money moving in a payments app).
  */
-function Working({ name }: { name: string }) {
+export function Working({ name }: { name: string }) {
   return (
     <span role="status" aria-label={`${name} is thinking`} className="flex h-[22px] items-center gap-2.5">
       <span aria-hidden className="flex items-center gap-1">
