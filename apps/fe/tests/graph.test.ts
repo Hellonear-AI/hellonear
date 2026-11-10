@@ -164,3 +164,22 @@ describe("live view camera", () => {
     expect(f.x).toBeCloseTo(0)
   })
 })
+
+describe("live view layout across chats (Ancung, 11 Nov)", () => {
+  it("puts a bubble that comes back where it was, without warming up, and settles a first graph", async () => {
+    const { syncSim, settle, stepSim } = await import("@/modules/graph/data/sim")
+    const node = (id: string, kind: "mind" | "skill" | "tool") => ({ id, kind, label: id, uses: 0 }) as never
+    const nodes = [node("mind:m", "mind"), node("skill:a", "skill"), node("tool:x", "tool")]
+    const links = [{ source: "mind:m", target: "skill:a" }, { source: "skill:a", target: "tool:x" }] as never
+    const kinds = new Map([["mind:m", "mind"], ["skill:a", "skill"], ["tool:x", "tool"]] as const)
+    const first = syncSim(null, nodes, links, "mind:m")
+    settle(first, kinds as never)
+    expect(stepSim(first, kinds as never)).toBe(false)
+    const place = { ...first.bodies.get("tool:x")! }
+    // The chat page mounts with the tool missing for a moment, then it comes back.
+    const without = syncSim(first, nodes.slice(0, 2), links, "mind:m")
+    const back = syncSim(without, nodes, links, "mind:m")
+    expect(back.bodies.get("tool:x")).toMatchObject({ x: place.x, y: place.y })
+    expect(back.alpha).toBe(first.alpha)
+  })
+})

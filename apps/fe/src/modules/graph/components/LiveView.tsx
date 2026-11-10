@@ -13,7 +13,7 @@ import { StepRow } from "@/modules/runs/components/ReplySteps"
 import { pendingStep, type RunEvent } from "@/modules/runs/data/events"
 import { stepText } from "@/modules/runs/data/steps"
 import { TOOLS } from "@/modules/runs/data/tools"
-import { useChatRun } from "@/modules/chat/hooks/ChatRunProvider"
+import type { ActiveRun } from "@/modules/chat/hooks/ChatRunProvider"
 import { MindGraph } from "@/modules/graph/components/MindGraph"
 import { buildGraph, callNode, callsOf, liveStates, type GraphNode } from "@/modules/graph/data/graph"
 import { skillCopy } from "@/modules/skills/data/skills"
@@ -81,13 +81,17 @@ const STATE_WORDS: Record<NonNullable<GraphNode["state"]>, string> = {
  * and the last 7 days of runs, lit live by the run on screen; what this run did so far, as the
  * chat's step rows; and what waits for the owner.
  */
-export function LiveView({ mindId, className }: { mindId: string; className?: string }) {
+/**
+ * `active`: the run of the chat on screen (ChatScreen's `activeHere`), or null. The provider's run
+ * belongs to the Mind, so after switching chats the panel kept drawing the other chat's reply
+ * (Ancung, 11 Nov); the chat page passes only its own.
+ */
+export function LiveView({ mindId, active, className }: { mindId: string; active: ActiveRun | null; className?: string }) {
   const mind = useMind(mindId).data
   const catalog = useSkillCatalog().data
   const history = useMindEvents(mindId)
   const approvalList = useApprovals(mindId).data
   const approvals = useMemo(() => approvalList ?? [], [approvalList])
-  const { active } = useChatRun()
   const [selected, setSelected] = useState<string | null>(null)
   const queryClient = useQueryClient()
   const name = mind?.name ?? "Your Mind"
