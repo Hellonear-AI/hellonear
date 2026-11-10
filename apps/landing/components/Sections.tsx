@@ -2,7 +2,6 @@
 // First pass so the layout can be judged in the browser; visuals marked "placeholder" come later.
 
 import { MindGraph } from "./MindGraph";
-import { ShrinkSection } from "./ShrinkSection";
 import { NIGHT_BG } from "./night";
 
 export const Icon = {
@@ -292,7 +291,7 @@ export function SeeInside() {
   return (
     // Desktop: pulled up under the centred title at the end of the approvals scroll (its top part is
     // see-through, over that same night), so the graph starts right below the title.
-    <ShrinkSection
+    <section
       id="skills"
       className="graph-section relative z-10 overflow-hidden text-[#F2F1EC] md:-mt-[calc(50vh-130px)]"
       style={{ "--night": NIGHT_BG } as React.CSSProperties}
@@ -304,9 +303,9 @@ export function SeeInside() {
         </div>
       </div>
       <MindGraph />
-      {/* A little more night under the graph; the section's sides then draw in as it scrolls away. */}
+      {/* A little more night under the graph, for the next section to overlap. */}
       <div className="h-24 md:h-32" aria-hidden="true" />
-    </ShrinkSection>
+    </section>
   );
 }
 

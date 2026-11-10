@@ -83,6 +83,8 @@ export function Demo() {
   };
 
   return (
+    // A light sheet with big rounded top corners, pulled up over the end of the night section.
+    <div className="relative z-20 -mt-16 rounded-t-[40px] bg-[var(--color-bg)] md:-mt-24 md:rounded-t-[72px]">
     <section id="demo" className="mx-auto flex max-w-[1200px] flex-col gap-10 px-5 py-24">
       <div ref={headRef} className="flex flex-col items-center gap-3 text-center">
         <h2 className="max-w-[760px] text-[36px] font-medium leading-[1.08] tracking-[-1.2px] md:text-[48px]" aria-label={TITLE}>
@@ -145,5 +147,6 @@ export function Demo() {
         ))}
       </div>
     </section>
+    </div>
   );
 }
