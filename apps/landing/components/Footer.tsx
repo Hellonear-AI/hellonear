@@ -32,9 +32,28 @@ export function Footer() {
           loading="lazy"
           className="block h-auto min-h-[380px] w-full object-cover object-bottom md:min-h-[560px]"
         />
+        {/* Shade on the grass behind the text (darker low and at the sides, clear around the Mind and
+            the hills), so the white text reads on the bright grass. */}
+        <div
+          className="pointer-events-none absolute inset-0 hidden md:block"
+          aria-hidden="true"
+          style={{
+            background: [
+              "radial-gradient(ellipse 22% 38% at 50% 58%, rgb(15 30 8 / 0) 0%, rgb(15 30 8 / 0) 60%, transparent 100%)",
+              "linear-gradient(to right, rgb(15 30 8 / 0.42), rgb(15 30 8 / 0.1) 32%, rgb(15 30 8 / 0) 45%, rgb(15 30 8 / 0) 55%, rgb(15 30 8 / 0.1) 66%, rgb(15 30 8 / 0.42))",
+            ].join(","),
+            WebkitMaskImage: "linear-gradient(to bottom, transparent 34%, #000 58%)",
+            maskImage: "linear-gradient(to bottom, transparent 34%, #000 58%)",
+          }}
+        />
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-[30%]"
+          aria-hidden="true"
+          style={{ background: "linear-gradient(to bottom, transparent, rgb(15 30 8 / 0.45))" }}
+        />
         {/* Desktop: the text on the grass */}
         <div className="absolute inset-x-0 bottom-0 top-[42%] hidden md:block">
-          <div className="footer-on-grass mx-auto flex h-full max-w-[1200px] items-start justify-between gap-10 px-5 pt-10 text-white">
+          <div className="footer-on-grass mx-auto flex h-full max-w-[1200px] items-start justify-between gap-10 px-5 pt-6 text-white">
             <Brand light />
             <Links className="text-white/85" head="text-white" />
           </div>
@@ -49,11 +68,12 @@ export function Footer() {
 
 function Brand({ light = false }: { light?: boolean }) {
   return (
-    <div className="flex max-w-[320px] flex-col gap-3">
+    <div className="flex flex-col gap-4">
       <a href="#top" aria-label="HelloNear, back to the top" className={light ? "footer-logo" : ""}>
-        <Logo className="h-[30px] w-auto" />
+        {/* big on desktop, a brand mark rather than a small logo */}
+        <Logo className={light ? "h-[clamp(56px,6vw,92px)] w-auto" : "h-[44px] w-auto"} />
       </a>
-      <p className={`text-[15px] leading-[1.5] ${light ? "text-white/90" : "text-[var(--color-text-2)]"}`}>
+      <p className={`max-w-[360px] leading-[1.5] ${light ? "text-[17px] text-white/90" : "text-[15px] text-[var(--color-text-2)]"}`}>
         A Mind that can&apos;t spend more than you allow.
       </p>
     </div>
