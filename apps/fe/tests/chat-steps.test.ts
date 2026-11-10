@@ -108,3 +108,13 @@ describe("time worked", () => {
     expect(v.workMs).toBe(10_000)
   })
 })
+
+describe("step words for the track skills (#211)", () => {
+  it("names a quote, a split and a transfer check by what they found", async () => {
+    const { stepText } = await import("@/modules/runs/data/steps")
+    const done = (tool: string, result: unknown) => stepText({ toolCallId: "t", tool, status: "ok", args: {}, result })
+    expect(done("get_quotes", { quotes: [{ priceNear: "1" }, { priceNear: "0.8" }], cheapestOnYourList: { priceNear: "0.8" } })).toMatchObject({ label: "Compared prices", detail: "2 sellers, best 0.8 NEAR" })
+    expect(done("split_amount", { shares: [{}, {}, {}] })).toMatchObject({ label: "Worked out the shares", detail: "3 shares" })
+    expect(done("near_check_transfer", { status: "succeeded", coversAmount: true }).detail).toBe("Paid in full")
+  })
+})

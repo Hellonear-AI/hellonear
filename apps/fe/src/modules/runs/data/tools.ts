@@ -70,6 +70,30 @@ export const TOOLS: Record<string, ToolWords> = {
   // Working something out.
   get_time: { doing: "Checking the time", done: "Checked the time", orb: "solving", node: "Clock", about: "Tells the date and time on your clock." },
   add_numbers: { doing: "Adding numbers", done: "Added numbers", orb: "solving", node: "Calculator", about: "Adds numbers exactly instead of guessing." },
+  // The skills for the five tracks (#194, #211). Reading or looking up: searching.
+  get_quotes: { doing: "Asking sellers for prices", done: "Compared prices", orb: "searching" },
+  near_check_transfer: { doing: "Checking for a payment", done: "Checked for a payment", orb: "searching" },
+  googledrive_find_files: { doing: "Looking in your Google Drive", done: "Looked in your Google Drive", orb: "searching" },
+  googledocs_read_document: { doing: "Reading a Google Doc", done: "Read a Google Doc", orb: "searching" },
+  googlesheets_find_spreadsheets: { doing: "Looking for a spreadsheet", done: "Found your spreadsheets", orb: "searching" },
+  googlesheets_read_range: { doing: "Reading a spreadsheet", done: "Read a spreadsheet", orb: "searching" },
+  notion_search: { doing: "Searching your Notion", done: "Searched your Notion", orb: "searching" },
+  notion_read_page: { doing: "Reading a Notion page", done: "Read a Notion page", orb: "searching" },
+  outlook_list_emails: { doing: "Reading your Outlook inbox", done: "Read your Outlook inbox", orb: "searching" },
+  outlook_read_email: { doing: "Reading an email", done: "Read an email", orb: "searching" },
+  slack_list_channels: { doing: "Looking at your Slack channels", done: "Looked at your Slack channels", orb: "searching" },
+  // Writing.
+  googledocs_create_document: { doing: "Writing a Google Doc", done: "Wrote a Google Doc", orb: "composing", thing: "the document" },
+  notion_create_page: { doing: "Writing a Notion page", done: "Wrote a Notion page", orb: "composing", thing: "the Notion page" },
+  outlook_create_draft: { doing: "Saving a draft in Outlook", done: "Saved a draft in Outlook", orb: "composing" },
+  slack_send_message: { doing: "Posting to Slack", done: "Posted to Slack", orb: "composing", thing: "the Slack message" },
+  // Acting on something.
+  googlesheets_append_row: { doing: "Adding a row to a spreadsheet", done: "Added a row to a spreadsheet", orb: "working", thing: "the new row" },
+  notion_add_row: { doing: "Adding a row in Notion", done: "Added a row in Notion", orb: "working", thing: "the new Notion row" },
+  sell_offer: { doing: "Setting what it sells", done: "Set what it sells", orb: "working", thing: "the offer" },
+  buy_from_mind: { doing: "Buying from another Mind", done: "Bought from another Mind", orb: "working" },
+  // Working something out.
+  split_amount: { doing: "Working out the shares", done: "Worked out the shares", orb: "solving" },
   // Mastra's working memory (engine/src/mastra.ts): what the Mind keeps about the owner between chats.
   updateWorkingMemory: { doing: "Updating its memory", done: "Updated its memory", orb: "breathing" },
 }

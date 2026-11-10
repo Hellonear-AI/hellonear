@@ -48,6 +48,18 @@ function summary(step: ToolStep): string | null {
       return text(r.balanceNear) ? `${formatNear(r.balanceNear as string)} NEAR` : null
     case "list_payments":
       return count(r.payments, "payment", "payments")
+    // Best price buyer and price watch (#176, #179): how many sellers, and the cheapest the wallet may pay.
+    case "get_quotes": {
+      const quotes = Array.isArray(r.quotes) ? (r.quotes as { priceNear?: string }[]) : null
+      const best = r.cheapestOnYourList as { priceNear?: string; seller?: string } | null | undefined
+      if (!quotes) return null
+      const n = `${quotes.length} ${quotes.length === 1 ? "seller" : "sellers"}`
+      return best?.priceNear ? `${n}, best ${best.priceNear} NEAR` : n
+    }
+    case "split_amount":
+      return count(r.shares, "share", "shares")
+    case "near_check_transfer":
+      return r.coversAmount === true ? "Paid in full" : r.status === "succeeded" ? "Paid, but not the full amount" : r.status === "failed" ? "Not paid" : null
     case "near_view_account":
       return text(r.accountId) ?? text(a.accountId)
     case "http_request": {
