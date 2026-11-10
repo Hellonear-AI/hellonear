@@ -132,9 +132,15 @@ No `mailToken` (no inbox, or the skill is off): the tools answer "this Mind has 
 
 Resumes a run paused on `tool.approval_required`. Streams the remaining events as SSE, same format, with `seq` continuing from the paused run. Maps to Mastra `approveToolCall()` / `declineToolCall()` with the run's `runId` **[tested, #11]**. The Mind config must be sent again because the agent's tools are resolved from it per request. Mastra needs storage for this (snapshots), so the engine always runs with Postgres storage.
 
-### `DELETE /v1/minds/{mindId}/threads/{threadId}` (#207; engine side on `feat/engine-thread-delete`)
+### `DELETE /v1/minds/{mindId}/threads/{threadId}` (#207)
 
-Body `{ "userId": "…" }`: the Mind owner's `minds.user_id`, missing → `400`. The backend calls this right after the owner deletes a chat. The engine drops that Mastra thread, its messages and their semantic-recall embeddings (`semanticRecall` has `scope: 'resource'`, so otherwise the deleted chat's words could come back in another chat). Working memory (what the Mind keeps about the owner across chats) is per Mind and stays (#207, Ancung). Answers **`204`**, also when Mastra has no such thread (asking twice is fine), or `404 thread_not_found` when the thread belongs to another user or Mind (nothing touched). The backend counts both as done; on anything else it asks again every hour. The owner's delete does not wait for it.
+Body `{ "userId": "usr_…" }` (the Mind owner's user id, as on chat). The backend calls this right after the owner deletes a chat, and again from its hourly sweep until it gets a `204`. The engine forgets the thread at once: the Mastra thread, its messages and their semantic-recall embeddings (`semanticRecall` has `scope: 'resource'`, so otherwise the deleted chat's words could come back in another chat of the Mind). Working memory (what the Mind keeps about the owner across chats) is per resource, not per thread, and stays (#207, Ancung).
+
+- **`204`**: forgotten, or Mastra has no such thread (never chatted, or already forgotten). Asking twice is fine.
+- `404 { error: "thread_not_found" }`: the thread exists but belongs to another user or Mind (its resource is not `userId:mindId` or `userId:mindId:v{n}`); nothing is touched.
+- `400 invalid_id` (bad `mindId`), `400 invalid_body` (no `userId`), `401` without `X-Engine-Key`.
+
+How (Mastra 1.81, `@mastra/memory` 1.40, `@mastra/pg` 1.34): `Memory.deleteThread` → `PostgresStore.deleteThread`, which deletes in one transaction the thread's `mastra.mastra_messages` rows, its rows in every `mastra.memory_messages*` vector table (today `memory_messages_1024`, by `metadata->>'thread_id'`) and the `mastra.mastra_threads` row; the engine then awaits `Memory.settled()` for Memory's own vector cleanup before answering **[tested, `engine/test/threads.test.ts`: fake embeddings without NEAR AI; real recall with NEAR AI embeddings written, not run yet]**. Not touched: run snapshots in `mastra_workflow_snapshot` (keyed by run, used to resume an approval; they may hold that run's messages, not checked; pruned after `RUN_RETENTION_DAYS`). Recall never reads them.
 
 ### `GET /v1/templates`
 
