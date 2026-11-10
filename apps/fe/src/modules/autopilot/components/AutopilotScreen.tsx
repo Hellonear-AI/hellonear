@@ -38,7 +38,7 @@ import { isApiCode } from "@/lib/api"
 import { shortWhen, clockTime } from "@/lib/format"
 import { browserTimeZone } from "@/lib/stream"
 import { TryOutLockedDialog, useTryOutLock } from "@/modules/auth/components/TryOutLockedDialog"
-import { useSession } from "@/modules/auth/hooks/useSession"
+import { useIsTryOut } from "@/modules/auth/hooks/useSession"
 import { autopilotApi, type ApiWorkflow, type AutopilotIssue, type WorkflowRun } from "@/modules/autopilot/api"
 import { IDEAS, type Idea } from "@/modules/autopilot/data/ideas"
 import { runSummary, runText } from "@/modules/autopilot/data/runs"
@@ -63,7 +63,7 @@ import { useSetSkills } from "@/modules/skills/hooks/useSkills"
 export function AutopilotScreen({ mindId }: { mindId: string }) {
   const mind = useMind(mindId).data
   const name = mind?.name ?? "Your Mind"
-  const demo = Boolean(useSession().data?.demo)
+  const demo = useIsTryOut()
   const jobs = useWorkflows(mindId)
   const locked = useTryOutLock()
   // Back from the Builder with ?job=… opens the job just saved.

@@ -20,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { mindHref } from "@/components/layout/nav"
 import { formatNear, shortWhen, timeAgo } from "@/lib/format"
 import { TryOutLockedDialog, useTryOutLock } from "@/modules/auth/components/TryOutLockedDialog"
-import { useSession } from "@/modules/auth/hooks/useSession"
+import { useIsTryOut } from "@/modules/auth/hooks/useSession"
 import { chatApi } from "@/modules/chat/api"
 import { paymentOf, pendingStep } from "@/modules/chat/data/events"
 import { ApprovalActions, ApprovalCheckList, PaymentAmount } from "@/modules/wallet/components/ApprovalParts"
@@ -44,7 +44,7 @@ export function ApprovalsScreen({ mindId }: { mindId: string }) {
   const mind = useMind(mindId).data
   const wallet = useMindWallet(mindId).data ?? null
   const approvals = useApprovals(mindId)
-  const demo = Boolean(useSession().data?.demo)
+  const demo = useIsTryOut()
   const { active, resume } = useChatRun()
   const [freezeOpen, setFreezeOpen] = useState(false)
   // A fresh dialog per opening: it reads freeze or unfreeze once, when it opens.

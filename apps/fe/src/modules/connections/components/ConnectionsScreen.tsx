@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { shortWhen } from "@/lib/format"
 import { TryOutLockedDialog, useTryOutLock } from "@/modules/auth/components/TryOutLockedDialog"
-import { useSession } from "@/modules/auth/hooks/useSession"
+import { useIsTryOut } from "@/modules/auth/hooks/useSession"
 import type { ApiSecret } from "@/modules/connections/api"
 import { DeleteKeyDialog, DisconnectDialog, KeyDialog } from "@/modules/connections/components/KeyDialogs"
 import { useSecrets } from "@/modules/connections/hooks/useKeys"
@@ -54,7 +54,7 @@ type Open = { kind: "add" } | { kind: "replace"; secret: ApiSecret } | { kind: "
  */
 export function ConnectionsScreen({ mindId }: { mindId: string }) {
   const mind = useMind(mindId).data
-  const demo = Boolean(useSession().data?.demo)
+  const demo = useIsTryOut()
   const [watching, setWatching] = useState<ApiConnection["toolkit"] | null>(null)
   const connections = useConnections({ watching })
   const secrets = useSecrets()

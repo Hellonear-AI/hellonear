@@ -21,7 +21,7 @@ import { mindsApi, type ApiMind } from "@/modules/minds/api"
 import { templateLabel } from "@/modules/minds/data/minds"
 import { isValidMindName, NAME_RULE } from "@/modules/minds/data/templates"
 import { mindKeys, useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
-import { useSession } from "@/modules/auth/hooks/useSession"
+import { useIsTryOut } from "@/modules/auth/hooks/useSession"
 
 const IDENTITY_MAX = 1000
 
@@ -50,7 +50,7 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   // The NEAR the backend says is still in the Mind's wallet (409 wallet_not_empty, #163).
   const [stuck, setStuck] = useState<string | null>(null)
-  const tryOut = Boolean(useSession().data?.demo)
+  const tryOut = useIsTryOut()
   const saved = mind ? { name: mind.name, identity: mind.soul.identity, model: mind.model } : null
   const form = draft ?? saved
   const name = shell?.name ?? mind?.name ?? "Your Mind"

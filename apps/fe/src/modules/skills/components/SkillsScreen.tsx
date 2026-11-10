@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { mindHref } from "@/components/layout/nav"
-import { useSession } from "@/modules/auth/hooks/useSession"
+import { useIsTryOut } from "@/modules/auth/hooks/useSession"
 import type { ApiSkill } from "@/modules/skills/api"
 import type { ApiConnection } from "@/modules/connections/api"
 import { useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
@@ -47,7 +47,7 @@ export function SkillsScreen({ mindId }: { mindId: string }) {
   const mind = useMind(mindId).data
   const wallet = useMindWallet(mindId).data
   const catalog = useSkillCatalog()
-  const demo = Boolean(useSession().data?.demo)
+  const demo = useIsTryOut()
   const [watching, setWatching] = useState<ApiConnection["toolkit"] | null>(null)
   const connections = useConnections({ watching }).data
   const [query, setQuery] = useState("")
