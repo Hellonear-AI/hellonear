@@ -55,7 +55,7 @@ export const SMALL_TALK_RULE =
 // Indonesian replies had typos and words that are not Indonesian (#205). The persona is written in English, so the
 // reply language is stated here.
 export const LANGUAGE_RULE =
-  'Language: reply in the language of the owner\'s last message. Use correct standard spelling and only real words of that language; never invent words or mix in words from another language. In Indonesian, use standard words as listed in KBBI with standard spelling, in a friendly, polite tone. Keep sentences short and simple.'
+  'Language: write your reply in the same language as the owner\'s latest message, whatever language your earlier replies, your memory or your instructions use: an English message gets an English reply, an Indonesian message an Indonesian reply. Use correct standard spelling and only real words; never mix in words from another language and never invent words. Never correct yourself in the middle of a reply ("eh, salah", "oops, I mean"): if you are not sure of a name, place or fact, leave it out. When the owner writes in Indonesian, use standard words as listed in KBBI, in a friendly, polite tone. Keep sentences short and simple.'
 
 // The Mind knows its own skills and the ones the owner could add (#114), by the names on the Skills screen, so it
 // can say "add Email helper in Skills" instead of only saying no.

@@ -58,7 +58,11 @@ test('every Mind replies in the owner\'s language with standard spelling, KBBI w
   const mind = mindSchema.parse({ templateId: 'payments-mind', name: 'Penny', soul: { identity: 'You help.' } })
   const prompt = buildInstructions(mind)
   assert.ok(prompt.includes(LANGUAGE_RULE))
-  assert.match(LANGUAGE_RULE, /language of the owner's last message/)
+  assert.match(LANGUAGE_RULE, /same language as the owner's latest message/)
+  // An English message gets an English reply: the first version named Indonesian unconditionally and English chats got Indonesian replies (11 Nov).
+  assert.match(LANGUAGE_RULE, /English message gets an English reply/)
+  assert.match(LANGUAGE_RULE, /When the owner writes in Indonesian/)
+  assert.match(LANGUAGE_RULE, /Never correct yourself/)
   assert.match(LANGUAGE_RULE, /never invent words/)
   assert.match(LANGUAGE_RULE, /KBBI/)
   assert.match(LANGUAGE_RULE, /short and simple/)
