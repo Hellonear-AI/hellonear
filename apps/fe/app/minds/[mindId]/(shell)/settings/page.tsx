@@ -1,7 +1,8 @@
-import { ScreenPlaceholder } from "@/modules/minds/components/ScreenPlaceholder"
+import { SettingsScreen } from "@/modules/settings/components/SettingsScreen"
 
 export const metadata = { title: "Mind settings" }
 
-export default function Page() {
-  return <ScreenPlaceholder title="Mind settings" description="How your Mind looks, talks and thinks." />
+export default async function Page({ params }: { params: Promise<{ mindId: string }> }) {
+  const { mindId } = await params
+  return <SettingsScreen mindId={mindId} />
 }
