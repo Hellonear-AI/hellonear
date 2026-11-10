@@ -3,7 +3,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 
-type Wallet = { walletId: string; key: string; account: string; frozen: boolean; policy: any | null; balance: string; policyVersion: number }
+type Wallet = { walletId: string; key: string; account: string; frozen: boolean; policy: any | null; balance: string; policyVersion: number; spent?: bigint }
 export const fakeOutlayer = {
   requests: [] as { method: string; path: string; body: any; key?: string }[],
   wallets: [] as Wallet[],
@@ -27,6 +27,8 @@ export const fakeOutlayer = {
   },
 }
 
+// OutLayer's usage counters (GET /wallet/v1/policy): `{}` until the wallet has spent something.
+const usageOf = (w: Wallet) => w.spent ? { daily: { native: { spent: w.spent.toString() } }, hourly: { native: { spent: w.spent.toString() } } } : {}
 const send = (res: ServerResponse, status: number, body: unknown) => res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body))
 async function json(req: IncomingMessage) {
   let s = ''
@@ -64,8 +66,8 @@ export const outlayerServer = createServer(async (req, res) => {
   if (!w) return send(res, 401, { error: 'unauthorized' })
   if (req.method === 'GET' && url.pathname === '/wallet/v1/policy') {
     return send(res, 200, w.policy
-      ? { wallet_id: w.walletId, controller: `ed25519:${w.account}`, frozen: w.frozen, policy: 'stored', rules: w.policy.rules, approval: w.policy.approval, capabilities: w.policy.capabilities, authorized_key_hashes: w.policy.authorized_key_hashes, usage: {} }
-      : { wallet_id: w.walletId, controller: `ed25519:${w.account}`, frozen: w.frozen, policy: 'none', usage: {} })
+      ? { wallet_id: w.walletId, controller: `ed25519:${w.account}`, frozen: w.frozen, policy: 'stored', rules: w.policy.rules, approval: w.policy.approval, capabilities: w.policy.capabilities, authorized_key_hashes: w.policy.authorized_key_hashes, usage: usageOf(w) }
+      : { wallet_id: w.walletId, controller: `ed25519:${w.account}`, frozen: w.frozen, policy: 'none', usage: usageOf(w) })
   }
   if (req.method === 'GET' && url.pathname === '/wallet/v1/address') return send(res, 200, { wallet_id: w.walletId, chain: 'near', address: w.account, public_key: `ed25519:${w.account}` })
   if (req.method === 'GET' && url.pathname === '/wallet/v1/balance') return send(res, 200, { balance: w.balance, token: 'near', account_id: w.account, account: 'executor' })
@@ -85,10 +87,14 @@ export const outlayerServer = createServer(async (req, res) => {
     const amount = BigInt(body.amount)
     const limit = w.policy?.rules?.limits?.per_transaction?.native
     if (limit && amount > BigInt(limit)) return send(res, 403, { error: 'policy_denied', message: `Per-transaction limit exceeded for native: ${amount} > ${limit}` })
+    // The daily cap as on testnet (10 Nov): spent + amount > cap is refused, a refusal does not count.
+    const daily = w.policy?.rules?.limits?.daily?.native
+    if (daily && (w.spent ?? 0n) + amount > BigInt(daily)) return send(res, 403, { error: 'policy_denied', message: `Daily limit exceeded for native: ${w.spent ?? 0n} + ${amount} > ${daily}` })
     const list = w.policy?.rules?.addresses?.list
     if (list && !list.includes(body.to)) return send(res, 403, { error: 'policy_denied', message: `Address '${body.to}' is not in whitelist` })
     if (BigInt(w.balance) < amount) return send(res, 422, { error: 'chain_refused', message: `the account ${w.account} is not visible on the network` })
     w.balance = (BigInt(w.balance) - amount).toString()
+    w.spent = (w.spent ?? 0n) + amount
     // Base58 like a real tx hash, 44 characters.
     const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
     const txHash = [...randomBytes(44)].map((b) => B58[b % 58]).join('')

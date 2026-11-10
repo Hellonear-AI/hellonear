@@ -551,7 +551,7 @@ describe('Mind wallets (#14, #15)', () => {
     const text = await res.text()
     const { wallet } = JSON.parse(text)
     assert.match(wallet.address, /^[0-9a-f]{64}$/)
-    assert.deepEqual({ ...wallet, address: 'x' }, { address: 'x', shared: false, balanceNear: '0', frozen: false, policy: null })
+    assert.deepEqual({ ...wallet, address: 'x' }, { address: 'x', shared: false, balanceNear: '0', spentTodayNear: '0', frozen: false, policy: null })
     const w = fakeOutlayer.byAccount(wallet.address)
     assert.ok(!text.includes(w.key) && !text.includes('wk_') && !text.includes('handoff'))
     const [row] = await query('select key_ciphertext from mind_wallets where mind_id = $1', [mindId])
@@ -609,11 +609,43 @@ describe('Mind wallets (#14, #15)', () => {
     // After the owner signs it, the wallet reads it back.
     fakeOutlayer.store(action.params.args.encrypted_data)
     const got = (await (await a.call('GET', `/v1/minds/${mindId}/wallet`)).json()).wallet
-    assert.deepEqual(got.policy, { perTransactionNear: '0.05', whitelist: ['shop.testnet', a.accountId], transactionTypes: ['transfer'], boundToThisWallet: true })
+    assert.deepEqual(got.policy, { perTransactionNear: '0.05', dailyNear: null, whitelist: ['shop.testnet', a.accountId], transactionTypes: ['transfer'], boundToThisWallet: true })
 
     // The next change stores version 2.
     const next = await (await a.call('POST', `/v1/minds/${mindId}/wallet/policy`, { perTransactionNear: '0.02', whitelist: [a.accountId] }, origin)).json()
     assert.equal(next.transaction.actions[0].params.args.version, 2)
+  })
+
+  test('daily cap (#149): optional dailyNear goes into rules.limits.daily, and the wallet reads back the cap and spent today', async () => {
+    const a = await signIn()
+    const mindId = await mindOf(a)
+    await a.call('POST', `/v1/minds/${mindId}/wallet`, {}, origin)
+
+    for (const bad of [{ dailyNear: '0' }, { dailyNear: '101' }, { dailyNear: '0.04' }, { dailyNear: 1 }]) {
+      const res = await a.call('POST', `/v1/minds/${mindId}/wallet/policy`, { perTransactionNear: '0.05', whitelist: ['shop.testnet'], ...bad }, origin)
+      assert.equal(res.status, 400, JSON.stringify(bad))
+    }
+    // null and left out both mean no daily cap.
+    for (const none of [{}, { dailyNear: null }]) {
+      const { transaction } = await (await a.call('POST', `/v1/minds/${mindId}/wallet/policy`, { perTransactionNear: '0.05', whitelist: ['shop.testnet'], ...none }, origin)).json()
+      const policy = JSON.parse(Buffer.from(transaction.actions[0].params.args.encrypted_data, 'base64').toString('utf8'))
+      assert.deepEqual(policy.rules.limits, { per_transaction: { native: '50000000000000000000000' } })
+    }
+
+    const res = await a.call('POST', `/v1/minds/${mindId}/wallet/policy`, { perTransactionNear: '0.05', dailyNear: '0.05', whitelist: ['shop.testnet'] }, origin)
+    assert.equal(res.status, 200, await res.clone().text())
+    const { transaction } = await res.json()
+    const policy = JSON.parse(Buffer.from(transaction.actions[0].params.args.encrypted_data, 'base64').toString('utf8'))
+    assert.deepEqual(policy.rules.limits, { per_transaction: { native: '50000000000000000000000' }, daily: { native: '50000000000000000000000' } })
+    fakeOutlayer.store(transaction.actions[0].params.args.encrypted_data)
+
+    let wallet = (await (await a.call('GET', `/v1/minds/${mindId}/wallet`)).json()).wallet
+    assert.equal(wallet.policy.dailyNear, '0.05')
+    assert.equal(wallet.spentTodayNear, '0')
+    const w = fakeOutlayer.byAccount(wallet.address)
+    w.spent = 30000000000000000000000n
+    wallet = (await (await a.call('GET', `/v1/minds/${mindId}/wallet`)).json()).wallet
+    assert.equal(wallet.spentTodayNear, '0.03')
   })
 
   test('a failed OutLayer /register answers 503 with its status, logs it, stores nothing, and a retry works', async (t) => {
@@ -679,6 +711,22 @@ describe('payment tools through the backend (#42, option B)', () => {
     method,
     headers: { 'x-engine-key': engineKey, ...(token ? { 'x-wallet-token': token } : {}), ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
     body: body === undefined ? undefined : JSON.stringify(body),
+  })
+
+  test('send_payment over the daily cap (#149) is refused before signing, and a payment that lands on the cap goes through', async () => {
+    const a = await signIn()
+    const { mindId, w } = await walletMind(a)
+    w.policy.rules.limits.daily = { native: '30000000000000000000000' }
+    const token = await tokenFromChat(a, mindId)
+    const pay = async (amountNear: string) => (await engineCall('POST', '/internal/v1/wallet/send_payment', token, { to: 'shop.testnet', amountNear })).json()
+    assert.equal((await pay('0.02')).status, 'sent')
+    const over = await pay('0.02')
+    assert.equal(over.status, 'policy_denied')
+    assert.match(over.message, /Daily limit exceeded/)
+    assert.equal(over.txHash, undefined)
+    assert.equal((await pay('0.01')).status, 'sent')
+    const wallet = (await (await a.call('GET', `/v1/minds/${mindId}/wallet`)).json()).wallet
+    assert.equal(wallet.spentTodayNear, '0.03')
   })
 
   test('the engine gets a wallet token only for a Mind with a wallet, never the key', async () => {
