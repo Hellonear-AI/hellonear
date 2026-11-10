@@ -49,6 +49,13 @@ function chipNode(ref: string, label: string, tone: ChipTone) {
   return el
 }
 
+/** A hidden <br> after a last "\n", which a pre-wrap box needs to show the empty line. */
+function tail() {
+  const br = document.createElement("br")
+  br.dataset.tail = ""
+  return br
+}
+
 /** The field's text back as the engine reads it: a chip is its reference, a line break is "\n". */
 function read(node: Node): string {
   let out = ""
@@ -56,6 +63,7 @@ function read(node: Node): string {
     if (n.nodeType === Node.TEXT_NODE) out += n.nodeValue ?? ""
     else if (n instanceof HTMLElement) {
       if (n.dataset.ref) out += n.dataset.ref
+      else if (n.dataset.tail !== undefined) return
       else if (n.tagName === "BR") out += "\n"
       else {
         // Some browsers wrap a new line in a <div>.
@@ -93,14 +101,23 @@ export function PromptEditor({
   const sent = useRef<string | null>(null)
   const shape = useRef("")
   const saved = useRef<Range | null>(null)
+  // Set by our own edits, so the effect below doesn't refill the field (and lose the caret).
+  const own = useRef(false)
   const [empty, setEmpty] = useState(!value)
 
   // Fill the field when the value (or a chip's words) changed from outside.
   const nextShape = JSON.stringify(parts)
   useLayoutEffect(() => {
     const el = box.current
-    if (!el || (value === sent.current && nextShape === shape.current)) return
+    if (!el) return
+    if (own.current && value === sent.current) {
+      own.current = false
+      shape.current = nextShape
+      return
+    }
+    if (value === sent.current && nextShape === shape.current) return
     el.replaceChildren(...parts.map((p) => ("chip" in p ? chipNode(p.ref, p.chip, p.tone) : document.createTextNode(p.text))))
+    if (value.endsWith("\n")) el.append(tail())
     sent.current = value
     shape.current = nextShape
   }, [value, parts, nextShape])
@@ -119,9 +136,32 @@ export function PromptEditor({
     const el = box.current
     if (!el) return
     const text = read(el).slice(0, PROMPT_MAX)
+    own.current = true
     sent.current = text
     setEmpty(!el.textContent && !el.querySelector("[data-ref]"))
     onChange(text)
+  }
+
+  /** Puts "\n" at the caret; at the very end a hidden <br> makes the new empty line show. */
+  const newLine = () => {
+    const el = box.current
+    const sel = document.getSelection()
+    if (!el || !sel?.rangeCount || !el.contains(sel.anchorNode)) return
+    const range = sel.getRangeAt(0)
+    range.deleteContents()
+    const nl = document.createTextNode("\n")
+    range.insertNode(nl)
+    // Nothing but a tail after the caret: the new line needs the tail to show.
+    const rest = document.createRange()
+    rest.setStartAfter(nl)
+    rest.setEnd(el, el.childNodes.length)
+    if (!rest.toString() && !el.querySelector("[data-tail]")) el.append(tail())
+    const after = document.createRange()
+    after.setStartAfter(nl)
+    after.collapse(true)
+    sel.removeAllRanges()
+    sel.addRange(after)
+    emit()
   }
 
   useImperativeHandle(ref, () => ({
@@ -167,7 +207,7 @@ export function PromptEditor({
           // A new line is a "\n" in the text, not a <div> or <br> from the browser.
           if (e.key === "Enter" && !e.nativeEvent.isComposing) {
             e.preventDefault()
-            document.execCommand("insertText", false, "\n")
+            newLine()
           }
         }}
         className="min-h-36 w-full rounded-md border border-input bg-surface px-3.5 py-2.5 text-base leading-7 break-words whitespace-pre-wrap text-foreground outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background md:text-sm md:leading-6"
