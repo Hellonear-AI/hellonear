@@ -654,12 +654,30 @@ body {
 /* Frosted glass card floating above the lawn: its shadow falls down-right, away from the sun
    (upper left), and a little off the ground, so it reads as hovering. */
 .glass-float {
+  position: relative;
+  isolation: isolate;
   background: rgb(255 255 255 / 0.42);
-  border: 1px solid rgb(255 255 255 / 0.55);
+  border: 1px solid rgb(255 255 255 / 0.45);
   -webkit-backdrop-filter: blur(3px) saturate(1.15);
   backdrop-filter: blur(3px) saturate(1.15);
-  /* Nabil's shadow: x 18, y 45, blur 10, 45% black. */
+  /* Edges: lit on the top-left (towards the sun), a little darker on the bottom-right.
+     Drop shadow: Nabil's, x 18, y 45, blur 10, 45% black. */
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.6),
+    inset 1.5px 1.5px 0 rgb(255 255 255 / 0.95),
+    inset -1px -1px 0 rgb(0 0 0 / 0.1),
     18px 45px 10px rgb(0 0 0 / 0.45);
+}
+/* Sunlight on the glass, from the upper left like the scene: a warm glare in the top-left corner
+   that fades out, and one soft diagonal reflection streak. Screen blend, so it only brightens. */
+.glass-float::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    radial-gradient(120% 90% at 0% 0%, rgb(255 248 228 / 0.55), rgb(255 248 228 / 0.12) 38%, transparent 60%),
+    linear-gradient(118deg, transparent 46%, rgb(255 255 255 / 0.22) 50%, rgb(255 255 255 / 0.06) 55%, transparent 60%);
+  mix-blend-mode: screen;
 }
