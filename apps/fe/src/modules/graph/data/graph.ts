@@ -5,7 +5,7 @@
 
 import type { RunEvent, ToolStatus, ToolStep } from "@/modules/runs/data/events"
 import type { ApiSkill } from "@/modules/skills/api"
-import { skillCopy } from "@/modules/skills/data/skills"
+import { skillCopy, TOOLKIT_NAME } from "@/modules/skills/data/skills"
 import { TOOLS } from "@/modules/runs/data/tools"
 
 export type NodeKind = "mind" | "skill" | "tool" | "app" | "wallet" | "memory" | "model" | "workflow"
@@ -26,13 +26,15 @@ export type GraphNode = {
   run?: string
   call?: string
   /** For app nodes: which logo to draw. */
-  app?: "gmail" | "googlecalendar" | "googlemeet" | "mail"
+  app?: string
 }
 
 export type GraphLink = { source: string; target: string }
 
 const WALLET_TOOLS = new Set(["send_payment", "get_balance", "list_payments"])
-const APP_TOOL = /^(gmail|googlecalendar|mail)_/
+// The same rule as engine/src/graph.ts: an app's tools are one App bubble, hung off the skill that
+// uses it, so the graph reads Mind, skill, app (Ancung, 11 Nov: the track apps showed twice).
+const APP_TOOL = /^(gmail|googlecalendar|mail|googlesheets|googledrive|googledocs|slack|notion|outlook)_/
 const SKILL_NAME_ARG: Record<string, string> = { skill: "name", skill_read: "skillName" }
 
 /** The engine's node id for a tool call (engine/src/graph.ts, docs/api-contract.md §4). */
@@ -46,7 +48,6 @@ export function nodeIdFor(mindId: string, tool: string, args?: unknown): string 
 }
 
 
-const APP_LABEL: Record<string, string> = { gmail: "Gmail", googlecalendar: "Google Calendar", googlemeet: "Google Meet" }
 
 function kindOf(id: string): NodeKind {
   const k = id.split(":")[0]
@@ -59,7 +60,8 @@ function labelOf(id: string, mindName: string): string {
   if (kind === "skill") return skillCopy(rest).title
   if (kind === "wallet") return "Wallet"
   if (kind === "memory") return "Memory"
-  if (kind === "app") return rest === "mail" ? `${mindName}'s email` : (APP_LABEL[rest] ?? rest)
+  // "Your Notion" beside the Notion skill: the app is the owner's account, the skill what the Mind does with it.
+  if (kind === "app") return rest === "mail" ? `${mindName}'s email` : `Your ${TOOLKIT_NAME[rest as keyof typeof TOOLKIT_NAME] ?? rest}`
   if (kind === "tool") return TOOLS[rest]?.node ?? rest.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())
   // workflow:{workflowId}: the id comes from the job's name ("wallet-watch" -> "Wallet watch").
   if (kind === "workflow") return rest ? rest.replace(/-\d+$/, "").replace(/-/g, " ").replace(/^\w/, (c) => c.toUpperCase()) : "A job"
@@ -101,7 +103,8 @@ export function buildGraph({
     if (!n) {
       n = { id, kind: kindOf(id), label: labelOf(id, name), uses: 0 }
       const app = id.startsWith("app:") ? id.slice(4) : null
-      if (app === "gmail" || app === "googlecalendar" || app === "googlemeet" || app === "mail") n.app = app
+      // Every app, not only the first three: MindGraph draws whichever logo it has for it (11 Nov: Google Docs drew empty).
+      if (app) n.app = app
       nodes.set(id, n)
     }
     return n

@@ -4,6 +4,7 @@
 // the same pattern and still need Nabil's review. A skill the FE doesn't know gets a plain card.
 
 import type { ApiConnection } from "@/modules/connections/api"
+import { TRACK_SKILLS } from "@/modules/skills/data/trackSkills"
 
 type Ctx = {
   name: string
@@ -36,6 +37,8 @@ export type SkillCopy = {
 const limitText = (c: Ctx) => (c.limit ? `up to ${c.limit} NEAR per payment` : "inside the limits you set")
 
 export const SKILLS: Record<string, SkillCopy> = {
+  // The skills for the five tracks (#194, #211) live in their own file.
+  ...TRACK_SKILLS,
   payments: {
     title: "Payments",
     blurb: "Pays bills, invoices and subscriptions, and sends testnet NEAR when you ask.",
@@ -212,10 +215,22 @@ export function skillCopy(skillId: string): SkillCopy {
   )
 }
 
-export const TOOLKIT_NAME: Record<ApiConnection["toolkit"], string> = { gmail: "Gmail", googlecalendar: "Google Calendar", googlemeet: "Google Meet" }
+export const TOOLKIT_NAME: Record<ApiConnection["toolkit"], string> = {
+  gmail: "Gmail",
+  googlecalendar: "Google Calendar",
+  googlemeet: "Google Meet",
+  googlesheets: "Google Sheets",
+  googledrive: "Google Drive",
+  googledocs: "Google Docs",
+  slack: "Slack",
+  discord: "Discord",
+  notion: "Notion",
+  outlook: "Outlook",
+  hubspot: "HubSpot",
+}
 
 /** What a try-out gets instead of each app (engine: sample data, a fake Meet link, nobody invited). */
-const TRY_OUT_SAMPLE: Record<ApiConnection["toolkit"], string> = {
+const TRY_OUT_SAMPLE: Partial<Record<ApiConnection["toolkit"], string>> = {
   gmail: "A sample inbox for the try-out",
   googlecalendar: "A sample calendar for the try-out",
   googlemeet: "A sample Meet link for the try-out",
@@ -234,7 +249,7 @@ export function skillLines(skillId: string, ctx: Ctx): SkillLine[] {
   for (const toolkit of copy.uses ? [copy.uses].flat() : []) {
     const app = TOOLKIT_NAME[toolkit]
     if (ctx.tryOut) {
-      lines.push({ t: TRY_OUT_SAMPLE[toolkit], tone: "ok" })
+      lines.push({ t: TRY_OUT_SAMPLE[toolkit] ?? `${app} is not part of the try-out`, tone: TRY_OUT_SAMPLE[toolkit] ? "ok" : "no" })
       continue
     }
     lines.push(

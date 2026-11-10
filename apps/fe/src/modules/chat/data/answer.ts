@@ -18,7 +18,10 @@ export function answerOutcome(answer: Answer, run: { view: RunView; streaming: b
   const what = payment ? `${payment.amountNear} NEAR to ${payment.to}` : (TOOLS[answer.tool]?.thing ?? "the request")
   const nothing = payment ? "No payment was sent." : "No changes were made."
 
-  if (run.streaming) {
+  // The answered step's own result is final as soon as it comes, while the Mind still writes its
+  // reply (Ancung, 11 Nov: "Sending 0.001 NEAR" kept spinning after the payment was sent).
+  const settled = step && step.status !== "awaiting_approval" && step.status !== "running"
+  if (run.streaming && !settled) {
     if (answer.action === "decline") return { kind: "sending", title: `Declining ${what}` }
     return { kind: "sending", title: payment ? `Sending ${what}` : `Approving ${what}` }
   }

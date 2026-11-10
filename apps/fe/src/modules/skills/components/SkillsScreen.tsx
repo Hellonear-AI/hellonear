@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { CheckIcon, PlugIcon, SearchIcon } from "lucide-react"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { ErrorRetry } from "@/components/elements/ErrorRetry"
 import { cn } from "cn"
 import { PageTitle } from "@/components/elements/PageTitle"
@@ -21,6 +21,12 @@ import { SkillLines } from "@/modules/skills/components/SkillLines"
 import { useSkillCatalog } from "@/modules/skills/hooks/useSkills"
 import { connectionStatus, useConnections } from "@/modules/connections/hooks/useConnections"
 import { AddSkillDialog } from "@/modules/skills/components/SkillDialogs"
+import { byCategory, CATEGORIES, categoryOf, type CategoryId } from "@/modules/skills/data/categories"
+import { Pager, pageCount } from "@/components/elements/Pager"
+import { prefersReducedMotion } from "@/lib/media"
+
+/** Skills a page: a 3 by 3 grid on desktop. */
+const PER_PAGE = 9
 
 type Filter = "all" | "added" | "not_added"
 
@@ -38,6 +44,10 @@ export function SkillsScreen({ mindId }: { mindId: string }) {
   const connections = useConnections({ watching }).data
   const [query, setQuery] = useState("")
   const [filter, setFilter] = useState<Filter>("all")
+  const [category, setCategory] = useState<CategoryId | "all">("all")
+  // Nine a page, a 3 by 3 grid on desktop (Ancung, 11 Nov); a new tab, filter or search starts at page 1.
+  const [page, setPage] = useState(1)
+  const listTop = useRef<HTMLDivElement>(null)
   const [adding, setAdding] = useState<string | null>(null)
   const [opened, setOpened] = useState(0)
 
@@ -53,6 +63,16 @@ export function SkillsScreen({ mindId }: { mindId: string }) {
   const shown = skills
     .filter((s) => matchesSearch(s.skillId, query))
     .filter((s) => (filter === "added" ? equipped.includes(s.skillId) : filter === "not_added" ? !equipped.includes(s.skillId) : true))
+    .filter((s) => category === "all" || categoryOf(s.skillId) === category)
+  // In group order (Money first), with no heading inside a tab (Ancung, 11 Nov: the tab names it).
+  const ordered = byCategory(shown).flatMap((g) => g.skills)
+  const pages = pageCount(ordered.length, PER_PAGE)
+  const current = Math.min(page, pages)
+  const pageItems = ordered.slice((current - 1) * PER_PAGE, current * PER_PAGE)
+  const goTo = (n: number) => {
+    setPage(n)
+    listTop.current?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "start" })
+  }
   // Try-out users get a sample inbox and calendar, so nothing needs connecting for them.
   const needsConnecting = (s: ApiSkill) => {
     const app = skillCopy(s.skillId).needs
@@ -74,7 +94,7 @@ export function SkillsScreen({ mindId }: { mindId: string }) {
               id="skill-search"
               type="search"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => (setQuery(e.target.value), setPage(1))}
               placeholder="Search skills"
               className="h-11 w-full rounded-full border border-input bg-surface pr-4 pl-10 text-base text-foreground outline-none placeholder:text-tertiary-foreground focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background md:text-[15px]"
             />
@@ -82,8 +102,27 @@ export function SkillsScreen({ mindId }: { mindId: string }) {
         }
       />
 
+      {/* What a skill is for: a line tab bar, so it reads as the page's sections and the Added /
+          Not added pills below read as a filter inside them (Ancung, 11 Nov). Scrolls sideways on phones. */}
+      <Tabs value={category} onValueChange={(v) => (setCategory(v as CategoryId | "all"), setPage(1))}>
+        <div className="relative -mx-4 md:mx-0">
+          {/* Phones: no scrollbar under the tabs (it read like the active line), a fade at the right
+              edge says more tabs are a swipe away (Ancung, 11 Nov). */}
+          <div className="scrollbar-none overflow-x-auto px-4 md:px-0">
+            <TabsList variant="line" aria-label="Kind of skill" className="w-max gap-5 p-0 pb-[5px]">
+              {([{ id: "all", label: "All skills" }, ...CATEGORIES] as const).map((c) => (
+                <TabsTrigger key={c.id} value={c.id} className="flex-none px-0.5 py-2">
+                  {c.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+          <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-background to-transparent md:hidden" />
+        </div>
+      </Tabs>
+
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
+        <Tabs value={filter} onValueChange={(v) => (setFilter(v as Filter), setPage(1))}>
           <TabsList className="border border-border">
             <TabsTrigger value="all">All</TabsTrigger>
             <TabsTrigger value="added">Added</TabsTrigger>
@@ -117,22 +156,25 @@ export function SkillsScreen({ mindId }: { mindId: string }) {
           </p>
         </div>
       ) : (
-        <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {shown.map((s) => (
-            <SkillCard
-              key={s.skillId}
-              mindId={mindId}
-              skill={s}
-              added={equipped.includes(s.skillId)}
-              needsConnecting={needsConnecting(s)}
-              ctx={ctx}
-              onAdd={() => {
-                setOpened((n) => n + 1)
-                setAdding(s.skillId)
-              }}
-            />
-          ))}
-        </ul>
+        <div ref={listTop} className="flex scroll-mt-6 flex-col gap-6">
+          <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {pageItems.map((s) => (
+              <SkillCard
+                key={s.skillId}
+                mindId={mindId}
+                skill={s}
+                added={equipped.includes(s.skillId)}
+                needsConnecting={needsConnecting(s)}
+                ctx={ctx}
+                onAdd={() => {
+                  setOpened((n) => n + 1)
+                  setAdding(s.skillId)
+                }}
+              />
+            ))}
+          </ul>
+          <Pager page={current} pages={pages} onPage={goTo} label="Skill pages" />
+        </div>
       )}
 
       {adding && (
@@ -191,7 +233,8 @@ function SkillCard({
           <SkillLines mindId={mindId} lines={lines} />
         </div>
       )}
-      <div className="mt-auto flex items-center justify-between gap-3 pt-1">
+      {/* Wraps instead of overflowing (Ancung, 11 Nov: "Connect Google Sheets" ran out of the card at 100% zoom). */}
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-1">
         {blocked ? (
           <Badge variant="neutral">Not available</Badge>
         ) : added ? (
@@ -199,9 +242,8 @@ function SkillCard({
             <CheckIcon />
             Added
           </Badge>
-        ) : needsConnecting && app ? (
-          <Badge variant="warning">Needs {app}</Badge>
         ) : (
+          // The button says which app it needs; the badge doesn't repeat it.
           <Badge variant="neutral">Not added</Badge>
         )}
         {blocked ? null : added ? (
@@ -209,8 +251,8 @@ function SkillCard({
             Settings
           </Button>
         ) : (
-          <Button size="sm" onClick={onAdd}>
-            {needsConnecting && app ? `Connect ${app}` : "Add"}
+          <Button size="sm" className="max-w-full min-w-0" onClick={onAdd}>
+            <span className="truncate">{needsConnecting && app ? `Connect ${app}` : "Add"}</span>
           </Button>
         )}
       </div>

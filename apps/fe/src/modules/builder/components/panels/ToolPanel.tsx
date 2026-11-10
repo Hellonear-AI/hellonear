@@ -78,7 +78,7 @@ export function ToolPanel({
             <TimePicker aria-label={a.label} value={step.args[a.name] || "09:00"} onChange={(v) => setArg(a.name, v)} />
           </Field>
         ) : (
-          <Field key={a.name} as="label" label={a.label}>
+          <Field key={a.name} as="label" label={a.optional ? `${a.label} (optional)` : a.label} hint={a.hint}>
             <Input
               value={step.args[a.name] ?? ""}
               placeholder={a.placeholder}

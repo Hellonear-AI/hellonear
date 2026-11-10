@@ -60,7 +60,9 @@ export function ThoughtRow({ text, from, to, live }: { text: string; from: strin
   const seconds = Math.max(1, Math.round((new Date(to).getTime() - new Date(from).getTime()) / 1000))
   return (
     <Row
-      icon={null}
+      // While it thinks, the same orb as the chat's other "Thinking..." (Ancung, 11 Nov: one had an orb, one didn't).
+      // A finished thought keeps no icon.
+      icon={live ? <ThinkingOrb state="solving" size={20} aria-hidden className="-m-0.5 shrink-0" /> : null}
       label={live ? "Thinking..." : `Thought for ${seconds}s`}
       detail={null}
       shimmer={live}

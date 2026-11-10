@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { skillCopy, TOOLKIT_NAME } from "@/modules/skills/data/skills"
 import { useSetSkills } from "@/modules/skills/hooks/useSkills"
 import { useConnect } from "@/modules/connections/hooks/useConnections"
+import { appInfo } from "@/modules/connections/data/apps"
 
 type Ctx = { name: string; limit: string | null }
 
@@ -102,7 +103,7 @@ export function AddSkillDialog({
               </p>
             ) : (
               <p className="text-xs text-muted-foreground">
-                {needsConnecting && app ? `${app} opens in a new window. HelloNear never sees your Google password.` : copy.ask.note}
+                {needsConnecting && app ? `${app} opens in a new window. HelloNear never sees your ${appInfo(copy.needs!)?.by ?? app} password.` : copy.ask.note}
               </p>
             )}
             <DialogFooter>

@@ -13,7 +13,11 @@ export function Working({ name }: { name: string }) {
     <span role="status" aria-label={`${name} is thinking`} className="flex h-[22px] items-center gap-2">
       {/* A thinking orb (thinking-orbs, Axel's pick, 10 Nov) instead of three dots. It follows the
           dark class, freezes with reduced motion and pauses off screen by itself. */}
-      <ThinkingOrb state="solving" size={20} aria-hidden className="shrink-0" />
+      {/* The same 16 px slot as a step row's icon, so both "Thinking..." start at the same place
+          (Ancung, 11 Nov: this one sat 4 px further in). */}
+      <span className="flex size-4 shrink-0 items-center justify-center">
+        <ThinkingOrb state="solving" size={20} aria-hidden className="-m-0.5 shrink-0" />
+      </span>
       <span aria-hidden className="text-shimmer text-[13px]">
         Thinking...
       </span>

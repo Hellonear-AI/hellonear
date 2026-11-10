@@ -3,7 +3,9 @@ import { api } from "@/lib/api"
 // Secrets (#18) and app connections (#13): docs/api-contract.md §7. Account level, not per Mind.
 
 /** An app the account connects through Composio (Gmail, Google Calendar, Google Meet). */
-export type ApiConnection = { toolkit: "gmail" | "googlecalendar" | "googlemeet"; status: "connected" | "pending" | "expired" | "not_connected"; since?: string }
+export type ApiConnection = {
+  toolkit: "gmail" | "googlecalendar" | "googlemeet" | "googlesheets" | "googledrive" | "googledocs" | "slack" | "discord" | "notion" | "outlook" | "hubspot"
+  status: "connected" | "pending" | "expired" | "not_connected"; since?: string }
 export type Toolkit = ApiConnection["toolkit"]
 
 /** A Mind's own Telegram bot (#168): never the token. `linkUrl` until the owner has linked their chat. */

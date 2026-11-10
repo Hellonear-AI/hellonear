@@ -2,9 +2,9 @@
 
 import { useEffect, useRef } from "react"
 import { cn } from "cn"
-import { GmailLogo, GoogleCalendarLogo, GoogleMeetLogo } from "@/components/elements/AppLogos"
+import { APPS } from "@/modules/connections/data/apps"
 import type { GraphLink, GraphNode } from "@/modules/graph/data/graph"
-import { stepSim, syncSim, type Sim } from "@/modules/graph/data/sim"
+import { settle, stepSim, syncSim, type Sim } from "@/modules/graph/data/sim"
 import { MEDIA } from "@/lib/media"
 import { clampZoom, framing, toWorld as worldAt, zoomAround } from "@/modules/graph/data/camera"
 import { readColors, FILL } from "@/modules/graph/data/colors"
@@ -54,6 +54,10 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
   // The node the camera is gliding to after a click (Axel, via Ancung, 10 Nov: zoom to it).
   const focus = useRef<string | null>(null)
   const lastSelected = useRef<string | null>(null)
+  // Frame the layout at once on the next draw, instead of easing toward it.
+  const snap = useRef(false)
+  // Fit was pressed: glide to the frame until there.
+  const fitting = useRef(false)
   const hover = useRef<string | null>(null)
   // Where the cursor is, in graph space, for the torch on the lines.
   const torch = useRef<{ x: number; y: number } | null>(null)
@@ -72,7 +76,14 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       view.current.auto = false
     }
     lastSelected.current = selected
+    const first = sim.current === null
     sim.current = syncSim(sim.current, nodes, links, mind)
+    // The first graph of this Mind on this page shows settled and framed at once: no bounce, no
+    // zoom out (Ancung, 11 Nov). Later, only bubbles that are really new nudge it.
+    if (first && nodes.length > 1) {
+      settle(sim.current, new Map(nodes.map((n) => [n.id, n.kind])))
+      snap.current = true
+    }
     const now = performance.now()
     for (const n of nodes) {
       const key = `${n.state ?? ""}:${n.at ?? ""}`
@@ -170,10 +181,20 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       }
       const to = framing({ x0, y0, x1, y1 }, size)
       const v = view.current
-      // Ease toward the frame a little every frame.
-      v.k += (to.k - v.k) * 0.12
-      v.x += (to.x - v.x) * 0.12
-      v.y += (to.y - v.y) * 0.12
+      if (snap.current) {
+        snap.current = false
+        v.k = to.k
+        v.x = to.x
+        v.y = to.y
+        return
+      }
+      // Ease toward the frame a little every frame; reduced motion jumps.
+      const t = still.matches ? 1 : 0.12
+      v.k += (to.k - v.k) * t
+      v.x += (to.x - v.x) * t
+      v.y += (to.y - v.y) * t
+      // Fit glides until it's there, then stops (the layout may be still the whole time).
+      if (Math.abs(to.k - v.k) < 0.001 && Math.hypot(to.x - v.x, to.y - v.y) < 0.5) fitting.current = false
     }
 
     // The chain of links from the Mind to a node, for the moving dots.
@@ -195,7 +216,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       if (!s) return
       const kinds = new Map(data.current.nodes.map((n) => [n.id, n.kind]))
       const moving = stepSim(s, kinds)
-      if (view.current.auto && (moving || now < 1500)) fit()
+      if (view.current.auto && (moving || snap.current || fitting.current || now < 1500)) fit()
       // Glide to the picked node and zoom in a little; a jump with reduced motion.
       const f = focus.current ? s.bodies.get(focus.current) : null
       if (f) {
@@ -580,21 +601,20 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       <canvas ref={canvas} role="img" aria-label={label} className="absolute inset-0 size-full" />
       {/* The apps' own logos (AppLogos), read once into images for the canvas. */}
       <div ref={logos} aria-hidden className="hidden">
-        <span data-wrap="gmail">
-          <GmailLogo />
-        </span>
-        <span data-wrap="googlecalendar">
-          <GoogleCalendarLogo />
-        </span>
-        <span data-wrap="googlemeet">
-          <GoogleMeetLogo />
-        </span>
+        {/* Every app Connections offers (#211 added six), from the same list. */}
+        {APPS.map((a) => (
+          <span key={a.toolkit} data-wrap={a.toolkit}>
+            {a.logo}
+          </span>
+        ))}
       </div>
       <button
         type="button"
         onClick={() => {
           focus.current = null
           view.current.auto = true
+          // Glide back to the frame even when nothing moves (Ancung, 11 Nov: Fit did nothing on a still graph).
+          fitting.current = true
         }}
         className="absolute right-2 bottom-2 rounded-full bg-surface/90 px-2.5 py-1 text-xs text-muted-foreground shadow-xs outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus"
       >

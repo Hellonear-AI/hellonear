@@ -97,3 +97,18 @@ describe("answerOutcome (A1.3 toast)", () => {
     expect(answerOutcome(answer, run({ failed: new ApiError(409, "not_awaiting_approval") })).title).toContain("already answered")
   })
 })
+
+describe("the answer toast settles with the step, not the reply (11 Nov)", () => {
+  it("says Sent once the payment's result is in, while the Mind still writes", async () => {
+    const { answerOutcome } = await import("@/modules/chat/data/answer")
+    const { foldRun } = await import("@/modules/runs/data/events")
+    const answer = { runId: "r", toolCallId: "p", action: "approve" as const, tool: "send_payment", args: { to: "lin1er.testnet", amountNear: "0.001" } }
+    const view = foldRun([
+      { type: "tool.approval_required", runId: "r", seq: 1, ts: "2026-11-11T00:00:01Z", toolCallId: "p", tool: "send_payment", args: answer.args },
+      { type: "tool.result", runId: "r", seq: 2, ts: "2026-11-11T00:00:05Z", toolCallId: "p", result: { status: "sent", to: "lin1er.testnet", amountNear: "0.001", txHash: "abc" } },
+      { type: "tool.called", runId: "r", seq: 3, ts: "2026-11-11T00:00:06Z", toolCallId: "b", tool: "buy_data", args: {} },
+    ] as never)
+    expect(answerOutcome(answer, { view, streaming: true, failed: null })).toMatchObject({ kind: "sent", title: "Sent 0.001 NEAR to lin1er.testnet" })
+    expect(answerOutcome(answer, { view: foldRun([]), streaming: true, failed: null }).kind).toBe("sending")
+  })
+})

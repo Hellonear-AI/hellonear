@@ -107,6 +107,13 @@ export function ChatRunProvider({ mindId, children }: { mindId: string; children
             if (pathRef.current === chatPath) router.replace(`${chatPath}/${threadId}`)
             void queryClient.invalidateQueries({ queryKey: mindKeys.recentChats(mindId) })
           }
+          // A payment that has its result moved (or tried to move) money: read the wallet and the
+          // payments again now, not when the reply ends (Ancung, 11 Nov: a split bill or a purchase
+          // goes on working after it pays).
+          const toolOf = e.tool ?? events.find((x) => x.type === "tool.called" && x.toolCallId === e.toolCallId)?.tool
+          if ((e.type === "tool.result" || e.type === "tool.error") && toolOf === "send_payment") {
+            void queryClient.invalidateQueries({ queryKey: mindKeys.wallet(mindId) })
+          }
           if (e.type === "tool.approval_required" && e.toolCallId) {
             // Recent chats marks the chat as waiting at once (A), and if the owner is in another
             // chat, a toast says so with a way there (Ancung, 11 Nov: no Approvals page any more).
@@ -165,11 +172,29 @@ export function ChatRunProvider({ mindId, children }: { mindId: string; children
         const same = active?.view.runId === runId ? active : null
         const known = same?.events ?? queryClient.getQueryData<RunEvent[]>(chatKeys.run(runId)) ?? []
         const pinned = Boolean(same?.pinned)
+        // The answered tool's result ends the wait: say how it went and drop it from the waiting
+        // lists at once, not when the Mind's reply ends (Ancung, 11 Nov).
+        let told = false
+        const seen: RunEvent[] = [...known]
+        const watch = (e: RunEvent) => {
+          seen.push(e)
+          if (told || e.toolCallId !== toolCallId || (e.type !== "tool.result" && e.type !== "tool.error")) return
+          told = true
+          showOutcome(toastId, answerOutcome(answer, { view: foldRun(seen), streaming: true, failed: null }))
+          void queryClient.invalidateQueries({ queryKey: mindKeys.approvals(mindId) })
+        }
         void run(
           { threadId, message: null, resumeOf: runId, answer, pinned, newThread: false },
           async (onEvent) => {
-            if (known.length === 0) (await queryClient.fetchQuery({ queryKey: chatKeys.run(runId), queryFn: () => chatApi.runEvents(runId) })).forEach(onEvent)
-            await chatApi.resume(runId, action, { toolCallId }, onEvent)
+            if (known.length === 0)
+              (await queryClient.fetchQuery({ queryKey: chatKeys.run(runId), queryFn: () => chatApi.runEvents(runId) })).forEach((e) => {
+                onEvent(e)
+                seen.push(e)
+              })
+            await chatApi.resume(runId, action, { toolCallId }, (e) => {
+              onEvent(e)
+              watch(e)
+            })
             await queryClient.invalidateQueries({ queryKey: chatKeys.run(runId) })
           },
           known

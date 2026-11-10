@@ -1,10 +1,11 @@
 "use client"
 
 import { ArrowUpIcon, SquareIcon } from "lucide-react"
-import { useEffect, useState, type KeyboardEvent } from "react"
+import { useEffect, useRef, useState, type KeyboardEvent } from "react"
 import { Spinner } from "@/components/elements/Spinner"
 import { Button } from "@/components/ui/button"
 import { readPref, writePref } from "@/lib/storage"
+import { MEDIA, matches } from "@/lib/media"
 
 /**
  * The message box (C1.1). Enter sends, Shift+Enter adds a line. While the Mind replies, the send
@@ -34,11 +35,23 @@ export function Composer({
   locked?: string
 }) {
   const [value, setValue] = useState("")
+  const input = useRef<HTMLTextAreaElement>(null)
   // The unsent text stays per chat: leave a chat and come back, it is still there.
   useEffect(() => {
     const saved = draftKey ? (readPref(draftKey) ?? "") : ""
     // eslint-disable-next-line react-hooks/set-state-in-effect -- read once per chat from this device
     setValue(saved)
+    // Opening a chat puts the cursor in the box, at the end of any draft, like Claude and ChatGPT
+    // (Ancung, 11 Nov). Not on touch screens: it would pop the keyboard over half the chat.
+    const box = input.current
+    if (!box || locked || matches(MEDIA.coarse)) return
+    const frame = requestAnimationFrame(() => {
+      box.focus({ preventScroll: true })
+      box.setSelectionRange(box.value.length, box.value.length)
+    })
+    return () => cancelAnimationFrame(frame)
+    // Only when the chat changes, not on every lock change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftKey])
   const change = (next: string) => {
     setValue(next)
@@ -74,6 +87,7 @@ export function Composer({
           Message {name}
         </label>
         <textarea
+          ref={input}
           id="chat-message"
           value={value}
           onChange={(e) => change(e.target.value)}
