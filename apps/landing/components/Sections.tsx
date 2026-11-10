@@ -303,6 +303,10 @@ export function SeeInside() {
         </div>
       </div>
       <MindGraph />
+      {/* More night under the graph, then a slow fade into the page, so the dark part doesn't stop
+          abruptly. */}
+      <div className="h-32 md:h-48" aria-hidden="true" />
+      <div className="h-56 md:h-72" style={{ background: `linear-gradient(${NIGHT_BG}, var(--color-bg))` }} aria-hidden="true" />
     </section>
   );
 }
