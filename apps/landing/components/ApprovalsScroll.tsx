@@ -44,37 +44,103 @@ export function ApprovalsScroll() {
         .fromTo(q(".ap-reveal"), { y: 30, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.5, stagger: 0.1, ease: "power2.out" }, 0.45);
       ScrollTrigger.create({ trigger: el, start: "top 65%", onEnter: () => tl.play(), onLeaveBack: () => tl.reverse() });
 
-      // Photo: opens with the scroll (scrubbed), so the next step (the move into "Tricked") can
-      // continue from it without a jump.
-      gsap
-        .timeline({ scrollTrigger: { trigger: el, start: "top 85%", end: "top 15%", scrub: 0.6 } })
-        .fromTo(q(".ap-visual"), { clipPath: "inset(0 0 0 100%)" }, { clipPath: "inset(0 0 0 0%)", ease: "power2.out" }, 0)
-        .fromTo(q(".ap-scene-bg"), { xPercent: 6, scale: 1.06 }, { xPercent: 0, scale: 1, ease: "power2.out" }, 0);
     });
 
-    // Desktop: into "Tricked". The section pins; the frame grows to fill the screen while the photo
-    // tracks left, so the camera moves past the Mind onto the open lawn, where the "Tricked?" title
-    // and its two glass cards already lie and slide in with it. The copy on the left slides away.
+    // The scene: a window (clip-path) over the fixed-size stage, both driven by two numbers, so nothing
+    // is laid out again while scrolling (only clip-path and transform change).
+    //   open  0..1  the window opens from the right edge (scrubbed, before the pin)
+    //   track 0..1  pinned: the window grows to the whole screen and the stage scales up and moves left,
+    //               so the camera passes the Mind and lands on "Tricked?" (desktop only)
+    const STAGE_W = 1680;
+    const STAGE_H = 722;
+    const visual = q(".ap-visual")[0] as HTMLElement;
+    const stage = q(".ap-stage")[0] as HTMLElement;
+    const copy = q(".ap-copy")[0] as HTMLElement;
+    const tricked = q(".ap-tricked")[0] as HTMLElement;
+    const st = { open: 0, track: 0 };
+    const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+    const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
+
+    const render = () => {
+      const W = visual.clientWidth;
+      const H = visual.clientHeight;
+      const desktop = window.innerWidth >= 768;
+      if (!desktop) {
+        // phones: the frame is a plain block; the stage fills its height from the left
+        const s0 = H / STAGE_H;
+        visual.style.clipPath = "";
+        stage.style.transform = `translate3d(0,0,0) scale(${s0})`;
+        tricked.style.opacity = "0";
+        return;
+      }
+      const L0 = Math.max(500, (W - 1200) / 2 + 520);
+      const H0 = Math.min(H * 0.78, 760);
+      const T0 = (H - H0) / 2;
+      const t = ease(st.track);
+      // the window
+      const left = lerp(lerp(W, L0, st.open), 0, t);
+      const top = lerp(T0, 0, t);
+      const h = lerp(H0, H, t);
+      const r = lerp(36, 0, t);
+      visual.style.clipPath = `inset(${top}px 0px ${H - top - h}px ${left}px round ${r}px 0 0 ${r}px)`;
+      // the stage: at rest it sits in the window at the window's height; at the end it fills the screen
+      // and its right edge meets the screen's right edge
+      const s0 = H0 / STAGE_H;
+      const s1 = H / STAGE_H;
+      const sc = lerp(s0, s1, t);
+      const x0 = L0 + (1 - st.open) * 90; // a little parallax while it opens
+      const x1 = W - STAGE_W * s1;
+      stage.style.transform = `translate3d(${lerp(x0, x1, t)}px, ${lerp(T0, 0, t)}px, 0) scale(${sc})`;
+      // the copy slides away at the start of the track
+      const c = Math.min(1, st.track / 0.3);
+      copy.style.transform = `translate3d(${-120 * c}px,0,0)`;
+      copy.style.opacity = String(1 - c);
+      // "Tricked?" sits at the photo's edge at rest; it comes in as the camera starts to move
+      tricked.style.opacity = String(Math.min(1, Math.max(0, (st.track - 0.12) / 0.25)));
+    };
+
     mm.add("(min-width: 768px) and (prefers-reduced-motion: no-preference)", () => {
-      const frame = q(".ap-visual")[0] as HTMLElement;
-      const photo = q(".ap-scene-bg")[0] as HTMLElement;
-      const vw = () => window.innerWidth;
-      const vh = () => window.innerHeight;
-      gsap
-        .timeline({
-          defaults: { ease: "power2.inOut" },
-          scrollTrigger: { trigger: el, start: "top top", end: "+=1600", pin: q(".ap-pin")[0], scrub: 0.8, invalidateOnRefresh: true },
-        })
-        .to(q(".ap-copy"), { x: -120, autoAlpha: 0, duration: 0.35 }, 0)
-        .to(frame, { left: 0, height: vh, maxHeight: vh, duration: 0.6 }, 0)
-        .to(q(".ap-scene"), { borderRadius: 0, duration: 0.6 }, 0)
-        // the photo is as tall as the frame (its width follows), so at the end its right edge meets
-        // the screen's right edge
-        .to(photo, { x: () => -(vh() * (4096 / 1759) - vw()), duration: 1 }, 0.1)
-        .to({}, { duration: 0.25 }); // a short hold on "Tricked?" before the page moves on
+      st.open = 0;
+      st.track = 0;
+      gsap.to(st, {
+        open: 1,
+        ease: "power2.out",
+        onUpdate: render,
+        scrollTrigger: { trigger: el, start: "top 85%", end: "top 15%", scrub: 0.6 },
+      });
+      gsap.to(st, {
+        track: 1,
+        ease: "none",
+        onUpdate: render,
+        scrollTrigger: {
+          trigger: el,
+          start: "top top",
+          end: "+=1600",
+          pin: q(".ap-pin")[0],
+          scrub: 0.8,
+          onRefresh: render,
+        },
+      });
+      render();
+      return () => {
+        copy.style.transform = "";
+        copy.style.opacity = "";
+        tricked.style.opacity = "";
+      };
     });
+    // Phones and reduced motion: the opened state, no pin.
+    mm.add("(max-width: 767px), (prefers-reduced-motion: reduce)", () => {
+      st.open = 1;
+      st.track = 0;
+      render();
+    });
+    const ro = new ResizeObserver(render);
+    ro.observe(visual);
 
-    return () => mm.revert();
+    return () => {
+      ro.disconnect();
+      mm.revert();
+    };
   }, []);
 
   return (
@@ -100,12 +166,10 @@ export function ApprovalsScroll() {
             </ul>
           </div>
         </div>
-        {/* The frame: from the end of the copy column to the right edge of the screen, no gap. */}
-        <div
-          className="ap-visual mt-8 h-[520px] md:absolute md:right-0 md:top-1/2 md:mt-0 md:h-[78vh] md:max-h-[760px] md:-translate-y-1/2"
-          style={{ left: "max(500px, calc((100vw - 1200px) / 2 + 520px))" }}
-        >
+        {/* The scene window: covers the whole pinned screen on desktop, shown through a clip-path. */}
+        <div className="ap-visual relative mt-8 h-[520px] w-full overflow-hidden bg-[#4f7a2a] md:absolute md:inset-0 md:mt-0 md:h-auto md:[clip-path:inset(0_0_0_100%)]">
           <ApprovalScene />
+          <div className="grain pointer-events-none absolute inset-0" aria-hidden="true" />
         </div>
       </div>
     </section>

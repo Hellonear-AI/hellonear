@@ -94,10 +94,10 @@ export function ApprovalVisual() {
     same perspective. A fine film grain on top hides what is left of the generated look. */
 export function ApprovalScene() {
   return (
-    <div className="ap-scene relative h-full w-full overflow-hidden rounded-l-[36px] bg-[#4f7a2a]">
-      {/* The image keeps its own aspect (4096 x 1759) at the frame's height, anchored left, so the card
-          can be placed in image coordinates and always sits beside the Mind. */}
-      <div className="ap-scene-bg absolute inset-y-0 left-0 aspect-[4096/1759] h-full">
+    // A fixed-size stage (1680 x 722, the photo's aspect): the photo and everything on it are laid out
+    // once in these units and only ever scaled and moved together (ApprovalsScroll), like a real print.
+    <div className="ap-stage absolute left-0 top-0 h-[722px] w-[1680px] origin-top-left will-change-transform">
+      <div className="absolute inset-0">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/scenes/approval-scene.webp"
@@ -107,7 +107,7 @@ export function ApprovalScene() {
 
         {/* No outer card: Penny's bubble and the approval card float on their own, close together,
             lying on the lawn in its perspective. Each is light frosted glass with its own shadow. */}
-        <div className="absolute left-[5%] top-[20%] w-[25%] [perspective:1400px]">
+        <div className="absolute left-[84px] top-[144px] w-[420px] [perspective:1400px]">
           <div className="flex flex-col gap-2.5 [transform:rotateX(22deg)_rotateZ(12deg)] [transform-style:preserve-3d]">
             <div className="flex items-center gap-2 pl-1">
               <span className="relative size-7 shrink-0 overflow-hidden rounded-full bg-white/80 shadow-[18px_45px_10px_rgb(0_0_0/0.45)]">
@@ -147,9 +147,9 @@ export function ApprovalScene() {
 
         {/* "Tricked?": on the open lawn in the right part of the same photo. It is part of the picture,
             so it slides in with the photo when the camera tracks right (see ApprovalsScroll). */}
-        <div className="ap-tricked absolute left-[53%] top-[17%] flex w-[42%] flex-col gap-[3.5%]">
+        <div className="ap-tricked absolute left-[860px] top-[123px] flex w-[680px] flex-col gap-6">
           <div className="flex flex-col gap-2 text-white [text-shadow:0_2px_18px_rgb(10_30_5/0.55)]">
-            <h2 id="safety" className="text-[clamp(32px,3.4vw,56px)] font-medium leading-[1.04] tracking-[-1.6px]">
+            <h2 id="safety" className="text-[48px] font-medium leading-[1.04] tracking-[-1.6px]">
               Tricked? Still can&apos;t spend it.
             </h2>
             <p className="max-w-[520px] text-[16px] leading-[1.5] text-white/90">
@@ -185,7 +185,7 @@ export function ApprovalScene() {
               </div>
             </div>
             {/* Layer 2: approved by mistake, still no */}
-            <div className="glass-float mt-[18%] flex flex-col gap-3 rounded-[20px] p-4 [transform:rotateX(14deg)_rotateZ(5deg)]">
+            <div className="glass-float mt-[60px] flex flex-col gap-3 rounded-[20px] p-4 [transform:rotateX(14deg)_rotateZ(5deg)]">
               <div className="flex items-center gap-2">
                 <span className="grid size-6 place-items-center rounded-full bg-[var(--color-primary)] text-[12px] font-semibold text-[var(--color-on-primary)]">2</span>
                 <span className="text-[15px] font-medium">Approved by mistake? Still no</span>
@@ -212,8 +212,6 @@ export function ApprovalScene() {
         </div>
       </div>
 
-      {/* Film grain over everything in the frame. */}
-      <div className="grain pointer-events-none absolute inset-0" aria-hidden="true" />
     </div>
   );
 }
