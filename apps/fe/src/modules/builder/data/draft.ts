@@ -113,7 +113,11 @@ function stepNode(s: Step, x: number, y: number): CanvasNode {
       },
     }
   }
-  return { id: s.id, type: "tool", position: pos(x, y), data: { tool: s.tool, args: Object.fromEntries(Object.entries(s.args).map(([k, v]) => [k, v.trim()])) } }
+  const typed = Object.fromEntries(Object.entries(s.args).map(([k, v]) => [k, v.trim()]))
+  const info = toolInfo(s.tool)
+  // Optional args left empty aren't sent; a tool may turn what was typed into what it takes.
+  const args = Object.fromEntries(Object.entries(info?.toArgs ? info.toArgs(typed) : typed).filter(([k, v]) => v !== "" || !info?.args.find((a) => a.name === k)?.optional))
+  return { id: s.id, type: "tool", position: pos(x, y), data: { tool: s.tool, args } }
 }
 
 export function rightValue(b: IfBlock, steps: Step[]): string | number {
@@ -305,7 +309,7 @@ function stepProblems(s: Step, out: DraftProblem[]) {
       for (const a of toolInfo(s.tool)?.args ?? []) {
         const v = (s.args[a.name] ?? "").trim()
         if (a.kind === "account" && !NEAR_ACCOUNT.test(v)) out.push({ where: s.id, text: "Enter a valid NEAR account, for example shop.testnet." })
-        if ((a.kind === "text" || a.kind === "note") && !v) out.push({ where: s.id, text: `${a.label} is required.` })
+        if ((a.kind === "text" || a.kind === "note") && !v && !a.optional) out.push({ where: s.id, text: `${a.label} is required.` })
         if (a.kind === "time" && !/^([01]\d|2[0-3]):[0-5]\d$/.test(v)) out.push({ where: s.id, text: "Time is required." })
         if (a.kind === "minutes" && !(Number.isInteger(Number(v)) && Number(v) >= 5 && Number(v) <= 480)) out.push({ where: s.id, text: "Minutes must be a whole number from 5 to 480." })
       }
