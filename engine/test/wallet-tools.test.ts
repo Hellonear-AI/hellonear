@@ -22,8 +22,14 @@ const backend = createServer(async (req, res) => {
   if (req.url === '/internal/v1/wallet/balance') return send(200, { address: 'abc123', balanceNear: '0.98' })
   if (req.url?.startsWith('/internal/v1/wallet/payments')) return send(200, { payments: [{ paymentId: 'p1', status: 'sent', to: 'shop.testnet', amountNear: '0.01', txHash: 'TxHash111', at: '2026-11-05T00:00:00.000Z' }] })
   if (req.url?.startsWith('/internal/v1/shop/')) {
+    const q = new URL(req.url, 'http://x').searchParams
+    // Best Price Buyer (#176): s2 is cheapest but off the wallet's list, s1 is next.
+    if (q.get('quotes') === '1') return send(200, { status: 'quotes', item: 'gas-price', title: 'Gas', quotes: [
+      { seller: 's2', payTo: 'cheap.testnet', priceNear: '0.0008', onYourList: false }, { seller: 's1', payTo: 'shop.testnet', priceNear: '0.001', onYourList: true }, { seller: 's3', payTo: 'dear.testnet', priceNear: '0.0013', onYourList: true }] })
+    if (q.get('seller') === 's9') return send(404, { error: 'unknown_seller' })
+    if (q.get('seller') === 's3' && !q.get('tx')) return send(402, { status: 'payment_required', item: 'gas-price', title: 'Gas', seller: 's3', priceNear: '0.0013', payTo: 'dear.testnet' })
     const offer = { item: 'gas-price', title: 'Gas', priceNear: '0.001', payTo: 'shop.testnet' }
-    const tx = new URL(req.url, 'http://x').searchParams.get('tx')
+    const tx = q.get('tx')
     if (!tx) return send(402, { status: 'payment_required', ...offer })
     if (tx.startsWith('1111')) return send(402, { error: 'payment_not_found', ...offer })
     if (tx.startsWith('2222')) return send(409, { error: 'payment_already_used' })
@@ -97,4 +103,58 @@ test('buy_data (#150): 402 becomes payment_required, then paid with a receipt; u
   assert.deepEqual([unknown.status, unknown.reason], ['payment_required', 'no payment from this Mind with that hash in the last hour'])
   assert.equal((await run('buy_data', { item: 'gas-price', paymentTxHash: hash('2') }, TOKEN)).status, 'refused')
   await assert.rejects(run('buy_data', { item: 'gas-price' }), /no wallet yet/)
+})
+
+test('get_quotes (#176): every seller, cheapest first, and the cheapest the wallet may pay; nothing is paid', async () => {
+  const before = seen.length
+  const out = await run('get_quotes', { item: 'gas-price' }, TOKEN)
+  assert.equal(seen.length, before + 1, 'one read, no payment')
+  assert.equal(seen.at(-1)!.url, '/internal/v1/shop/gas-price?quotes=1')
+  assert.equal(seen.at(-1)!.headers['x-wallet-token'], TOKEN)
+  assert.deepEqual(out.quotes.map((q: any) => q.seller), ['s2', 's1', 's3'])
+  assert.deepEqual(out.cheapestOnYourList, { seller: 's1', payTo: 'shop.testnet', priceNear: '0.001', onYourList: true })
+  await assert.rejects(run('get_quotes', { item: 'gas-price' }), /no wallet yet/)
+})
+
+test('buy_data with a seller (#176) asks for that seller; an unknown seller is a refusal, not a crash', async () => {
+  const offer = await run('buy_data', { item: 'gas-price', seller: 's3' }, TOKEN)
+  assert.equal(seen.at(-1)!.url, '/internal/v1/shop/gas-price?seller=s3')
+  assert.deepEqual(offer, { status: 'payment_required', item: 'gas-price', title: 'Gas', seller: 's3', priceNear: '0.0013', payTo: 'dear.testnet' })
+  const hash = '9999abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQ'
+  await run('buy_data', { item: 'gas-price', seller: 's1', paymentTxHash: hash }, TOKEN)
+  assert.equal(seen.at(-1)!.url, `/internal/v1/shop/gas-price?seller=s1&tx=${hash}`)
+  const unknown = await run('buy_data', { item: 'gas-price', seller: 's9' }, TOKEN)
+  assert.equal(unknown.status, 'refused')
+  assert.match(unknown.reason, /no such seller/)
+  const validate = (input: unknown) => toolRegistry.buy_data.inputSchema!['~standard'].validate(input) as any
+  assert.ok((await validate({ item: 'gas-price', seller: 'cheap.testnet' })).issues?.length, 'a seller is an id, never an account')
+})
+
+test('near_check_transfer (#180) reads one transaction from the RPC: signer, receiver, NEAR moved, success', async () => {
+  const calls: any[] = []
+  const rpc = createServer(async (req, res) => {
+    let raw = ''
+    for await (const c of req) raw += c
+    const { params } = JSON.parse(raw)
+    calls.push(params)
+    const send = (json: unknown) => res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(json))
+    if (params.tx_hash.startsWith('1111')) return send({ error: { cause: { name: 'UNKNOWN_TRANSACTION' }, message: 'not found' } })
+    const failed = params.tx_hash.startsWith('2222')
+    send({ result: { status: failed ? { Failure: {} } : { SuccessValue: '' }, transaction: { signer_id: params.sender_account_id, receiver_id: 'mind.testnet', actions: [{ Transfer: { deposit: '1500000000000000000000' } }, { Transfer: { deposit: '1000000000000000000000' } }] } } })
+  })
+  await new Promise<void>((r) => rpc.listen(0, '127.0.0.1', r))
+  const before = process.env.NEAR_RPC_URL
+  process.env.NEAR_RPC_URL = `http://127.0.0.1:${(rpc.address() as AddressInfo).port}`
+  try {
+    const hash = (c: string) => c.repeat(4) + 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQ'
+    const ok = await run('near_check_transfer', { txHash: hash('9'), senderId: 'client.testnet' })
+    assert.deepEqual(ok, { txHash: hash('9'), status: 'succeeded', signerId: 'client.testnet', receiverId: 'mind.testnet', transferredNear: '0.0025' })
+    assert.deepEqual(calls.at(-1), { tx_hash: hash('9'), sender_account_id: 'client.testnet', wait_until: 'FINAL' })
+    assert.equal((await run('near_check_transfer', { txHash: hash('2'), senderId: 'client.testnet' })).status, 'failed')
+    await assert.rejects(run('near_check_transfer', { txHash: hash('1'), senderId: 'client.testnet' }), /UNKNOWN_TRANSACTION/)
+  } finally {
+    if (before === undefined) delete process.env.NEAR_RPC_URL
+    else process.env.NEAR_RPC_URL = before
+    await new Promise<void>((r) => rpc.close(() => r()))
+  }
 })
