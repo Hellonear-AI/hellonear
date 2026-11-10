@@ -20,6 +20,8 @@ export type ApiTemplate = {
   tagline: string
   /** One line in the Mind's own voice, at most 80 characters (#55). */
   quote: string
+  /** The NEAR AI model the template starts with (docs/api-contract.md, GET /v1/templates). */
+  model: string
   skills: { skillId: string; description: string; status: "available" | "simulated" | "blocked" }[]
 }
 
@@ -95,8 +97,10 @@ export const mindsApi = {
     (await api<{ mind: ApiMind }>("/minds", { method: "POST", body })).mind,
   list: async () => (await api<{ minds: ApiMind[] }>("/minds")).minds,
   /** Change a Mind's name, persona, model or skills; the backend re-sends it to every Autopilot job. */
-  update: async (mindId: string, body: Partial<Pick<ApiMind, "name" | "model" | "skills">>) =>
+  update: async (mindId: string, body: Partial<Pick<ApiMind, "name" | "soul" | "model" | "skills">>) =>
     (await api<{ mind: ApiMind }>(`/minds/${encodeURIComponent(mindId)}`, { method: "PATCH", body })).mind,
+  /** Delete a Mind, its chats, memory and Autopilot jobs (`204`). Its wallet and money stay on chain. */
+  remove: async (mindId: string) => api<void>(`/minds/${encodeURIComponent(mindId)}`, { method: "DELETE" }),
   skills: async () => (await api<{ skills: ApiSkill[] }>("/skills")).skills,
   connections: async () => (await api<{ connections: ApiConnection[] }>("/connections")).connections,
   /** A Composio Connect Link to open in a new window (`409 already_connected` if it already is). */
