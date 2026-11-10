@@ -98,7 +98,9 @@ import { useSetSkills, useSkillCatalog } from "@/modules/skills/hooks/useSkills"
 import { shortAddress } from "@/modules/wallet/data/address"
 import { useMediaQuery } from "@/hooks/useMediaQuery"
 import { MEDIA, matches } from "@/lib/media"
+import { readPref, writePref } from "@/lib/storage"
 
+const PALETTE_KEY = "hellonear.builder.palette"
 const ZONE = () => browserTimeZone() ?? "UTC"
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 const OPS: { op: Op; label: string; number?: boolean }[] = [
@@ -183,20 +185,10 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   // The fold only applies from lg (1024 px); below that the list sits on top, always open.
   const desktop = useMediaQuery(MEDIA.lg, true)
   // The Blocks panel folds to icons; remembered on this device.
-  const [paletteOpen, setPaletteOpen] = useState(() => {
-    try {
-      return window.localStorage.getItem("hellonear.builder.palette") !== "closed"
-    } catch {
-      return true
-    }
-  })
+  const [paletteOpen, setPaletteOpen] = useState(() => readPref(PALETTE_KEY) !== "closed")
   const togglePalette = () =>
     setPaletteOpen((open) => {
-      try {
-        window.localStorage.setItem("hellonear.builder.palette", open ? "closed" : "open")
-      } catch {
-        // Not remembered, still works.
-      }
+      writePref(PALETTE_KEY, open ? "closed" : "open")
       return !open
     })
 

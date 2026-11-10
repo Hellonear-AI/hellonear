@@ -3,6 +3,7 @@
 import { ArrowUpIcon, Loader2Icon, SquareIcon } from "lucide-react"
 import { useEffect, useState, type KeyboardEvent } from "react"
 import { Button } from "@/components/ui/button"
+import { readPref, writePref } from "@/lib/storage"
 
 /**
  * The message box (C1.1). Enter sends, Shift+Enter adds a line. While the Mind replies, the send
@@ -34,24 +35,14 @@ export function Composer({
   const [value, setValue] = useState("")
   // The unsent text stays per chat: leave a chat and come back, it is still there.
   useEffect(() => {
-    let saved = ""
-    try {
-      saved = draftKey ? (localStorage.getItem(draftKey) ?? "") : ""
-    } catch {
-      // no storage: start empty
-    }
+    const saved = draftKey ? (readPref(draftKey) ?? "") : ""
     // eslint-disable-next-line react-hooks/set-state-in-effect -- read once per chat from this device
     setValue(saved)
   }, [draftKey])
   const change = (next: string) => {
     setValue(next)
     if (!draftKey) return
-    try {
-      if (next.trim()) localStorage.setItem(draftKey, next)
-      else localStorage.removeItem(draftKey)
-    } catch {
-      // no storage
-    }
+    writePref(draftKey, next.trim() ? next : null)
   }
   const message = value.trim()
   const canSend = !busy && !locked && message.length > 0

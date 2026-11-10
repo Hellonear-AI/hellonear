@@ -1,6 +1,7 @@
 "use client"
 
 import { useSyncExternalStore } from "react"
+import { readPref, writePref } from "@/lib/storage"
 
 // Whether the live view is open beside the chat, remembered on this device. Read during render
 // (useSyncExternalStore), not in an effect: every chat page mounts afresh, and starting open then
@@ -9,13 +10,7 @@ import { useSyncExternalStore } from "react"
 const KEY = "hellonear.chat.live"
 const listeners = new Set<() => void>()
 
-function read(): boolean {
-  try {
-    return localStorage.getItem(KEY) !== "off"
-  } catch {
-    return true
-  }
-}
+const read = () => readPref(KEY) !== "off"
 
 function subscribe(listener: () => void) {
   listeners.add(listener)
@@ -28,11 +23,7 @@ function subscribe(listener: () => void) {
 }
 
 export function setLiveOpen(open: boolean) {
-  try {
-    localStorage.setItem(KEY, open ? "on" : "off")
-  } catch {
-    // no storage: it still changes for this page
-  }
+  writePref(KEY, open ? "on" : "off")
   listeners.forEach((l) => l())
 }
 
