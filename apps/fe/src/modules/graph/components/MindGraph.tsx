@@ -470,6 +470,8 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       return { x: e.clientX - r.left, y: e.clientY - r.top }
     }
     const down = (e: PointerEvent) => {
+      // Dragging on the graph moves the graph, not the drawer it sits in on phones.
+      e.stopPropagation()
       const p = local(e)
       const id = hit(p.x, p.y)
       drag = { id, x: p.x, y: p.y, moved: false, vx: view.current.x, vy: view.current.y }

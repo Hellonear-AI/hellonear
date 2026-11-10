@@ -27,6 +27,7 @@ import { templateLabel } from "@/modules/minds/data/minds"
 import { useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
 import { LiveView } from "@/modules/graph/components/LiveView"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
+import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer"
 
 type Shown = { key: string; message: string | null; createdAt: string; view: RunView; live: boolean; failed: unknown }
 
@@ -56,6 +57,8 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   // The live view (C2, #17): beside the chat from 1280 px, remembered per device; a sheet below that.
   const [liveOpen, setLiveOpen] = useState(true)
   const [liveSheet, setLiveSheet] = useState(false)
+  // Phones get it as a drawer from the bottom (Ancung, 10 Nov), tablets as a sheet from the right.
+  const [liveDrawer, setLiveDrawer] = useState(false)
   const [liveAnimate, setLiveAnimate] = useState(false)
   useEffect(() => {
     try {
@@ -66,6 +69,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
     }
   }, [])
   const toggleLive = () => {
+    if (!window.matchMedia("(min-width: 768px)").matches) return setLiveDrawer(true)
     if (!window.matchMedia("(min-width: 1280px)").matches) return setLiveSheet(true)
     setLiveAnimate(true)
     setLiveOpen((o) => {
@@ -176,7 +180,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
           variant="outline"
           size="icon"
           aria-label="Live view"
-          onClick={() => setLiveSheet(true)}
+          onClick={() => setLiveDrawer(true)}
           className="absolute top-2 right-3 z-10 bg-surface/90 shadow-xs backdrop-blur-sm md:hidden"
         >
           <NetworkIcon />
@@ -324,8 +328,14 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
           <LiveView mindId={mindId} className="w-full p-5" />
         </div>
       </aside>
+      <Drawer open={liveDrawer} onOpenChange={setLiveDrawer} showSwipeHandle>
+        <DrawerContent style={{ ["--drawer-height" as string]: "85dvh" }} className="md:hidden">
+          <DrawerTitle className="sr-only">Live view</DrawerTitle>
+          {liveDrawer && <LiveView mindId={mindId} className="min-h-0 flex-1 px-4 pt-2 pb-4" />}
+        </DrawerContent>
+      </Drawer>
       <Sheet open={liveSheet} onOpenChange={setLiveSheet}>
-        <SheetContent side="right" className="w-full max-w-none! p-5 pt-12 sm:max-w-[400px]!">
+        <SheetContent side="right" className="w-full p-5 pt-12 sm:max-w-[400px]!">
           <SheetTitle className="sr-only">Live view</SheetTitle>
           {liveSheet && <LiveView mindId={mindId} className="h-full" />}
         </SheetContent>
