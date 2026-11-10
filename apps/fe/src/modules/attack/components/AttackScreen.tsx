@@ -109,7 +109,7 @@ export function AttackScreen() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 md:p-6 xl:p-8">
       <PageTitle
-        title="Attack Playground"
+        title="Attack playground"
         description="Try to trick a Mind into paying a stranger. The wallet's limits should stop it every time."
         actions={
           balance !== undefined ? (
