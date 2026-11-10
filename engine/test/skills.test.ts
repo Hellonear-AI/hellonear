@@ -5,7 +5,7 @@ import { parseSkillMd, skillCatalog, skillCatalogSummaries, usableSkills } from 
 import { needsApproval } from '../src/tools.ts'
 
 test('every SKILL.md in engine/skills parses and only uses registered tools', () => {
-  assert.deepEqual([...skillCatalog.keys()], ['daily-planner', 'docs', 'email-address', 'email-triage', 'hellonear-guide', 'http-request', 'meeting-prep', 'morning-briefing', 'near-account', 'notion', 'outlook', 'paid-data', 'payments', 'sheets', 'slack', 'subscriptions'])
+  assert.deepEqual([...skillCatalog.keys()], ['calendar-conflicts', 'daily-planner', 'docs', 'email-address', 'email-triage', 'hellonear-guide', 'http-request', 'meeting-prep', 'morning-briefing', 'near-account', 'notion', 'outlook', 'paid-data', 'payments', 'sheets', 'slack', 'subscriptions'])
   assert.deepEqual(skillCatalog.get('daily-planner')?.tools, ['get_time', 'add_numbers', 'googlecalendar_list_events', 'googlecalendar_create_event', 'googlecalendar_create_meeting', 'googlecalendar_block_time'])
   assert.deepEqual(skillCatalog.get('daily-planner')?.connections, ['googlecalendar', 'googlemeet'])
   assert.equal(skillCatalog.get('payments')?.status, 'available')
@@ -79,4 +79,11 @@ test('one small skill per connected app (#194): its own tools and connection, wr
   for (const t of ['googlesheets_append_row', 'googledocs_create_document', 'slack_send_message', 'notion_create_page', 'notion_add_row']) assert.equal(needsApproval(t), true, t)
   // Outlook is drafts only, like Gmail: none of its tools sends.
   assert.ok(!skillCatalog.get('outlook')!.tools.some((t) => needsApproval(t) || /send/.test(t)))
+})
+
+test('calendar-conflicts (#192): reads the calendar, and its only write waits for approval', () => {
+  const s = skillCatalog.get('calendar-conflicts')!
+  assert.deepEqual([s.tools, s.connections, s.status], [['get_time', 'googlecalendar_list_events', 'googlecalendar_create_event'], ['googlecalendar'], 'available'])
+  assert.ok(s.title && s.blurb)
+  assert.equal(needsApproval('googlecalendar_create_event'), true)
 })
