@@ -193,6 +193,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
           aria-hidden
           className={cn(
             "pointer-events-none absolute inset-0 transition-opacity duration-500 ease-out motion-reduce:transition-none",
+            centered && "animate-in fade-in-0 duration-700 motion-reduce:animate-none",
             centered ? "opacity-100" : "opacity-0"
           )}
           style={{ background: "radial-gradient(ellipse 55% 45% at 50% 52%, color-mix(in oklab, var(--brand) 9%, transparent), transparent 70%)" }}
@@ -319,7 +320,14 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
               centered && "opacity-0"
             )}
           />
-          <div ref={composerBox} className="pointer-events-auto relative mx-auto w-full max-w-[804px] px-4 pb-4 md:px-10 md:pb-5">
+          <div
+            ref={composerBox}
+            className={cn(
+              "pointer-events-auto relative mx-auto w-full max-w-[804px] px-4 pb-4 md:px-10 md:pb-5",
+              // In a new chat it comes in with the greeting, after the intro (FirstChat).
+              centered && "animate-in fade-in-0 slide-in-from-bottom-2 delay-[240ms] duration-500 ease-out fill-mode-both motion-reduce:animate-none"
+            )}
+          >
             {outOfMessages && (
               // T1.5: one clear way forward once the try-out's messages are used up.
               <div className="mb-3 flex flex-col items-start gap-2 rounded-lg border border-border bg-surface p-4">
