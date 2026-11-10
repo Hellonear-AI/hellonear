@@ -21,6 +21,15 @@ describe("stepText", () => {
   })
 })
 
+describe("Paid data steps (#150)", () => {
+  it("say a price was asked, then that the report was bought", () => {
+    expect(stepText(step("buy_data", "running"))).toMatchObject({ label: "Buying a report..." })
+    expect(stepText(step("buy_data", "ok", { status: "payment_required", priceNear: "0.001" }))).toEqual({ label: "Asked for a report", detail: "price 0.001 NEAR", tone: "done" })
+    expect(stepText(step("buy_data", "ok", { status: "paid" })).detail).toBe("bought, report received")
+    expect(stepText(step("buy_data", "ok", { status: "refused" })).detail).toBe("not sold")
+  })
+})
+
 describe("lines (step details, no code font)", () => {
   it("turns fields into readable lines and cuts long values", () => {
     expect(lines({ balanceNear: "4.79", to_account: "x.testnet" })).toEqual([
