@@ -510,7 +510,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                           onPick={() => setSelected(`${blk.id}:${h}`)}
                           onDrop={() => dropAt(end)}
                         />
-                        <span className="pt-1.5 text-[11px] text-muted-foreground">Then carries on</span>
+                        {way.length > 0 && <span className="pt-1.5 text-[11px] text-muted-foreground">Then goes on below</span>}
                       </>
                     )}
                   </div>
@@ -813,8 +813,13 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
               )}
             >
               <PlusIcon className={cn("size-4", over === "end" ? "text-foreground" : "text-muted-foreground")} />
-              <span className="text-sm font-medium text-foreground">{drag && accepts(mainEnd) ? "Drop to add it here" : "Add the next step"}</span>
-              <span className="text-xs text-muted-foreground">{desktop ? `Ask ${name} to do something` : "Tap to pick a block"}</span>
+              {/* After an If, this step runs whichever way it took, unless that way ends (#164). */}
+              <span className="text-sm font-medium text-foreground">
+                {drag && accepts(mainEnd) ? "Drop to add it here" : draft.line.at(-1)?.kind === "if" ? "Add a step after the If" : "Add the next step"}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {draft.line.at(-1)?.kind === "if" ? "Runs after Yes or No, unless that way ends" : desktop ? `Ask ${name} to do something` : "Tap to pick a block"}
+              </span>
             </button>
           </Linked>
           )}
@@ -1579,7 +1584,7 @@ function EndingPanel({
   )
 }
 
-/** An empty way of the If: tap to pick a block, or drop one on it. Empty means the job stops. */
+/** An empty way of the If: tap to pick a block, or drop one on it. Empty, the path goes on after the If (#164). */
 function EndingSlot({
   id,
   more = false,
@@ -1632,7 +1637,8 @@ function EndingSlot({
     >
       <PlusIcon className="size-4 text-muted-foreground" />
       <span className="text-sm font-medium text-foreground">{accepts ? "Drop to add it here" : more ? "Add the next step" : "Add a step"}</span>
-      {!more && <span className="text-xs text-muted-foreground">Empty: the job stops here</span>}
+      {/* #164: an empty way goes on after its If (End stops a path). */}
+      {!more && <span className="text-xs text-muted-foreground">Empty: goes on after the If</span>}
     </button>
   )
 }
