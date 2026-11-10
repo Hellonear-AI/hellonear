@@ -56,6 +56,11 @@ export const config = {
   // Paid data (#150): the account a Mind pays for a data report (it must be on the paying wallet's address list,
   // or the policy refuses the payment). Empty: the shop answers 503 shop_not_configured.
   shopPayTo: (process.env.SHOP_PAY_TO ?? '').trim().toLowerCase(),
+  // Telegram (#168). The Bot API base (tests point it at a fake). The webhook base is the public API URL Telegram
+  // calls (https://api.hellonear.xyz); without it, local dev polls getUpdates instead (TELEGRAM_POLLING=true).
+  telegramApiUrl: process.env.TELEGRAM_API_URL ?? 'https://api.telegram.org',
+  telegramWebhookBase: (process.env.TELEGRAM_WEBHOOK_BASE ?? '').replace(/\/$/, ''),
+  telegramPolling: process.env.TELEGRAM_POLLING === 'true',
   nonceTtlMs: 5 * 60 * 1000,
   sessionTtlMs: 7 * 24 * 60 * 60 * 1000,
 }

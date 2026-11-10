@@ -9,6 +9,7 @@ import { KeyPair, KeyPairSigner } from 'near-api-js'
 import { ENGINE_KEY, engine, fake } from './fake-engine.ts'
 import { fakeOutlayer, outlayerServer } from './fake-outlayer.ts'
 import { COMPOSIO_KEY, composioServer, fakeComposio } from './fake-composio.ts'
+import { fakeTelegram, telegramServer } from './fake-telegram.ts'
 import { AGENTMAIL_KEYS, agentmailServer, fakeAgentmail } from './fake-agentmail.ts'
 
 await new Promise<void>((r) => engine.listen(0, r))
@@ -23,6 +24,8 @@ process.env.DEMO_OUTLAYER_API_KEY = demoWallet.key
 await new Promise<void>((r) => composioServer.listen(0, r))
 process.env.COMPOSIO_URL = `http://127.0.0.1:${(composioServer.address() as AddressInfo).port}`
 process.env.COMPOSIO_API_KEY = COMPOSIO_KEY
+await new Promise<void>((r) => telegramServer.listen(0, r))
+process.env.TELEGRAM_API_URL = `http://127.0.0.1:${(telegramServer.address() as AddressInfo).port}`
 await new Promise<void>((r) => agentmailServer.listen(0, r))
 process.env.AGENTMAIL_URL = `http://127.0.0.1:${(agentmailServer.address() as AddressInfo).port}/v0`
 process.env.AGENTMAIL_API_KEY = AGENTMAIL_KEYS[0]
@@ -60,6 +63,7 @@ after(async () => {
   await new Promise<void>((r) => engine.close(() => r()))
   await new Promise<void>((r) => outlayerServer.close(() => r()))
   await new Promise<void>((r) => composioServer.close(() => r()))
+  await new Promise<void>((r) => telegramServer.close(() => r()))
   await new Promise<void>((r) => agentmailServer.close(() => r()))
   await pool.end()
 })
@@ -1705,5 +1709,129 @@ describe('Attack Playground (#129)', () => {
     const [{ n }] = await query<{ n: number }>('select count(*)::int as n from runs r join minds m on m.id = r.mind_id where m.user_id = (select user_id from minds where id = $1)', [evs[0].mindId])
     assert.equal(n, 1)
     assert.deepEqual((await (await d('GET', '/v1/minds')).json()).minds, [])
+  })
+})
+
+describe('Telegram (#168)', () => {
+  const origin = { origin: 'http://localhost:3000' }
+  // Fresh bot ids per run: the test database keeps rows between runs, and one bot serves one Mind.
+  const botId = () => 100_000_000 + Math.floor(Math.random() * 800_000_000)
+  const [idA, idB] = [botId(), botId()]
+  const TOKEN = `${idA}:AAH${randomBytes(18).toString('hex')}`
+  const OTHER = `${idB}:AAH${randomBytes(18).toString('hex')}`
+  fakeTelegram.bots.set(TOKEN, { id: idA, username: 'hn_test_bot' })
+  fakeTelegram.bots.set(OTHER, { id: idB, username: 'hn_other_bot' })
+  const hook = (mindId: string, secret: string | undefined, update: unknown) => fetch(`${base}/v1/telegram/${mindId}/webhook`, {
+    method: 'POST', headers: { 'content-type': 'application/json', ...(secret ? { 'x-telegram-bot-api-secret-token': secret } : {}) }, body: JSON.stringify(update),
+  })
+  const msg = (id: number, chatId: number, text: string) => ({ update_id: id, message: { message_id: id, text, chat: { id: chatId, type: 'private', first_name: 'Axel', username: 'axel' }, from: { id: chatId, is_bot: false } } })
+  const settle = () => new Promise((r) => setTimeout(r, 400))
+
+  test('connect checks the token with Telegram, links the owner by a one-time code, answers only them, and points approvals to the app', async () => {
+    const { config } = await import('../src/config.ts')
+    const savedBase = config.telegramWebhookBase
+    config.telegramWebhookBase = 'https://api.hellonear.test'
+    try {
+      const a = await signIn()
+      const mindId = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Tele' }, origin)).json()).mind.id as string
+      assert.deepEqual((await (await a.call('GET', `/v1/minds/${mindId}/telegram`)).json()).telegram, { connected: false })
+
+      // A malformed token never reaches Telegram; a well-formed but unknown one is refused by getMe.
+      assert.equal((await a.call('PUT', `/v1/minds/${mindId}/telegram`, { token: 'nope' }, origin)).status, 400)
+      let res = await a.call('PUT', `/v1/minds/${mindId}/telegram`, { token: '111111111:AAHnotARealBotTokenAtAllForTests_000' }, origin)
+      assert.deepEqual([res.status, (await res.json()).error], [400, 'invalid_telegram_token'])
+
+      res = await a.call('PUT', `/v1/minds/${mindId}/telegram`, { token: TOKEN }, origin)
+      assert.equal(res.status, 200, await res.clone().text())
+      const t = (await res.json()).telegram
+      assert.deepEqual([t.connected, t.botUsername, t.linked, t.mode], [true, 'hn_test_bot', false, 'webhook'])
+      assert.match(t.linkUrl, /^https:\/\/t\.me\/hn_test_bot\?start=[A-Za-z0-9_-]{16}$/)
+      const code = t.linkUrl.split('start=')[1]
+      const setHook = fakeTelegram.calls.findLast((c) => c.method === 'setWebhook')!
+      assert.equal(setHook.body.url, `https://api.hellonear.test/v1/telegram/${mindId}/webhook`)
+      const secret = setHook.body.secret_token as string
+      assert.ok(secret.length >= 32)
+      // The token is stored encrypted and never returned.
+      assert.ok(!JSON.stringify(t).includes(TOKEN))
+      const [stored] = await query('select token_ciphertext from mind_telegram where mind_id = $1', [mindId])
+      assert.ok(!stored.token_ciphertext.includes(TOKEN.split(':')[1]))
+      assert.deepEqual((await query('select bot_id from mind_telegram where mind_id = $1', [mindId]))[0], { bot_id: String(idA) })
+
+      // Wrong or missing secret: 401, nothing handled.
+      assert.equal((await hook(mindId, 'wrong', msg(1, 555, `/start ${code}`))).status, 401)
+      assert.equal((await hook(mindId, undefined, msg(1, 555, `/start ${code}`))).status, 401)
+      // A wrong code links nobody and gets no answer.
+      assert.equal((await hook(mindId, secret, msg(2, 555, '/start wrongcode'))).status, 200)
+      await settle()
+      assert.equal(fakeTelegram.sent(TOKEN).length, 0)
+      // The right code links that chat.
+      assert.equal((await hook(mindId, secret, msg(3, 555, `/start ${code}`))).status, 200)
+      await settle()
+      assert.match(fakeTelegram.sent(TOKEN).at(-1).text, /^Linked\./)
+      const linked = (await (await a.call('GET', `/v1/minds/${mindId}/telegram`)).json()).telegram
+      assert.deepEqual([linked.linked, linked.ownerName, linked.linkUrl], [true, 'Axel @axel', null])
+      // The same code again, from someone else: ignored. A stranger's message: ignored, no reply.
+      const before = fakeTelegram.sent(TOKEN).length
+      await hook(mindId, secret, msg(4, 777, `/start ${code}`))
+      await hook(mindId, secret, msg(5, 777, 'hello, who are you?'))
+      await settle()
+      assert.equal(fakeTelegram.sent(TOKEN).length, before)
+      // The owner's message runs as a chat (stored like one) and the reply comes back.
+      await hook(mindId, secret, msg(6, 555, 'hi there'))
+      await new Promise((r) => setTimeout(r, 1500))
+      const reply = fakeTelegram.sent(TOKEN).at(-1)
+      assert.equal(reply.chat_id, '555')
+      assert.match(reply.text, /^w0 w1 w2/)
+      const [run] = await query('select thread_id, user_message from runs r where r.mind_id = $1 order by started_at desc limit 1', [mindId])
+      assert.equal(run.user_message, 'hi there')
+      const [row] = await query('select thread_id, last_update_id from mind_telegram where mind_id = $1', [mindId])
+      assert.equal(row.thread_id, run.thread_id)
+      // A redelivered update is handled once.
+      const count = fakeTelegram.sent(TOKEN).length
+      await hook(mindId, secret, msg(6, 555, 'hi there'))
+      await settle()
+      assert.equal(fakeTelegram.sent(TOKEN).length, count)
+      // Something that needs approval: the bot points to the app, it never approves.
+      await hook(mindId, secret, msg(7, 555, 'please pay the invoice'))
+      await new Promise((r) => setTimeout(r, 1500))
+      assert.match(fakeTelegram.sent(TOKEN).at(-1).text, new RegExp(`needs your approval in the app: http://localhost:3000/minds/${mindId}/approvals$`))
+
+      // One bot serves one Mind.
+      const other = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Tele2' }, origin)).json()).mind.id as string
+      res = await a.call('PUT', `/v1/minds/${other}/telegram`, { token: TOKEN }, origin)
+      assert.deepEqual([res.status, (await res.json()).error], [409, 'telegram_bot_in_use'])
+      // Another user cannot see or change it.
+      const b = await signIn()
+      assert.equal((await b.call('GET', `/v1/minds/${mindId}/telegram`)).status, 404)
+      // Disconnect deletes the webhook and the row; the old secret no longer works.
+      assert.equal((await a.call('DELETE', `/v1/minds/${mindId}/telegram`, undefined, origin)).status, 204)
+      assert.equal(fakeTelegram.calls.findLast((c) => c.token === TOKEN)!.method, 'deleteWebhook')
+      assert.equal((await hook(mindId, secret, msg(8, 555, 'still there?'))).status, 401)
+      assert.equal((await a.call('DELETE', `/v1/minds/${mindId}/telegram`, undefined, origin)).status, 404)
+    } finally {
+      config.telegramWebhookBase = savedBase
+    }
+  })
+
+  test('local dev polls getUpdates when there is no public webhook URL', async () => {
+    const { startTelegramPolling } = await import('../src/telegram.ts')
+    const { runTelegramChat } = await import('../src/server.ts')
+    const a = await signIn()
+    const mindId = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Poll' }, origin)).json()).mind.id as string
+    const t = (await (await a.call('PUT', `/v1/minds/${mindId}/telegram`, { token: OTHER }, origin)).json()).telegram
+    assert.equal(t.mode, 'polling')
+    assert.equal(fakeTelegram.calls.findLast((c) => c.token === OTHER && c.method !== 'getMe')!.method, 'deleteWebhook')
+    const code = t.linkUrl.split('start=')[1]
+    fakeTelegram.updates.set(OTHER, [msg(10, 999, `/start ${code}`), msg(11, 999, 'hello')])
+    const stop = startTelegramPolling(runTelegramChat, 100)
+    try {
+      for (let i = 0; i < 40 && fakeTelegram.sent(OTHER).length < 2; i++) await new Promise((r) => setTimeout(r, 100))
+    } finally {
+      await stop()
+    }
+    const sent = fakeTelegram.sent(OTHER)
+    assert.match(sent[0].text, /^Linked\./)
+    assert.match(sent[1].text, /^w0 w1/)
+    assert.equal((await query('select last_update_id from mind_telegram where mind_id = $1', [mindId]))[0].last_update_id, '11')
   })
 })
