@@ -134,6 +134,12 @@ export function foldRun(events: RunEvent[]): RunView {
         if (!e.toolCallId) break
         const step = byCall.get(e.toolCallId) ?? { toolCallId: e.toolCallId, tool: e.tool ?? "", nodeId: e.nodeId, status: "running" as ToolStatus, args: e.args, result: undefined, startedAt: e.ts }
         if (e.type === "tool.approval_required") {
+          // A new pause after a resume (split bill: the next person's payment): approvals from the earlier
+          // pause that never ran were declined, and this one waits like the first did.
+          if (resumed) {
+            for (const t of view.tools) if (t.status === "awaiting_approval" && t.toolCallId !== e.toolCallId) t.status = "declined"
+            resumed = false
+          }
           step.status = "awaiting_approval"
           paused = true
         }
@@ -153,6 +159,13 @@ export function foldRun(events: RunEvent[]): RunView {
         const status = (e.status ?? (e.type === "tool.error" ? "error" : "ok")) as ToolStatus
         step.status = e.type === "tool.result" && paymentRefused(e.result) ? paymentRefused(e.result)! : status
         if (ERROR_STATUSES.includes(step.status)) step.error = typeof e.error === "string" ? e.error : undefined
+        // The backend answers some payments that never went out with a result whose status is `failed` (a try-out's
+        // demo limit, OutLayer erroring): a card reading "Sent" for one was wrong (seen 11 Nov in a split bill).
+        if (e.type === "tool.result" && step.tool === "send_payment" && (e.result as { status?: unknown } | null)?.status === "failed") {
+          step.status = "error"
+          const message = (e.result as { message?: unknown }).message
+          step.error = typeof message === "string" ? message : undefined
+        }
         break
       }
       case "run.finished":
