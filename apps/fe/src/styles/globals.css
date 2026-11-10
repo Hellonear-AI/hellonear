@@ -357,3 +357,37 @@
         animation: hn-fade-pulse 1.6s ease infinite;
     }
 }
+
+/* Builder Test run (Ancung, 10 Nov): the line into the block that is working carries a light down
+   to it, and that block glows softly. Reduced motion keeps the colours, still. */
+@keyframes hn-wire {
+    from { background-position: 0 -24px; }
+    to { background-position: 0 24px; }
+}
+@keyframes hn-glow {
+    0%, 100% { box-shadow: 0 0 0 2px color-mix(in oklab, var(--info) 30%, transparent), 0 0 14px -4px var(--info); }
+    50% { box-shadow: 0 0 0 2px color-mix(in oklab, var(--info) 45%, transparent), 0 0 28px -2px var(--info); }
+}
+
+@utility wire-flow {
+    width: 2px;
+    background-color: color-mix(in oklab, var(--info) 35%, transparent);
+    background-image: linear-gradient(to bottom, transparent, var(--info) 50%, transparent);
+    background-size: 100% 24px;
+    background-repeat: no-repeat;
+    box-shadow: 0 0 6px color-mix(in oklab, var(--info) 60%, transparent);
+    animation: hn-wire 900ms linear infinite;
+    @media (prefers-reduced-motion: reduce) {
+        background-image: none;
+        background-color: var(--info);
+        animation: none;
+    }
+}
+
+@utility node-glow {
+    animation: hn-glow 1.6s var(--ease-in-out) infinite;
+    @media (prefers-reduced-motion: reduce) {
+        animation: none;
+        box-shadow: 0 0 0 2px color-mix(in oklab, var(--info) 30%, transparent), 0 0 16px -4px var(--info);
+    }
+}

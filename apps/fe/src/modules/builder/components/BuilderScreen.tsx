@@ -60,6 +60,8 @@ import {
   moveStepIn,
   tokenLabels,
   allBlocks,
+  carriesOn,
+  closes,
   canPlace,
   findBlock,
   insertBlock,
@@ -459,14 +461,20 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
    * side, each a line of its own (that may hold more Ifs) with a slot to add the next block. A way
    * without End carries on after its If, so the line goes on below, centred.
    */
-  const renderLine = (line: Block[], path: LinePath): ReactNode =>
+  // What each block shows after a Test run, Ifs included (they send no events of their own).
+  const lit = withIf(test?.nodes ?? {}, draft.line, Boolean(test && !test.running && !test.failed && test.status !== "failed"))
+
+  const renderLine = (line: Block[], path: LinePath, goesOn = false): ReactNode =>
     line.map((blk, i) => {
+      // When this If's ways run out the job goes on below it (a job saved with steps after an If).
+      const waysGoOn = blk.kind === "if" && (i < line.length - 1 || goesOn)
+      const joins = waysGoOn && blk.kind === "if" && !closes(blk)
       const at = { path, index: i }
       const before = stepsAt(draft.line, path, i)
       return (
         <div key={blk.id} className="flex flex-col items-center">
           {spot(at)}
-          <Linked>
+          <Linked nodeId={blk.id}>
             <div
               draggable={blk.kind !== "end"}
               onDragStart={(e) => {
@@ -491,18 +499,20 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             // a bar across to the middle of each way, then a line down to Yes and to No. Each way
             // draws its half of the bar, so it meets in the middle whatever the ways' widths.
             <div className="flex flex-col items-center">
-              <span aria-hidden className="h-5 w-px bg-border-strong" />
-              <div className="flex items-start justify-center gap-6">
+              <Wire run={lit[blk.id] && { status: "ok" }} className="h-5" />
+              <div className={cn("flex justify-center gap-6", joins ? "items-stretch" : "items-start")}>
               {(["then", "else"] as const).map((h) => {
                 const wayPath: LinePath = [...path, { at: blk.id, h }]
                 const way = blk[h]
                 const end = { path: wayPath, index: way.length }
+                // The way that ran turns green from the If down to its first block.
+                const ran = lit[blk.id]?.note === (h === "then" ? "Yes" : "No") ? ({ status: "ok" } as const) : undefined
                 return (
                   <div key={h} className="relative flex min-w-[300px] flex-col items-center">
-                    <span aria-hidden className={cn("absolute top-0 h-px bg-border-strong", h === "then" ? "right-[-12px] left-1/2" : "right-1/2 left-[-12px]")} />
-                    <span aria-hidden className="h-6 w-px bg-border-strong" />
+                    <span aria-hidden className={cn("absolute top-0 h-px", ran ? "bg-success" : "bg-border-strong", h === "then" ? "right-[-12px] left-1/2" : "right-1/2 left-[-12px]")} />
+                    <Wire run={ran} className="h-6" />
                     <span className="pb-1.5 text-xs font-medium text-muted-foreground">{h === "then" ? "Yes" : "No"}</span>
-                    {renderLine(way, wayPath)}
+                    {renderLine(way, wayPath, waysGoOn)}
                     {/* The next block on this way; none after an If, which goes on in its own ways. */}
                     {!lineCloses(way) && way.at(-1)?.kind !== "if" && (
                       <>
@@ -510,6 +520,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                         <EndingSlot
                           id={`slot-${blk.id}-${h}`}
                           more={way.length > 0}
+                          goesOn={waysGoOn}
                           active={selected === `${blk.id}:${h}`}
                           over={over}
                           setOver={setOver}
@@ -519,10 +530,19 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                         />
                       </>
                     )}
+                    {/* The ways meet again before the blocks after the If: a line down from each way
+                        that doesn't end, and a bar across, the fork above upside down. */}
+                    {joins && !lineCloses(way) && (
+                      <>
+                        <span aria-hidden className="min-h-6 w-px flex-1 bg-border-strong" />
+                        <span aria-hidden className={cn("absolute bottom-0 h-px bg-border-strong", h === "then" ? "right-[-12px] left-1/2" : "right-1/2 left-[-12px]")} />
+                      </>
+                    )}
                   </div>
                 )
               })}
               </div>
+              {joins && <span aria-hidden className="h-5 w-px bg-border-strong" />}
             </div>
           )}
         </div>
@@ -717,7 +737,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       )}
       {dirty && workflowId && <p className="mx-4 mt-3 text-xs text-muted-foreground md:mx-6">Save your changes to test them.</p>}
 
-      <TestRun.Provider value={withIf(test?.nodes ?? {}, draft.line, Boolean(test && !test.running && !test.failed && test.status !== "failed"))}>
+      <TestRun.Provider value={lit}>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row">
         {/* The Blocks panel folds like the app's sidebar (AppShell): the width slides 240 <-> 72
             (ease-in-out, 200 ms) and the full list crossfades with the icon rail. Phones and
@@ -884,6 +904,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                   name={name}
                   which={slot.h}
                   more={slot.block[slot.h].length > 0}
+                  goesOn={carriesOn(draft.line, at.path)}
                   canIf={canPlace(draft.line, at.path, at.index, "if", self)}
                   canEnd={canPlace(draft.line, at.path, at.index, "end", self)}
                   onPick={(kind) => addAt(kind, at)}
@@ -1045,10 +1066,20 @@ function DropSpot({ id, over, setOver, onDrop, label }: { id: string; over: stri
   )
 }
 
-function Linked({ children }: { children: ReactNode }) {
+/** The line from the block above, coloured by how the block below went in a Test run. */
+function Wire({ run, className }: { run?: NodeRun; className?: string }) {
+  return <span aria-hidden className={cn(className, wireTone(run))} />
+}
+
+/** Grey at rest; while its block works a light runs down it (`wire-flow`); then green or red. */
+const wireTone = (run?: NodeRun) =>
+  run?.status === "running" ? "wire-flow" : run?.status === "ok" ? "w-px bg-success" : run?.status === "error" ? "w-px bg-danger" : "w-px bg-border-strong"
+
+function Linked({ nodeId, children }: { nodeId?: string; children: ReactNode }) {
+  const run = useContext(TestRun)[nodeId ?? ""]
   return (
     <div className="flex flex-col items-center">
-      <span aria-hidden className="h-6 w-px bg-border-strong" />
+      <Wire run={run} className="h-6 transition-colors duration-300 ease-out" />
       {children}
     </div>
   )
@@ -1174,7 +1205,7 @@ function BlockCard({
                 : "border-border",
         // ...and the picked block gets its own outline, a gap away, lifted (Ancung, 9 Nov: a 1 px
         // edge didn't show which block was picked, and the amber ones drew the eye instead).
-        active ? "shadow-md ring-2 ring-foreground ring-offset-2 ring-offset-background" : run?.status === "running" ? "ring-2 ring-info/30" : "hover:bg-surface-hover"
+        active ? "shadow-md ring-2 ring-foreground ring-offset-2 ring-offset-background" : run?.status === "running" ? "node-glow" : "hover:bg-surface-hover"
       )}
     >
       <span className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -1537,6 +1568,7 @@ function EndingPanel({
   name,
   which,
   more = false,
+  goesOn = false,
   canIf,
   canEnd,
   onPick,
@@ -1545,6 +1577,8 @@ function EndingPanel({
   which: "then" | "else"
   /** The way already has steps: this adds one more after them. */
   more?: boolean
+  /** Blocks follow its If, so an empty way carries on to them instead of stopping. */
+  goesOn?: boolean
   canIf: boolean
   canEnd: boolean
   onPick: (kind: Kind) => void
@@ -1562,7 +1596,9 @@ function EndingPanel({
       <p className="text-sm text-muted-foreground">
         {more
           ? "Add the next step on this way. It can use what came before it on this path."
-          : "Nothing runs here yet, so the job stops on this way. Add a block, or drag one onto it."}
+          : goesOn
+            ? "Nothing runs here yet, so this way carries on after the If. Add a block, or drag one onto it."
+            : "Nothing runs here yet, so the job stops on this way. Add a block, or drag one onto it."}
       </p>
       <div className="flex flex-col gap-2">
         {options.map((o) => (
@@ -1590,6 +1626,7 @@ function EndingPanel({
 function EndingSlot({
   id,
   more = false,
+  goesOn = false,
   active,
   over,
   setOver,
@@ -1600,6 +1637,8 @@ function EndingSlot({
   id: string
   /** The way already has steps: a smaller slot that adds one more. */
   more?: boolean
+  /** Blocks follow its If, so empty it carries on to them instead of stopping. */
+  goesOn?: boolean
   active: boolean
   over: string | null
   setOver: (id: string | null) => void
@@ -1639,7 +1678,7 @@ function EndingSlot({
     >
       <PlusIcon className="size-4 text-muted-foreground" />
       <span className="text-sm font-medium text-foreground">{accepts ? "Drop to add it here" : more ? "Add the next step" : "Add a step"}</span>
-      {!more && <span className="text-xs text-muted-foreground">Empty: the job stops here</span>}
+      {!more && <span className="text-xs text-muted-foreground">{goesOn ? "Empty: carries on after the If" : "Empty: the job stops here"}</span>}
     </button>
   )
 }
