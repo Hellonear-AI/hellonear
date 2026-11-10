@@ -928,14 +928,15 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                 : "If you leave now, your changes to this job are lost. Save them first?"}
             </DialogDescription>
           </DialogHeader>
+          {/* Two buttons (Ancung, 10 Nov: three were too many): X, Esc or a click outside keep editing.
+              Discard sits apart on the left, the safe choice on the right. */}
           <DialogFooter>
-            <Button variant="ghost" className="text-danger" onClick={guard.discard}>
-              Leave without saving
+            <Button variant="ghost" className="text-danger sm:mr-auto" onClick={guard.discard}>
+              Discard changes
             </Button>
-            <Button variant="outline" onClick={guard.stay}>
-              Keep editing
-            </Button>
-            {problems.length === 0 && (
+            {problems.length > 0 ? (
+              <Button onClick={guard.stay}>Keep editing</Button>
+            ) : (
               <Button
                 disabled={saving}
                 onClick={() => {
