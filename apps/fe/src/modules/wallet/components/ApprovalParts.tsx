@@ -52,7 +52,7 @@ export function ApprovalActions({
   small?: boolean
   onApprove: () => void
   onDecline: () => void
-  /** Opens the freeze dialog; without it, Unfreeze links to Approvals (a shared demo wallet). */
+  /** Opens the freeze dialog; without it, Unfreeze links to Wallet (a shared demo wallet). */
   onUnfreeze?: () => void
   className?: string
 }) {
@@ -76,7 +76,7 @@ export function ApprovalActions({
       ) : (
         // Approving would be refused before signing, so send the owner to fix it (a change that
         // needs their signature) instead of offering a button that can't work.
-        <Button size={size} disabled={busy} nativeButton={false} render={<Link href={mindHref(mindId, next === "unfreeze" ? "approvals" : "wallet")} />}>
+        <Button size={size} disabled={busy} nativeButton={false} render={<Link href={mindHref(mindId, "wallet")} />}>
           {next === "unfreeze" ? "Unfreeze first" : next === "add_address" ? "Add the address first" : "Change limits first"}
         </Button>
       )}

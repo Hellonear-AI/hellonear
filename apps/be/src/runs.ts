@@ -186,6 +186,20 @@ export async function mindEvents(mindId: string, since: Date, limit: number): Pr
   )).map((r) => r.payload)
 }
 
+// Whether a run still waits for the owner's answer on this tool call: the run is paused and the call's
+// `tool.approval_required` belongs to the current pause. Every paused stream ends with `run.finished`, so an approval of
+// the current pause has at most that one after it; one from an earlier pause (a split bill's first payment, answered
+// already) has two or more and no longer counts. So a stale button or card can never resume the run with a call it went
+// past (#208). Counting pauses, not tool events, keeps parallel tool calls in one step (whose order is not proven) safe.
+export async function isAwaiting(runId: string, toolCallId: string): Promise<boolean> {
+  const [row] = await query(
+    `select 1 from runs r join run_events a on a.run_id = r.id and a.type = 'tool.approval_required' and a.payload->>'toolCallId' = $2
+     where r.id = $1 and r.status = 'awaiting_approval'
+       and (select count(*) from run_events w where w.run_id = r.id and w.seq > a.seq and w.type = 'run.finished') <= 1
+     limit 1`, [runId, toolCallId])
+  return row !== undefined
+}
+
 // The approval inbox (#14): runs paused on a wallet action, with the action waiting for the owner.
 export async function pendingApprovals(mindId: string): Promise<unknown[]> {
   return (await query(

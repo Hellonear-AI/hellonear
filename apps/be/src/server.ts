@@ -9,7 +9,7 @@ import { engineFetch, engineJson, skills, templates } from './engine.ts'
 import { HttpError, assertSameOrigin, cors, logServerError, readBody, sendJson, setCookie, isLoopback } from './http.ts'
 import { TOOLKITS, connect, disconnect, listConnections, toolkitSchema } from './connections.ts'
 import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, playgroundAttackOf, playgroundMind, requireMind, updateMind, updateMindSchema, type Mind } from './minds.ts'
-import { cancelRun, getRun, listRuns, mindEvents, pendingApprovals, relayRun, runEvents } from './runs.ts'
+import { cancelRun, getRun, isAwaiting, listRuns, mindEvents, pendingApprovals, relayRun, runEvents } from './runs.ts'
 import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema, secretsForRun } from './secrets.ts'
 import { assertWalletEmpty, createWallet, freezeTransaction, getWallet, hasWallet, isDemoMind, policySchema, policyTransaction } from './wallets.ts'
 import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
@@ -18,7 +18,7 @@ import { buyOffer, offerItemSchema, putOffer, putOfferSchema } from './offers.ts
 import { issueMailToken, issueWalletToken, verifyMailToken, verifyWalletToken } from './walletToken.ts'
 import { EMAIL_SKILL, ensureInbox, inboxOf, listMail, listSends, mailEnabled, messageIdSchema, ownerMailSchema, readMail, releaseInbox, sendMail, sendMailSchema, sendMailToOwner } from './mail.ts'
 import { listThreads, parseCursor, threadExists, threadMessages } from './threads.ts'
-import { connectTelegram, disconnectTelegram, startTelegramPolling, telegramStatus, telegramTokenSchema, telegramWebhook, type RunChat } from './telegram.ts'
+import { connectTelegram, disconnectTelegram, outcomeOf, registerTelegramWebhooks, startTelegramPolling, telegramStatus, telegramTokenSchema, telegramWebhook, type MindRunner } from './telegram.ts'
 import { assertDemoRunAllowed, cleanupDemoUsers, createDemoUser, demoPaymentCap, denyDemo } from './demo.ts'
 import type { User } from './auth.ts'
 import { EventEmitter } from 'node:events'
@@ -87,49 +87,95 @@ async function withInbox(user: User, mind: Mind): Promise<{ mind: Mind; inboxErr
 }
 
 
-// Telegram (#168): one message to a Mind, run like a chat from the app and stored the same way (relayRun into an
-// in-memory sink), then answered as text. Same owner, Mind config, secrets, tokens and try-out limits as the app.
-// No time zone: Telegram doesn't send one, so the run is in UTC.
-export const runTelegramChat: RunChat = async (mindId, threadId, text) => {
-  const thread = threadId ?? `thr_${newId('x').slice(2)}`
+// Approve or decline what a paused run waits for, through the engine. The app's route and Telegram's buttons (#208) both
+// come here, so both get the same checks and the same resume. Only a call of the current pause counts (`isAwaiting`).
+// The run is then claimed (awaiting_approval → running in one update), so two answers at once (the app and Telegram, or
+// a double press) resume it once; the second gets 409. If the engine does not take the resume, the claim is undone.
+async function resumeRun(user: User, found: { runId: string; mindId: string; threadId: string | null }, action: 'approve' | 'decline', body: z.infer<typeof resumeSchema>, req: IncomingMessage, res: ServerResponse) {
+  if (!(await isAwaiting(found.runId, body.toolCallId))) throw new HttpError(409, 'not_awaiting_approval')
+  const mind = await requireMind(user.id, found.mindId)
+  await assertDemoRunAllowed(user, req)
+  const claimed = await query(`update runs set status = 'running' where id = $1 and status = 'awaiting_approval' returning 1`, [found.runId])
+  if (!claimed.length) throw new HttpError(409, 'not_awaiting_approval')
+  const release = () => query(`update runs set status = 'awaiting_approval' where id = $1 and status = 'running'`, [found.runId])
+  const controller = new AbortController()
+  let engineRes: Response
+  try {
+    engineRes = await engineFetch(`/v1/runs/${encodeURIComponent(found.runId)}/${action}?mindId=${encodeURIComponent(mind.id)}`, {
+      method: 'POST', signal: controller.signal,
+      body: {
+        userId: user.id, threadId: found.threadId, mind: mindConfig(mind), secrets: await secretsFor(user.id, mind.id), toolCallId: body.toolCallId, reason: body.reason,
+        ...timeZoneOf(body), ...(await runExtras(user, mind.id)), ...attackOf(await playgroundAttackOf(mind.id)),
+      },
+    })
+  } catch (e) {
+    await release()
+    throw e
+  }
+  if (engineRes.status !== 200) await release()
+  return relayRun(req, res, engineRes, { mindId: mind.id, threadId: found.threadId ?? undefined, resumeOf: found.runId, controller })
+}
+
+// Telegram runs (#168, #208) go through the same code as the app's, relayed into an in-memory sink instead of a browser,
+// then read back as text (`outcomeOf`). Same owner, Mind config, secrets, tokens and try-out limits as the app.
+// No time zone: Telegram doesn't send one, so runs are in UTC.
+async function telegramOwner(mindId: string): Promise<User | null> {
   const [owner] = await query<{ id: string; near_account_id: string; is_demo: boolean }>('select u.id, u.near_account_id, u.is_demo from minds m join users u on u.id = m.user_id where m.id = $1', [mindId])
-  if (!owner) return { threadId: thread, text: '', needsApproval: false, error: 'mind_not_found' }
-  const user: User = { id: owner.id, nearAccountId: owner.near_account_id, demo: owner.is_demo }
+  return owner ? { id: owner.id, nearAccountId: owner.near_account_id, demo: owner.is_demo } : null
+}
+// Telegram runs have no client IP: key the try-out hourly window per user, so one busy bot can't use up everyone's
+// (Lin1er's review on #171). The per-user run cap still applies.
+const telegramReq = (user: User, mindId: string) =>
+  Object.assign(new EventEmitter(), { headers: { 'cf-connecting-ip': `telegram:${user.id}` }, socket: { remoteAddress: 'telegram' }, url: `/v1/telegram/${mindId}`, method: 'POST' }) as unknown as IncomingMessage
+function memorySink() {
+  const out = { raw: '', status: 200 }
+  const res = {
+    writeHead(code: number) { out.status = code; return res },
+    write(t: string) { out.raw += t; return true },
+    end(t?: string) { if (t) out.raw += t; return res },
+  }
+  return { out, res: res as unknown as ServerResponse }
+}
+const failedRun = (threadId: string, error: string) => ({ threadId, text: '', asked: [], outcomes: [], error })
+
+// One owner message, run like a chat from the app.
+export const runTelegramChat: MindRunner['chat'] = async (mindId, threadId, text) => {
+  const thread = threadId ?? `thr_${newId('x').slice(2)}`
+  const user = await telegramOwner(mindId)
+  if (!user) return failedRun(thread, 'mind_not_found')
   const mind = await requireMind(user.id, mindId)
-  // Telegram runs have no client IP: key the try-out hourly window per user, so one busy bot can't use up everyone's
-  // (Lin1er's review on #171). The per-user run cap still applies.
-  const fakeReq = Object.assign(new EventEmitter(), { headers: { 'cf-connecting-ip': `telegram:${user.id}` }, socket: { remoteAddress: 'telegram' }, url: `/v1/telegram/${mindId}`, method: 'POST' }) as unknown as IncomingMessage
+  const fakeReq = telegramReq(user, mindId)
   try {
     await assertDemoRunAllowed(user, fakeReq)
   } catch (e) {
-    return { threadId: thread, text: '', needsApproval: false, error: e instanceof HttpError ? e.message : 'error' }
+    return failedRun(thread, e instanceof HttpError ? e.message : 'error')
   }
   const controller = new AbortController()
   const engineRes = await engineFetch(`/v1/minds/${encodeURIComponent(mind.id)}/chat`, {
     method: 'POST', signal: controller.signal,
     body: { userId: user.id, threadId: thread, message: text, mind: mindConfig(mind), secrets: await secretsForRun(user.id), ...(await runExtras(user, mind.id)) },
   })
-  let raw = ''
-  let status = 200
-  const sink = {
-    writeHead(code: number) { status = code; return sink },
-    write(t: string) { raw += t; return true },
-    end(t?: string) { if (t) raw += t; return sink },
-  }
-  await relayRun(fakeReq, sink as unknown as ServerResponse, engineRes, { mindId: mind.id, threadId: thread, userMessage: text, controller })
-  if (status !== 200) {
-    const err = (() => { try { return String(JSON.parse(raw).error ?? 'engine_error') } catch { return 'engine_error' } })()
-    return { threadId: thread, text: '', needsApproval: false, error: err }
-  }
-  const events = raw.split('\n').filter((l) => l.startsWith('data: ')).map((l) => { try { return JSON.parse(l.slice(6)) } catch { return null } }).filter(Boolean) as { type: string; text?: string }[]
-  const failed = events.find((e) => e.type === 'run.error')
-  return {
-    threadId: thread,
-    text: events.filter((e) => e.type === 'text.delta').map((e) => e.text ?? '').join(''),
-    needsApproval: events.some((e) => e.type === 'tool.approval_required'),
-    ...(failed ? { error: 'run_error' } : {}),
-  }
+  const sink = memorySink()
+  await relayRun(fakeReq, sink.res, engineRes, { mindId: mind.id, threadId: thread, userMessage: text, controller })
+  return outcomeOf(thread, sink.out.status, sink.out.raw)
 }
+
+// A button press, answered exactly like the app's approve/decline route (`resumeRun`).
+export const answerTelegramApproval: MindRunner['answer'] = async (mindId, runId, toolCallId, action) => {
+  const user = await telegramOwner(mindId)
+  const found = user ? await getRun(user.id, runId) : null
+  if (!user || !found || found.mindId !== mindId) return failedRun('', 'run_not_found')
+  const thread = found.threadId ?? ''
+  const sink = memorySink()
+  try {
+    await resumeRun(user, found, action, { toolCallId }, telegramReq(user, mindId), sink.res)
+  } catch (e) {
+    return failedRun(thread, e instanceof HttpError ? e.message : 'error')
+  }
+  return outcomeOf(thread, sink.out.status, sink.out.raw)
+}
+
+export const telegramRunner: MindRunner = { chat: runTelegramChat, answer: answerTelegramApproval }
 
 export const server = createServer(async (req, res) => {
   try {
@@ -251,7 +297,7 @@ export const server = createServer(async (req, res) => {
     if (tg) {
       if (req.method !== 'POST') throw new HttpError(405, 'method_not_allowed')
       const update = await readBody(req, z.object({ update_id: z.number().int() }).passthrough())
-      await telegramWebhook(tg[1], req.headers['x-telegram-bot-api-secret-token'] as string | undefined, update, runTelegramChat)
+      await telegramWebhook(tg[1], req.headers['x-telegram-bot-api-secret-token'] as string | undefined, update, telegramRunner)
       return sendJson(res, 200, { ok: true })
     }
 
@@ -326,22 +372,8 @@ export const server = createServer(async (req, res) => {
         return sendJson(res, 200, { run: await getRun(user.id, found.runId) })
       }
       if (run[2] && req.method === 'POST') {
-        const body = await readBody(req, resumeSchema)
-        // Only an action the run is actually waiting for can be approved or declined.
-        const [waiting] = await query(
-          `select 1 from run_events where run_id = $1 and type = 'tool.approval_required' and payload->>'toolCallId' = $2`, [found.runId, body.toolCallId])
-        if (found.status !== 'awaiting_approval' || !waiting) throw new HttpError(409, 'not_awaiting_approval')
-        const mind = await requireMind(user.id, found.mindId)
-        await assertDemoRunAllowed(user, req)
-        const controller = new AbortController()
-        const engineRes = await engineFetch(`/v1/runs/${encodeURIComponent(found.runId)}${run[2]}?mindId=${encodeURIComponent(mind.id)}`, {
-          method: 'POST', signal: controller.signal,
-          body: {
-            userId: user.id, threadId: found.threadId, mind: mindConfig(mind), secrets: await secretsFor(user.id, mind.id), toolCallId: body.toolCallId, reason: body.reason,
-            ...timeZoneOf(body), ...(await runExtras(user, mind.id)), ...attackOf(await playgroundAttackOf(mind.id)),
-          },
-        })
-        return relayRun(req, res, engineRes, { mindId: mind.id, threadId: found.threadId ?? undefined, resumeOf: found.runId, controller })
+        // Awaited, so its 409 / 429 lands in the catch below.
+        return await resumeRun(user, found, run[2] === '/approve' ? 'approve' : 'decline', await readBody(req, resumeSchema), req, res)
       }
       throw new HttpError(405, 'method_not_allowed')
     }
@@ -485,5 +517,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   void sweep()
   setInterval(sweep, 24 * 3600_000).unref()
   // Local dev without a public URL (#168): poll Telegram instead of waiting for webhooks.
-  if (config.telegramPolling && !config.telegramWebhookBase) { startTelegramPolling(runTelegramChat); console.log('telegram polling on') }
+  if (config.telegramPolling && !config.telegramWebhookBase) { startTelegramPolling(telegramRunner); console.log('telegram polling on') }
+  // Every bot's webhook again, so bots connected before #208 also get button presses (callback_query).
+  else void registerTelegramWebhooks().then((n) => { if (n.updated || n.failed) console.log('telegram webhooks set', JSON.stringify(n)) })
 }
