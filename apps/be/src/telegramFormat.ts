@@ -57,15 +57,16 @@ function inline(src: string, links = true): string {
   s = s.replace(/\\([\\`*_~[\]()#>|!-])/g, (_, c: string) => hold(escapeHtml(c)))
   // A label never hides where a link goes (Lin1er on #223: [Your bank](http://evil.example/login)): the host follows it
   // unless the label already names it.
-  const hostNote = (text: string, url: string) => {
-    const host = new URL(url).hostname.replace(/^www\./, '')
-    return text.toLowerCase().includes(host.toLowerCase()) ? '' : ` (${escapeHtml(host)})`
-  }
+  const hostNote = (text: string, host: string) => (text.toLowerCase().includes(host.toLowerCase()) ? '' : ` (${escapeHtml(host)})`)
   if (links) {
     // [text](url), one level of parentheses inside the URL. Only http/https become links; any other scheme (javascript:,
     // tg:, mailto:) stays visible as text, so nothing is hidden behind a label.
     s = s.replace(/\[([^\]\n]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)/g, (_, text: string, url: string) =>
-      isWebUrl(url) ? hold(`<a href="${escapeAttr(url)}">${inline(text, false)}</a>${hostNote(text, url)}`) : hold(`${inline(text, false)} (${escapeHtml(url)})`))
+      {
+        // A URL with no readable host (WHATWG can't parse it, e.g. http://a:b) is not made a link: shown like other schemes.
+        const host = isWebUrl(url) ? hostOf(url) : null
+        return host ? hold(`<a href="${escapeAttr(url)}">${inline(text, false)}</a>${hostNote(text, host)}`) : hold(`${inline(text, false)} (${escapeHtml(url)})`)
+      })
     s = s.replace(BARE_URL, (raw: string) => {
       const url = trimUrl(raw)
       return hold(`<a href="${escapeAttr(url)}">${escapeHtml(url)}</a>`) + escapeHtml(raw.slice(url.length))
@@ -197,13 +198,18 @@ export function telegramChunks(markdown: string, max = 4096): string[] {
 
 // The same chunk as plain text, for when Telegram refuses the HTML ("can't parse entities"): tags dropped, a link
 // written as "text (url)", entities read back.
+// The link's host without www, or null when WHATWG can't parse the URL (a stranger's email can carry one; it must never throw).
+export function hostOf(url: string): string | null {
+  try { return new URL(url).hostname.replace(/^www\./, '') || null } catch { return null }
+}
+
 export function plainOf(html: string): string {
   return html
     // A link reads "text (url)". The host note after a labelled link (hostNote) is dropped: the whole URL shows already.
     .replace(/<a href="([^"]*)">([\s\S]*?)<\/a>(?: \(([^)<]+)\))?/g, (_, href: string, text: string, note?: string) => {
       const t = text.replace(/<[^>]+>/g, '')
       const url = href.replace(/&quot;/g, '"')
-      const host = new URL(url.replace(/&amp;/g, '&')).hostname.replace(/^www\./, '')
+      const host = hostOf(url.replace(/&amp;/g, '&'))
       const rest = note !== undefined && note !== host ? ` (${note})` : ''
       return (t === url ? t : `${t} (${url})`) + rest
     })

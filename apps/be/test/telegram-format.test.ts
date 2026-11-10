@@ -109,3 +109,16 @@ test('a link label never hides the host it goes to (review on #223)', () => {
   assert.equal(telegramHtml('[docs.near.org](https://docs.near.org/x)'), '<a href="https://docs.near.org/x">docs.near.org</a>')
   assert.equal(telegramHtml('[NearBlocks testnet.nearblocks.io](https://www.testnet.nearblocks.io/txns/abc)'), '<a href="https://www.testnet.nearblocks.io/txns/abc">NearBlocks testnet.nearblocks.io</a>')
 })
+
+test('a link WHATWG cannot parse never throws and is not made a link (review on #223)', () => {
+  for (const url of ['http://a:b', 'http://[::1']) {
+    const md = `See [x](${url}) now`
+    const html = telegramHtml(md)
+    assert.ok(!html.includes('<a '), html)
+    assert.ok(html.includes(`x (${url})`), html)
+    assert.equal(telegramHtmlError(html), null)
+    // The plain fallback and the chunker take the same input without throwing.
+    assert.doesNotThrow(() => plainOf(html))
+    assert.doesNotThrow(() => telegramChunks(md))
+  }
+})
