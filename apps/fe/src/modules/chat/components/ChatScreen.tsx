@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { cn } from "cn"
 import { ArrowDownIcon, CircleXIcon, NetworkIcon, RotateCcwIcon, SnowflakeIcon } from "lucide-react"
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { MindAvatar } from "@/components/elements/MindAvatar"
@@ -55,6 +56,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   // The live view (C2, #17): beside the chat from 1280 px, remembered per device; a sheet below that.
   const [liveOpen, setLiveOpen] = useState(true)
   const [liveSheet, setLiveSheet] = useState(false)
+  const [liveAnimate, setLiveAnimate] = useState(false)
   useEffect(() => {
     try {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- read once from this device
@@ -65,6 +67,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   }, [])
   const toggleLive = () => {
     if (!window.matchMedia("(min-width: 1280px)").matches) return setLiveSheet(true)
+    setLiveAnimate(true)
     setLiveOpen((o) => {
       try {
         localStorage.setItem("hellonear.chat.live", o ? "off" : "on")
@@ -276,7 +279,27 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
         />
       </div>
     </div>
-      {liveOpen && <LiveView mindId={mindId} className="hidden w-[360px] shrink-0 border-l border-border p-5 xl:flex" />}
+      {/* Opens and closes like the app's sidebar (Ancung, 10 Nov): the width slides 0 <-> 360 px
+          (ease-in-out, 200 ms) and the panel fades, while the chat narrows or widens with it.
+          No slide on the first paint, only after a click. */}
+      <aside
+        aria-hidden={!liveOpen}
+        className={cn(
+          "relative hidden shrink-0 overflow-hidden xl:block",
+          liveOpen ? "w-[360px]" : "w-0",
+          liveAnimate && "transition-[width] duration-200 ease-in-out motion-reduce:transition-none"
+        )}
+      >
+        <div
+          inert={!liveOpen}
+          className={cn(
+            "absolute inset-y-0 left-0 flex w-[360px] border-l border-border transition-opacity duration-150 ease-out motion-reduce:transition-none",
+            liveOpen ? "opacity-100 delay-50" : "opacity-0"
+          )}
+        >
+          <LiveView mindId={mindId} className="w-full p-5" />
+        </div>
+      </aside>
       <Sheet open={liveSheet} onOpenChange={setLiveSheet}>
         <SheetContent side="right" className="w-full max-w-none! p-5 pt-12 sm:max-w-[400px]!">
           <SheetTitle className="sr-only">Live view</SheetTitle>
