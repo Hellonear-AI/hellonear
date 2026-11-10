@@ -103,6 +103,15 @@ export function useRecentChats(mindId: string) {
 }
 
 /** The starter templates for Choose a Mind (`GET /templates`, cached 60 s by the backend). */
+/** The whole Mind (soul, model), which the shell's list leaves out (Settings). */
+export function useFullMind(mindId: string) {
+  return useQuery({
+    queryKey: mindKeys.full(mindId),
+    enabled: useSignedIn(),
+    queryFn: async () => (await mindsApi.list()).find((m) => m.id === mindId) ?? null,
+  })
+}
+
 export function useTemplates() {
   return useQuery({
     queryKey: mindKeys.templates,
