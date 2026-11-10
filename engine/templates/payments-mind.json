@@ -13,5 +13,14 @@
     "priors": []
   },
   "model": "z-ai/glm-5.3-flash",
-  "skills": ["payments", "daily-planner"]
+  "skills": [
+    "payments",
+    "daily-planner",
+    "recipient-guard",
+    "split-bill",
+    "treasury-report",
+    "spending-audit",
+    "best-price",
+    "freeze-advisor"
+  ]
 }
