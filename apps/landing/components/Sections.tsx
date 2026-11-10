@@ -311,38 +311,6 @@ export function SeeInside() {
   );
 }
 
-const HOW = [
-  ["Pick a Mind", "Choose a personality and give it a name."],
-  ["Set your limits", "How much per payment, and which addresses it can pay."],
-  ["Stay in charge", "Every payment asks you first. Freeze it any time."],
-];
-
-export function Demo() {
-  return (
-    <section id="demo" className="mx-auto flex max-w-[1200px] flex-col gap-10 px-5 py-24">
-      <Heading title="Two minutes with a Mind" />
-      <div className="grid aspect-video max-h-[540px] w-full place-items-center rounded-[24px] border border-[var(--color-border-strong)] bg-[var(--color-surface-muted)]">
-        <div className="flex flex-col items-center gap-3 text-[var(--color-text-3)]">
-          <span className="grid size-16 place-items-center rounded-full bg-[var(--color-primary)] text-[var(--color-on-primary)]">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={Icon.play} /></svg>
-          </span>
-          <span className="text-[13px]">Placeholder: demo video (2 min)</span>
-        </div>
-      </div>
-      <div className="grid gap-5 md:grid-cols-3">
-        {HOW.map(([t, d], k) => (
-          <div key={t} className="flex items-start gap-3.5">
-            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[var(--color-accent)] text-[13px] font-semibold text-[var(--color-on-accent)]">{k + 1}</span>
-            <div>
-              <h3 className="text-[17px] font-medium">{t}</h3>
-              <p className="text-[15px] leading-[1.45] text-[var(--color-text-2)]">{d}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
 
 export function Cta() {
   return (

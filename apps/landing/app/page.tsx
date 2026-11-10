@@ -1,6 +1,7 @@
 import { Nav } from "@/components/Nav";
 import { Hero } from "@/components/hero/Hero";
-import { Cta, Demo, Footer, Safety, SeeInside } from "@/components/Sections";
+import { Cta, Footer, Safety, SeeInside } from "@/components/Sections";
+import { Demo } from "@/components/Demo";
 import { ApprovalsScroll } from "@/components/ApprovalsScroll";
 import { MeetMinds } from "@/components/MindCards";
 import { PoweredBy } from "@/components/PoweredBy";
