@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { config } from './config.ts'
 import { newId } from './crypto.ts'
 import { pool, query } from './db.ts'
+import { gmailAddress } from './connections.ts'
 import { HttpError, UPSTREAM_ERROR, fetchFailure } from './http.ts'
 
 export const EMAIL_SKILL = 'email-address'
@@ -192,6 +193,28 @@ export async function sendMail(mindId: string, body: z.infer<typeof sendMailSche
   const message = String(err.extra.reason || `mail service answered ${out.status}`)
   await finish(id, status, { code, message })
   return { ...base, status, code, message }
+}
+
+// Autopilot's "Email me" (#146): one email from the Mind's own address to its owner, and nobody else. The recipient is
+// never part of the request: it is the address of the owner's connected Gmail, read here. The engine authenticates with
+// its key only, because a scheduled run has no run token to show; the Mind must belong to the user. Try-out users never
+// get here (the engine answers with a sample) and are refused anyway. The daily cap per Mind applies, as for mail_send.
+export const ownerMailSchema = z.object({
+  userId: z.string().min(1).max(100),
+  mindId: z.string().min(1).max(100),
+  subject: z.string().trim().min(1).max(200),
+  text: z.string().min(1).max(10_000),
+  idempotencyKey: z.string().regex(/^[A-Za-z0-9._~-]{1,128}$/).optional(),
+}).strict() // a `to` field is refused, not ignored
+export const ownerMailFooter = (name: string) =>
+  `\n\n--\nSent by ${name}, your HelloNear Mind, from an Autopilot job. It can quote emails or web pages, so check before you act on anything in it.`
+
+export async function sendMailToOwner(body: z.infer<typeof ownerMailSchema>): Promise<SendResult> {
+  const info = await mindInfo(body.mindId)
+  if (!info) throw new HttpError(404, 'mind_not_found')
+  if (info.isDemo) throw new HttpError(403, 'demo_not_allowed', { action: 'mail_owner' })
+  const to = await gmailAddress(body.userId)
+  return sendMail(body.mindId, { to: [to], subject: body.subject, text: body.text + ownerMailFooter(info.name), idempotencyKey: body.idempotencyKey })
 }
 
 const sendResultOf = (r: any, from: string): SendResult => ({
