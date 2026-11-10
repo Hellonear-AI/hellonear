@@ -13,7 +13,7 @@ import type { RunEvent } from "@/modules/chat/data/events"
 import { stepText } from "@/modules/chat/data/steps"
 import { useChatRun } from "@/modules/chat/hooks/ChatRunProvider"
 import { MindGraph } from "@/modules/graph/components/MindGraph"
-import { buildGraph, liveStates, type GraphNode } from "@/modules/graph/data/graph"
+import { buildGraph, liveStates, nodeIdFor, type GraphNode } from "@/modules/graph/data/graph"
 import { templateImage } from "@/modules/minds/data/minds"
 import { useApprovals, useMind } from "@/modules/minds/hooks/useMinds"
 import { useSkillCatalog } from "@/modules/skills/hooks/useSkills"
@@ -74,6 +74,17 @@ export function LiveView({ mindId, className }: { mindId: string; className?: st
     return { ...built, nodes: liveStates(built.nodes, streamingRun, new Set(approvals.map((a) => a.toolCallId))) }
   }, [history.data, activeEvents, streaming, mindId, name, mind?.skills, catalog, approvals])
 
+  // What the reply on screen (or the last one) used, for its trail on the graph.
+  const trail = useMemo(() => {
+    const ids = new Set<string>()
+    for (const e of activeEvents ?? []) {
+      if (e.type !== "tool.called" || !e.tool) continue
+      const id = e.nodeId === "tool:updateWorkingMemory" ? `memory:${mindId}` : (e.nodeId ?? nodeIdFor(mindId, e.tool, e.args))
+      if (id !== "skill:hellonear-guide") ids.add(id)
+    }
+    return [...ids]
+  }, [activeEvents, mindId])
+
   const picked = graph.nodes.find((n) => n.id === selected) ?? null
   const live = Boolean(active?.streaming)
   const steps = active?.view.tools ?? []
@@ -102,6 +113,8 @@ export function LiveView({ mindId, className }: { mindId: string; className?: st
         avatarSrc={templateImage(mind?.templateId ?? "general-assistant")}
         selected={selected}
         onSelect={setSelected}
+        trail={trail}
+        live={streaming}
         label={`A map of ${name}'s skills, apps and tools. The steps of this reply are listed below it.`}
         className="h-[360px] shrink-0 rounded-lg bg-muted/50"
       />

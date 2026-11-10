@@ -19,6 +19,10 @@ type Props = {
   selected: string | null
   onSelect: (id: string | null) => void
   label: string
+  /** Nodes the reply on screen (or the last one) used: their paths from the Mind stay lit. */
+  trail?: string[]
+  /** The reply is still streaming: the trail carries moving dots. */
+  live?: boolean
   className?: string
 }
 
@@ -57,12 +61,16 @@ const FILL: Record<NodeKind, keyof Colors> = { mind: "mind", skill: "skill", too
 /** How long a finished state keeps glowing (ms). */
 const AFTERGLOW = { ok: 1600, error: 4000, denied: 4000 } as const
 
-export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect, label, className }: Props) {
+export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect, label, trail = [], live = false, className }: Props) {
   const wrap = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
   const logos = useRef<HTMLDivElement>(null)
   const sim = useRef<Sim | null>(null)
-  const data = useRef({ nodes, links, selected })
+  const data = useRef({ nodes, links, selected, trail, live })
+  // When this page saw each node's state change (performance clock). Pulses are timed from here,
+  // not from the event's own time, which comes from the server's clock and can arrive late
+  // (Ancung, 10 Nov: a 1 s calendar call never lit up).
+  const seen = useRef(new Map<string, { key: string; at: number }>())
   const view = useRef({ x: 0, y: 0, k: 1, auto: true })
   const hover = useRef<string | null>(null)
   const images = useRef(new Map<string, HTMLImageElement>())
@@ -74,9 +82,17 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
 
   // New data: keep the bodies that stay, warm the layout up a little.
   useEffect(() => {
-    data.current = { nodes, links, selected }
+    data.current = { nodes, links, selected, trail, live }
     sim.current = syncSim(sim.current, nodes, links, mind)
-  }, [nodes, links, selected, mind])
+    const now = performance.now()
+    for (const n of nodes) {
+      const key = `${n.state ?? ""}:${n.at ?? ""}`
+      const old = seen.current.get(n.id)
+      // The first time a node shows, its state is history: no pulse.
+      if (!old) seen.current.set(n.id, { key, at: n.state === "running" || n.state === "waiting" ? now : -Infinity })
+      else if (old.key !== key) seen.current.set(n.id, { key, at: now })
+    }
+  }, [nodes, links, selected, trail, live, mind])
 
   // The avatar and the apps' logos as images the canvas can draw.
   useEffect(() => {
@@ -210,8 +226,16 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
 
       const lit = neighbours(hover.current)
       const byId = new Map(data.current.nodes.map((n) => [n.id, n]))
+      const sinceSeen = (n: GraphNode) => now - (seen.current.get(n.id)?.at ?? -Infinity)
       const glowing = (n: GraphNode) =>
-        n.state === "running" || n.state === "waiting" || (n.at !== undefined && n.state !== undefined && now - performanceAt(n.at) < AFTERGLOW[n.state])
+        n.state === "running" || n.state === "waiting" || (n.state !== undefined && sinceSeen(n) < AFTERGLOW[n.state])
+      // The links on the way from the Mind to every node this reply used.
+      const trailLinks = new Set<string>()
+      for (const id of data.current.trail) {
+        const path = pathTo(id)
+        for (let i = 0; i < path.length - 1; i++) trailLinks.add(`${path[i]}>${path[i + 1]}`)
+      }
+      const onTrail = new Set(data.current.trail)
       const stateColor = (n: GraphNode) =>
         n.state === "running" ? colors.info : n.state === "waiting" ? colors.warning : n.state === "ok" ? colors.success : colors.danger
 
@@ -222,13 +246,36 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         const t = byId.get(l.target)
         if (!a || !b || !t) continue
         const on = glowing(t)
-        ctx.globalAlpha = lit && !(lit.has(l.source) && lit.has(l.target)) ? 0.12 : on ? 0.9 : 0.5
-        ctx.strokeStyle = on ? stateColor(t) : colors.line
-        ctx.lineWidth = (on ? 2 : 1.1) / v.k
+        const path = trailLinks.has(`${l.source}>${l.target}`)
+        ctx.globalAlpha = lit && !(lit.has(l.source) && lit.has(l.target)) ? 0.12 : on ? 0.95 : path ? (data.current.live ? 0.9 : 0.55) : 0.5
+        ctx.strokeStyle = on ? stateColor(t) : path ? colors.info : colors.line
+        ctx.lineWidth = (on || path ? 2.2 : 1.1) / v.k
         ctx.beginPath()
         ctx.moveTo(a.x, a.y)
         ctx.lineTo(b.x, b.y)
         ctx.stroke()
+      }
+
+      // While the reply streams, slow dots keep flowing along its whole trail.
+      if (!still.matches && data.current.live) {
+        ctx.fillStyle = colors.info
+        for (const id of data.current.trail) {
+          const n = byId.get(id)
+          if (!n || n.state === "running" || n.state === "waiting") continue
+          const path = pathTo(id)
+          for (let i = 0; i < path.length - 1; i++) {
+            const a = s.bodies.get(path[i])
+            const b = s.bodies.get(path[i + 1])
+            if (!a || !b) continue
+            for (let j = 0; j < 2; j++) {
+              const p = (now / 1600 + j / 2 + i * 0.23) % 1
+              ctx.globalAlpha = 0.7 * Math.sin(p * Math.PI)
+              ctx.beginPath()
+              ctx.arc(a.x + (b.x - a.x) * p, a.y + (b.y - a.y) * p, 2 / v.k, 0, Math.PI * 2)
+              ctx.fill()
+            }
+          }
+        }
       }
 
       // Dots travelling from the Mind to a tool that is working (or waiting on the owner).
@@ -261,7 +308,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
 
         if (glowing(n)) {
           const c = stateColor(n)
-          const since = now - performanceAt(n.at ?? 0)
+          const since = sinceSeen(n)
           const loop = n.state === "running" ? (now % 1200) / 1200 : n.state === "waiting" ? 0.5 + 0.5 * Math.sin(now / 400) : Math.min(1, since / 900)
           // A soft halo, then a ring that grows and fades.
           ctx.fillStyle = c
@@ -316,6 +363,16 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
           }
         }
 
+        if (onTrail.has(n.id) && n.kind !== "mind" && !glowing(n)) {
+          ctx.strokeStyle = colors.info
+          ctx.lineWidth = 1.6 / v.k
+          ctx.globalAlpha = dim ? 0.15 : data.current.live ? 0.9 : 0.55
+          ctx.beginPath()
+          ctx.arc(b.x, b.y, b.r + 3.5 / v.k, 0, Math.PI * 2)
+          ctx.stroke()
+          ctx.globalAlpha = dim ? 0.22 : 1
+        }
+
         if (n.id === data.current.selected) {
           ctx.strokeStyle = colors.fg
           ctx.lineWidth = 2 / v.k
@@ -350,10 +407,6 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       }
       ctx.globalAlpha = 1
     }
-
-    // The canvas measures time from the page's start; events use wall clock.
-    const offset = Date.now() - performance.now()
-    const performanceAt = (ms: number) => ms - offset
 
     const loop = (now: number) => {
       if (visible && !document.hidden) draw(now)
