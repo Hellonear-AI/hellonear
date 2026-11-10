@@ -86,8 +86,15 @@ export function approvalDetails(step: ToolStep, timeZone?: string): ApprovalDeta
         note: "Adds one row at the end of your Google Sheet. Nothing else changes.",
       }
     }
-    case "notion_create_page":
-      return { title: `Add the page "${str(a.title) ?? "Untitled"}" to Notion`, lines: [], note: "Creates a new page under the one you shared. Nothing else changes." }
+    case "notion_create_page": {
+      // Like a new Doc: say whether the page comes with text, and how much (it can't be edited later).
+      const length = (str(a.markdown) ?? "").length
+      return {
+        title: `Add the page "${str(a.title) ?? "Untitled"}" to Notion`,
+        lines: [{ label: "Length", value: length ? `${length.toLocaleString("en")} characters` : "Empty page" }],
+        note: "Creates a new page under the one you shared, with this text. Nothing else changes.",
+      }
+    }
     case "notion_add_row": {
       const props = Array.isArray(a.properties) ? (a.properties as Record<string, unknown>[]) : []
       return {
