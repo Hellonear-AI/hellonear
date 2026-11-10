@@ -28,7 +28,7 @@ describe("Mind Graph (#17)", () => {
     expect(ids).toEqual(expect.arrayContaining(["mind:m1", "skill:payments", "wallet:m1", "skill:daily-planner", "app:googlecalendar", "app:googlemeet", "tool:get_time"]))
     expect(ids).not.toContain("skill:blocked-one")
     expect(g.links).toContainEqual({ source: "skill:payments", target: "wallet:m1" })
-    expect(g.nodes.find((n) => n.id === "app:googlecalendar")).toMatchObject({ kind: "app", app: "googlecalendar", label: "Google Calendar" })
+    expect(g.nodes.find((n) => n.id === "app:googlecalendar")).toMatchObject({ kind: "app", app: "googlecalendar", label: "Your Google Calendar" })
   })
 
   it("counts calls and keeps each node's last state", () => {
@@ -181,5 +181,35 @@ describe("live view layout across chats (Ancung, 11 Nov)", () => {
     const back = syncSim(without, nodes, links, "mind:m")
     expect(back.bodies.get("tool:x")).toMatchObject({ x: place.x, y: place.y })
     expect(back.alpha).toBe(first.alpha)
+  })
+})
+
+describe("app bubbles for the track skills' apps (11 Nov)", () => {
+  it("names a Google Docs bubble and gives it its logo key", async () => {
+    const { buildGraph } = await import("@/modules/graph/data/graph")
+    const g = buildGraph({
+      mindId: "m",
+      name: "Omaga",
+      skills: ["docs"],
+      catalog: [{ skillId: "docs", description: "", status: "available", connections: ["googledrive", "googledocs"], tools: ["googledocs_create_document"] }],
+      events: [],
+    })
+    expect(g.nodes.find((n) => n.id === "app:googledocs")).toMatchObject({ label: "Your Google Docs", app: "googledocs" })
+  })
+})
+
+describe("a track app hangs off its skill (11 Nov)", () => {
+  it("draws Mind, skill, app, with the app's logo key and no tool bubbles of its own", async () => {
+    const { buildGraph } = await import("@/modules/graph/data/graph")
+    const g = buildGraph({
+      mindId: "m",
+      name: "Omaga",
+      skills: ["notion"],
+      catalog: [{ skillId: "notion", description: "", status: "available", connections: ["notion"], tools: ["notion_search", "notion_add_row"] }],
+      events: [],
+    })
+    expect(g.nodes.find((n) => n.id === "app:notion")).toMatchObject({ label: "Your Notion", app: "notion" })
+    expect(g.nodes.some((n) => n.id.startsWith("tool:notion"))).toBe(false)
+    expect(g.links).toContainEqual({ source: "skill:notion", target: "app:notion" })
   })
 })
