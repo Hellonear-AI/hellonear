@@ -117,10 +117,59 @@ test('condition branches: then is required, branches are last, inputs may not cl
   clash.nodes[4] = { id: 'chill', type: 'agent', data: { prompt: 'other' } } as any
   clash.nodes[3] = { id: 'notify', type: 'agent', data: { prompt: 'one' } } as any
   assert.match(issues(() => compileCanvas('m', 'w', clash)), /both branches need a different "prompt"/)
-  const after = balanceAlert()
-  after.nodes.push({ id: 'more', type: 'agent', data: { prompt: 'x' } } as any)
-  after.edges.push({ source: 'notify', target: 'more' } as any)
-  assert.match(issues(() => compileCanvas('m', 'w', after)), /must be the last node of its path/)
+})
+
+test('an If way can be a chain of steps, compiled as a nested workflow with its own mappings (#153)', () => {
+  const c = balanceAlert()
+  // Yes: notify, then a note that reads notify's answer and the balance from before the If.
+  c.nodes.push({ id: 'note', type: 'agent', data: { prompt: 'Website said {{steps.notify.status}}; {{steps.balance.accountId}} has {{steps.balance.balanceNear}} NEAR.' } } as any)
+  c.edges.push({ source: 'notify', target: 'note' } as any)
+  const out = compileCanvas('m', 'w', c)
+  assert.equal(out.children.length, 1)
+  const child = out.children[0]
+  assert.equal(child.id, 'mind-m--w--then')
+  assert.deepEqual(child.graph.map((g: any) => g.id), ['in:notify', 'notify', 'in:note', 'note'])
+  // Values from before the If arrive as then_pN inputs (p0 = accountId, p1 = balanceNear); notify's own answer stays a step reference inside the way.
+  const noteMap = (child.graph[2] as any).mapConfig
+  assert.equal(noteMap.prompt.template, 'Website said ${stepResults.notify.status}; ${initData.then_p0} has ${initData.then_p1} NEAR.')
+  assert.deepEqual((child.graph[0] as any).mapConfig.body, { template: '${initData.then_p0} has ${initData.then_p1} NEAR' })
+  const cond = out.definition.graph.at(-1) as any
+  assert.deepEqual(cond.steps[0], { type: 'workflow', id: 'way-then', workflowId: 'mind-m--w--then' })
+  assert.deepEqual(cond.steps[1], { type: 'agent', id: 'chill', agentId: 'mind' })
+  const shared = (out.definition.graph.at(-2) as any).mapConfig
+  assert.deepEqual(shared.then_p0, { step: 'balance', path: 'accountId' })
+  assert.deepEqual(shared.then_p1, { step: 'balance', path: 'balanceNear' })
+  // Events arrive as way-then.<node>; the way's own entry carries its last node for run history.
+  assert.equal(out.steps['way-then.notify'].node, 'notify')
+  assert.equal(out.steps['way-then.note'].node, 'note')
+  assert.deepEqual(out.steps['way-then'], { node: 'note', type: 'agent', way: true })
+  assert.equal(out.steps.notify, undefined)
+  // Two Asks are fine now: each way of more than one step has its own mapping.
+  const two = balanceAlert()
+  two.nodes[3] = { id: 'notify', type: 'agent', data: { prompt: 'one' } } as any
+  two.nodes.push({ id: 'note', type: 'agent', data: { prompt: 'two' } } as any)
+  two.edges.push({ source: 'notify', target: 'note' } as any)
+  assert.equal(compileCanvas('m', 'w', two).children.length, 1)
+})
+
+test('If way chains: no reference across ways, no fork inside a way, no If inside a way (#153)', () => {
+  const across = balanceAlert()
+  across.nodes.push({ id: 'note', type: 'agent', data: { prompt: '{{steps.chill.text}}' } } as any)
+  across.edges.push({ source: 'notify', target: 'note' } as any)
+  assert.match(issues(() => compileCanvas('m', 'w', across)), /steps\.chill…\}\} must be a node that runs earlier/)
+  const fork = balanceAlert()
+  fork.nodes.push({ id: 'x', type: 'agent', data: { prompt: 'x' } } as any, { id: 'y', type: 'agent', data: { prompt: 'y' } } as any)
+  fork.edges.push({ source: 'notify', target: 'x' } as any, { source: 'notify', target: 'y' } as any)
+  assert.match(issues(() => compileCanvas('m', 'w', fork)), /can have only one next step/)
+  const nested = balanceAlert()
+  nested.nodes.push({ id: 'again', type: 'condition', data: { left: '{{steps.balance.balanceNear}}', op: 'lt', right: 1 } } as any)
+  nested.edges.push({ source: 'notify', target: 'again' } as any)
+  assert.match(issues(() => compileCanvas('m', 'w', nested)), /must be an agent, tool or http node/)
+  // Email me inside a way still refuses raw tool output, and accepts the way's own note.
+  const mail = balanceAlert()
+  mail.nodes.push({ id: 'mail', type: 'tool', data: { tool: 'mail_send_to_owner', args: { subject: 'x', text: '{{steps.notify.body}}' } } } as any)
+  mail.edges.push({ source: 'notify', target: 'mail' } as any)
+  assert.match(issues(() => compileCanvas('m', 'w', mail)), /not a note from the Mind/)
 })
 
 test('headers may carry secrets but not step references', () => {

@@ -70,11 +70,17 @@ type Scope = { steps: Set<string>; inputs: Set<string> }
 
 export type CompiledWorkflow = {
   definition: Record<string, unknown> & { id: string; graph: unknown[] }
+  // An If way with more than one step is its own dynamic workflow (#153), registered before `definition`.
+  children: (Record<string, unknown> & { id: string; graph: unknown[] })[]
   // Registry keys of every tool the workflow calls; the Mind must have all of them to run it.
   tools: string[]
   // Mastra step id → canvas node, for events and the Mind Graph.
-  steps: Record<string, { node: string; type: ActionNode['type']; tool?: string }>
+  // A way's own entry (`way: true`) carries its last node: run history only keeps the way's final output.
+  steps: Record<string, { node: string; type: ActionNode['type']; tool?: string; way?: true }>
 }
+
+// Mastra workflow id of an If way's nested workflow (#153). Workflow ids never contain "--", so it can't collide.
+export const wayWorkflowId = (mindId: string, workflowId: string, handle: 'then' | 'else') => `${mastraWorkflowId(mindId, workflowId)}--${handle}`
 
 export function compileCanvas(mindId: string, workflowId: string, input: unknown): CompiledWorkflow {
   if (!mindIdSchema.safeParse(mindId).success || !workflowIdSchema.safeParse(workflowId).success) throw new BuilderError([{ path: 'id', message: 'invalid mindId or workflowId' }])
@@ -102,20 +108,27 @@ export function compileCanvas(mindId: string, workflowId: string, input: unknown
   // Walk the chain from the trigger.
   const chain: ActionNode[] = []
   let condition: Extract<Node, { type: 'condition' }> | undefined
-  const branches: { handle: 'then' | 'else'; node: ActionNode }[] = []
+  // Each way of the If is a chain of action nodes (#153); one node is the common case.
+  const branches: { handle: 'then' | 'else'; nodes: ActionNode[] }[] = []
   const seen = new Set([start.id])
   let current: Node = start
   for (;;) {
     const next = out(current.id)
     if (current.type === 'condition') {
       for (const e of next) {
-        const target = byId.get(e.target)!
-        if (!e.sourceHandle) fail(`node ${current.id}`, 'condition edges need sourceHandle "then" or "else"')
-        else if (branches.some((b) => b.handle === e.sourceHandle)) fail(`node ${current.id}`, `more than one "${e.sourceHandle}" edge`)
-        else if (target.type === 'trigger' || target.type === 'condition') fail(`node ${target.id}`, 'a condition branch must be an agent, tool or http node')
-        else if (out(target.id).length) fail(`node ${target.id}`, 'a condition branch must be the last node of its path')
-        else if (seen.has(target.id)) fail(`node ${target.id}`, 'used twice')
-        else { seen.add(target.id); branches.push({ handle: e.sourceHandle, node: target }) }
+        if (!e.sourceHandle) { fail(`node ${current.id}`, 'condition edges need sourceHandle "then" or "else"'); continue }
+        if (branches.some((b) => b.handle === e.sourceHandle)) { fail(`node ${current.id}`, `more than one "${e.sourceHandle}" edge`); continue }
+        const way: ActionNode[] = []
+        for (let target: Node | undefined = byId.get(e.target); target; ) {
+          if (target.type === 'trigger' || target.type === 'condition') { fail(`node ${target.id}`, 'a step on an If way must be an agent, tool or http node'); break }
+          if (seen.has(target.id)) { fail(`node ${target.id}`, 'used twice'); break }
+          seen.add(target.id)
+          way.push(target)
+          const after = out(target.id)
+          if (after.length > 1) { fail(`node ${target.id}`, 'a step on an If way can have only one next step'); break }
+          target = after.length ? byId.get(after[0].target) : undefined
+        }
+        branches.push({ handle: e.sourceHandle, nodes: way })
       }
       if (!branches.some((b) => b.handle === 'then')) fail(`node ${current.id}`, 'a condition needs a "then" edge')
       break
@@ -138,20 +151,39 @@ export function compileCanvas(mindId: string, workflowId: string, input: unknown
   const tools = new Set<string>()
   const steps: CompiledWorkflow['steps'] = {}
   const graph: unknown[] = []
+  const children: CompiledWorkflow['children'] = []
+
+  // Inside a multi-step If way (#153): its own earlier steps are local; anything from before the If reaches the
+  // nested workflow through the If's mapping, as an input key (`pass`).
+  type Way = { local: Set<string>; pass: Map<string, { key: string; from: Descriptor }> }
+  let way: Way | null = null
+  const passKey = (ref: string, from: Descriptor) => {
+    if (!way!.pass.has(ref)) way!.pass.set(ref, { key: `p${way!.pass.size}`, from })
+    return way!.pass.get(ref)!.key
+  }
 
   // Turns one text field into a Mastra mapping descriptor, keeping types for a lone reference.
   const describe = (where: string, raw: unknown): Descriptor => {
     if (typeof raw !== 'string') return { value: raw }
     // Mastra templates can read requestContext, which holds the secrets: never pass user ${...} through.
     if (raw.includes('${')) { fail(where, '"${" is not allowed; use {{steps.<node>.<field>}} or {{input.<name>}}'); return { value: raw } }
-    for (const m of raw.matchAll(REF)) {
-      if (m[2] && !scope.steps.has(m[2])) fail(where, `{{steps.${m[2]}…}} must be a node that runs earlier on this path`)
-      if (!m[2] && !scope.inputs.has(m[3].split('.')[0])) fail(where, `{{input.${m[3]}}} is not a trigger input`)
+    // One reference → where its value comes from in the Mastra workflow being built.
+    const source = (step: string | undefined, path: string): { step: string; path: string } | { initData: true; path: string } | null => {
+      if (step && way?.local.has(step)) return { step, path }
+      if (step && !scope.steps.has(step)) { fail(where, `{{steps.${step}…}} must be a node that runs earlier on this path`); return null }
+      if (!step && !scope.inputs.has(path.split('.')[0])) { fail(where, `{{input.${path}}} is not a trigger input`); return null }
+      const outer = step ? { step, path } : { initData: true as const, path }
+      return way ? { initData: true, path: passKey(`${step ?? 'input'}.${path}`, outer) } : outer
     }
     const only = raw.match(ONLY_REF)
-    if (only) return only[2] ? { step: only[2], path: only[3] } : { initData: true, path: only[3] }
+    if (only) return source(only[2], only[3]) ?? { value: raw }
     if (!raw.match(REF)) return { value: raw }
-    return { template: raw.replace(REF, (_m, _k, step, path) => (step ? `\${stepResults.${step}.${path}}` : `\${initData.${path}}`)) }
+    return {
+      template: raw.replace(REF, (m, _k, step, path) => {
+        const src = source(step, path)
+        return !src ? m : 'step' in src ? `\${stepResults.${src.step}.${src.path}}` : `\${initData.${src.path}}`
+      }),
+    }
   }
 
   // The mapping config and the Mastra step for one action node.
@@ -182,7 +214,7 @@ export function compileCanvas(mindId: string, workflowId: string, input: unknown
     if (tool === 'mail_send_to_owner') {
       for (const [k, v] of Object.entries(n.data.args)) {
         for (const m of typeof v === 'string' ? v.matchAll(REF) : []) {
-          if (m[2] && steps[m[2]] && steps[m[2]].type !== 'agent') fail(`${where}.args.${k}`, `{{steps.${m[2]}…}} is not a note from the Mind; Email me can only send what the Mind wrote`)
+          if (m[2] && byId.get(m[2]) && byId.get(m[2])!.type !== 'agent') fail(`${where}.args.${k}`, `{{steps.${m[2]}…}} is not a note from the Mind; Email me can only send what the Mind wrote`)
         }
       }
     }
@@ -206,18 +238,50 @@ export function compileCanvas(mindId: string, workflowId: string, input: unknown
     const path = ref ? (ref[2] ? `stepResults.${ref[2]}.${ref[3]}` : `initData.${ref[3]}`) : ''
     const predicate = { op: condition.data.op, left: { path }, right: { literal: condition.data.right } }
 
-    // Branch steps cannot have their own mapping, so one mapping feeds both (spike 02):
-    // each branch reads its own keys and ignores the rest.
+    // Branch steps cannot have their own mapping, so one mapping feeds both (spike 02): a one-step way reads its own
+    // keys and ignores the rest. A longer way (#153) is a nested workflow with its own mappings; the shared mapping
+    // only hands it the values from before the If that it uses.
     const merged: Record<string, Descriptor> = {}
     const stepsOut: unknown[] = []
     const predicates: unknown[] = []
+    const add = (at: string, k: string, d: Descriptor) => {
+      if (k in merged && JSON.stringify(merged[k]) !== JSON.stringify(d)) fail(at, `both branches need a different "${k}"; make one branch a different kind of node`)
+      merged[k] = d
+    }
     for (const b of [...branches.filter((x) => x.handle === 'then'), ...branches.filter((x) => x.handle === 'else')]) {
-      const { config, step } = action(b.node)
-      for (const [k, d] of Object.entries(config)) {
-        if (k in merged && JSON.stringify(merged[k]) !== JSON.stringify(d)) fail(`node ${b.node.id}`, `both branches need a different "${k}"; make one branch a different kind of node`)
-        merged[k] = d
+      if (b.nodes.length === 1) {
+        const { config, step } = action(b.nodes[0])
+        for (const [k, d] of Object.entries(config)) add(`node ${b.nodes[0].id}`, k, d)
+        stepsOut.push(step)
+      } else if (b.nodes.length > 1) {
+        way = { local: new Set(), pass: new Map() }
+        const wayGraph: unknown[] = []
+        const wayId = `way-${b.handle}`
+        for (const n of b.nodes) {
+          const { config, step } = action(n)
+          // action() registered the node under its own id; inside a way, events arrive as `<wayId>.<node>`.
+          steps[`${wayId}.${n.id}`] = steps[n.id]
+          delete steps[n.id]
+          wayGraph.push({ type: 'mapping', id: `in:${n.id}`, mapConfig: config }, step)
+          way.local.add(n.id)
+        }
+        const last = b.nodes[b.nodes.length - 1]
+        steps[wayId] = { ...steps[`${wayId}.${last.id}`], way: true }
+        const pass = [...way.pass.values()]
+        way = null
+        for (const p of pass) add(`node ${condition.id}`, `${b.handle}_${p.key}`, p.from)
+        const childId = wayWorkflowId(mindId, workflowId, b.handle)
+        children.push({
+          id: childId,
+          description: `${canvas.name}: if ${b.handle === 'then' ? 'yes' : 'no'}`,
+          inputSchema: { type: 'object', properties: Object.fromEntries(pass.map((p) => [`${b.handle}_${p.key}`, {}])) },
+          outputSchema: { type: 'object', properties: {} },
+          metadata: { hellonearWay: { v: 1, mindId, workflowId, handle: b.handle } },
+          // The nested workflow reads `<handle>_pN` from its input; rename here so both ways share one mapping.
+          graph: JSON.parse(JSON.stringify(wayGraph).replace(/"initData":true,"path":"(p\d+)/g, `"initData":true,"path":"${b.handle}_$1`).replace(/\$\{initData\.(p\d+)/g, `\${initData.${b.handle}_$1`)),
+        })
+        stepsOut.push({ type: 'workflow', id: wayId, workflowId: childId })
       }
-      stepsOut.push(step)
       predicates.push(b.handle === 'then' ? predicate : { op: 'not', arg: predicate })
     }
     graph.push({ type: 'mapping', id: `in:${condition.id}`, mapConfig: merged }, { type: 'conditional', id: condition.id, steps: stepsOut, predicates })
@@ -234,6 +298,7 @@ export function compileCanvas(mindId: string, workflowId: string, input: unknown
       metadata: { hellonear: { v: 1, mindId, workflowId, canvas, tools: [...tools], steps, schedule: start.data.schedule ?? null } },
       graph,
     },
+    children,
     tools: [...tools],
     steps,
   }

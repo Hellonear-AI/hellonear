@@ -89,7 +89,9 @@ export function createWorkflowNormalizer(opts: { mindId: string; workflowId: str
 
   const normalize = async function normalize(chunk: { type: string; runId: string; payload?: any }): Promise<HelloNearEvent[]> {
     const p = chunk.payload ?? {}
-    const step = typeof p.id === 'string' ? opts.steps[p.id] : undefined
+    // A multi-step If way's own entry (#153) only frames its steps, which stream as `<way>.<node>`.
+    const found = typeof p.id === 'string' ? opts.steps[p.id] : undefined
+    const step = found?.way ? undefined : found
     switch (chunk.type) {
       case 'workflow-start':
         return [inner.event(chunk.runId, 'workflow.started', { workflowId: opts.workflowId, nodeId: `workflow:${opts.workflowId}`, model: opts.model, skills: opts.skills })]
