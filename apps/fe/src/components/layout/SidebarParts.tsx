@@ -113,7 +113,7 @@ export function RecentChats({ mindId, onNavigate }: { mindId: string; onNavigate
       </div>
       <div className="flex flex-col gap-0.5">
         {chats.length === 0 && (
-          <p className="px-3 py-2 text-xs text-tertiary-foreground">No chats yet.</p>
+          <p className="px-3 py-2 text-xs text-tertiary-foreground">No chats yet</p>
         )}
         {chats.map((chat) => {
           const href = `${mindHref(mindId, "chat")}/${chat.threadId}`

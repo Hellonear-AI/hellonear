@@ -26,7 +26,7 @@ export const NAV_ITEMS: NavItem[] = [
   { segment: "skills", label: "Skills", icon: PuzzleIcon },
   { segment: "autopilot", label: "Autopilot", icon: RepeatIcon },
   { segment: "connections", label: "Connections", icon: PlugIcon },
-  { segment: "attack", label: "Attack Playground", icon: SwordsIcon },
+  { segment: "attack", label: "Attack playground", icon: SwordsIcon },
 ]
 
 export function mindHref(mindId: string, segment = "chat") {

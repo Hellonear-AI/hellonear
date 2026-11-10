@@ -157,7 +157,7 @@ function setUpNotice(err: unknown, name: string): Notice {
     }
   }
   if (err instanceof SetUpError && err.step === "check") {
-    return { text: "Meteor signed, but the limits don't show up yet. Check again in a moment.", retry: "Check again" }
+    return { text: "Meteor signed, but the limits do not show yet. Please check again.", retry: "Check again" }
   }
   const cause = err instanceof SetUpError ? err.cause : err
   if (cause instanceof ApiError && (cause.code === "outlayer_error" || cause.code === "outlayer_unreachable")) {

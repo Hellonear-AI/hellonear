@@ -264,7 +264,7 @@ function AboutMind({ open, onOpenChange }: { open: boolean; onOpenChange: (open:
 /** L1.3: say what happened and that nothing changed; the same button works again. */
 export function walletError(err: unknown): string {
   if (err instanceof ApiError) return signInErrorMessage(err)
-  return "Sign-in was canceled in the wallet."
+  return "Sign-in was canceled in the wallet. No changes were made."
 }
 
 /** T1.2 and a backend without try-out mode. */

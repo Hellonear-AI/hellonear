@@ -156,8 +156,8 @@ export function useSignOut() {
 export function signInErrorMessage(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.code === "invalid_nonce") return "The sign-in request expired. Please try again."
-    if (err.code === "invalid_signature") return "The wallet's signature was not accepted. Use a full-access key of this account."
-    if (err.code === "bad_origin") return "This address is not allowed to sign in to the backend."
+    if (err.code === "invalid_signature") return "The wallet's signature was not accepted. Sign in with the wallet that owns this account."
+    if (err.code === "bad_origin") return "Sign-in is not allowed from this web address."
     return "Could not reach HelloNear. Please try again."
   }
   return "The wallet did not sign the request."
