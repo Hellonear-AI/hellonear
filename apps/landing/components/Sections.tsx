@@ -156,9 +156,9 @@ export function ApprovalScene() {
               AI can be fooled, so your limits live outside of it. A trick has to get past you, then past the wallet.
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-5 [perspective:1400px]">
+          <div className="grid grid-cols-2 items-stretch gap-5">
             {/* Layer 1: you see it and say no */}
-            <div className="glass-float flex flex-col gap-3 rounded-[20px] p-4 [transform:rotateX(14deg)_rotateZ(-4deg)]">
+            <div className="glass-float flex flex-col gap-3 rounded-[20px] p-4">
               <div className="flex items-center gap-2">
                 <span className="grid size-6 place-items-center rounded-full bg-[var(--color-primary)] text-[12px] font-semibold text-[var(--color-on-primary)]">1</span>
                 <span className="text-[15px] font-medium">You see it and say no</span>
@@ -185,7 +185,7 @@ export function ApprovalScene() {
               </div>
             </div>
             {/* Layer 2: approved by mistake, still no */}
-            <div className="glass-float mt-[60px] flex flex-col gap-3 rounded-[20px] p-4 [transform:rotateX(14deg)_rotateZ(5deg)]">
+            <div className="glass-float flex flex-col gap-3 rounded-[20px] p-4">
               <div className="flex items-center gap-2">
                 <span className="grid size-6 place-items-center rounded-full bg-[var(--color-primary)] text-[12px] font-semibold text-[var(--color-on-primary)]">2</span>
                 <span className="text-[15px] font-medium">Approved by mistake? Still no</span>

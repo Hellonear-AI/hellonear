@@ -59,7 +59,6 @@ export function ApprovalsScroll() {
     const tricked = q(".ap-tricked")[0] as HTMLElement;
     const st = { open: 0, track: 0 };
     const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-    const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 
     const render = () => {
       const W = visual.clientWidth;
@@ -76,7 +75,7 @@ export function ApprovalsScroll() {
       const L0 = Math.max(500, (W - 1200) / 2 + 520);
       const H0 = Math.min(H * 0.78, 760);
       const T0 = (H - H0) / 2;
-      const t = ease(st.track);
+      const t = st.track; // linear, like the scroll before the pin, so the hand-off doesn't jolt
       // the window
       const left = lerp(lerp(W, L0, st.open), 0, t);
       const top = lerp(T0, 0, t);
@@ -90,11 +89,10 @@ export function ApprovalsScroll() {
       const sc = lerp(s0, s1, t);
       const x0 = L0 + (1 - st.open) * 90; // a little parallax while it opens
       const x1 = W - STAGE_W * s1;
-      stage.style.transform = `translate3d(${lerp(x0, x1, t)}px, ${lerp(T0, 0, t)}px, 0) scale(${sc})`;
-      // the copy slides away at the start of the track
-      const c = Math.min(1, st.track / 0.3);
-      copy.style.transform = `translate3d(${-120 * c}px,0,0)`;
-      copy.style.opacity = String(1 - c);
+      const sx = lerp(x0, x1, t);
+      stage.style.transform = `translate3d(${sx}px, ${lerp(T0, 0, t)}px, 0) scale(${sc})`;
+      // the copy slides left with the photo, by the same distance (no fade)
+      copy.style.transform = `translate3d(${sx - x0}px,0,0)`;
       // "Tricked?" sits at the photo's edge at rest; it comes in as the camera starts to move
       tricked.style.opacity = String(Math.min(1, Math.max(0, (st.track - 0.12) / 0.25)));
     };
@@ -104,9 +102,9 @@ export function ApprovalsScroll() {
       st.track = 0;
       gsap.to(st, {
         open: 1,
-        ease: "power2.out",
+        ease: "none",
         onUpdate: render,
-        scrollTrigger: { trigger: el, start: "top 85%", end: "top 15%", scrub: 0.6 },
+        scrollTrigger: { trigger: el, start: "top 85%", end: "top top", scrub: 0.8 },
       });
       gsap.to(st, {
         track: 1,
@@ -124,7 +122,6 @@ export function ApprovalsScroll() {
       render();
       return () => {
         copy.style.transform = "";
-        copy.style.opacity = "";
         tricked.style.opacity = "";
       };
     });
