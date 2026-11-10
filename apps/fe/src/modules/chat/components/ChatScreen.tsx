@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowDownIcon, CircleXIcon, RotateCcwIcon, SnowflakeIcon } from "lucide-react"
+import { ArrowDownIcon, CircleXIcon, NetworkIcon, RotateCcwIcon, SnowflakeIcon } from "lucide-react"
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { MindAvatar } from "@/components/elements/MindAvatar"
 import { Badge } from "@/components/ui/badge"
@@ -24,6 +24,8 @@ import { summaryLabel } from "@/modules/chat/data/steps"
 import type { ApiWallet } from "@/modules/minds/api"
 import { templateLabel } from "@/modules/minds/data/minds"
 import { useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
+import { LiveView } from "@/modules/graph/components/LiveView"
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 
 type Shown = { key: string; message: string | null; createdAt: string; view: RunView; live: boolean; failed: unknown }
 
@@ -49,6 +51,29 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   const outOfMessages =
     tryOut && (tryOutLeft === 0 || (active?.failed instanceof ApiError && active.failed.code === "demo_run_limit"))
   const limit = wallet?.policy?.perTransactionNear ?? null
+
+  // The live view (C2, #17): beside the chat from 1280 px, remembered per device; a sheet below that.
+  const [liveOpen, setLiveOpen] = useState(true)
+  const [liveSheet, setLiveSheet] = useState(false)
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- read once from this device
+      if (localStorage.getItem("hellonear.chat.live") === "off") setLiveOpen(false)
+    } catch {
+      // no storage: keep it open
+    }
+  }, [])
+  const toggleLive = () => {
+    if (!window.matchMedia("(min-width: 1280px)").matches) return setLiveSheet(true)
+    setLiveOpen((o) => {
+      try {
+        localStorage.setItem("hellonear.chat.live", o ? "off" : "on")
+      } catch {
+        // no storage
+      }
+      return !o
+    })
+  }
 
   // The run in progress belongs here if it's this thread's, or a new chat still waiting for its id.
   // On a new chat (`/chat`), the run started from this page stays on it until the move to
@@ -93,7 +118,8 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   const { ref: scrollRef, lastRef, onScroll, atBottom, toBottom, viewHeight } = useChatScroll(ready && shown.length > 0, pinKey)
 
   return (
-    <div className="flex h-[calc(100dvh-3.5rem)] min-h-0 flex-col md:h-dvh">
+    <div className="flex h-[calc(100dvh-3.5rem)] min-h-0 md:h-dvh">
+    <div className="flex min-w-0 flex-1 flex-col">
       {/* No divider: the chat fades out under the header instead (Ancung, 9 Nov). */}
       <header className="hidden items-center gap-3 px-8 py-4 md:flex">
         <div className="flex min-w-0 flex-1 flex-col">
@@ -103,6 +129,10 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
             {tryOut ? ", try-out with a shared test wallet" : limit ? `, asks before every payment, up to ${limit} NEAR each` : ""}
           </p>
         </div>
+        <Button variant="ghost" size="sm" onClick={toggleLive} aria-pressed={liveOpen} className="shrink-0 text-muted-foreground">
+          <NetworkIcon />
+          Live view
+        </Button>
       </header>
 
       {tryOut && (
@@ -235,6 +265,14 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
           onSend={(text) => send(text, threadId)}
         />
       </div>
+    </div>
+      {liveOpen && <LiveView mindId={mindId} className="hidden w-[360px] shrink-0 border-l border-border p-5 xl:flex" />}
+      <Sheet open={liveSheet} onOpenChange={setLiveSheet}>
+        <SheetContent side="right" className="w-full p-5 sm:max-w-[400px]!">
+          <SheetTitle className="sr-only">Live view</SheetTitle>
+          {liveSheet && <LiveView mindId={mindId} className="h-full" />}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
