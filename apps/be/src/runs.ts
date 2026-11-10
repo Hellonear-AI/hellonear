@@ -200,6 +200,35 @@ export async function isAwaiting(runId: string, toolCallId: string): Promise<boo
   return row !== undefined
 }
 
+// Runs left `running` by a backend that died mid-stream (#218): not relayed by this process, and no event for longer
+// than STUCK_AFTER_MS (the engine gives up on a run after 2 minutes). Such a run can't be answered or canceled, and its
+// chat can't be deleted (`409 thread_busy`). An answer to an approval claims the run (`running`) a moment before its
+// first new event arrives, so a run is only swept when the previous sweep already saw it stuck at the same last event.
+// It then gets a `run.error` (`run_interrupted`), like a stream that broke, so the chat shows it ended.
+export const STUCK_AFTER_MS = 5 * 60_000
+let suspects = new Map<string, number>()
+export async function sweepStuckRuns(now = Date.now()): Promise<number> {
+  const rows = await query<{ id: string; mind_id: string; last_seq: number }>(
+    `select r.id, r.mind_id, coalesce(max(e.seq), 0)::int as last_seq from runs r left join run_events e on e.run_id = r.id
+     where r.status = 'running' group by r.id
+     having greatest(r.started_at, max(e.ts)) < $1`,
+    [new Date(now - STUCK_AFTER_MS)])
+  const seen = new Map<string, number>()
+  let swept = 0
+  for (const r of rows) {
+    if (live.has(r.id)) continue
+    if (suspects.get(r.id) !== r.last_seq) { seen.set(r.id, r.last_seq); continue }
+    const e: Event = { v: 1, type: 'run.error', runId: r.id, mindId: r.mind_id, seq: r.last_seq + 1, ts: new Date(now).toISOString(), error: 'run_interrupted' }
+    const [ended] = await query(`update runs set status = 'error', finished_at = now() where id = $1 and status = 'running' returning 1`, [r.id])
+    if (!ended) continue
+    await insertEvents([e])
+    console.log('stuck run ended', JSON.stringify({ runId: r.id, mindId: r.mind_id }))
+    swept++
+  }
+  suspects = seen
+  return swept
+}
+
 // The approval inbox (#14): runs paused on a wallet action, with the action waiting for the owner.
 export async function pendingApprovals(mindId: string): Promise<unknown[]> {
   return (await query(

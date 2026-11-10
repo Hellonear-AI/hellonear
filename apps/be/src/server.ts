@@ -9,7 +9,7 @@ import { engineFetch, engineJson, skills, templates } from './engine.ts'
 import { HttpError, assertSameOrigin, cors, logServerError, readBody, sendJson, setCookie, isLoopback } from './http.ts'
 import { TOOLKITS, connect, disconnect, listConnections, toolkitSchema } from './connections.ts'
 import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, playgroundAttackOf, playgroundMind, requireMind, updateMind, updateMindSchema, type Mind } from './minds.ts'
-import { cancelRun, getRun, isAwaiting, listRuns, mindEvents, pendingApprovals, relayRun, runEvents } from './runs.ts'
+import { cancelRun, getRun, isAwaiting, listRuns, mindEvents, pendingApprovals, relayRun, runEvents, sweepStuckRuns } from './runs.ts'
 import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema, secretsForRun } from './secrets.ts'
 import { assertWalletEmpty, createWallet, freezeTransaction, getWallet, hasWallet, isDemoMind, policySchema, policyTransaction } from './wallets.ts'
 import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
@@ -516,6 +516,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const sweep = () => cleanupDemoUsers(async (mindId) => { await deleteAllWorkflows(mindId); await disconnectTelegram(mindId).catch(() => {}) }).then((n) => { if (n) console.log('demo users removed', n) }, (e) => console.error('demo cleanup failed', e instanceof Error ? e.message : e))
   void sweep()
   setInterval(sweep, 24 * 3600_000).unref()
+  // Runs a crash left `running` (#218) end as interrupted, so they can be deleted and stop blocking their chat.
+  const stuckSweep = () => sweepStuckRuns().catch((e) => console.error('stuck run sweep failed', e instanceof Error ? e.message : e))
+  void stuckSweep()
+  setInterval(stuckSweep, 5 * 60_000).unref()
   // Local dev without a public URL (#168): poll Telegram instead of waiting for webhooks.
   if (config.telegramPolling && !config.telegramWebhookBase) { startTelegramPolling(telegramRunner); console.log('telegram polling on') }
   // Every bot's webhook again, so bots connected before #208 also get button presses (callback_query).
