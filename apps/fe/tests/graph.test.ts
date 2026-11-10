@@ -145,3 +145,22 @@ describe("Mind Graph (#17)", () => {
     expect(calls[1].result).toEqual({ balanceNear: "5.39" })
   })
 })
+
+describe("live view camera", () => {
+  it("keeps the point under the pointer still while zooming, and frames a box", async () => {
+    const { toWorld, zoomAround, framing, clampZoom } = await import("@/modules/graph/data/camera")
+    const size = { w: 400, h: 300 }
+    const view = { x: 10, y: -20, k: 1 }
+    const p = { x: 120, y: 80 }
+    const next = zoomAround(view, size, p, p, 2)
+    const a = toWorld(view, size, p)
+    const b = toWorld(next, size, p)
+    expect(b.x).toBeCloseTo(a.x)
+    expect(b.y).toBeCloseTo(a.y)
+    expect(clampZoom(9)).toBe(2.5)
+    expect(clampZoom(0.1)).toBe(0.35)
+    const f = framing({ x0: -100, y0: -50, x1: 100, y1: 50 }, size)
+    expect(f.k).toBeCloseTo(Math.min(1.4, 352 / 200, 252 / 100))
+    expect(f.x).toBeCloseTo(0)
+  })
+})
