@@ -118,3 +118,14 @@ describe("step words for the track skills (#211)", () => {
     expect(done("near_check_transfer", { status: "succeeded", coversAmount: true }).detail).toBe("Paid in full")
   })
 })
+
+describe("streamed replies show whole words (11 Nov)", () => {
+  it("stops a reveal at the end of the word it reached", async () => {
+    const { wordEnd } = await import("@/modules/runs/components/ReplyText")
+    const text = "Halo Ancung, ini rencananya."
+    expect(wordEnd(text, 2)).toBe(4)
+    expect(wordEnd(text, 4)).toBe(4)
+    expect(wordEnd(text, 20)).toBe(text.length)
+    expect(wordEnd(text, 99)).toBe(text.length)
+  })
+})
