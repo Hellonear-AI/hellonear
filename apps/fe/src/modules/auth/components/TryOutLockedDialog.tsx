@@ -8,7 +8,7 @@ import { walletError } from "@/modules/auth/components/SignInScreen"
 import { useSwitchToWallet } from "@/modules/auth/hooks/useSession"
 
 /** Owner actions a try-out can't do (the backend answers them with 403 `demo_not_allowed`). */
-export type LockedAction = "add-funds" | "freeze" | "limits" | "wallet" | "keys"
+export type LockedAction = "add-funds" | "freeze" | "limits" | "wallet" | "keys" | "autopilot"
 
 /** Why this action needs a wallet, in one or two sentences (T1.4). */
 export function lockedReason(action: LockedAction, name: string): string {
@@ -23,6 +23,8 @@ export function lockedReason(action: LockedAction, name: string): string {
       return `A wallet of ${name}'s own needs your signature for its limits. In try-out, ${name} pays from a shared test wallet.`
     case "keys":
       return "Keys are kept for your account, and a try-out can't keep them. Connect a wallet to save keys for your own services."
+    case "autopilot":
+      return `Jobs that run on a schedule need your own account. In try-out, you can still run ${name}'s jobs by hand with Run now.`
   }
 }
 

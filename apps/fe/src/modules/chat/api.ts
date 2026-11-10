@@ -30,7 +30,6 @@ export const chatApi = {
   ) => stream(`/runs/${enc(runId)}/${action}`, { ...body, ...ownerTimeZone() }, onEvent, signal),
 }
 
-/** POST, then hand every event to `onEvent` until the stream ends. Throws `ApiError` before it starts. */
 /**
  * The owner's time zone from the browser (`docs/api-contract.md`, #112), so "2pm tomorrow" and
  * get_time mean the owner's clock, not UTC. Left out when the browser can't say.
@@ -44,7 +43,8 @@ export function ownerTimeZone(): { timeZone?: string } {
   }
 }
 
-async function stream(path: string, body: unknown, onEvent: (e: RunEvent) => void, signal?: AbortSignal): Promise<void> {
+/** POST, then hand every event to `onEvent` until the stream ends. Throws `ApiError` before it starts. */
+export async function stream(path: string, body: unknown, onEvent: (e: RunEvent) => void, signal?: AbortSignal): Promise<void> {
   const res = await fetch(apiUrl(path), {
     method: "POST",
     credentials: "include",

@@ -51,7 +51,7 @@ export function NewMindFlow() {
   // Tell the user where to look while the wallet window is open (L3.3).
   useEffect(() => {
     if (setUp.stage === "signing") {
-      toast("Check the Meteor window to sign. Nothing is saved until you do.", { id: SIGN_TOAST_ID, duration: Infinity })
+      toast("Waiting for your signature in Meteor", { id: SIGN_TOAST_ID, duration: Infinity })
     } else {
       toast.dismiss(SIGN_TOAST_ID)
     }
@@ -176,7 +176,7 @@ function errorText(err: unknown): string {
 }
 
 function createErrorMessage(err: unknown): string {
-  if (err instanceof ApiError && err.code === "unknown_template") return "That Mind isn't available any more. Pick another one."
-  if (err instanceof ApiError && err.status === 401) return "Your session ended. Sign in again."
-  return "Couldn't create your Mind. Try again."
+  if (err instanceof ApiError && err.code === "unknown_template") return "This template is no longer available. Please choose another one."
+  if (err instanceof ApiError && err.status === 401) return "Your session has expired. Please sign in again."
+  return "Could not create the Mind. Please try again."
 }

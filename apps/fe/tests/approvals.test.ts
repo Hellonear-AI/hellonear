@@ -99,11 +99,11 @@ describe("answerOutcome (A1.3 toast)", () => {
   })
   it("says when the limits stopped it, with no transaction", () => {
     const blocked = answerOutcome(answer, run({ view: view([step("policy_denied")]) }))
-    expect(blocked).toMatchObject({ kind: "blocked", detail: "Your limits stopped it before signing." })
+    expect(blocked).toMatchObject({ kind: "blocked", detail: "Blocked by your wallet limits before signing." })
     expect(blocked.txHash).toBeUndefined()
   })
   it("says when the answer never arrived", () => {
-    expect(answerOutcome(answer, run({ failed: new ApiError(503, "engine_error") })).title).toBe("Couldn't send your answer")
+    expect(answerOutcome(answer, run({ failed: new ApiError(503, "engine_error") })).title).toBe("Could not send your answer")
     expect(answerOutcome(answer, run({ failed: new ApiError(409, "not_awaiting_approval") })).title).toContain("already answered")
   })
 })

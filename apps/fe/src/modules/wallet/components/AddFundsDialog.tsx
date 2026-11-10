@@ -69,7 +69,7 @@ export function AddFundsDialog({
       {
         onSuccess: (w) => {
           onOpenChange(false)
-          toast.success(`${value} NEAR added. ${name}'s balance is now ${formatNear(w.balanceNear)} NEAR.`)
+          toast.success("Funds added", { description: `${value} NEAR added. New balance: ${formatNear(w.balanceNear)} NEAR.` })
         },
       }
     )
