@@ -2059,7 +2059,9 @@ describe('Telegram (#168)', () => {
       await new Promise((r) => setTimeout(r, 1500))
       const reply = fakeTelegram.sent(TOKEN).at(-1)
       assert.equal(reply.chat_id, '555')
-      assert.match(reply.text, /^w0 w1 w2/)
+      // The reply may stream in (#222): the message ends up holding the whole text.
+      const replyId = fakeTelegram.calls.lastIndexOf(fakeTelegram.calls.findLast((c) => c.token === TOKEN && c.method === 'sendMessage')!) + 1
+      assert.match(fakeTelegram.messages.get(replyId)!.text, /^w0 w1 w2 .* w39$/)
       const [run] = await query('select thread_id, user_message from runs r where r.mind_id = $1 order by started_at desc limit 1', [mindId])
       assert.equal(run.user_message, 'hi there')
       const [row] = await query('select thread_id, last_update_id from mind_telegram where mind_id = $1', [mindId])
@@ -2073,7 +2075,7 @@ describe('Telegram (#168)', () => {
       await hook(mindId, secret, msg(7, 555, 'please pay the invoice'))
       await new Promise((r) => setTimeout(r, 1500))
       const ask = fakeTelegram.sent(TOKEN).at(-1)
-      assert.match(ask.text, /^Approve pay_invoice\n\nWaiting for you\.$/)
+      assert.match(ask.text, /^<b>Approve pay_invoice<\/b>\n\nWaiting for you\.$/)
       const [approve, decline, open] = ask.reply_markup.inline_keyboard.flat()
       assert.deepEqual([approve.text, decline.text, open.text], ['Approve', 'Decline', 'Open in app'])
       assert.match(open.url, new RegExp(`^http://localhost:3000/minds/${mindId}/chat/${row.thread_id}$`))
@@ -2120,7 +2122,9 @@ describe('Telegram (#168)', () => {
     }
     const sent = fakeTelegram.sent(OTHER)
     assert.match(sent[0].text, /^Linked\./)
-    assert.match(sent[1].text, /^w0 w1/)
+    assert.match(sent[1].text, /^w0/)
+    const replyId = fakeTelegram.calls.indexOf(fakeTelegram.calls.find((c) => c.body === sent[1])!) + 1
+    assert.match(fakeTelegram.messages.get(replyId)!.text, /^w0 w1 .* w39$/)
     assert.equal((await query('select last_update_id from mind_telegram where mind_id = $1', [mindId]))[0].last_update_id, '11')
     assert.deepEqual(fakeTelegram.of(OTHER, 'getUpdates').at(-1).allowed_updates, ['message', 'callback_query'])
   })
@@ -2188,7 +2192,7 @@ describe('Telegram approvals (#208)', () => {
     await m.say('pay 0.01 NEAR to shop.testnet')
     const ask = await m.nextAsk(1)
     // The same checks as the app's card, read against the stored policy and balance.
-    assert.equal(ask.text, 'Pay 0.01 NEAR to shop.testnet\n\n✓ Within your 0.05 NEAR limit\n✓ On your list of addresses\n✓ Enough balance: 1.00 NEAR\n\nWaiting for you.')
+    assert.equal(ask.text, '<b>Pay 0.01 NEAR to shop.testnet</b>\n\n✓ Within your 0.05 NEAR limit\n✓ On your list of addresses\n✓ Enough balance: 1.00 NEAR\n\nWaiting for you.')
     const run = await m.runOf()
     assert.deepEqual(Object.keys(ask.buttons), ['Approve', 'Decline', 'Open in app'])
     assert.equal(ask.buttons['Open in app'], `http://localhost:3000/minds/${m.mindId}/chat/${run.thread_id}`)
@@ -2207,7 +2211,7 @@ describe('Telegram approvals (#208)', () => {
     const [paid] = await m.payments()
     assert.equal(paid.status, 'sent')
     const final = m.edits(ask.messageId).at(-1)
-    assert.equal(final.text, 'Pay 0.01 NEAR to shop.testnet\n\nSent 0.01 NEAR to shop.testnet.')
+    assert.equal(final.text, '<b>Pay 0.01 NEAR to shop.testnet</b>\n\nSent 0.01 NEAR to shop.testnet.')
     assert.deepEqual(final.reply_markup.inline_keyboard, [[{ text: 'See it on NearBlocks', url: `https://testnet.nearblocks.io/txns/${paid.tx_hash}` }]])
     // Order: spinner answered, buttons removed, message edited, then the Mind's reply.
     const order = fakeTelegram.calls.slice(firstCall).filter((c) => c.token === m.token).map((c) => c.method)
@@ -2224,7 +2228,7 @@ describe('Telegram approvals (#208)', () => {
     const cq = await m.press(ask.buttons.Decline, ask.messageId)
     await until(() => fakeTelegram.sent(m.token).at(-1).text === 'Not paying shop.testnet.', 'the reply after the decline')
     assert.deepEqual(m.answers(cq), ['Declined'])
-    assert.equal(m.edits(ask.messageId).at(-1).text, 'Pay 0.01 NEAR to shop.testnet\n\nDeclined. Nothing was sent.')
+    assert.equal(m.edits(ask.messageId).at(-1).text, '<b>Pay 0.01 NEAR to shop.testnet</b>\n\nDeclined. Nothing was sent.')
     assert.deepEqual(await m.payments(), [])
     const runId = (await m.runOf()).id
     assert.equal(fake.requests.findLast((r) => r.path.startsWith(`/v1/runs/${runId}/`))!.path.split('?')[0].split('/').at(-1), 'decline')
@@ -2257,7 +2261,7 @@ describe('Telegram approvals (#208)', () => {
     await m.press(ask.buttons.Approve, ask.messageId)
     await until(() => fakeTelegram.sent(m.token).at(-1).text === 'That payment to shop.testnet was not sent.', 'the reply after the refusal')
     const final = m.edits(ask.messageId).at(-1)
-    assert.equal(final.text, 'Pay 0.01 NEAR to shop.testnet\n\nNot sent: refused by the wallet policy before signing. Nothing left your wallet.\n✗ Over 0.005 NEAR per payment')
+    assert.equal(final.text, '<b>Pay 0.01 NEAR to shop.testnet</b>\n\nNot sent: refused by the wallet policy before signing. Nothing left your wallet.\n✗ Over 0.005 NEAR per payment')
     assert.equal(final.reply_markup, undefined)
     assert.doesNotMatch(JSON.stringify(final), /on-chain|nearblocks|txns/i)
     assert.deepEqual((await m.payments()).map((p) => [p.status, p.tx_hash]), [['policy_denied', null]])
@@ -2306,7 +2310,7 @@ describe('Telegram approvals (#208)', () => {
     const cq = await m.press(ask.buttons.Approve, ask.messageId)
     await until(() => m.edits(ask.messageId).length > 0, 'the edit')
     assert.deepEqual(m.answers(cq), ['Already answered'])
-    assert.equal(m.edits(ask.messageId).at(-1).text, 'Pay 0.01 NEAR to shop.testnet\n\nAlready answered.')
+    assert.equal(m.edits(ask.messageId).at(-1).text, '<b>Pay 0.01 NEAR to shop.testnet</b>\n\nAlready answered.')
     assert.equal(m.resumes(run.id), 1)
     assert.deepEqual((await m.payments()).map((p) => p.status), ['sent'])
 
@@ -2324,13 +2328,13 @@ describe('Telegram approvals (#208)', () => {
     const m = await linkedMind(['shop.testnet', 'cafe.testnet'])
     await m.say('pay 0.01 NEAR to shop.testnet and 0.02 NEAR to cafe.testnet')
     const first = await m.nextAsk(1)
-    assert.match(first.text, /^Pay 0\.01 NEAR to shop\.testnet\n/)
+    assert.match(first.text, /^<b>Pay 0\.01 NEAR to shop\.testnet<\/b>\n/)
     const run = await m.runOf()
     await m.press(first.buttons.Approve, first.messageId)
     const second = await m.nextAsk(2)
-    assert.match(second.text, /^Pay 0\.02 NEAR to cafe\.testnet\n/)
+    assert.match(second.text, /^<b>Pay 0\.02 NEAR to cafe\.testnet<\/b>\n/)
     assert.notEqual(second.buttons.Approve, first.buttons.Approve)
-    assert.equal(m.edits(first.messageId).at(-1).text, 'Pay 0.01 NEAR to shop.testnet\n\nSent 0.01 NEAR to shop.testnet.')
+    assert.equal(m.edits(first.messageId).at(-1).text, '<b>Pay 0.01 NEAR to shop.testnet</b>\n\nSent 0.01 NEAR to shop.testnet.')
     assert.ok(fakeTelegram.sent(m.token).some((s) => s.text === 'Paid shop.testnet.'))
     assert.equal((await m.runOf()).status, 'awaiting_approval')
 
@@ -2344,7 +2348,7 @@ describe('Telegram approvals (#208)', () => {
 
     await m.press(second.buttons.Approve, second.messageId)
     await until(async () => (await m.runOf()).status === 'finished' && fakeTelegram.sent(m.token).at(-1).text === 'Paid cafe.testnet.', 'the second payment')
-    assert.equal(m.edits(second.messageId).at(-1).text, 'Pay 0.02 NEAR to cafe.testnet\n\nSent 0.02 NEAR to cafe.testnet.')
+    assert.equal(m.edits(second.messageId).at(-1).text, '<b>Pay 0.02 NEAR to cafe.testnet</b>\n\nSent 0.02 NEAR to cafe.testnet.')
     assert.deepEqual((await m.payments()).map((p) => [p.to_account, p.status]), [['shop.testnet', 'sent'], ['cafe.testnet', 'sent']])
     assert.equal(m.resumes(run.id), 2)
   })
@@ -2364,6 +2368,145 @@ describe('Telegram approvals (#208)', () => {
       fakeTelegram.refuseLocalUrls = false
     }
   })
+
+  // The newest text the bot shows the owner for a message: its last send or edit (#221, #222).
+  const shown = (token: string) => fakeTelegram.calls.filter((c) => c.token === token && (c.method === 'sendMessage' || c.method === 'editMessageText')).at(-1)!.body
+
+  test('replies are Telegram HTML (#221): the Markdown formatted, everything else escaped, parse_mode HTML', async () => {
+    const m = await linkedMind()
+    fake.scripts.set('format me', { text: '**Paid** <you> & [receipt](https://x.test/?a=1&b=2)\n\n- one\n- `two`' })
+    await m.say('format me')
+    await until(async () => (await m.runOf())?.status === 'finished' && shown(m.token).text.startsWith('<b>Paid</b>'), 'the formatted reply')
+    const reply = shown(m.token)
+    assert.equal(reply.parse_mode, 'HTML')
+    assert.equal(reply.text, '<b>Paid</b> &lt;you&gt; &amp; <a href="https://x.test/?a=1&amp;b=2">receipt</a> (x.test)\n\n• one\n• <code>two</code>')
+    // Fixed messages go the same way.
+    assert.equal(fakeTelegram.sent(m.token).find((s) => /^Linked\./.test(s.text)).parse_mode, 'HTML')
+  })
+
+  test('when Telegram cannot parse the HTML, the same chunk is sent again as plain text', async () => {
+    const m = await linkedMind()
+    fake.scripts.set('format me', { text: '**Paid** <you> & [receipt](https://x.test/?a=1&b=2)\n\n- one\n- `two`' })
+    const before = fakeTelegram.calls.length
+    fakeTelegram.refuseHtmlOnce = true
+    await m.say('format me')
+    await until(() => fakeTelegram.sent(m.token).some((s) => s.parse_mode === undefined), 'the plain resend')
+    const sends = fakeTelegram.calls.slice(before).filter((c) => c.token === m.token && c.method === 'sendMessage').map((c) => c.body)
+    assert.equal(sends[0].parse_mode, 'HTML')
+    assert.deepEqual([sends[1].parse_mode, sends[1].text], [undefined, 'Paid <you> & receipt (https://x.test/?a=1&b=2)\n\n• one\n• two'])
+    assert.equal(fakeTelegram.refuseHtmlOnce, false)
+  })
+
+  test('an approval card escapes words from tool arguments: no tags or links a stranger could inject', async () => {
+    const m = await linkedMind()
+    fake.scripts.set('add lunch', { text: 'Adding it.', approval: { tool: 'googlecalendar_create_event', args: { title: '<b>Lunch</b> & [win](https://evil.test)', start: '2026-11-12T12:00:00Z' } } })
+    await m.say('add lunch')
+    const ask = await m.nextAsk(1)
+    const body = fakeTelegram.sent(m.token).filter((s) => s.reply_markup).at(-1)
+    assert.equal(body.parse_mode, 'HTML')
+    assert.equal(ask.text, '<b>Add "&lt;b&gt;Lunch&lt;/b&gt; &amp; [win](https://evil.test)" to your calendar</b>\n\nWhen: Thu 12 Nov, 12:00 (UTC)\n\nWaiting for you.')
+    assert.doesNotMatch(ask.text, /<a /)
+  })
+
+  // #222 measurement: a slow fake engine (a 300 ms tool, text over ~500 ms, verification 400 ms after run.finished).
+  // Logs the time from the owner's message to the first text the bot shows and to the full reply, next to the engine's
+  // own first text and run.finished, so before/after can be compared on the same script.
+  test('time to first visible text on Telegram with a slow engine (#222, logged)', async () => {
+    const m = await linkedMind()
+    const reply = 'Here is your answer, written slowly piece by piece so it streams.'
+    fake.scripts.set('measure', { text: reply, pieces: 10, delayMs: 50, toolMs: 300, verifyMs: 400 })
+    const from = fakeTelegram.calls.length
+    const t0 = Date.now()
+    await m.say('measure')
+    await until(async () => (await m.runOf())?.status === 'finished', 'the run')
+    await until(() => shown(m.token).text === reply, 'the full reply')
+    const mine = fakeTelegram.calls.slice(from).filter((c) => c.token === m.token && (c.method === 'sendMessage' || c.method === 'editMessageText'))
+    const full = mine.find((c) => c.body.text === reply)!
+    const engineT = [...fake.timings.values()].at(-1)!
+    await until(() => engineT.ended !== undefined, 'the end of the stream')
+    console.log('telegram latency', JSON.stringify({ firstVisibleMs: mine[0].at - t0, fullReplyMs: full.at - t0, engineFirstTextMs: engineT.firstText! - t0, engineFinishedMs: engineT.finished! - t0, engineEndedMs: engineT.ended! - t0 }))
+    // The first words show while the engine is still writing, and the full reply before verification ends the stream.
+    assert.ok(mine[0].at < engineT.finished!, 'first text after run.finished')
+    assert.ok(full.at < engineT.ended!, 'full reply only after run.verified')
+  })
+
+  // #222 with short timings, so the rhythm shows in a test: typing every 100 ms, edits at most every 200 ms.
+  const quick = async <T>(fn: () => Promise<T>) => {
+    const { telegramTiming } = await import('../src/telegram.ts')
+    const saved = { ...telegramTiming }
+    Object.assign(telegramTiming, { typingMs: 100, editMs: 200 })
+    try { return await fn() } finally { Object.assign(telegramTiming, saved) }
+  }
+  const replyCalls = (token: string, from: number) => fakeTelegram.calls.slice(from).filter((c) => c.token === token && ['sendMessage', 'editMessageText', 'sendChatAction', 'deleteMessage'].includes(c.method))
+
+  test('"typing…" repeats while a slow tool runs, until the first text shows (#222)', () => quick(async () => {
+    const m = await linkedMind()
+    fake.scripts.set('slow tool', { text: 'Found it.', toolMs: 700 })
+    const from = fakeTelegram.calls.length
+    await m.say('slow tool')
+    await until(() => shown(m.token).text === 'Found it.', 'the reply')
+    const calls = replyCalls(m.token, from)
+    const firstText = calls.findIndex((c) => c.method === 'sendMessage')
+    const typing = calls.slice(0, firstText).filter((c) => c.method === 'sendChatAction')
+    assert.ok(typing.length >= 5, `typing sent ${typing.length} times`)
+    assert.ok(typing.every((c) => c.body.action === 'typing'))
+    // Once the text shows and no tool runs, no more typing.
+    await new Promise((r) => setTimeout(r, 300))
+    assert.equal(replyCalls(m.token, from).slice(firstText).filter((c) => c.method === 'sendChatAction').length, 0)
+  }))
+
+  test('the reply streams: one send, then throttled edits of that message, the last one the full formatted text (#222)', () => quick(async () => {
+    const m = await linkedMind()
+    const reply = '**Plan** for today: ' + Array.from({ length: 30 }, (_, i) => `item${i}`).join(' ') + '. See [docs](https://docs.near.org).'
+    fake.scripts.set('stream it', { text: reply, pieces: 30, delayMs: 40, verifyMs: 300 })
+    const from = fakeTelegram.calls.length
+    await m.say('stream it')
+    await until(() => shown(m.token).text.endsWith('(docs.near.org).'), 'the full reply')
+    const calls = replyCalls(m.token, from).filter((c) => c.method !== 'sendChatAction')
+    assert.equal(calls[0].method, 'sendMessage')
+    const id = fakeTelegram.calls.indexOf(calls[0]) + 1
+    const edits = calls.slice(1)
+    assert.ok(edits.length >= 2, `only ${edits.length} edits`)
+    assert.ok(edits.every((c) => c.method === 'editMessageText' && c.body.message_id === id && c.body.parse_mode === 'HTML'))
+    // Throttled: ~1.2 s of text, edits at least ~200 ms apart (the final edit at run.finished may come sooner).
+    const mid = [calls[0], ...edits.slice(0, -1)]
+    for (let i = 1; i < mid.length; i++) assert.ok(mid[i].at - mid[i - 1].at >= 180, `edits ${mid[i].at - mid[i - 1].at} ms apart`)
+    assert.ok(edits.length <= 9, `${edits.length} edits`)
+    // Each mid-stream text is a prefix of the reply; the last is the reply, formatted.
+    assert.equal(edits.at(-1)!.body.text, '<b>Plan</b> for today: ' + Array.from({ length: 30 }, (_, i) => `item${i}`).join(' ') + '. See <a href="https://docs.near.org">docs</a> (docs.near.org).')
+    assert.equal(calls.filter((c) => c.method === 'sendMessage').length, 1)
+  }))
+
+  test('a reply longer than 4096 characters continues in a new message (#222)', () => quick(async () => {
+    const m = await linkedMind()
+    const reply = Array.from({ length: 1300 }, (_, i) => `w${i}`).join(' ')
+    assert.ok(reply.length > 6000)
+    fake.scripts.set('long one', { text: reply, pieces: 8, delayMs: 60 })
+    const from = fakeTelegram.calls.length
+    await m.say('long one')
+    await until(async () => (await m.runOf())?.status === 'finished', 'the run')
+    await until(() => shown(m.token).text.endsWith('w1299') || fakeTelegram.sent(m.token).at(-1)?.text.endsWith('w1299'), 'the end of the reply')
+    const sends = replyCalls(m.token, from).filter((c) => c.method === 'sendMessage')
+    assert.equal(sends.length, 2)
+    const ids = sends.map((c) => fakeTelegram.calls.indexOf(c) + 1)
+    const finalText = ids.map((i) => fakeTelegram.messages.get(i)!.text)
+    assert.ok(finalText.every((t) => t.length <= 4096))
+    assert.equal(finalText.join(' ').replace(/\s+/g, ' '), reply)
+  }))
+
+  test('text before a pause stays, and the approval follows as its own message (#222 with #208)', () => quick(async () => {
+    const m = await linkedMind()
+    const from = fakeTelegram.calls.length
+    await m.say('pay 0.01 NEAR to shop.testnet')
+    const ask = await m.nextAsk(1)
+    const calls = replyCalls(m.token, from)
+    const text = calls.findIndex((c) => c.method === 'sendMessage' && c.body.text === 'Asking you first.')
+    const card = calls.findIndex((c) => c.method === 'sendMessage' && c.body.reply_markup)
+    assert.ok(text >= 0 && text < card, 'the text comes before the approval')
+    assert.equal(calls.filter((c) => c.method === 'deleteMessage').length, 0)
+    assert.match(ask.text, /^<b>Pay 0\.01 NEAR to shop\.testnet<\/b>/)
+    assert.equal(fakeTelegram.messages.get(fakeTelegram.calls.indexOf(calls[text]) + 1)!.text, 'Asking you first.')
+  }))
 
   test('at start, every bot gets its webhook again with button presses allowed, keeping its secret and pending updates', async () => {
     const m = await linkedMind()
