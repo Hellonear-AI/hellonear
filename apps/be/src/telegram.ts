@@ -111,7 +111,12 @@ export async function handleUpdate(mindId: string, update: Update, runChat: RunC
   if (r.owner_chat_id === null) {
     // Not linked yet: only the one-time code from the app links a chat.
     const code = text.match(/^\/start\s+(\S+)$/)?.[1]
-    if (!code || !r.link_code || !sameSecret(code, r.link_code)) return 'bad_code'
+    if (!code || !r.link_code || !sameSecret(code, r.link_code)) {
+      // Opening the bot directly sends a bare /start (seen live on 10 Nov). While nobody owns the bot, say how to link
+      // it; once linked, strangers get no reply at all.
+      await bot(tokenOf(r), 'sendMessage', { chat_id: chatId, text: 'This bot is not linked yet. Open the link shown in the HelloNear app (Connections, Telegram) to link it to your Mind.' }).catch(() => {})
+      return 'bad_code'
+    }
     const name = [m.chat.first_name, m.chat.username && `@${m.chat.username}`].filter(Boolean).join(' ').slice(0, 80) || null
     await query('update mind_telegram set owner_chat_id = $2, owner_name = $3, link_code = null, updated_at = now() where mind_id = $1 and owner_chat_id is null', [mindId, chatId, name])
     const linked = await rowOf(mindId)

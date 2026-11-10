@@ -1760,10 +1760,11 @@ describe('Telegram (#168)', () => {
       // Wrong or missing secret: 401, nothing handled.
       assert.equal((await hook(mindId, 'wrong', msg(1, 555, `/start ${code}`))).status, 401)
       assert.equal((await hook(mindId, undefined, msg(1, 555, `/start ${code}`))).status, 401)
-      // A wrong code links nobody and gets no answer.
+      // A wrong code links nobody; while the bot has no owner, it says how to link.
       assert.equal((await hook(mindId, secret, msg(2, 555, '/start wrongcode'))).status, 200)
       await settle()
-      assert.equal(fakeTelegram.sent(TOKEN).length, 0)
+      assert.match(fakeTelegram.sent(TOKEN).at(-1).text, /^This bot is not linked yet\./)
+      assert.equal((await (await a.call('GET', `/v1/minds/${mindId}/telegram`)).json()).telegram.linked, false)
       // The right code links that chat.
       assert.equal((await hook(mindId, secret, msg(3, 555, `/start ${code}`))).status, 200)
       await settle()
