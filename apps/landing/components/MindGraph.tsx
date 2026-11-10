@@ -178,7 +178,7 @@ export function MindGraph() {
     !!active && ((active.edge[0] === a && active.edge[1] === b) || (active.edge[0] === b && active.edge[1] === a));
 
   return (
-    <div ref={wrap} className="relative overflow-hidden rounded-[32px] bg-[#141413]">
+    <div ref={wrap} className="relative overflow-hidden rounded-[32px] border border-white/10 bg-white/[0.02]">
       <div
         className="pointer-events-none absolute inset-0 opacity-60"
         style={{ background: "radial-gradient(60% 70% at 50% 50%, rgb(216 240 74 / 0.08), transparent 70%)" }}

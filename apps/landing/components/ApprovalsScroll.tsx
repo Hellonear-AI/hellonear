@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ApprovalScene, Icon, Point } from "./Sections";
+import { Starfield } from "./Starfield";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -51,13 +52,27 @@ export function ApprovalsScroll() {
     //   open  0..1  the window opens from the right edge (scrubbed, before the pin)
     //   track 0..1  pinned: the window grows to the whole screen and the stage scales up and moves left,
     //               so the camera passes the Mind and lands on "Tricked?" (desktop only)
+    //   up    0..1  still pinned: the camera tilts up off the lawn into the sky. The lawn sinks out of
+    //               the bottom, clouds pass in front, the sky turns from day to dusk to night and the
+    //               stars come out, so the dark Mind Graph section below continues the same sky.
     const STAGE_W = 1680;
     const STAGE_H = 722;
     const visual = q(".ap-visual")[0] as HTMLElement;
     const stage = q(".ap-stage")[0] as HTMLElement;
     const copy = q(".ap-copy")[0] as HTMLElement;
     const tricked = q(".ap-tricked")[0] as HTMLElement;
-    const st = { open: 0, track: 0 };
+    const sky = q(".ap-sky")[0] as HTMLElement;
+    const dusk = q(".ap-dusk")[0] as HTMLElement;
+    const night = q(".ap-night")[0] as HTMLElement;
+    const stars = q(".ap-stars")[0] as HTMLElement;
+    const haze = q(".ap-haze")[0] as HTMLElement;
+    const clouds = q(".ap-cloud") as HTMLElement[];
+    const st = { open: 0, track: 0, up: 0 };
+    const clamp = (v: number) => Math.min(1, Math.max(0, v));
+    const smooth = (a: number, b: number, v: number) => {
+      const x = clamp((v - a) / (b - a));
+      return x * x * (3 - 2 * x);
+    };
     const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
     const render = () => {
@@ -90,7 +105,26 @@ export function ApprovalsScroll() {
       const x0 = L0 + (1 - st.open) * 90; // a little parallax while it opens
       const x1 = W - STAGE_W * s1;
       const sx = lerp(x0, x1, t);
-      stage.style.transform = `translate3d(${sx}px, ${lerp(T0, 0, t)}px, 0) scale(${sc})`;
+      // tilting up: the lawn sinks out of the bottom while the sky above it comes down into view
+      const u = st.up;
+      const lift = H * 1.05 * u;
+      stage.style.transform = `translate3d(${sx}px, ${lerp(T0, 0, t) + lift}px, 0) scale(${sc})`;
+      sky.style.transform = `translate3d(0, ${lift - H}px, 0)`;
+      sky.style.visibility = u > 0 ? "visible" : "hidden";
+      const duskO = smooth(0.15, 0.55, u);
+      dusk.style.opacity = String(duskO);
+      night.style.opacity = String(smooth(0.45, 0.92, u));
+      stars.style.opacity = String(smooth(0.6, 1, u));
+      haze.style.opacity = String(1 - smooth(0.4, 0.85, u));
+      // clouds sit on the horizon (where the lawn meets the sky), so the seam is never seen, and
+      // rise a little faster than it; they dim at dusk and fade out as night falls
+      clouds.forEach((c, i) => {
+        const ch = c.offsetHeight || H * 0.5;
+        const y = lift - ch * (0.62 + i * 0.1) - H * 0.12 * u;
+        c.style.transform = `translate3d(0, ${y}px, 0)`;
+        c.style.opacity = String(smooth(0.0, 0.08, u) * (1 - smooth(0.72, 0.95, u)));
+        c.style.filter = `brightness(${1 - 0.3 * duskO})`;
+      });
       // the copy slides left with the photo, by the same distance (no fade)
       copy.style.transform = `translate3d(${sx - x0}px,0,0)`;
       // "Tricked?" sits at the photo's edge at rest; it comes in as the camera starts to move
@@ -106,19 +140,21 @@ export function ApprovalsScroll() {
         onUpdate: render,
         scrollTrigger: { trigger: el, start: "top 85%", end: "top top", scrub: 0.8 },
       });
-      gsap.to(st, {
-        track: 1,
-        ease: "none",
-        onUpdate: render,
-        scrollTrigger: {
-          trigger: el,
-          start: "top top",
-          end: "+=1600",
-          pin: q(".ap-pin")[0],
-          scrub: 0.8,
-          onRefresh: render,
-        },
-      });
+      gsap
+        .timeline({
+          defaults: { ease: "none", onUpdate: render },
+          scrollTrigger: {
+            trigger: el,
+            start: "top top",
+            end: "+=3300",
+            pin: q(".ap-pin")[0],
+            scrub: 0.8,
+            onRefresh: render,
+          },
+        })
+        .to(st, { track: 1, duration: 1600 })
+        .to({}, { duration: 250 }) // a short hold on "Tricked?"
+        .to(st, { up: 1, duration: 1450 });
       render();
       return () => {
         copy.style.transform = "";
@@ -166,6 +202,21 @@ export function ApprovalsScroll() {
         {/* The scene window: covers the whole pinned screen on desktop, shown through a clip-path. */}
         <div className="ap-visual relative mt-8 h-[520px] w-full overflow-hidden bg-[#4f7a2a] md:absolute md:inset-0 md:mt-0 md:h-auto md:[clip-path:inset(0_0_0_100%)]">
           <ApprovalScene />
+          {/* The sky above the lawn, seen when the camera tilts up (desktop only). */}
+          <div className="ap-sky invisible absolute inset-x-0 -top-[25%] bottom-0 hidden will-change-transform md:block" aria-hidden="true">
+            <div className="absolute inset-0" style={{ background: "linear-gradient(#5F8FC4, #A3C1DF 70%, #E3E6E2)" }} />
+            <div className="ap-dusk absolute inset-0 opacity-0" style={{ background: "linear-gradient(#27325c, #7b6a93 60%, #e8a983)" }} />
+            <div className="ap-night absolute inset-0 opacity-0" style={{ background: "linear-gradient(#04050b, #0a0d1c)" }} />
+            {/* haze over the horizon, spilling onto the top of the lawn */}
+            <div className="ap-haze absolute inset-x-0 top-full h-[35%]" style={{ background: "linear-gradient(#E3E6E2, rgb(227 230 226 / 0.55) 30%, transparent)" }} />
+            <div className="ap-stars absolute inset-0 opacity-0">
+              <Starfield count={160} seed={11} />
+            </div>
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/hero/cumulus-left.webp" alt="" aria-hidden="true" className="ap-cloud pointer-events-none absolute -left-[8%] top-0 hidden w-[70%] opacity-0 will-change-transform md:block" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/hero/cumulus-right.webp" alt="" aria-hidden="true" className="ap-cloud pointer-events-none absolute -right-[10%] top-0 hidden w-[75%] opacity-0 will-change-transform md:block" />
           <div className="grain pointer-events-none absolute inset-0" aria-hidden="true" />
         </div>
       </div>

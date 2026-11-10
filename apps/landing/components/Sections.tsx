@@ -2,6 +2,7 @@
 // First pass so the layout can be judged in the browser; visuals marked "placeholder" come later.
 
 import { MindGraph } from "./MindGraph";
+import { NIGHT_BG, Starfield } from "./Starfield";
 
 export const Icon = {
   ban: "M4.9 4.9l14.2 14.2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
@@ -282,14 +283,19 @@ export function Safety() {
 }
 
 export function SeeInside() {
+  // Dark, like the night sky the approvals scroll ends in, so the page continues into it.
   return (
-    <section id="skills" className="mx-auto flex max-w-[1200px] flex-col gap-12 px-5 py-24">
-      <Heading
-        align="left"
-        title="Watch your Mind think"
-        sub="Every skill, tool and app your Mind can use, in one map. What it touches lights up as it works, so if something looks off, you see it right away."
-      />
-      <MindGraph />
+    <section id="skills" className="relative overflow-hidden text-[#F2F1EC]" style={{ background: NIGHT_BG }}>
+      <Starfield count={180} seed={23} />
+      <div className="relative mx-auto flex max-w-[1200px] flex-col gap-12 px-5 pb-28 pt-24">
+        <div className="flex flex-col items-start gap-3">
+          <h2 className="max-w-[760px] text-[36px] font-medium leading-[1.08] tracking-[-1.2px] md:text-[48px]">Watch your Mind think</h2>
+          <p className="max-w-[600px] text-[17px] leading-[1.5] text-[#F2F1EC]/70">
+            Every skill, tool and app your Mind can use, in one map. What it touches lights up as it works, so if something looks off, you see it right away.
+          </p>
+        </div>
+        <MindGraph />
+      </div>
     </section>
   );
 }
