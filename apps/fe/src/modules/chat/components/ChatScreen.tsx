@@ -240,7 +240,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
                       ref={i === shown.length - 1 ? lastRef : undefined}
                       className="flex flex-col gap-5"
                       // Room below the pinned turn so it can sit at the top (16 above it, 48 of padding below).
-                      style={pinned && i === shown.length - 1 && viewHeight ? { minHeight: viewHeight - composerHeight - 32 } : undefined}
+                      style={pinned && i === shown.length - 1 && viewHeight ? { minHeight: viewHeight - composerHeight - 32 - pinGap() } : undefined}
                     >
                     <TurnView
                       last={i === shown.length - 1}
@@ -634,6 +634,15 @@ function ThreadSkeleton() {
  * sent here glides its turn to the top, and the reply grows below without the view chasing it.
  * "Latest" shows whenever there is more below.
  */
+/**
+ * Room above a pinned message: past the top fade, and on phones past the round Live view button
+ * too (Ancung, 10 Nov). The last turn's min-height leaves the same room, so scrolling to the very
+ * end puts the message where pinning put it, not under the fade. Read in the browser only.
+ */
+function pinGap(): number {
+  return window.matchMedia("(min-width: 768px)").matches ? 24 : 60
+}
+
 function useChatScroll(ready: boolean, pinKey: string | null) {
   const ref = useRef<HTMLDivElement>(null)
   const lastRef = useRef<HTMLDivElement>(null)
@@ -671,11 +680,7 @@ function useChatScroll(ready: boolean, pinKey: string | null) {
     placed.current = want
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
     if (pinKey && lastRef.current) {
-      // Room above the pinned message: past the top fade, and on phones past the round Live view
-      // button too (Ancung, 10 Nov: the bubble sat under both).
-      // The top fade is 24 px, so the bubble starts below it (at 24 it sat inside the fade).
-      const gap = window.matchMedia("(min-width: 768px)").matches ? 40 : 64
-      el.scrollTo({ top: lastRef.current.offsetTop - gap, behavior: first || reduce ? "auto" : "smooth" })
+      el.scrollTo({ top: lastRef.current.offsetTop - pinGap(), behavior: first || reduce ? "auto" : "smooth" })
     } else {
       el.scrollTop = el.scrollHeight
     }
