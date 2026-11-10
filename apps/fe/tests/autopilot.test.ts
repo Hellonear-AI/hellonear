@@ -3,7 +3,6 @@ import { issueText } from "@/modules/autopilot/components/AutopilotScreen"
 import { IDEAS } from "@/modules/autopilot/data/ideas"
 import { runSummary } from "@/modules/autopilot/data/runs"
 import { scheduleText, whenNext, zoneName } from "@/modules/autopilot/data/schedule"
-import { jobSteps } from "@/modules/autopilot/data/steps"
 
 describe("Autopilot schedules in plain words (#21)", () => {
   it("words the common cron shapes and admits the rest", () => {
@@ -40,17 +39,6 @@ describe("ready jobs and their steps", () => {
     expect(canvas.edges.find((e) => e.source === "low")?.sourceHandle).toBe("then")
   })
 
-  it("read as plain steps in run order", () => {
-    const steps = jobSteps(canvas, "Omaga")
-    expect(steps.map((s) => s.title)).toEqual([
-      "Every day at 08:00",
-      `Check 83e05486…1e98bd`,
-      "If the balance is under 5 NEAR",
-      "Omaga writes you a note",
-    ])
-    expect(steps[0].note).toBe("Jakarta time")
-    expect(steps[3].branch).toBe("then")
-  })
 })
 
 describe("run lines and refusals", () => {

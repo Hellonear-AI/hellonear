@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useState } from "react"
 import {
   ArrowUpRightIcon,
   CheckIcon,
@@ -17,8 +18,10 @@ import { mindHref } from "@/components/layout/nav"
 import { explorerTxUrl } from "@/lib/format"
 import { compareNear } from "@/lib/near"
 import { approvalDetails, type ApprovalDetails } from "@/modules/chat/data/approvalDetails"
-import { paymentOf, toolLabel, type Payment, type ToolStep } from "@/modules/chat/data/events"
+import { paymentOf, type Payment, type ToolStep } from "@/modules/chat/data/events"
+import { toolLabel } from "@/modules/chat/data/steps"
 import type { ApiWallet } from "@/modules/minds/api"
+import { FreezeDialog } from "@/modules/wallet/components/FreezeDialog"
 import { approvalChecks } from "@/modules/wallet/data/checks"
 
 // What a run did, in the chat (design C1.1, C1.3, C1.4, C1.7): a pill per tool, a receipt for a
@@ -116,6 +119,7 @@ export function PaymentFailed({ payment }: { payment: Payment }) {
  */
 export function ApprovalCard({
   mindId,
+  name,
   step,
   wallet,
   busy,
@@ -123,6 +127,7 @@ export function ApprovalCard({
   onAnswer,
 }: {
   mindId: string
+  name: string
   step: ToolStep
   wallet: ApiWallet | null
   busy: boolean
@@ -132,6 +137,8 @@ export function ApprovalCard({
 }) {
   const payment = paymentOf(step)
   const details = payment ? null : approvalDetails(step)
+  // Unfreeze opens the same dialog as on Approvals, right here (it used to send the owner there).
+  const [unfreeze, setUnfreeze] = useState({ open: false, key: 0 })
   const { checks, next } = payment ? approvalChecks(payment, wallet) : { checks: [], next: "approve" as const }
   return (
     <div className="flex w-full flex-col gap-3 rounded-lg bg-warning-soft p-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-out motion-reduce:animate-none md:max-w-[480px]">
@@ -165,12 +172,18 @@ export function ApprovalCard({
             {sending === "approve" ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <CheckIcon />}
             {sending === "approve" ? "Sending" : "Approve"}
           </Button>
+        ) : next === "unfreeze" && !wallet?.shared ? (
+          <Button size="sm" onClick={() => setUnfreeze((u) => ({ open: true, key: u.key + 1 }))} disabled={busy}>
+            <SnowflakeIcon />
+            Unfreeze first
+          </Button>
         ) : (
           <Button size="sm" nativeButton={false} render={<Link href={mindHref(mindId, next === "unfreeze" ? "approvals" : "wallet")} />}>
             {next === "unfreeze" ? "Unfreeze first" : next === "add_address" ? "Add the address first" : "Change limits first"}
           </Button>
         )}
       </div>
+      {unfreeze.key > 0 && <FreezeDialog key={unfreeze.key} mindId={mindId} name={name} freeze={false} open={unfreeze.open} onOpenChange={(open) => setUnfreeze((u) => ({ ...u, open }))} />}
     </div>
   )
 }

@@ -33,6 +33,11 @@ const LABELS: Record<string, [doing: string, done: string]> = {
   updateWorkingMemory: ["Updating its memory", "Updated its memory"],
 }
 
+/** Plain words for what a tool is doing (an approval card's title); unknown tools get a neutral line. */
+export function toolLabel(tool: string): string {
+  return LABELS[tool]?.[0] ?? "Using a tool"
+}
+
 /**
  * Which thinking orb a step shows while it runs, by what kind of work it is (Ancung, 10 Nov), so
  * the motion says what the Mind is doing. Only the free states of thinking-orbs.

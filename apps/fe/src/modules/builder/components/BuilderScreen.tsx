@@ -25,7 +25,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { createContext, Fragment, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
 import { cn } from "cn"
 import { mindHref } from "@/components/layout/nav"
 import { ChoiceSelect } from "@/components/elements/ChoiceSelect"
@@ -36,7 +36,6 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { ApiError } from "@/lib/api"
 import { autopilotApi } from "@/modules/autopilot/api"
@@ -53,11 +52,9 @@ import {
   emptyDraft,
   fromCanvas,
   NAME_MAX,
-  PROMPT_MAX,
   ref,
   comparable,
   INVERT,
-  moveStepIn,
   tokenLabels,
   allBlocks,
   carriesOn,
@@ -77,7 +74,6 @@ import {
   type Block,
   type IfBlock,
   type LinePath,
-  promptFromDisplay,
   promptParts,
   type Self,
   notesBefore,
@@ -1156,7 +1152,6 @@ function StepCard({
   )
 }
 
-const short = (s: string) => (s.trim().length > 60 ? `${s.trim().slice(0, 60)}...` : s.trim())
 
 function BlockCard({
   icon,

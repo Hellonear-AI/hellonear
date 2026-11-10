@@ -48,9 +48,11 @@ src/
     elements/            shared building blocks (cards, badges, amounts...)
     layout/              app shell and navigation
   modules/<feature>/     components/ (screens + parts), hooks/, data/ (dummy data first)
-                         minds (Choose a Mind), chat, bazaar, wallet (Wallet & Policy), graph (Live view / Mind Graph)
+                         minds (Choose a Mind), chat, wallet (Wallet & Policy, Approvals), graph (Live view / Mind Graph),
+                         builder, autopilot, skills, connections, attack, settings
   hooks/                 hooks shared across modules
-  lib/                   config (network), utils (cn), api clients, formatting
+  lib/                   config (network), utils (cn, kept for the shadcn CLI's `components.json`), api clients,
+                         formatting, storage (`readPref` / `writePref`, safe when storage is blocked)
   providers/             AppProviders (NEAR Connect via near-connect-hooks, client only)
   styles/                globals.css (Tailwind + shadcn tokens)
   types/                 shared types

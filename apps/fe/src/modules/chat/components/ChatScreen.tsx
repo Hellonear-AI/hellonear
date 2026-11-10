@@ -405,6 +405,7 @@ function TurnView({
         return (
           <ApprovalCard
             mindId={mindId}
+            name={name}
             step={step}
             wallet={wallet}
             busy={busy}
@@ -619,11 +620,6 @@ function ThreadSkeleton() {
 }
 
 /**
- * Where the chat sits (Ancung, 9 Nov, like Claude): an old thread opens at its end; a message
- * sent here glides its turn to the top, and the reply grows below without the view chasing it.
- * "Latest" shows whenever there is more below.
- */
-/**
  * Room above a pinned message: past the top fade, and on phones past the round Live view button
  * too (Ancung, 10 Nov). The last turn's min-height leaves the same room, so scrolling to the very
  * end puts the message where pinning put it, not under the fade. Read in the browser only.
@@ -632,6 +628,11 @@ function pinGap(): number {
   return window.matchMedia("(min-width: 768px)").matches ? 24 : 60
 }
 
+/**
+ * Where the chat sits (Ancung, 9 Nov, like Claude): an old thread opens at its end; a message
+ * sent here glides its turn to the top, and the reply grows below without the view chasing it.
+ * "Latest" shows whenever there is more below.
+ */
 function useChatScroll(ready: boolean, pinKey: string | null) {
   const ref = useRef<HTMLDivElement>(null)
   const lastRef = useRef<HTMLDivElement>(null)

@@ -7,7 +7,6 @@ import {
   emptyDraft,
   fromCanvas,
   isStep,
-  moveStepIn,
   notesBefore,
   repeatOf,
   resultsBefore,
@@ -139,17 +138,6 @@ describe("Builder website block", () => {
   })
 })
 
-describe("Builder drag and drop (B1.7)", () => {
-  const ids = (xs: { id: string }[]) => xs.map((x) => x.id).join("")
-  const line = [{ id: "a" }, { id: "b" }, { id: "c" }]
-  it("moves a step to the spot it was dropped on", () => {
-    expect(ids(moveStepIn(line, "c", 0))).toBe("cab")
-    expect(ids(moveStepIn(line, "a", 3))).toBe("bca")
-    expect(ids(moveStepIn(line, "a", 2))).toBe("bac")
-    expect(ids(moveStepIn(line, "x", 0))).toBe("abc")
-  })
-})
-
 describe("Builder canvas pan and zoom", () => {
   it("zooms around the pointer and fits the job, never above 100%", async () => {
     const { fitView, zoomAround, MAX_ZOOM, MIN_ZOOM } = await import("@/modules/builder/hooks/useCanvasView")
@@ -236,18 +224,13 @@ describe("Builder If ways, as in n8n (10 Nov)", () => {
     expect(draftProblems(both).map((p) => p.where)).toEqual(["b"])
   })
 
-  it("shows earlier results as {Balance} and saves them as references", async () => {
-    const { promptFromDisplay, promptToDisplay } = await import("@/modules/builder/data/draft")
+  it("names whose balance an earlier result is", () => {
     const self = { name: "Omaga", address: "a".repeat(64) }
     const own = { ...tool, args: { accountId: self.address } }
     const other = { ...tool, id: "t2", args: { accountId: "lin1er.testnet" } }
-    const results = resultsBefore([own, other], undefined, self)
-    expect(results.map((r) => r.source)).toEqual(["Omaga's wallet", "lin1er.testnet"])
-    const raw = "Wallet has {{steps.t.balanceNear}} and {{steps.t2.balanceNear}} NEAR {left}"
-    const shown = promptToDisplay(raw, results)
-    expect(shown).toBe("Wallet has {Balance of Omaga} and {Balance of lin1er.testnet} NEAR {left}")
-    expect(promptFromDisplay(shown, results)).toBe(raw)
+    expect(resultsBefore([own, other], undefined, self).map((r) => r.source)).toEqual(["Omaga's wallet", "lin1er.testnet"])
   })
+
 })
 
 describe("Autopilot run text (10 Nov)", () => {

@@ -360,8 +360,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       for (const n of data.current.nodes) {
         const b = s.bodies.get(n.id)
         if (!b) continue
-        const dim = false
-        ctx.globalAlpha = dim ? 0.22 : 1
+        ctx.globalAlpha = 1
 
         if (glowing(n)) {
           const c = stateColor(n)
@@ -369,19 +368,19 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
           const loop = n.state === "running" ? (now % 1200) / 1200 : n.state === "waiting" ? 0.5 + 0.5 * Math.sin(now / 400) : Math.min(1, since / 900)
           // A soft halo, then a ring that grows and fades.
           ctx.fillStyle = c
-          ctx.globalAlpha = (dim ? 0.1 : 0.18) * (n.state === "running" || n.state === "waiting" ? 1 : 1 - loop)
+          ctx.globalAlpha = 0.18 * (n.state === "running" || n.state === "waiting" ? 1 : 1 - loop)
           ctx.beginPath()
           ctx.arc(b.x, b.y, b.r + 9, 0, Math.PI * 2)
           ctx.fill()
           if (!still.matches) {
             ctx.strokeStyle = c
             ctx.lineWidth = 2 / v.k
-            ctx.globalAlpha = (dim ? 0.2 : 0.8) * (1 - loop)
+            ctx.globalAlpha = 0.8 * (1 - loop)
             ctx.beginPath()
             ctx.arc(b.x, b.y, b.r + 3 + loop * 16, 0, Math.PI * 2)
             ctx.stroke()
           }
-          ctx.globalAlpha = dim ? 0.22 : 1
+          ctx.globalAlpha = 1
         }
 
         if (n.kind === "mind") {
@@ -423,11 +422,11 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         if (onTrail.has(n.id) && n.kind !== "mind" && !glowing(n)) {
           ctx.strokeStyle = colors.info
           ctx.lineWidth = 1.6 / v.k
-          ctx.globalAlpha = dim ? 0.15 : data.current.live ? 0.9 : 0.55
+          ctx.globalAlpha = data.current.live ? 0.9 : 0.55
           ctx.beginPath()
           ctx.arc(b.x, b.y, b.r + 3.5 / v.k, 0, Math.PI * 2)
           ctx.stroke()
-          ctx.globalAlpha = dim ? 0.22 : 1
+          ctx.globalAlpha = 1
         }
 
         if (n.id === data.current.selected) {
@@ -450,11 +449,10 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       for (const n of data.current.nodes) {
         const b = s.bodies.get(n.id)
         if (!b) continue
-        const dim = false
         const strong = hover.current === n.id || n.id === data.current.selected || glowing(n)
         const px = (n.kind === "mind" ? 13 : n.kind === "tool" ? 10.5 : 11.5) / Math.max(0.8, v.k)
         ctx.font = `${n.kind === "mind" || strong ? 600 : 500} ${px}px ${font}`
-        ctx.globalAlpha = dim ? 0.18 : 1
+        ctx.globalAlpha = 1
         ctx.strokeStyle = colors.bg
         ctx.lineWidth = 4 / v.k
         const y = b.y + b.r + 5 / v.k
@@ -506,7 +504,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       }
       const id = hit(p.x, p.y)
       drag = { id, x: p.x, y: p.y, moved: false, vx: view.current.x, vy: view.current.y }
-      cv.style.cursor = id ? "grabbing" : "grabbing"
+      cv.style.cursor = "grabbing"
     }
     const move = (e: PointerEvent) => {
       const p = local(e)

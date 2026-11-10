@@ -5,6 +5,7 @@ import { cn } from "cn"
 import { AppRail, AppSidebar } from "@/components/layout/AppSidebar"
 import { MobileHeader } from "@/components/layout/MobileHeader"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
+import { readPref, writePref } from "@/lib/storage"
 
 const FOLD_KEY = "hellonear.sidebar.folded"
 
@@ -23,14 +24,14 @@ export function AppShell({ mindId, children }: { mindId: string; children: React
   // Read the saved choice after mount so the server and first client render match.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of localStorage
-    setFolded(window.localStorage.getItem(FOLD_KEY) === "1")
+    setFolded(readPref(FOLD_KEY) === "1")
     const frame = requestAnimationFrame(() => setAnimate(true))
     return () => cancelAnimationFrame(frame)
   }, [])
 
   function setFold(next: boolean) {
     setFolded(next)
-    window.localStorage.setItem(FOLD_KEY, next ? "1" : "0")
+    writePref(FOLD_KEY, next ? "1" : "0")
   }
 
   return (
