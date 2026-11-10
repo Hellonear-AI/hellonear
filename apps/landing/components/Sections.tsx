@@ -1,6 +1,7 @@
 // The landing sections under the hero, following "Landing v0.2" in design/landing.pen.
 // First pass so the layout can be judged in the browser; visuals marked "placeholder" come later.
 
+import { LivingPhoto } from "./LivingPhoto";
 import { MindGraph } from "./MindGraph";
 
 export const Icon = {
@@ -100,16 +101,11 @@ export function ApprovalScene() {
     // once in these units and only ever scaled and moved together (ApprovalsScroll), like a real print.
     <div className="ap-stage absolute left-0 top-0 h-[722px] w-[1680px] origin-top-left will-change-transform">
       <div className="absolute inset-0">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/scenes/approval-scene.webp"
-          alt="The Payments Mind lying on a sunny lawn, glancing at the approval card"
-          className="ap-ground absolute inset-0 h-full w-full will-change-transform"
-        />
+        <LivingPhoto src="/scenes/approval-scene.webp" alt="The Payments Mind lying on a sunny lawn, glancing at the approval card" className="absolute inset-0" />
 
         {/* No outer card: Penny's bubble and the approval card float on their own, close together,
             lying on the lawn in its perspective. Each is light frosted glass with its own shadow. */}
-        <div className="ap-float absolute left-[84px] top-[144px] w-[420px] will-change-transform [perspective:1400px]">
+        <div className="ap-float absolute left-[84px] top-[144px] w-[420px] [perspective:1400px]">
           <div className="flex flex-col gap-2.5 [transform:rotateX(22deg)_rotateZ(12deg)] [transform-style:preserve-3d]">
             <div className="flex items-center gap-2 pl-1">
               <span className="relative size-7 shrink-0 overflow-hidden rounded-full bg-white/80 shadow-[18px_45px_10px_rgb(0_0_0/0.45)]">

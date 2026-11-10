@@ -57,8 +57,6 @@ export function ApprovalsScroll() {
     const stage = q(".ap-stage")[0] as HTMLElement;
     const copy = q(".ap-copy")[0] as HTMLElement;
     const tricked = q(".ap-tricked")[0] as HTMLElement;
-    const ground = q(".ap-ground")[0] as HTMLElement;
-    const float = q(".ap-float")[0] as HTMLElement;
     const st = { open: 0, track: 0 };
     const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
@@ -95,16 +93,8 @@ export function ApprovalsScroll() {
       stage.style.transform = `translate3d(${sx}px, ${lerp(T0, 0, t)}px, 0) scale(${sc})`;
       // the copy slides left with the photo, by the same distance (no fade)
       copy.style.transform = `translate3d(${sx - x0}px,0,0)`;
-      // Scroll parallax inside the photo (stage units): the ground drifts slowly and zooms out a touch,
-      // the glass floating above it moves further, so the scene has depth as it scrolls.
-      const p = st.open * 0.35 + st.track * 0.65;
-      ground.style.transform = `translate3d(${-24 * p}px, ${10 - 20 * p}px, 0) scale(${1.06 - 0.03 * p})`;
-      float.style.transform = `translate3d(${40 - 110 * p}px, ${24 - 48 * p}px, 0)`;
-      const tk = st.track;
-      const tx = 70 * (1 - tk);
       // "Tricked?" sits at the photo's edge at rest; it comes in as the camera starts to move
       tricked.style.opacity = String(Math.min(1, Math.max(0, (st.track - 0.12) / 0.25)));
-      tricked.style.transform = `translate3d(${tx}px, ${18 * (1 - tk)}px, 0)`;
     };
 
     mm.add("(min-width: 768px) and (prefers-reduced-motion: no-preference)", () => {
