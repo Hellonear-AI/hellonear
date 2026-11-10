@@ -23,7 +23,7 @@ export const balanceReport = (cron = '* * * * *') => ({
   nodes: [
     { id: 'start', type: 'trigger', data: { schedule: { cron }, inputs: [{ name: 'account', type: 'string' }] } },
     { id: 'balance', type: 'tool', data: { tool: 'near_view_account', args: { accountId: '{{input.account}}' } } },
-    { id: 'report', type: 'agent', data: { prompt: 'In one short sentence, report that {{input.account}} holds {{steps.balance.balanceNear}} NEAR.' } },
+    { id: 'report', type: 'agent', data: { prompt: 'In one short sentence, say your own name and report that {{input.account}} holds {{steps.balance.balanceNear}} NEAR.' } },
   ],
   edges: [
     { source: 'start', target: 'balance' },

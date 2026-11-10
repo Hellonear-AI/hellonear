@@ -266,3 +266,10 @@ test('calendar times must carry the owner\'s offset when the zone is known (#124
   // New York changes offset with DST: the check uses the offset at that moment.
   assert.doesNotThrow(() => checkOwnerOffset(['2026-07-01T09:00:00-04:00', '2026-12-01T09:00:00-05:00'], 'America/New_York'))
 })
+
+test('the sample calendar has one double booking and one back-to-back pair for the conflict check (#192)', () => {
+  const events = listSampleCalendar({}, Date.parse('2026-11-07T12:00:00Z')).events
+  const pairs = (hit: (a: any, b: any) => boolean) => events.flatMap((a, i) => events.slice(i + 1).filter((b) => hit(a, b)).map((b) => [a.id, b.id]))
+  assert.deepEqual(pairs((a, b) => b.start < a.end), [['demo-cal-3', 'demo-cal-7']])
+  assert.deepEqual(pairs((a, b) => b.start === a.end), [['demo-cal-4', 'demo-cal-8']])
+})

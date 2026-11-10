@@ -8,7 +8,7 @@ test('regular tools map to tool nodes', () => {
 })
 
 test('wallet tools map to the Mind\'s wallet node', () => {
-  for (const tool of ['send_payment', 'get_balance', 'list_payments']) assert.equal(nodeIdFor('m1', tool, {}), 'wallet:m1')
+  for (const tool of ['send_payment', 'get_balance', 'list_payments', 'buy_data', 'get_quotes', 'sell_offer', 'buy_from_mind']) assert.equal(nodeIdFor('m1', tool, {}), 'wallet:m1')
 })
 
 test('Gmail tools map to the gmail App node', () => {
