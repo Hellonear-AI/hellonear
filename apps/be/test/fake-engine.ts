@@ -18,10 +18,51 @@ export const fake = {
   // engine's tool does, and the payments each run still has to ask for.
   backendUrl: '',
   payments: new Map<string, { toolCallId: string; args: { to: string; amountNear: string } }[]>(),
+  // Telegram (#221, #222): a chat message equal to a key plays that script instead of the canned answer: an optional tool
+  // that takes `toolMs`, the `text` in `pieces` deltas `delayMs` apart, then either an approval pause or run.finished and,
+  // `verifyMs` later, run.verified. `timings` keeps when each run finished and when its stream ended.
+  scripts: new Map<string, Script>(),
+  timings: new Map<string, { started: number; firstText?: number; finished?: number; ended?: number }>(),
   // Threads the backend asked the engine to forget (#207), and the status the next such call answers with.
   forgotten: [] as string[],
   forgetStatus: 204,
   forgetBodies: [] as { userId: string }[],
+}
+export type Script = { text: string; pieces?: number; delayMs?: number; toolMs?: number; verifyMs?: number; approval?: { tool: string; args: unknown } }
+
+async function scripted(res: ServerResponse, runId: string, mindId: string, threadId: string, model: string, s: Script) {
+  const t = { started: Date.now() } as { started: number; firstText?: number; finished?: number; ended?: number }
+  fake.timings.set(runId, t)
+  res.writeHead(200, { 'content-type': 'text/event-stream' })
+  let seq = 0
+  const emit = (e: Record<string, unknown>) => res.write(`data: ${JSON.stringify({ v: 1, runId, mindId, seq: seq++, ts: new Date().toISOString(), ...e })}\n\n`)
+  emit({ type: 'run.started', threadId, model, nodeId: `model:${model}`, skills: [] })
+  emit({ type: 'step.started', step: 1 })
+  if (s.toolMs) {
+    emit({ type: 'tool.called', toolCallId: 'c1', tool: 'get_time', nodeId: 'tool:get_time', args: {} })
+    await sleep(s.toolMs)
+    emit({ type: 'tool.result', toolCallId: 'c1', tool: 'get_time', nodeId: 'tool:get_time', result: { now: 'x' }, status: 'ok' })
+  }
+  const n = Math.max(1, s.pieces ?? 1)
+  const size = Math.ceil(s.text.length / n)
+  for (let i = 0; i < s.text.length; i += size) {
+    t.firstText ??= Date.now()
+    emit({ type: 'text.delta', text: s.text.slice(i, i + size) })
+    if (s.delayMs) await sleep(s.delayMs)
+  }
+  if (s.approval) {
+    emit({ type: 'tool.called', toolCallId: 'call_1', tool: s.approval.tool, nodeId: 'tool:x', args: s.approval.args })
+    emit({ type: 'tool.approval_required', toolCallId: 'call_1', tool: s.approval.tool, nodeId: 'tool:x', args: s.approval.args })
+    emit({ type: 'run.finished', finishReason: 'suspended', text: '', usage: {}, costUsd: 0.0001, verification: { status: 'pending' } })
+  } else {
+    emit({ type: 'run.finished', finishReason: 'stop', text: s.text, usage: {}, costUsd: 0.0001, verification: { status: 'pending' } })
+  }
+  t.finished = Date.now()
+  if (s.verifyMs) await sleep(s.verifyMs)
+  emit({ type: 'run.verified', model, nodeId: `model:${model}`, verification: { status: 'verified', level: 'gateway_tee', completionIds: ['c'] } })
+  fake.nextSeq.set(runId, seq)
+  t.ended = Date.now()
+  res.end()
 }
 
 export const templates = [
@@ -111,6 +152,8 @@ export const engine = createServer(async (req, res) => {
     const started = { type: 'run.started', threadId: body.threadId, model: body.mind.model, nodeId: `model:${body.mind.model}`, skills: body.mind.skills.map((s: any) => s.skillId) }
     // "pay 0.01 NEAR to a.testnet[ and 0.02 NEAR to b.testnet]": send_payment, one approval per pause like the real
     // engine, so a split bill asks for the next person once the first is answered.
+    const script = fake.scripts.get(String(body.message))
+    if (script) return scripted(res, runId, mindId, body.threadId, body.mind.model, script)
     const payments = [...String(body.message).matchAll(/([\d.]+) NEAR to ([a-z0-9._-]+)/g)].map((m, i) => ({ toolCallId: `pay_${i + 1}`, args: { to: m[2], amountNear: m[1] } }))
     if (/^pay [\d.]+ NEAR to /.test(body.message) && payments.length) {
       fake.payments.set(runId, payments)

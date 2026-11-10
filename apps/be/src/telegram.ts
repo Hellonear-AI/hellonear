@@ -11,7 +11,8 @@
 // sent back as X-Telegram-Bot-Api-Secret-Token; allowed_updates), deleteWebhook, getUpdates (local dev without a public
 // URL), sendMessage (at most 4096 characters; reply_markup inline_keyboard, callback_data 1-64 bytes), sendChatAction,
 // answerCallbackQuery ("clients will display a progress bar until you call answerCallbackQuery"), editMessageText,
-// editMessageReplyMarkup.
+// editMessageReplyMarkup, deleteMessage. Messages are Telegram HTML (#221, src/telegramFormat.ts); a reply streams in
+// as it is written (#222, LiveReply).
 import { z } from 'zod'
 import { config } from './config.ts'
 import { decrypt, encrypt, randomToken, sameSecret } from './crypto.ts'
@@ -19,6 +20,7 @@ import { query } from './db.ts'
 import { HttpError, UPSTREAM_ERROR, fetchFailure } from './http.ts'
 import { approvalChecks, approvalDetails, explorerTxUrl, fixFirstLabel, paymentOf, refusalReasons, type WalletView } from './approvals.ts'
 import { isAwaiting } from './runs.ts'
+import { cantParse, escapeHtml, escapeMd, plainOf, telegramChunks } from './telegramFormat.ts'
 import { getWallet, hasWallet } from './wallets.ts'
 
 export const telegramTokenSchema = z.object({ token: z.string().trim().regex(/^\d{5,16}:[A-Za-z0-9_-]{30,64}$/, 'not a Telegram bot token from @BotFather') })
@@ -31,7 +33,7 @@ export type RunOutcome = { threadId: string; text: string; asked: Asked[]; outco
 // How Telegram reaches the Mind (src/server.ts): `chat` runs one owner message like the app's chat; `answer` approves or
 // declines like the app's approve/decline route. Both relay into memory, so runs are stored exactly as from the app.
 export type MindRunner = {
-  chat: (mindId: string, threadId: string | undefined, text: string) => Promise<RunOutcome>
+  chat: (mindId: string, threadId: string | undefined, text: string, onEvent?: (e: Record<string, any>) => void) => Promise<RunOutcome>
   answer: (mindId: string, runId: string, toolCallId: string, action: 'approve' | 'decline') => Promise<RunOutcome>
 }
 
@@ -138,25 +140,6 @@ export async function registerTelegramWebhooks(): Promise<{ updated: number; fai
   return { updated, failed }
 }
 
-const send = (r: Row, text: string) => bot(tokenOf(r), 'sendMessage', { chat_id: r.owner_chat_id, text, link_preview_options: { is_disabled: true } })
-
-// Telegram shows plain text; the Mind writes light Markdown. Drop the marks that would show as symbols.
-export const plainForTelegram = (t: string) => t.replace(/\*\*(.+?)\*\*/g, '$1').replace(/__(.+?)__/g, '$1').replace(/^#{1,6}\s+/gm, '').replace(/`([^`\n]+)`/g, '$1')
-
-// 4096 characters per message; split on a paragraph or line break when one is close.
-export function chunks(text: string, max = 4096): string[] {
-  const out: string[] = []
-  let rest = text
-  while (rest.length > max) {
-    const cut = Math.max(rest.lastIndexOf('\n\n', max), rest.lastIndexOf('\n', max), max * 0.6 | 0)
-    const at = cut > 0 ? cut : max
-    out.push(rest.slice(0, at).trimEnd())
-    rest = rest.slice(at).trimStart()
-  }
-  if (rest.trim()) out.push(rest)
-  return out
-}
-
 type Chat = { id?: number; type?: string; first_name?: string; username?: string }
 type CallbackQuery = { id?: string; from?: { id?: number; is_bot?: boolean }; message?: { message_id?: number; chat?: Chat }; data?: string }
 type Update = { update_id?: number; message?: { text?: string; chat?: Chat; from?: { is_bot?: boolean } }; callback_query?: CallbackQuery }
@@ -164,15 +147,117 @@ type Update = { update_id?: number; message?: { text?: string; chat?: Chat; from
 type Button = { text: string; callback_data: string } | { text: string; url: string }
 type Keyboard = Button[][]
 
-// Sends or edits a message with a keyboard. Telegram may refuse a URL button it can't open (e.g. a localhost FE in local
-// dev; which ones is not proven): then the same message goes out once more with the links written in the text instead.
-async function withKeyboard(r: Row, method: 'sendMessage' | 'editMessageText', body: Record<string, unknown>, text: string, keyboard: Keyboard) {
-  const call = (t: string, k: Keyboard) => bot(tokenOf(r), method, { ...body, text: t, link_preview_options: { is_disabled: true }, ...(k.length ? { reply_markup: { inline_keyboard: k } } : {}) })
-  const first = await call(text, keyboard)
+// Sends or edits one message of Telegram HTML (#221, `parse_mode: "HTML"`), optionally with a keyboard. Two fallbacks, so
+// a message is never lost: Telegram refusing the HTML (400 "can't parse entities") gets the same message as plain text;
+// Telegram refusing a URL button it can't open (e.g. a localhost FE in local dev; which ones is not proven) gets the
+// same message once more with the links written in the text instead.
+async function deliver(r: Row, method: 'sendMessage' | 'editMessageText', body: Record<string, unknown>, html: string, keyboard: Keyboard = []) {
+  const call = (t: string, isHtml: boolean, k: Keyboard) =>
+    bot(tokenOf(r), method, { ...body, text: t, ...(isHtml ? { parse_mode: 'HTML' } : {}), link_preview_options: { is_disabled: true }, ...(k.length ? { reply_markup: { inline_keyboard: k } } : {}) })
+  let isHtml = true
+  let text = html
+  let res = await call(text, isHtml, keyboard)
+  if (!res.ok && res.status === 400 && cantParse(res.description)) {
+    isHtml = false
+    text = plainOf(html).slice(0, 4096)
+    res = await call(text, isHtml, keyboard)
+  }
   const links = keyboard.flat().filter((b): b is { text: string; url: string } => 'url' in b)
-  if (first.ok || first.status !== 400 || !links.length) return first
-  return call([text, '', ...links.map((b) => `${b.text}: ${b.url}`)].join('\n'), keyboard.map((row) => row.filter((b) => !('url' in b))).filter((row) => row.length))
+  if (res.ok || res.status !== 400 || !links.length || notModified(res.description)) return res
+  const esc = isHtml ? escapeHtml : (s: string) => s
+  return call([text, '', ...links.map((b) => `${esc(b.text)}: ${esc(b.url)}`)].join('\n'), isHtml, keyboard.map((row) => row.filter((b) => !('url' in b))).filter((row) => row.length))
 }
+// An edit to the text a message already has: harmless, Telegram just says so.
+const notModified = (description: string | undefined) => /message is not modified/i.test(description ?? '')
+
+// The Mind's Markdown (or a fixed sentence of ours) as one or more messages to the owner.
+async function sendReply(r: Row, markdown: string) {
+  for (const part of telegramChunks(markdown)) await deliver(r, 'sendMessage', { chat_id: r.owner_chat_id }, part)
+}
+// #222: Telegram clears "typing…" after 5 s or when the bot sends a message ("The status is set for 5 seconds or less"),
+// and limits how often a bot may edit, so typing is repeated every 4 s and edits come at most every 1.5 s. Tests shorten them.
+export const telegramTiming = { typingMs: 4000, editMs: 1500 }
+
+// A reply shown while it is written (#222). The first text goes out at once; later text edits that message, at most
+// once per `editMs`; past 4096 characters it continues in a new message. Every send and edit is the whole text so far
+// through the #221 converter: a half-written Markdown mark stays a literal character until its pair arrives (the
+// converter only pairs closed marks), so a mid-stream message is always valid HTML. On run.finished the last edit shows
+// the complete reply, without waiting for run.verified. "typing…" is repeated until the first text is shown, and again
+// while a tool runs.
+class LiveReply {
+  private text = ''
+  private msgs: { id: number; html: string }[] = []
+  private tools = 0
+  private chain: Promise<void> = Promise.resolve()
+  private timer: NodeJS.Timeout | undefined
+  private lastFlush = 0
+  private typing: NodeJS.Timeout
+  private finished: Promise<void> | undefined
+
+  constructor(private r: Row) {
+    const tick = () => { if (!this.finished && (!this.msgs.length || this.tools > 0)) void bot(tokenOf(r), 'sendChatAction', { chat_id: r.owner_chat_id, action: 'typing' }).catch(() => {}) }
+    tick()
+    this.typing = setInterval(tick, telegramTiming.typingMs)
+  }
+
+  // True once any of the reply is on the owner's screen.
+  get shown() { return this.msgs.length > 0 }
+
+  onEvent = (e: Record<string, any>) => {
+    if (this.finished) return
+    if (e.type === 'text.delta' && typeof e.text === 'string') { this.text += e.text; this.schedule() }
+    else if (e.type === 'tool.called') this.tools++
+    // A tool that waits for the owner's approval is not running: no typing while the run is paused.
+    else if ((e.type === 'tool.result' || e.type === 'tool.error' || e.type === 'tool.approval_required') && this.tools > 0) this.tools--
+    else if (e.type === 'run.finished' || e.type === 'run.error') void this.finish()
+  }
+
+  private schedule() {
+    if (this.timer || !this.text.trim()) return
+    const wait = this.lastFlush ? Math.max(0, this.lastFlush + telegramTiming.editMs - Date.now()) : 0
+    this.timer = setTimeout(() => {
+      this.timer = undefined
+      this.lastFlush = Date.now()
+      this.chain = this.chain.then(() => this.flush())
+    }, wait)
+  }
+
+  // Brings the owner's messages up to the text so far: changed parts are edited, new parts sent, and parts the text no
+  // longer needs (a final text that packs into fewer messages) deleted.
+  private async flush() {
+    const parts = telegramChunks(this.text.trim())
+    for (let i = 0; i < parts.length; i++) {
+      const m = this.msgs[i]
+      if (!m) {
+        const res = await deliver(this.r, 'sendMessage', { chat_id: this.r.owner_chat_id }, parts[i]).catch(() => null)
+        if (res?.ok && typeof res.result?.message_id === 'number') this.msgs[i] = { id: res.result.message_id, html: parts[i] }
+        else return
+      } else if (m.html !== parts[i]) {
+        const res = await deliver(this.r, 'editMessageText', { chat_id: this.r.owner_chat_id, message_id: m.id }, parts[i]).catch(() => null)
+        // "message is not modified" means it already shows this text.
+        if (res?.ok || notModified(res?.description)) m.html = parts[i]
+      }
+    }
+    for (const m of this.msgs.splice(parts.length)) await bot(tokenOf(this.r), 'deleteMessage', { chat_id: this.r.owner_chat_id, message_id: m.id }).catch(() => {})
+  }
+
+  // The last edit, with the complete text; safe to call more than once.
+  finish() {
+    this.finished ??= (async () => {
+      clearInterval(this.typing)
+      clearTimeout(this.timer)
+      this.timer = undefined
+      await this.chain
+      if (this.text.trim()) await this.flush()
+    })()
+    return this.finished
+  }
+}
+
+// Approval cards (#208): the title bold, every other line literal. Their words come from tool arguments (an email
+// subject, an event title someone else wrote), so they are escaped, never read as Markdown: a stranger's subject
+// cannot add a link or formatting to a message that asks the owner to approve.
+const card = (title: string, ...lines: string[]) => [`<b>${escapeHtml(title)}</b>`, ...lines.map(escapeHtml)].join('\n')
 
 const chatUrl = (mindId: string, threadId: string) => `${config.feOrigin}/minds/${mindId}/chat/${threadId}`
 const walletUrl = (mindId: string) => `${config.feOrigin}/minds/${mindId}/wallet`
@@ -214,15 +299,14 @@ export async function askOwner(r: Row, threadId: string, asked: Asked) {
   const keyboard: Keyboard = approve
     ? [[{ text: 'Approve', callback_data: approve }, { text: 'Decline', callback_data: decline }], [{ text: 'Open in app', url: chatUrl(mindId, threadId) }]]
     : [[{ text: 'Decline', callback_data: decline }], [{ text: fixFirstLabel(next as Exclude<typeof next, 'approve'>), url: walletUrl(mindId) }]]
-  const text = [title, ...(lines.length ? ['', ...lines] : []), '', 'Waiting for you.'].join('\n')
-  await withKeyboard(r, 'sendMessage', { chat_id: r.owner_chat_id }, text, keyboard)
+  await deliver(r, 'sendMessage', { chat_id: r.owner_chat_id }, card(title, ...(lines.length ? ['', ...lines] : []), '', 'Waiting for you.'), keyboard)
 }
 
 // The edited message after a press: what happened, in the app's words. A payment the wallet refused says so, never
 // "rejected on-chain" and never with a tx link (there is no tx: OutLayer refuses before signing).
 async function resultOf(mindId: string, title: string, action: 'approve' | 'decline', tool: string, args: unknown, outcome: ToolOutcome | undefined): Promise<{ text: string; keyboard: Keyboard }> {
   const payment = paymentOf(tool, args)
-  const done = (line: string, keyboard: Keyboard = []) => ({ text: `${title}\n\n${line}`, keyboard })
+  const done = (line: string, keyboard: Keyboard = []) => ({ text: card(title, '', ...line.split('\n')), keyboard })
   const why = (s: unknown) => (s === undefined || s === null ? '' : String(s).slice(0, 300))
   if (action === 'decline') return done(payment ? 'Declined. Nothing was sent.' : 'Declined.')
   if (!payment) {
@@ -255,8 +339,8 @@ export async function handleCallback(r: Row, cq: CallbackQuery, runner: MindRunn
   const [code] = await query<CodeRow>('select * from telegram_approvals where code = $1 and mind_id = $2', [String(cq.data ?? ''), r.mind_id])
   if (!code) { await answer('This button no longer works'); return 'unknown' }
   const where = cq.message?.message_id !== undefined ? { chat_id: r.owner_chat_id, message_id: cq.message.message_id } : null
-  const edit = async (text: string, keyboard: Keyboard = []) => { if (where) await withKeyboard(r, 'editMessageText', where, text, keyboard).catch(() => {}) }
-  const already = async () => { await answer('Already answered'); await edit(`${code.title}\n\nAlready answered.`); return 'already_answered' as const }
+  const edit = async (html: string, keyboard: Keyboard = []) => { if (where) await deliver(r, 'editMessageText', where, html, keyboard).catch(() => {}) }
+  const already = async () => { await answer('Already answered'); await edit(card(code.title, '', 'Already answered.')); return 'already_answered' as const }
 
   // One use: the first press uses up both buttons of the message.
   const claimed = await query<{ code: string }>('update telegram_approvals set used_at = now() where run_id = $1 and tool_call_id = $2 and used_at is null returning code', [code.run_id, code.tool_call_id])
@@ -271,15 +355,15 @@ export async function handleCallback(r: Row, cq: CallbackQuery, runner: MindRunn
   if (where) await bot(token, 'editMessageReplyMarkup', where).catch(() => {})
 
   const out = await runner.answer(r.mind_id, code.run_id, code.tool_call_id, code.action)
-  if (out.error === 'not_awaiting_approval') { await edit(`${code.title}\n\nAlready answered.`); return 'already_answered' }
+  if (out.error === 'not_awaiting_approval') { await edit(card(code.title, '', 'Already answered.')); return 'already_answered' }
   if (out.error && !out.outcomes.length && !out.text) {
-    await edit(`${code.title}\n\nCouldn't answer that (${out.error}). Try again in the app.`, out.threadId ? [[{ text: 'Open in app', url: chatUrl(r.mind_id, out.threadId) }]] : [])
+    await edit(card(code.title, '', `Couldn't answer that (${out.error}). Try again in the app.`),out.threadId ? [[{ text: 'Open in app', url: chatUrl(r.mind_id, out.threadId) }]] : [])
     return 'failed'
   }
   const result = await resultOf(r.mind_id, code.title, code.action, tool, asked?.payload.args, out.outcomes.find((o) => o.toolCallId === code.tool_call_id))
   await edit(result.text, result.keyboard)
   // Then the Mind's reply after the answer, as a normal message, and the next approval if it asks for one (a split bill).
-  for (const part of chunks(plainForTelegram(out.text.trim()))) await send(r, part)
+  await sendReply(r, out.text.trim())
   for (const a of out.asked) await askOwner(r, out.threadId, a)
   return 'answered'
 }
@@ -306,20 +390,24 @@ export async function handleUpdate(mindId: string, update: Update, runner: MindR
     await query('update mind_telegram set owner_chat_id = $2, owner_name = $3, link_code = null, updated_at = now() where mind_id = $1 and owner_chat_id is null', [mindId, chatId, name])
     const linked = await rowOf(mindId)
     if (linked?.owner_chat_id !== chatId) return 'ignored'
-    await send(linked, 'Linked. You can talk to your Mind here now. Payments and other actions still wait for you: it asks here with Approve and Decline buttons, and the HelloNear app shows the same request.')
+    await sendReply(linked, 'Linked. You can talk to your Mind here now. Payments and other actions still wait for you: it asks here with Approve and Decline buttons, and the HelloNear app shows the same request.')
     return 'linked'
   }
   // Anyone but the owner is ignored, without a reply.
   if (r.owner_chat_id !== chatId) return 'ignored'
-  if (text === '/start') { await send(r, 'Already linked. Just write to your Mind.'); return 'answered' }
+  if (text === '/start') { await sendReply(r, 'Already linked. Just write to your Mind.'); return 'answered' }
 
-  await bot(tokenOf(r), 'sendChatAction', { chat_id: chatId, action: 'typing' }).catch(() => {})
-  const out = await runner.chat(mindId, r.thread_id ?? undefined, text)
+  // The reply streams in while the run goes on (#222), and is complete at run.finished, before verification.
+  const live = new LiveReply(r)
+  let out: RunOutcome
+  try {
+    out = await runner.chat(mindId, r.thread_id ?? undefined, text, live.onEvent)
+  } finally {
+    await live.finish()
+  }
   if (out.threadId !== r.thread_id) await query('update mind_telegram set thread_id = $2, updated_at = now() where mind_id = $1', [mindId, out.threadId])
-  const reply = out.error
-    ? `Your Mind couldn't answer that (${out.error}). Try again in a moment.`
-    : plainForTelegram(out.text.trim()) || (out.asked.length ? '' : 'Done.')
-  for (const part of chunks(reply)) await send(r, part)
+  if (out.error) await sendReply(r, `Your Mind couldn't answer that (${escapeMd(out.error)}). Try again in a moment.`)
+  else if (!live.shown && !out.asked.length) await sendReply(r, out.text.trim() || 'Done.')
   // Each approval the run asks for gets its own message with buttons (a split bill's two payments get two).
   for (const a of out.asked) await askOwner(r, out.threadId, a)
   return 'answered'

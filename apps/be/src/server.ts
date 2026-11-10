@@ -127,19 +127,34 @@ async function telegramOwner(mindId: string): Promise<User | null> {
 // (Lin1er's review on #171). The per-user run cap still applies.
 const telegramReq = (user: User, mindId: string) =>
   Object.assign(new EventEmitter(), { headers: { 'cf-connecting-ip': `telegram:${user.id}` }, socket: { remoteAddress: 'telegram' }, url: `/v1/telegram/${mindId}`, method: 'POST' }) as unknown as IncomingMessage
-function memorySink() {
+// `onEvent` (#222) sees each relayed event as it is written, so Telegram can show the reply while the run goes on; the
+// relay itself (storage, threads, live view) is the same as for the app.
+function memorySink(onEvent?: (e: Record<string, any>) => void) {
   const out = { raw: '', status: 200 }
+  let partial = ''
+  const take = (t: string) => {
+    out.raw += t
+    if (!onEvent) return
+    const lines = (partial + t).split('\n')
+    partial = lines.pop() ?? ''
+    for (const l of lines) {
+      if (!l.startsWith('data: ')) continue
+      let e: Record<string, any> | null = null
+      try { e = JSON.parse(l.slice(6)) } catch { /* not an event */ }
+      if (e) { try { onEvent(e) } catch { /* the relay must go on */ } }
+    }
+  }
   const res = {
     writeHead(code: number) { out.status = code; return res },
-    write(t: string) { out.raw += t; return true },
-    end(t?: string) { if (t) out.raw += t; return res },
+    write(t: string) { take(t); return true },
+    end(t?: string) { if (t) take(t); return res },
   }
   return { out, res: res as unknown as ServerResponse }
 }
 const failedRun = (threadId: string, error: string) => ({ threadId, text: '', asked: [], outcomes: [], error })
 
 // One owner message, run like a chat from the app.
-export const runTelegramChat: MindRunner['chat'] = async (mindId, threadId, text) => {
+export const runTelegramChat: MindRunner['chat'] = async (mindId, threadId, text, onEvent) => {
   const thread = threadId ?? `thr_${newId('x').slice(2)}`
   const user = await telegramOwner(mindId)
   if (!user) return failedRun(thread, 'mind_not_found')
@@ -155,7 +170,7 @@ export const runTelegramChat: MindRunner['chat'] = async (mindId, threadId, text
     method: 'POST', signal: controller.signal,
     body: { userId: user.id, threadId: thread, message: text, mind: mindConfig(mind), secrets: await secretsForRun(user.id), ...(await runExtras(user, mind.id)) },
   })
-  const sink = memorySink()
+  const sink = memorySink(onEvent)
   await relayRun(fakeReq, sink.res, engineRes, { mindId: mind.id, threadId: thread, userMessage: text, controller })
   return outcomeOf(thread, sink.out.status, sink.out.raw)
 }
