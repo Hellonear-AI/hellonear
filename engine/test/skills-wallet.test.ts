@@ -47,6 +47,9 @@ const history = () => [
 const KNOWN_TX = new Set(['TxBob1', 'TxAlice1', 'TxShop1', 'TxOld1'])
 
 const sent: { to: string; amountNear: string }[] = []
+// When set, send_payment answers 503 like an unreachable OutLayer, for the no-retry-after-error rule.
+let failSends = false
+let sendAttempts = 0
 const backend = createServer(async (req, res) => {
   let raw = ''
   for await (const c of req) raw += c
@@ -55,6 +58,8 @@ const backend = createServer(async (req, res) => {
   if (req.url === '/internal/v1/wallet/balance') return send({ address: 'abc123.testnet', balanceNear: '0.42' })
   if (req.url?.startsWith('/internal/v1/wallet/payments')) return send({ payments: history() })
   if (req.url === '/internal/v1/wallet/send_payment') {
+    sendAttempts++
+    if (failSends) return res.writeHead(503, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'outlayer_unreachable' }))
     const body = JSON.parse(raw)
     sent.push(body)
     return send({ paymentId: `p-${sent.length}`, status: 'sent', to: body.to, amountNear: body.amountNear, txHash: `FakeTx${sent.length}` })
@@ -138,6 +143,21 @@ describe('freeze-advisor (#185)', () => {
 })
 
 describe('split-bill (#177)', () => {
+  test('a send_payment that fails with an error is not sent again for anyone, and the reply says so', async () => {
+    failSends = true
+    const attempts = sendAttempts
+    try {
+      const { all, asks } = await chatApprovingAll('split', `u-${randomUUID()}`, randomUUID(), mind('Split', ['split-bill']), 'Split a 0.02 NEAR dinner bill equally between alice.testnet and bob.testnet.')
+      // A second call may still be made, but the engine answers it without an approval card (beforeApproval).
+      assert.equal(asks.length, 1, `one approval card only: ${toolsOf(all)}`)
+      assert.equal(sendAttempts - attempts, 1, 'only the first payment reached the wallet')
+      const text = finalText(all)
+      assert.ok(text.trim().length > 0, 'always writes a reply')
+      assert.match(text, /not go through|did not|didn't|failed|could not|couldn't|unreachable/i, text)
+      assert.ok(!/FakeTx/.test(text), 'no tx hash for a payment that failed')
+    } finally { failSends = false }
+  })
+
   test('an equal split becomes one approved send_payment per person', async () => {
     const before = sent.length
     const { all, asks } = await chatApprovingAll('split', `u-${randomUUID()}`, randomUUID(), mind('Split', ['split-bill']),

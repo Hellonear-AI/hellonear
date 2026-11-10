@@ -7,7 +7,16 @@ import { z } from 'zod'
 export const WALLET_KEY = 'wallet'
 export const walletContext = (token: string | undefined) => new Map(token ? [['token', token]] : [])
 
-export const walletTokenSchema = z.string().regex(/^wt_[A-Za-z0-9._~-]+$/, 'not a wallet token').max(2048)
+// A payment that failed with an error is remembered in the same per-request Map (not in run snapshots), so the
+// rest of that request sends no other payment (tools.ts send_payment). beforeApproval sees a plain object view of
+// the request context whose values are the same Map.
+export function markPaymentFailed(context: Ctx) {
+  (context?.requestContext?.get(WALLET_KEY) as Map<string, string> | undefined)?.set('failed', '1')
+}
+export const paymentFailedEarlier = (view: Record<string, unknown> | undefined) =>
+  (view?.[WALLET_KEY] as Map<string, string> | undefined)?.get('failed') === '1'
+
+export const walletTokenSchema =z.string().regex(/^wt_[A-Za-z0-9._~-]+$/, 'not a wallet token').max(2048)
 
 type Ctx = { requestContext?: { get: (key: string) => unknown } } | undefined
 

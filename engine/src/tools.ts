@@ -3,7 +3,7 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import { SECRETS_KEY, assertHostAllowed, assertPublicHttpsUrl, assertResolvesPublic, fillSecrets, redact, type Secret } from './secrets.ts'
-import { NoWalletError, walletCall } from './wallet.ts'
+import { NoWalletError, markPaymentFailed, paymentFailedEarlier, walletCall } from './wallet.ts'
 import { idempotencyKeyOf, mailCall, ownerMailCall } from './mail.ts'
 import { draftSample, isDemo, listSample, readSample } from './email.ts'
 import { addressOf, composioTool, gmail, toListed, toRead } from './composio.ts'
@@ -76,7 +76,22 @@ const sendPayment = createTool({
   }),
   outputSchema: paymentSchema,
   requireApproval: true,
-  execute: async ({ to, amountNear }, context) => walletCall(context, 'POST', '/internal/v1/wallet/send_payment', { to, amountNear }),
+  // After a payment failed with an error, the model once went on to pay the next person in a split: no further
+  // payment in the same request, and no approval card for one.
+  beforeApproval: ({ to, amountNear }, { requestContext }) => paymentFailedEarlier(requestContext) ? {
+    proceed: false,
+    output: { paymentId: 'none', status: 'failed' as const, to, amountNear, message: 'not sent: a payment already failed with an error in this request, so no other payment goes out now. Tell the owner what was paid and what was not; they can ask again.' },
+  } : undefined,
+  execute: async ({ to, amountNear }, context) => {
+    try {
+      const out = await walletCall<z.infer<typeof paymentSchema>>(context, 'POST', '/internal/v1/wallet/send_payment', { to, amountNear })
+      if (out.status === 'failed') markPaymentFailed(context)
+      return out
+    } catch (e) {
+      markPaymentFailed(context)
+      throw e
+    }
+  },
 })
 
 const getBalance = createTool({

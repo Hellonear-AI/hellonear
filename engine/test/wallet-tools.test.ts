@@ -95,6 +95,27 @@ test('backend errors surface with their code', async () => {
   await assert.rejects(run('get_balance', {}, 'wt_expired'), /401 wallet_token_expired/)
 })
 
+test('after a send_payment error, the next one in the same request is answered without an approval card', async () => {
+  const before = toolRegistry.send_payment.beforeApproval!
+  const input = { to: 'bob.testnet', amountNear: '0.01' }
+  // One request context per request, holding its wallet Map, as src/server.ts builds it.
+  const request = (token: string) => ({ requestContext: new Map<string, unknown>([[WALLET_KEY, walletContext(token)]]) })
+  const hook = (c: any) => before(input, { toolCallId: 't1', toolName: 'send_payment', requestContext: Object.fromEntries(c.requestContext.entries()) })
+  // Same request: a failed payment marks its own wallet Map, which beforeApproval reads through the plain view.
+  const failing = request('wt_expired') as any
+  assert.equal(await hook(failing), undefined, 'first payment goes to approval')
+  await assert.rejects(toolRegistry.send_payment.execute!(input as any, failing), /401/)
+  const out: any = await hook(failing)
+  assert.equal(out?.proceed, false)
+  assert.equal(out?.output.status, 'failed')
+  assert.match(out?.output.message, /already failed/)
+  // A new request starts clean, and a sent payment never blocks the next one.
+  assert.equal(await hook(request(TOKEN)), undefined)
+  const ok = request(TOKEN) as any
+  await toolRegistry.send_payment.execute!(input as any, ok)
+  assert.equal(await hook(ok), undefined)
+})
+
 test('bad amounts and accounts never reach the backend', async () => {
   const validate = (input: unknown) => toolRegistry.send_payment.inputSchema!['~standard'].validate(input) as any
   for (const amountNear of ['0', '0.0', '-1', '1e3', '0.01 NEAR', '1000']) assert.ok((await validate({ to: 'shop.testnet', amountNear })).issues?.length, amountNear)
