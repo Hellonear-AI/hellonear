@@ -23,6 +23,7 @@ import { BuilderError, mastraWorkflowId, mindIdSchema, workflowIdSchema } from '
 import { mindSchema, timeZoneSchema } from './mind.ts'
 import { secretSchema } from './secrets.ts'
 import { deleteWorkflow, listWorkflows, loadWorkflow, saveWorkflow } from './workflows.ts'
+import { forgetThread } from './threads.ts'
 import { autopilotSchema, deleteAutopilot, getAutopilot, listRuns, setAutopilot } from './autopilot.ts'
 
 // `attackId` (#16): an Attack Playground run; the engine ends it with an `attack.verdict` event.
@@ -39,6 +40,8 @@ const workflowRunSchema = z.object({
   demo: z.boolean().optional(),
   timeZone: timeZoneSchema.optional(),
 })
+// Deleting a chat (#207): the user id, so only that user's memory of the Mind can be touched.
+const forgetSchema = z.object({ userId: z.string().min(1) })
 
 // Next event seq per run, so events after an approval continue the run's sequence.
 // In-memory for now: a restarted engine restarts numbering for resumed runs.
@@ -231,6 +234,19 @@ export const server = createServer(async (req, res) => {
       const options = { ...agentOptions(mind, secrets, userId, mindId, threadId, { walletToken, mailToken, timeZone }, demo), runId, toolCallId, abortSignal: abortOnClose(res) }
       const stream = resume[2] === 'approve' ? await agent.approveToolCall(options) : await agent.declineToolCall({ ...options, reason })
       return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secretValues: hiddenValues(secrets, walletToken, mailToken), runId, attack: attackId ? { id: attackId, skills: mind.skills.map((s) => s.skillId) } : undefined })
+    }
+
+    // The owner deleted a chat (#207): its Mastra thread, messages and recall embeddings go now; working memory stays.
+    // 204 also when Mastra has no such thread, so the backend can ask again until it gets a 204.
+    const thread = url.pathname.match(/^\/v1\/minds\/([^/]+)\/threads\/([^/]+)$/)
+    if (thread && req.method === 'DELETE') {
+      const mindId = decodeURIComponent(thread[1])
+      const threadId = decodeURIComponent(thread[2])
+      if (!mindIdSchema.safeParse(mindId).success || !threadId) return sendJson(res, 400, { error: 'invalid_id' })
+      const parsed = forgetSchema.safeParse(await readJson(req))
+      if (!parsed.success) return sendJson(res, 400, { error: 'invalid_body', issues: parsed.error.issues })
+      const out = await forgetThread(parsed.data.userId, mindId, threadId)
+      return out === 'not_owner' ? sendJson(res, 404, { error: 'thread_not_found' }) : res.writeHead(204).end()
     }
 
     const wfList = url.pathname.match(/^\/v1\/minds\/([^/]+)\/workflows$/)

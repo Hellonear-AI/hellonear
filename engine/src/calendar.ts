@@ -50,6 +50,32 @@ export function composioTiming(start: string, end: string) {
   return { ...composioStart(start), end_datetime: end, event_duration_hour: hours, event_duration_minutes: minutes }
 }
 
+// Every event the calendar tools return also carries its start and end in the owner's time zone (#214), e.g.
+// "Wed 11 Nov 17:00". The model was left to convert UTC itself and showed the 10:00 UTC standup as 10:00 WIB in two
+// runs out of three. All-day events are dates, not instants: they read the same in every zone ("Tue 10 Nov, all day"),
+// and since Google's end date is exclusive, `endLocal` is the last day of the event.
+export type LocalTimes = { startLocal: string; endLocal: string; timeZone: string }
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
+function stamp(t: number, timeZone: string, withTime: boolean): string {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+    timeZone, weekday: 'short', day: 'numeric', month: 'short', ...(withTime ? { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' } as const : {}),
+  }).formatToParts(t).map((x) => [x.type, x.value]))
+  const day = `${p.weekday} ${p.day} ${p.month}`
+  return withTime ? `${day} ${p.hour}:${p.minute}` : `${day}, all day`
+}
+export function localTimes(start: string, end: string, allDay: boolean, timeZone = 'UTC'): LocalTimes {
+  const s = Date.parse(start)
+  const e = Date.parse(end)
+  if (allDay || (DATE_ONLY.test(start) && DATE_ONLY.test(end))) {
+    // A date parses as midnight UTC, so it is formatted in UTC to keep the same calendar day.
+    const last = Number.isNaN(e) ? s : Math.max(s, e - DAY_MS)
+    return { startLocal: Number.isNaN(s) ? '' : stamp(s, 'UTC', false), endLocal: Number.isNaN(last) ? '' : stamp(last, 'UTC', false), timeZone }
+  }
+  return { startLocal: Number.isNaN(s) ? '' : stamp(s, timeZone, true), endLocal: Number.isNaN(e) ? '' : stamp(e, timeZone, true), timeZone }
+}
+export const withLocalTimes = <T extends { start: string; end: string; allDay?: boolean }>(event: T, timeZone = 'UTC'): T & LocalTimes =>
+  ({ ...event, ...localTimes(event.start, event.end, event.allDay ?? false, timeZone) })
+
 // Google's Event resource → our shape. Descriptions are written by whoever sent the invite: data, never instructions.
 type GoogleTime = { date?: string; dateTime?: string }
 type GoogleAttendee = { email?: string; displayName?: string; self?: boolean; resource?: boolean }

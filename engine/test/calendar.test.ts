@@ -5,10 +5,10 @@ import { after, before, beforeEach, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { needsApproval, toolRegistry, toolsFor } from '../src/tools.ts'
+import { TIME_ZONE_KEY, needsApproval, toolRegistry, toolsFor } from '../src/tools.ts'
 import { USER_KEY, resetComposioSessions } from '../src/composio.ts'
 import { DEMO_KEY } from '../src/email.ts'
-import { ISO_WITH_OFFSET, SAMPLE_CALENDAR, checkAttendees, listSampleCalendar, rangeOf } from '../src/calendar.ts'
+import { ISO_WITH_OFFSET, SAMPLE_CALENDAR, checkAttendees, listSampleCalendar, localTimes, rangeOf } from '../src/calendar.ts'
 import { nodeIdFor } from '../src/graph.ts'
 
 const calls: { url: string; body: any }[] = []
@@ -82,7 +82,8 @@ test('create: only the owner\'s calendar, no guests notified, no Meet link, and 
     calendar_id: 'primary', summary: 'Dentist', start_datetime: '2026-11-09T15:00:00+07:00', end_datetime: '2026-11-09T16:00:00+07:00', event_duration_hour: 1, event_duration_minutes: 0,
     location: 'Clinic', create_meeting_room: false, send_updates: 'none',
   })
-  assert.deepEqual(out, { source: 'googlecalendar', eventId: 'new1', title: 'Dentist', start: '2026-11-09T08:00:00Z', end: '2026-11-09T09:00:00Z', link: 'https://calendar.example/new', status: 'created' })
+  assert.deepEqual(out, { source: 'googlecalendar', eventId: 'new1', title: 'Dentist', start: '2026-11-09T08:00:00Z', end: '2026-11-09T09:00:00Z', link: 'https://calendar.example/new', status: 'created',
+    startLocal: 'Mon 9 Nov 08:00', endLocal: 'Mon 9 Nov 09:00', timeZone: 'UTC' })
   assert.equal(needsApproval('googlecalendar_create_event'), true)
   assert.equal(needsApproval('googlecalendar_list_events'), false)
   // Unattended runs (workflows) never get it: nobody is there to approve.
@@ -175,6 +176,7 @@ test('meeting: a Meet space first, then an event with the link, the guests, and 
   assert.deepEqual(out, {
     source: 'googlecalendar', eventId: 'new1', title: 'Call with Budi', start: '2026-11-10T08:00:00Z', end: '2026-11-10T08:30:00Z', link: 'https://calendar.example/new',
     meetLink: 'https://meet.google.com/abc-mnop-xyz', attendees: ['budi@example.com', 'sari@example.org'], invitesSent: true, status: 'created',
+    startLocal: 'Tue 10 Nov 08:00', endLocal: 'Tue 10 Nov 08:30', timeZone: 'UTC',
   })
 })
 
@@ -243,6 +245,7 @@ test('meeting for try-out runs: a fake Meet link, nobody emailed, no Composio ca
   assert.deepEqual(out, {
     source: 'sample_calendar', eventId: 'demo-cal-meeting', title: 'Call with Budi', start: meeting.start, end: meeting.end, link: '',
     meetLink: 'https://meet.example/sample-meeting', attendees: ['budi@example.com'], invitesSent: false, status: 'created',
+    startLocal: 'Tue 10 Nov 08:00', endLocal: 'Tue 10 Nov 08:30', timeZone: 'UTC',
   })
   assert.equal((await run('googlecalendar_create_meeting', { ...meeting, attendees: [], meet: false }, ctx('usr_demo', true))).meetLink, '')
   assert.equal((await run('googlecalendar_create_meeting', { ...meeting, attendees: ['nope'], meet: true }, ctx('usr_demo', true))).error, true)
@@ -272,4 +275,40 @@ test('the sample calendar has one double booking and one back-to-back pair for t
   const pairs = (hit: (a: any, b: any) => boolean) => events.flatMap((a, i) => events.slice(i + 1).filter((b) => hit(a, b)).map((b) => [a.id, b.id]))
   assert.deepEqual(pairs((a, b) => b.start < a.end), [['demo-cal-3', 'demo-cal-7']])
   assert.deepEqual(pairs((a, b) => b.start === a.end), [['demo-cal-4', 'demo-cal-8']])
+})
+
+// The owner's local times on every event (#214): the model showed the 10:00 UTC standup as 10:00 WIB in 2 of 3 runs.
+test('local times: UTC to Asia/Jakarta, a day boundary, all-day events and a UTC owner', () => {
+  assert.deepEqual(localTimes('2026-11-11T10:00:00.000Z', '2026-11-11T10:15:00.000Z', false, 'Asia/Jakarta'), { startLocal: 'Wed 11 Nov 17:00', endLocal: 'Wed 11 Nov 17:15', timeZone: 'Asia/Jakarta' })
+  // An offset in the source time changes nothing: the same instant reads the same.
+  assert.equal(localTimes('2026-11-11T17:00:00+07:00', '2026-11-11T17:15:00+07:00', false, 'Asia/Jakarta').startLocal, 'Wed 11 Nov 17:00')
+  // 23:30 UTC is already the next morning in Jakarta, and the weekday moves with it.
+  assert.deepEqual(localTimes('2026-11-11T23:30:00Z', '2026-11-12T00:30:00Z', false, 'Asia/Jakarta'), { startLocal: 'Thu 12 Nov 06:30', endLocal: 'Thu 12 Nov 07:30', timeZone: 'Asia/Jakarta' })
+  // ...and still the same evening for a UTC owner; behind UTC it is the day before.
+  assert.deepEqual(localTimes('2026-11-11T23:30:00Z', '2026-11-12T00:30:00Z', false, 'UTC'), { startLocal: 'Wed 11 Nov 23:30', endLocal: 'Thu 12 Nov 00:30', timeZone: 'UTC' })
+  assert.equal(localTimes('2026-11-11T03:00:00Z', '2026-11-11T04:00:00Z', false, 'America/New_York').startLocal, 'Tue 10 Nov 22:00')
+  assert.equal(localTimes('2026-11-11T10:00:00Z', '2026-11-11T11:00:00Z', false).timeZone, 'UTC', 'no zone: UTC')
+  // All-day: a date, the same day in every zone; Google's end date is exclusive, so endLocal is the last day.
+  assert.deepEqual(localTimes('2026-11-10', '2026-11-11', true, 'Asia/Jakarta'), { startLocal: 'Tue 10 Nov, all day', endLocal: 'Tue 10 Nov, all day', timeZone: 'Asia/Jakarta' })
+  assert.deepEqual(localTimes('2026-11-10', '2026-11-13', true, 'America/Los_Angeles'), { startLocal: 'Tue 10 Nov, all day', endLocal: 'Thu 12 Nov, all day', timeZone: 'America/Los_Angeles' })
+  assert.deepEqual(localTimes('', '', false, 'UTC'), { startLocal: '', endLocal: '', timeZone: 'UTC' })
+})
+
+const zoned = (timeZone: string, demo = false) => ({ requestContext: { get: (k: string) => (k === USER_KEY ? 'usr_a' : k === DEMO_KEY ? demo : k === TIME_ZONE_KEY ? timeZone : undefined) } })
+
+test('every calendar tool returns local times in the run\'s time zone (#214)', async () => {
+  // Real events: a timed one (10:00+07:00) and an all-day one.
+  const real = await run('googlecalendar_list_events', { from: '2026-11-08T00:00:00+07:00', to: '2026-11-15T00:00:00+07:00' }, zoned('Asia/Jakarta'))
+  assert.deepEqual(real.events.map((e: any) => [e.id, e.startLocal, e.endLocal, e.timeZone]), [
+    ['ev1', 'Sun 8 Nov 10:00', 'Sun 8 Nov 10:15', 'Asia/Jakarta'], ['ev2', 'Tue 10 Nov, all day', 'Tue 10 Nov, all day', 'Asia/Jakarta']])
+  assert.equal(real.events[0].start, '2026-11-08T10:00:00+07:00', 'the raw value stays')
+  // The sample standup is at 10:00 UTC: 17:00 in Jakarta.
+  const sample = await run('googlecalendar_list_events', { query: 'standup' }, zoned('Asia/Jakarta', true))
+  assert.equal(sample.events.length, 1)
+  assert.match(sample.events[0].startLocal, / 17:00$/)
+  assert.match(sample.events[0].start, /T10:00:00\.000Z$/)
+  const made = await run('googlecalendar_create_event', { title: 'Dentist', start: '2026-11-09T15:00:00+07:00', end: '2026-11-09T16:00:00+07:00' }, zoned('Asia/Jakarta'))
+  assert.deepEqual([made.start, made.startLocal, made.endLocal, made.timeZone], ['2026-11-09T08:00:00Z', 'Mon 9 Nov 15:00', 'Mon 9 Nov 16:00', 'Asia/Jakarta'])
+  const met = await run('googlecalendar_create_meeting', { ...meeting, attendees: [], meet: false }, zoned('Asia/Jakarta', true))
+  assert.deepEqual([met.startLocal, met.endLocal], ['Tue 10 Nov 15:00', 'Tue 10 Nov 15:30'])
 })

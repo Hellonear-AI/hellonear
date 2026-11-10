@@ -166,7 +166,8 @@ describe('commerce skills', () => {
     assert.ok(toolsCalled(good.all).includes('near_check_transfer'), JSON.stringify(toolsCalled(good.all)))
     const check = good.all.find((e) => e.type === 'tool.result' && e.tool === 'near_check_transfer')?.result
     assert.deepEqual([check?.toThisMindsWallet, check?.coversAmount], [true, true], JSON.stringify(check))
-    assert.match(finalText(good.all), /paid/i)
+    // "paid", "arrived" or "received" all say it (11 Nov: "Yes, the payment arrived… the full invoice amount" failed /paid/).
+    assert.match(finalText(good.all), /paid|arrived|received/i)
     assert.ok(!/not paid|was not paid|wasn't paid|isn't paid|different account|not (to )?(me|you|my|your|this)/i.test(finalText(good.all)), finalText(good.all))
     console.log('invoice paid reply:', finalText(good.all).replace(/\s+/g, ' ').slice(0, 300))
 
