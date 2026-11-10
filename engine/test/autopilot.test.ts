@@ -21,6 +21,9 @@ before(async () => {
   await mastra.startWorkers()
 })
 after(async () => {
+  // A failed test stops before its own DELETE, which once left a per-minute schedule running in the dev database
+  // (10 Nov). Remove every job this run made, whatever happened.
+  for (const id of ['report', 'alert', 'manual', 'mars', 'chain', 'tree']) await call('DELETE', path(id)).catch(() => {})
   await mastra.stopWorkers()
   await new Promise<void>((r) => server.close(() => r()))
 })
