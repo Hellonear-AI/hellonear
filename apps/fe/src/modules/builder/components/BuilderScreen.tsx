@@ -1302,12 +1302,33 @@ function PromptField({
   placeholder?: string
 }) {
   const labels = tokenLabels(results)
+  const shown = promptToDisplay(value, results)
+  const box = useRef<HTMLTextAreaElement>(null)
+  // Where the caret last was; null until the field is used, so a chip then goes at the end.
+  const caret = useRef<{ start: number; end: number } | null>(null)
+  /** Puts {Label} where the caret is, with a space on each side when needed (Ancung, 10 Nov: it always went at the end). */
+  function insert(r: Result) {
+    const token = `{${labels.get(`${r.stepId}.${r.name}`)}}`
+    const at = caret.current ?? { start: shown.length, end: shown.length }
+    const before = shown.slice(0, at.start)
+    const after = shown.slice(at.end)
+    const head = `${before}${before && !/\s$/.test(before) ? " " : ""}${token}`
+    const next = `${head}${after && !/^\s/.test(after) ? " " : ""}${after}`
+    onChange(promptFromDisplay(next, results))
+    caret.current = { start: head.length, end: head.length }
+    requestAnimationFrame(() => {
+      box.current?.focus()
+      box.current?.setSelectionRange(head.length, head.length)
+    })
+  }
   return (
     <div className={field}>
       <span className={label}>{labelText ?? `What should ${name} do?`}</span>
       {/* Earlier results read as {Balance} here; they are saved as the engine's {{steps.…}} references. */}
       <Textarea
-        value={promptToDisplay(value, results)}
+        ref={box}
+        value={shown}
+        onSelect={(e) => (caret.current = { start: e.currentTarget.selectionStart, end: e.currentTarget.selectionEnd })}
         maxLength={PROMPT_MAX}
         rows={6}
         placeholder={placeholder}
@@ -1328,7 +1349,7 @@ function PromptField({
                   <button
                     key={r.name}
                     type="button"
-                    onClick={() => onChange(`${value}${value && !value.endsWith(" ") ? " " : ""}${ref(r.stepId, r.name)}`)}
+                    onClick={() => insert(r)}
                     title={`Puts {${labels.get(`${r.stepId}.${r.name}`)}} in the text`}
                     className="inline-flex h-7 items-center gap-1 rounded-full border border-border bg-surface px-2.5 text-xs text-foreground outline-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus"
                   >
