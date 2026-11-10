@@ -1,5 +1,4 @@
 import {
-  InboxIcon,
   MessageCircleIcon,
   PlugIcon,
   PuzzleIcon,
@@ -15,14 +14,11 @@ export type NavItem = {
   segment: string
   label: string
   icon: LucideIcon
-  /** Shows the approvals count badge. */
-  count?: "approvals"
 }
 
 export const NAV_ITEMS: NavItem[] = [
   { segment: "chat", label: "Chat", icon: MessageCircleIcon },
   { segment: "wallet", label: "Wallet", icon: WalletIcon },
-  { segment: "approvals", label: "Approvals", icon: InboxIcon, count: "approvals" },
   { segment: "skills", label: "Skills", icon: PuzzleIcon },
   { segment: "autopilot", label: "Autopilot", icon: RepeatIcon },
   { segment: "connections", label: "Connections", icon: PlugIcon },

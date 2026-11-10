@@ -3,10 +3,11 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import { SECRETS_KEY, assertHostAllowed, assertPublicHttpsUrl, assertResolvesPublic, fillSecrets, redact, type Secret } from './secrets.ts'
-import { walletCall } from './wallet.ts'
+import { NoWalletError, markPaymentFailed, paymentFailedEarlier, walletCall } from './wallet.ts'
 import { idempotencyKeyOf, mailCall, ownerMailCall } from './mail.ts'
 import { draftSample, isDemo, listSample, readSample } from './email.ts'
 import { addressOf, composioTool, gmail, toListed, toRead } from './composio.ts'
+import { appTools } from './apps.ts'
 import {
   ISO_WITH_OFFSET, MAX_ATTENDEES, MAX_RANGE_DAYS, checkAttendees, composioTiming, createSampleEvent, createSampleMeeting, listSampleCalendar, listedEvents,
   meetLinkOf, rangeOf, withMeetLink,
@@ -55,6 +56,42 @@ const addNumbers = createTool({
   execute: async ({ a, b }) => ({ sum: a + b }),
 })
 
+// Shares of a NEAR amount, worked out here in yoctoNEAR integers: a revenue split once paid 0.002 and 0.003 for
+// 40% and 60% of 0.05 (11 Nov), a model doing the percent in its head. Each share is rounded down to 4 decimals.
+const YOCTO_DIGITS = 24
+const SHARE_STEP = 10n ** 20n // 0.0001 NEAR
+const toYocto = (near: string) => {
+  const [whole, frac = ''] = near.split('.')
+  return BigInt(whole) * 10n ** 24n + BigInt(frac.padEnd(YOCTO_DIGITS, '0'))
+}
+// Every digit that is there, so a total or a left-over below 0.0001 still shows; shares are already whole steps.
+const fromYocto = (yocto: bigint) => {
+  const whole = yocto / 10n ** 24n
+  const frac = (yocto % 10n ** 24n).toString().padStart(YOCTO_DIGITS, '0').replace(/0+$/, '')
+  return frac ? `${whole}.${frac}` : `${whole}`
+}
+export function splitAmount(amountNear: string, parts: { to: string; weight: number }[]) {
+  const total = toYocto(amountNear)
+  // Weights as integers in millionths, so 33.333333 % and 1 / 1 / 1 both work exactly enough.
+  const units = parts.map((p) => BigInt(Math.round(p.weight * 1e6)))
+  const sum = units.reduce((a, b) => a + b, 0n)
+  if (sum <= 0n) throw new Error('weights must add up to more than 0')
+  const shares = parts.map((p, i) => ({ to: p.to, amountNear: fromYocto(((total * units[i]) / sum / SHARE_STEP) * SHARE_STEP) }))
+  const paid = shares.reduce((a, s) => a + toYocto(s.amountNear), 0n)
+  return { amountNear: fromYocto(total), shares, totalOfShares: fromYocto(paid), leftOver: fromYocto(total - paid) }
+}
+
+const splitAmountTool = createTool({
+  id: 'split_amount',
+  description: 'Work out each person\'s share of a testnet NEAR amount exactly. Weights are percents (40 and 60) or equal parts (1 each). Each share is rounded down to 4 decimals; leftOver is what rounding kept back. Always use this for money shares; never work them out yourself.',
+  inputSchema: z.object({
+    amountNear: z.string().regex(/^\d{1,6}(\.\d{1,24})?$/, 'a decimal string, e.g. "0.05"'),
+    parts: z.array(z.object({ to: z.string().min(2).max(64), weight: z.number().positive().max(1_000_000) })).min(1).max(20),
+  }),
+  outputSchema: z.object({ amountNear: z.string(), shares: z.array(z.object({ to: z.string(), amountNear: z.string() })), totalOfShares: z.string(), leftOver: z.string() }),
+  execute: async ({ amountNear, parts }) => splitAmount(amountNear, parts),
+})
+
 // The Mind's own wallet (#42): calls go through the backend, which holds the OutLayer key.
 const NEAR_ACCOUNT_ID = /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/
 const paymentSchema = z.object({
@@ -75,7 +112,22 @@ const sendPayment = createTool({
   }),
   outputSchema: paymentSchema,
   requireApproval: true,
-  execute: async ({ to, amountNear }, context) => walletCall(context, 'POST', '/internal/v1/wallet/send_payment', { to, amountNear }),
+  // After a payment failed with an error, the model once went on to pay the next person in a split: no further
+  // payment in the same request, and no approval card for one.
+  beforeApproval: ({ to, amountNear }, { requestContext }) => paymentFailedEarlier(requestContext) ? {
+    proceed: false,
+    output: { paymentId: 'none', status: 'failed' as const, to, amountNear, message: 'not sent: a payment already failed with an error in this request, so no other payment goes out now. Tell the owner what was paid and what was not; they can ask again.' },
+  } : undefined,
+  execute: async ({ to, amountNear }, context) => {
+    try {
+      const out = await walletCall<z.infer<typeof paymentSchema>>(context, 'POST', '/internal/v1/wallet/send_payment', { to, amountNear })
+      if (out.status === 'failed') markPaymentFailed(context)
+      return out
+    } catch (e) {
+      markPaymentFailed(context)
+      throw e
+    }
+  },
 })
 
 const getBalance = createTool({
@@ -427,33 +479,107 @@ const mailRead = createTool({
 // Paid data (#150): a 402 pattern on testnet NEAR. Without a payment the backend answers 402 with the price and the
 // account to pay; the Mind pays with send_payment (the owner approves, the wallet policy checks it) and calls again
 // with the tx hash. The backend serves the report only for this Mind's own fresh payment, once.
+// Best Price Buyer (#176): an item can have several sellers (`s1`, `s2`, …); `seller` picks one, otherwise the cheapest.
 const SHOP_ITEMS = ['network-status', 'gas-price'] as const
 const buyData = createTool({
   id: 'buy_data',
-  description: 'Buy a small live data report about NEAR testnet. Call it without paymentTxHash to get the price and the account to pay (status payment_required); after the owner approved and send_payment returned sent, call it again with that txHash to get the report (status paid). Items: network-status (latest block, protocol version, validators), gas-price (gas price and the cost of a transfer).',
+  description: 'Buy a small live data report about NEAR testnet. Call it without paymentTxHash to get the price and the account to pay (status payment_required); after the owner approved and send_payment returned sent, call it again with that txHash (and the same seller) to get the report (status paid). Items: network-status (latest block, protocol version, validators), gas-price (gas price and the cost of a transfer). Optional seller (an id from get_quotes) buys from that seller; without it, from the cheapest.',
   inputSchema: z.object({
     item: z.enum(SHOP_ITEMS),
+    seller: z.string().regex(/^s\d{1,2}$/, 'a seller id from get_quotes, e.g. "s2"').optional(),
     paymentTxHash: z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{43,44}$/, 'a NEAR transaction hash').optional(),
   }),
   outputSchema: z.object({
     status: z.enum(['payment_required', 'paid', 'refused']),
     item: z.string(),
     title: z.string().optional(),
+    seller: z.string().optional(),
     priceNear: z.string().optional(),
     payTo: z.string().optional(),
     reason: z.string().optional(),
     data: z.record(z.string(), z.unknown()).optional(),
-    receipt: z.object({ txHash: z.string(), paymentId: z.string(), amountNear: z.string() }).optional(),
+    receipt: z.object({ txHash: z.string(), paymentId: z.string(), amountNear: z.string(), payTo: z.string().optional() }).optional(),
   }),
-  execute: async ({ item, paymentTxHash }, context) => {
-    const path = `/internal/v1/shop/${item}${paymentTxHash ? `?tx=${encodeURIComponent(paymentTxHash)}` : ''}`
-    const out = await walletCall<Record<string, any>>(context, 'GET', path, undefined, [402, 409])
+  execute: async ({ item, seller, paymentTxHash }, context) => {
+    const query = new URLSearchParams({ ...(seller ? { seller } : {}), ...(paymentTxHash ? { tx: paymentTxHash } : {}) }).toString()
+    const out = await walletCall<Record<string, any>>(context, 'GET', `/internal/v1/shop/${item}${query ? `?${query}` : ''}`, undefined, [402, 404, 409])
+    if (out.httpStatus === 404) {
+      if (out.error !== 'unknown_seller') throw new Error(`wallet: 404 ${String(out.error ?? 'not_found')}`)
+      return { status: 'refused' as const, item, reason: 'there is no such seller for this item; get_quotes lists the sellers' }
+    }
     if (out.httpStatus === 409) return { status: 'refused' as const, item, reason: 'this payment was already used for a report; a new report needs a new payment' }
+    const sellerOf = out.seller ? { seller: String(out.seller) } : {}
+    if (out.httpStatus === 402) {
+      const reason = { payment_not_found: 'no payment from this Mind with that hash in the last hour', payment_does_not_match: 'that payment went to another account or seller, or was under the price', payment_not_on_chain: 'NEAR does not show that transfer as successful' }[String(out.error)]
+      return { status: 'payment_required' as const, item, title: out.title, ...sellerOf, priceNear: out.priceNear, payTo: out.payTo, ...(reason ? { reason } : {}) }
+    }
+    return { status: 'paid' as const, item, title: out.title, ...sellerOf, data: out.data, receipt: out.receipt }
+  },
+})
+
+// Best Price Buyer (#176): every seller's price for an item, cheapest first, without paying. `onYourList` comes from this
+// Mind's own wallet policy: paying a seller off the list would be refused by the wallet before signing.
+const quoteSchema = z.object({ seller: z.string(), payTo: z.string(), priceNear: z.string(), onYourList: z.boolean() })
+const getQuotes = createTool({
+  id: 'get_quotes',
+  description: 'Ask every seller of a NEAR testnet data report for its price, cheapest first. Pays nothing and needs no approval. onYourList is false when this Mind\'s wallet policy would refuse paying that seller; cheapestOnYourList is the cheapest one it may pay. Items: network-status, gas-price.',
+  inputSchema: z.object({ item: z.enum(SHOP_ITEMS) }),
+  outputSchema: z.object({ item: z.string(), title: z.string(), quotes: z.array(quoteSchema), cheapestOnYourList: quoteSchema.nullable() }),
+  execute: async ({ item }, context) => {
+    const out = await walletCall<{ title: string; quotes: z.infer<typeof quoteSchema>[] }>(context, 'GET', `/internal/v1/shop/${item}?quotes=1`)
+    const quotes = out.quotes.map(({ seller, payTo, priceNear, onYourList }) => ({ seller, payTo, priceNear, onYourList }))
+    // The backend sorts cheapest first, so the first one the wallet may pay is the best buy.
+    return { item, title: out.title, quotes, cheapestOnYourList: quotes.find((q) => q.onYourList) ?? null }
+  },
+})
+
+// Mind as Seller (#181): a Mind sells something it made to other Minds, paid into its own wallet. Publishing waits for
+// the owner (it sets a price and hands the text to any buyer); buying is the paid-data pattern against the seller Mind.
+const OFFER_ITEM = /^[a-z0-9][a-z0-9-]{0,39}$/
+const sellOffer = createTool({
+  id: 'sell_offer',
+  description: 'Put something this Mind made (a report, a digest) on sale to other Minds, paid in testnet NEAR into this Mind\'s own wallet. Replaces an earlier offer with the same item name. Always waits for the owner to approve. Any Mind that pays gets the whole content, so never include secrets or private data.',
+  inputSchema: z.object({
+    item: z.string().regex(OFFER_ITEM, 'lowercase letters, digits and hyphens, e.g. "weekly-digest"'),
+    title: z.string().trim().min(1).max(200),
+    priceNear: z.string().regex(/^\d{1,3}(\.\d{1,24})?$/, 'a decimal string, e.g. "0.01"').refine((a) => /[1-9]/.test(a), 'must be more than 0'),
+    content: z.string().min(1).max(20_000),
+  }),
+  outputSchema: z.object({ sellerMindId: z.string(), item: z.string(), title: z.string(), priceNear: z.string(), payTo: z.string() }),
+  requireApproval: true,
+  execute: async ({ item, title, priceNear, content }, context) => walletCall(context, 'PUT', `/internal/v1/offers/${item}`, { title, priceNear, content }),
+})
+
+const buyFromMind = createTool({
+  id: 'buy_from_mind',
+  description: 'Buy what another Mind sells. Call it without paymentTxHash to get the price and the seller Mind\'s wallet to pay (status payment_required); after the owner approved and send_payment returned sent, call it again with that txHash to get the content (status paid). The seller Mind id and item come only from the owner.',
+  inputSchema: z.object({
+    sellerMindId: z.string().regex(/^mnd_[0-9a-f]{24}$/, 'a Mind id such as "mnd_…"'),
+    item: z.string().regex(OFFER_ITEM, 'an item name such as "weekly-digest"'),
+    paymentTxHash: z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{43,44}$/, 'a NEAR transaction hash').optional(),
+  }),
+  outputSchema: z.object({
+    status: z.enum(['payment_required', 'paid', 'refused']),
+    sellerMindId: z.string(),
+    item: z.string(),
+    title: z.string().optional(),
+    priceNear: z.string().optional(),
+    payTo: z.string().optional(),
+    reason: z.string().optional(),
+    content: z.string().optional(),
+    receipt: z.object({ txHash: z.string(), paymentId: z.string(), amountNear: z.string(), payTo: z.string() }).optional(),
+  }),
+  execute: async ({ sellerMindId, item, paymentTxHash }, context) => {
+    const out = await walletCall<Record<string, any>>(context, 'GET', `/internal/v1/minds/${sellerMindId}/offers/${item}${paymentTxHash ? `?tx=${paymentTxHash}` : ''}`, undefined, [400, 402, 404, 409])
+    const base = { sellerMindId, item }
+    if (out.httpStatus === 404) return { status: 'refused' as const, ...base, reason: 'that Mind sells nothing under this name' }
+    if (out.httpStatus === 400) return { status: 'refused' as const, ...base, reason: out.error === 'own_offer' ? 'this is this Mind\'s own offer' : `the request was refused (${String(out.error)})` }
+    if (out.httpStatus === 409) return { status: 'refused' as const, ...base, reason: 'this payment was already used; buying again needs a new payment' }
     if (out.httpStatus === 402) {
       const reason = { payment_not_found: 'no payment from this Mind with that hash in the last hour', payment_does_not_match: 'that payment went to another account or was under the price', payment_not_on_chain: 'NEAR does not show that transfer as successful' }[String(out.error)]
-      return { status: 'payment_required' as const, item, title: out.title, priceNear: out.priceNear, payTo: out.payTo, ...(reason ? { reason } : {}) }
+      return { status: 'payment_required' as const, ...base, title: out.title, priceNear: out.priceNear, payTo: out.payTo, ...(reason ? { reason } : {}) }
     }
-    return { status: 'paid' as const, item, title: out.title, data: out.data, receipt: out.receipt }
+    return { status: 'paid' as const, ...base, title: out.title, content: out.content, receipt: out.receipt }
   },
 })
 
@@ -481,13 +607,59 @@ const nearViewAccount = createTool({
   },
 })
 
+// Invoice & Get Paid (#180): the Mind's payment history only lists what it sent, and a balance rise does not say who
+// paid. A transfer is only proven by its transaction: RPC `tx` shows who signed it, who received it, how much NEAR it
+// carried and whether it succeeded. Read-only. Plain testnet RPC forgets transactions after a few days.
+const nearAmount = (yocto: bigint) => {
+  const frac = (yocto % YOCTO_PER_NEAR).toString().padStart(24, '0').replace(/0+$/, '')
+  return frac ? `${yocto / YOCTO_PER_NEAR}.${frac}` : `${yocto / YOCTO_PER_NEAR}`
+}
+const yoctoOf = (near: string) => { const [w, f = ''] = near.split('.'); return BigInt(w) * YOCTO_PER_NEAR + BigInt(f.padEnd(24, '0')) }
+const nearCheckTransfer = createTool({
+  id: 'near_check_transfer',
+  description: 'Check one NEAR testnet transaction by its hash and the account that sent it: whether it succeeded, who signed it, who received it and how much NEAR it transferred. coversAmount says whether it carried at least amountNear, the amount expected; with a wallet, toThisMindsWallet says whether this Mind\'s own wallet received it. Read-only. Use it to confirm a payment arrived; a hash someone sends you is only a claim until this shows it.',
+  inputSchema: z.object({
+    txHash: z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{43,44}$/, 'a NEAR transaction hash'),
+    senderId: z.string().min(2).max(64).regex(NEAR_ACCOUNT_ID, 'not a valid NEAR account id'),
+    amountNear: z.string().regex(/^\d{1,3}(\.\d{1,24})?$/, 'the amount expected, a decimal string, e.g. "0.05"'),
+  }),
+  outputSchema: z.object({
+    txHash: z.string(), status: z.enum(['succeeded', 'failed']), signerId: z.string(), receiverId: z.string(), transferredNear: z.string(),
+    toThisMindsWallet: z.boolean().optional(), coversAmount: z.boolean(),
+  }),
+  execute: async ({ txHash, senderId, amountNear }, context) => {
+    // Read per call, not at import, so tests can point it at a fake RPC.
+    const res = await fetch(process.env.NEAR_RPC_URL ?? 'https://rpc.testnet.near.org', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 'engine', method: 'tx', params: { tx_hash: txHash, sender_account_id: senderId, wait_until: 'FINAL' } }),
+      redirect: 'error',
+      signal: AbortSignal.timeout(15_000),
+    })
+    const body = (await res.json()) as { result?: { status?: Record<string, unknown>; transaction?: { signer_id?: string; receiver_id?: string; actions?: unknown[] } }; error?: { cause?: { name?: string }; message?: string } }
+    const tx = body.result?.transaction
+    if (!tx?.signer_id || !tx.receiver_id) throw new Error(`NEAR RPC: ${body.error?.cause?.name ?? body.error?.message ?? `HTTP ${res.status}`}`)
+    // Only plain NEAR transfers count; token transfers and function calls carry no Transfer deposit here.
+    const deposit = (tx.actions ?? []).reduce<bigint>((sum, a) => sum + BigInt((a as { Transfer?: { deposit?: string } })?.Transfer?.deposit ?? 0), 0n)
+    const succeeded = !!body.result?.status && 'SuccessValue' in body.result.status
+    // The comparisons are done here, not by the model: it once misread two equal 64-character addresses as different.
+    const own = await walletCall<{ address: string }>(context, 'GET', '/internal/v1/wallet/balance').then((b) => b.address, (e) => { if (e instanceof NoWalletError) return undefined; throw e })
+    return {
+      txHash, status: succeeded ? 'succeeded' as const : 'failed' as const, signerId: tx.signer_id, receiverId: tx.receiver_id, transferredNear: nearAmount(deposit),
+      ...(own ? { toThisMindsWallet: tx.receiver_id === own } : {}),
+      coversAmount: deposit >= yoctoOf(amountNear),
+    }
+  },
+})
+
 export const toolRegistry = {
-  get_time: getTime, add_numbers: addNumbers, http_request: httpRequest, near_view_account: nearViewAccount, buy_data: buyData,
-  send_payment: sendPayment, get_balance: getBalance, list_payments: listPayments,
+  get_time: getTime, add_numbers: addNumbers, split_amount: splitAmountTool, http_request: httpRequest, near_view_account: nearViewAccount, near_check_transfer: nearCheckTransfer,
+  buy_data: buyData, get_quotes: getQuotes, sell_offer: sellOffer, buy_from_mind: buyFromMind, send_payment: sendPayment, get_balance: getBalance, list_payments: listPayments,
   gmail_list_emails: gmailListEmails, gmail_read_email: gmailReadEmail, gmail_create_draft: gmailCreateDraft, gmail_organize: gmailOrganize,
   googlecalendar_list_events: calendarListEvents, googlecalendar_create_event: calendarCreateEvent,
   googlecalendar_create_meeting: calendarCreateMeeting, googlecalendar_block_time: calendarBlockTime,
   mail_send: mailSend, mail_list: mailList, mail_read: mailRead, mail_send_to_owner: mailSendToOwner,
+  ...appTools,
 } as const
 export type ToolKey = keyof typeof toolRegistry
 
