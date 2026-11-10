@@ -18,6 +18,8 @@ export type Turn = {
   createdAt: string
   /** From the run's events once they are read; until then only the stored reply text. */
   view: RunView
+  /** The run's events are read, so its status is known (canceled, error...), not just guessed. */
+  read: boolean
 }
 
 /**
@@ -59,7 +61,7 @@ export function toTurns(messages: ApiMessage[], views: Map<string, RunView | nul
     let turn = byRun.get(m.runId)
     if (!turn) {
       const fallback: RunView = { runId: m.runId, threadId: null, text: "", parts: [], tools: [], status: "finished", verified: null, error: null, thinking: false, at: m.createdAt, workMs: 0 }
-      turn = { runId: m.runId, message: null, createdAt: m.createdAt, view: views.get(m.runId) ?? fallback }
+      turn = { runId: m.runId, message: null, createdAt: m.createdAt, view: views.get(m.runId) ?? fallback, read: Boolean(views.get(m.runId)) }
       byRun.set(m.runId, turn)
       turns.push(turn)
     }

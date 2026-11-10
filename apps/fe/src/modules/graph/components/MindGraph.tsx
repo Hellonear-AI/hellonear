@@ -61,6 +61,9 @@ function readColors(): Colors {
   return Object.fromEntries(Object.entries(VAR).map(([k, v]) => [k, css.getPropertyValue(v).trim() || "#888"])) as Colors
 }
 
+/** Each Mind's last layout and camera, kept across mounts of the chat page. */
+const KEPT = new Map<string, { sim: Sim; view: { x: number; y: number; k: number; auto: boolean } }>()
+
 const FILL: Record<NodeKind, keyof Colors> = { mind: "mind", skill: "skill", tool: "tool", app: "surface", wallet: "wallet", memory: "memory", model: "model", workflow: "model" }
 
 /** How long a finished state keeps glowing (ms). */
@@ -70,13 +73,15 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
   const wrap = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
   const logos = useRef<HTMLDivElement>(null)
-  const sim = useRef<Sim | null>(null)
+  // The layout and the camera outlive the component, per Mind: sending from New chat moves to the
+  // thread's URL and mounts a new chat page, which replayed the whole settling (Ancung, 10 Nov).
+  const sim = useRef<Sim | null>(KEPT.get(mindId)?.sim ?? null)
   const data = useRef({ nodes, links, selected, trail, live })
   // When this page saw each node's state change (performance clock). Pulses are timed from here,
   // not from the event's own time, which comes from the server's clock and can arrive late
   // (Ancung, 10 Nov: a 1 s calendar call never lit up).
   const seen = useRef(new Map<string, { key: string; at: number }>())
-  const view = useRef({ x: 0, y: 0, k: 1, auto: true })
+  const view = useRef(KEPT.get(mindId)?.view ?? { x: 0, y: 0, k: 1, auto: true })
   // The node the camera is gliding to after a click (Axel, via Ancung, 10 Nov: zoom to it).
   const focus = useRef<string | null>(null)
   const lastSelected = useRef<string | null>(null)
@@ -136,6 +141,9 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
     if (!cv || !box) return
     const ctx = cv.getContext("2d")
     if (!ctx) return
+    // The same ref objects, named for the cleanup that keeps them per Mind.
+    const layout = sim
+    const camera = view
     let colors = readColors()
     let font = getComputedStyle(document.body).fontFamily
     const still = window.matchMedia("(prefers-reduced-motion: reduce)")
@@ -595,6 +603,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
 
     return () => {
       cancelAnimationFrame(frame)
+      if (layout.current) KEPT.set(mindId, { sim: layout.current, view: { ...camera.current } })
       ro.disconnect()
       mo.disconnect()
       io.disconnect()
@@ -605,7 +614,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       cv.removeEventListener("pointerleave", leave)
       cv.removeEventListener("wheel", wheel)
     }
-  }, [mind])
+  }, [mind, mindId])
 
   return (
     <div ref={wrap} className={cn("relative touch-none overflow-hidden", className)}>

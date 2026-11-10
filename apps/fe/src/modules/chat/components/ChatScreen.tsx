@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { ThinkingOrb } from "thinking-orbs"
 import { cn } from "cn"
 import { ArrowDownIcon, CircleXIcon, NetworkIcon, RotateCcwIcon, SnowflakeIcon } from "lucide-react"
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
@@ -27,10 +28,12 @@ import type { ApiWallet } from "@/modules/minds/api"
 import { templateLabel } from "@/modules/minds/data/minds"
 import { useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
 import { LiveView } from "@/modules/graph/components/LiveView"
+import { setLiveOpen, useLiveOpen } from "@/modules/graph/data/liveOpen"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer"
 
-type Shown = { key: string; message: string | null; createdAt: string; view: RunView; live: boolean; failed: unknown }
+/** `read`: the run's events are in, so an empty reply is known to be empty, not still loading. */
+type Shown = { key: string; message: string | null; createdAt: string; view: RunView; live: boolean; failed: unknown; read: boolean }
 
 /**
  * Chat (design 4 · Chat, C1): the thread, what each run did, and the composer. `threadId` null
@@ -56,31 +59,16 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   const limit = wallet?.policy?.perTransactionNear ?? null
 
   // The live view (C2, #17): beside the chat from 1280 px, remembered per device; a sheet below that.
-  const [liveOpen, setLiveOpen] = useState(true)
+  const liveOpen = useLiveOpen()
   const [liveSheet, setLiveSheet] = useState(false)
   // Phones get it as a drawer from the bottom (Ancung, 10 Nov), tablets as a sheet from the right.
   const [liveDrawer, setLiveDrawer] = useState(false)
   const [liveAnimate, setLiveAnimate] = useState(false)
-  useEffect(() => {
-    try {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- read once from this device
-      if (localStorage.getItem("hellonear.chat.live") === "off") setLiveOpen(false)
-    } catch {
-      // no storage: keep it open
-    }
-  }, [])
   const toggleLive = () => {
     if (!window.matchMedia("(min-width: 768px)").matches) return setLiveDrawer(true)
     if (!window.matchMedia("(min-width: 1280px)").matches) return setLiveSheet(true)
     setLiveAnimate(true)
-    setLiveOpen((o) => {
-      try {
-        localStorage.setItem("hellonear.chat.live", o ? "off" : "on")
-      } catch {
-        // no storage
-      }
-      return !o
-    })
+    setLiveOpen(!liveOpen)
   }
 
   // The run in progress belongs here if it's this thread's, or a new chat still waiting for its id.
@@ -99,8 +87,8 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   // replayed its entrance, so the sent message and first thought seemed to appear twice (Ancung).
   const shown: Shown[] = thread.turns.map((t) =>
     activeHere && t.runId === activeRunId
-      ? { key: `active-${activeHere.id}`, message: t.message, createdAt: t.createdAt, view: activeHere.view, live: activeHere.streaming, failed: activeHere.failed }
-      : { key: t.runId, message: t.message, createdAt: t.createdAt, view: t.view, live: false, failed: null }
+      ? { key: `active-${activeHere.id}`, message: t.message, createdAt: t.createdAt, view: activeHere.view, live: activeHere.streaming, failed: activeHere.failed, read: true }
+      : { key: t.runId, message: t.message, createdAt: t.createdAt, view: t.view, live: false, failed: null, read: t.read }
   )
   if (activeHere && !thread.turns.some((t) => t.runId === activeRunId)) {
     shown.push({
@@ -110,6 +98,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
       view: activeHere.view,
       live: activeHere.streaming,
       failed: activeHere.failed,
+      read: true,
     })
   }
 
@@ -501,7 +490,9 @@ function TurnView({
       {!live && view.status === "canceled" && <p className="text-[13px] text-muted-foreground">You stopped this reply.</p>}
 
       {/* The run ended with nothing to show: say so instead of leaving a bare "Thought for" (Ancung, 9 Nov). */}
-      {!failed && !live && view.status === "finished" && !view.text.trim() && view.tools.length === 0 && (
+      {/* Only once the run's events are read: a stopped reply has no text either, and flashed this
+          card while its events were still loading (Ancung, 10 Nov). */}
+      {!failed && !live && turn.read && view.status === "finished" && !view.text.trim() && view.tools.length === 0 && (
         <FailedReply name={name} error="no_reply" canRetry={Boolean(turn.message) && !busy} onRetry={onRetry} />
       )}
 
@@ -517,12 +508,10 @@ function TurnView({
  */
 export function Working({ name }: { name: string }) {
   return (
-    <span role="status" aria-label={`${name} is thinking`} className="flex h-[22px] items-center gap-2.5">
-      <span aria-hidden className="flex items-center gap-1">
-        {[0, 1, 2].map((i) => (
-          <span key={i} className="typing-dot size-1.5 rounded-full bg-muted-foreground" style={{ animationDelay: `${i * 160}ms` }} />
-        ))}
-      </span>
+    <span role="status" aria-label={`${name} is thinking`} className="flex h-[22px] items-center gap-2">
+      {/* A thinking orb (thinking-orbs, Axel's pick, 10 Nov) instead of three dots. It follows the
+          dark class, freezes with reduced motion and pauses off screen by itself. */}
+      <ThinkingOrb state="solving" size={20} aria-hidden className="shrink-0" />
       <span aria-hidden className="text-shimmer text-[13px]">
         Thinking...
       </span>
@@ -598,7 +587,7 @@ function FirstChat({
   const { intro, suggestions } = introFor(templateId, limit, null)
   return (
     <Centered>
-      <MindAvatar templateId={templateId} size={64} className="size-24! md:size-28!" />
+      <MindAvatar templateId={templateId} size={64} shown={112} className="size-24! md:size-28!" />
       <h2 className="text-2xl font-medium tracking-tight text-foreground md:text-[28px]">Hi, I&apos;m {name}.</h2>
       <p className="max-w-md text-[15px] text-muted-foreground">{intro}</p>
       {suggestions.length > 0 && (

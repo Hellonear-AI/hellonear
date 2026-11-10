@@ -48,7 +48,10 @@ export function syncSim(prev: Sim | null, nodes: GraphNode[], links: GraphLink[]
       pinned: n.id === mindId,
     })
   })
-  return { bodies, links, alpha: added ? 1 : Math.max(prev?.alpha ?? 0, 0.3) }
+  // Warm up only for new bubbles: a whole new graph settles from 1, a node joining nudges it.
+  // A change of state or count alone keeps the layout still (Ancung, 10 Nov: every event of a
+  // reply set it bouncing again).
+  return { bodies, links, alpha: !prev ? 1 : added ? Math.max(prev.alpha, 0.5) : prev.alpha }
 }
 
 /** One tick. Returns false once it has cooled down and nothing needs drawing for the layout. */

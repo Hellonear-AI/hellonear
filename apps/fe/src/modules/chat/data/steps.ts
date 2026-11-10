@@ -28,6 +28,51 @@ const LABELS: Record<string, [doing: string, done: string]> = {
   skill: ["Picking up a skill", "Picked up a skill"],
   skill_read: ["Picking up a skill", "Picked up a skill"],
   skill_search: ["Looking for a skill", "Looked for a skill"],
+  // Mastra's working memory (engine/src/mastra.ts): what the Mind keeps about the owner between chats.
+  updateWorkingMemory: ["Updating its memory", "Updated its memory"],
+}
+
+/**
+ * Which thinking orb a step shows while it runs, by what kind of work it is (Ancung, 10 Nov), so
+ * the motion says what the Mind is doing. Only the free states of thinking-orbs.
+ */
+export type StepOrb = "searching" | "connecting" | "composing" | "working" | "solving" | "breathing" | "listening"
+
+const ORB: Record<string, StepOrb> = {
+  // Reading and looking things up: a scan sweeps a globe.
+  gmail_list_emails: "searching",
+  gmail_read_email: "searching",
+  mail_list: "searching",
+  mail_read: "searching",
+  googlecalendar_list_events: "searching",
+  near_view_account: "searching",
+  get_balance: "searching",
+  list_payments: "searching",
+  skill_search: "searching",
+  skill: "searching",
+  skill_read: "searching",
+  // Reaching a website or an API: a constellation wires itself.
+  http_request: "connecting",
+  // Writing: an undulating sash.
+  gmail_create_draft: "composing",
+  mail_send: "composing",
+  mail_send_to_owner: "composing",
+  // Acting on something: particles on orbits.
+  send_payment: "working",
+  googlecalendar_create_event: "working",
+  googlecalendar_create_meeting: "working",
+  googlecalendar_block_time: "working",
+  // Working something out.
+  get_time: "solving",
+  add_numbers: "solving",
+  // Remembering: a slow breathing ring.
+  updateWorkingMemory: "breathing",
+}
+
+export function stepOrb(step: Pick<ToolStep, "tool" | "status">): StepOrb {
+  // Waiting for the owner: a waveform rolling, as if listening.
+  if (step.status === "awaiting_approval") return "listening"
+  return ORB[step.tool] ?? "working"
 }
 
 export type StepText = { label: string; detail: string | null; tone: "doing" | "done" | "failed" | "stopped" }

@@ -10,6 +10,8 @@ const OTHER_HOSTS = ["hellonear.xyz", "hellonear.jameshub.fun"]
 /** @type {import('next').NextConfig} */
 module.exports = {
   reactStrictMode: true,
+  // Mind avatars ask for quality 90 (round crops of detailed art); next/image only allows listed ones.
+  images: { qualities: [75, 90] },
   // Only when /api/v1 goes through this app (local dev, no NEXT_PUBLIC_API_URL): compressing the
   // forwarded chat stream can hold its events back until the end, so steps, text and Stop's run id
   // came all at once (Ancung, 10 Nov; the cause is not proven). The hosted build calls the API

@@ -48,6 +48,15 @@ export function templateImage(templateId: string): string {
 }
 
 /**
+ * The square crop of the same art (512 x 512, `public/minds/<id>-avatar.jpg`), for round avatars.
+ * The full art is 1408 x 768, and next/image picks a width, so a 40 px circle got an 80 x 44
+ * image blown up, and the canvas graph squashed it (Ancung, 10 Nov: the avatars looked blurry).
+ */
+export function templateAvatar(templateId: string): string {
+  return templateImage(templateId).replace(/\.jpg$/, "-avatar.jpg")
+}
+
+/**
  * A thread title as the sidebar shows it. The engine's titles can carry a stray reasoning tag when
  * the model closes "</think>" without opening it ("Casual Greeting</think>…", Ancung, 9 Nov):
  * keep what follows the last closing tag when there is any, and drop every leftover tag.
