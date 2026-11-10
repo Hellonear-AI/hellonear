@@ -10,6 +10,8 @@ export const fakeOutlayer = {
   policyCost: '10690000000000000000000',
   // Transfers the fake chain saw, by tx hash, for NEAR RPC's `tx` method (#150). Shapes from a live testnet answer (10 Nov).
   txs: new Map<string, { signer: string; receiver: string; deposit: string; failed?: boolean }>(),
+  // The next gas_price answer is an RPC error (#156 review: a failed read must not use up the payment).
+  failGasPrice: false,
   failNext: 0,
   // A wallet created outside the backend (the shared demo wallet), funded with 1 NEAR, no policy.
   addWallet(): Wallet {
@@ -51,6 +53,7 @@ export const outlayerServer = createServer(async (req, res) => {
   if (req.method === 'POST' && url.pathname === '/rpc' && body.method === 'status') {
     return send(res, 200, { jsonrpc: '2.0', id: 1, result: { chain_id: 'testnet', protocol_version: 88, sync_info: { latest_block_height: 277049858, latest_block_time: '2026-11-10T09:36:17Z' }, validators: Array.from({ length: 20 }, (_, i) => ({ account_id: `v${i}.testnet` })) } })
   }
+  if (req.method === 'POST' && url.pathname === '/rpc' && body.method === 'gas_price' && fakeOutlayer.failGasPrice) { fakeOutlayer.failGasPrice = false; return send(res, 200, { jsonrpc: '2.0', id: 1, error: { name: 'INTERNAL_ERROR' } }) }
   if (req.method === 'POST' && url.pathname === '/rpc' && body.method === 'gas_price') return send(res, 200, { jsonrpc: '2.0', id: 1, result: { gas_price: '100000000' } })
   if (req.method === 'POST' && url.pathname === '/rpc') {
     const p = body.params

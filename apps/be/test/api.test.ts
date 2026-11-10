@@ -791,6 +791,10 @@ describe('payment tools through the backend (#42, option B)', () => {
       res = await engineCall('GET', `/internal/v1/shop/gas-price?tx=${tx2}`, token)
       assert.deepEqual([res.status, (await res.json()).error], [402, 'payment_not_on_chain'])
       fakeOutlayer.txs.get(tx2)!.failed = false
+      // RPC fails while reading the report: an error, and the payment is not used up.
+      fakeOutlayer.failGasPrice = true
+      res = await engineCall('GET', `/internal/v1/shop/gas-price?tx=${tx2}`, token)
+      assert.deepEqual([res.status, (await res.json()).error], [503, 'rpc_error'])
       res = await engineCall('GET', `/internal/v1/shop/gas-price?tx=${tx2}`, token)
       assert.equal(res.status, 200)
       assert.deepEqual((await res.json()).data, { gasPriceYocto: '100000000', transferCostNear: '0.000045' })
