@@ -673,7 +673,8 @@ function useChatScroll(ready: boolean, pinKey: string | null) {
     if (pinKey && lastRef.current) {
       // Room above the pinned message: past the top fade, and on phones past the round Live view
       // button too (Ancung, 10 Nov: the bubble sat under both).
-      const gap = window.matchMedia("(min-width: 768px)").matches ? 24 : 60
+      // The top fade is 24 px, so the bubble starts below it (at 24 it sat inside the fade).
+      const gap = window.matchMedia("(min-width: 768px)").matches ? 40 : 64
       el.scrollTo({ top: lastRef.current.offsetTop - gap, behavior: first || reduce ? "auto" : "smooth" })
     } else {
       el.scrollTop = el.scrollHeight
