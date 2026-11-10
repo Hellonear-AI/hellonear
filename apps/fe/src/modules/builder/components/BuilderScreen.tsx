@@ -487,13 +487,19 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             </div>
           </Linked>
           {blk.kind === "if" && (
-            <div className="flex items-start justify-center gap-6">
+            // A flowchart fork (Ancung, 10 Nov: the ways looked unconnected): a stem down from the If,
+            // a bar across to the middle of each way, then a line down to Yes and to No. Each way
+            // draws its half of the bar, so it meets in the middle whatever the ways' widths.
+            <div className="flex flex-col items-center">
+              <span aria-hidden className="h-5 w-px bg-border-strong" />
+              <div className="flex items-start justify-center gap-6">
               {(["then", "else"] as const).map((h) => {
                 const wayPath: LinePath = [...path, { at: blk.id, h }]
                 const way = blk[h]
                 const end = { path: wayPath, index: way.length }
                 return (
-                  <div key={h} className="flex min-w-[300px] flex-col items-center">
+                  <div key={h} className="relative flex min-w-[300px] flex-col items-center">
+                    <span aria-hidden className={cn("absolute top-0 h-px bg-border-strong", h === "then" ? "right-[-12px] left-1/2" : "right-1/2 left-[-12px]")} />
                     <span aria-hidden className="h-6 w-px bg-border-strong" />
                     <span className="pb-1.5 text-xs font-medium text-muted-foreground">{h === "then" ? "Yes" : "No"}</span>
                     {renderLine(way, wayPath)}
@@ -516,6 +522,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                   </div>
                 )
               })}
+              </div>
             </div>
           )}
         </div>
