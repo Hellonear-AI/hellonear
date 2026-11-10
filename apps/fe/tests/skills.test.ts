@@ -121,3 +121,10 @@ describe("skill groups (Ancung, 11 Nov)", () => {
     expect(groups.map((g) => [g.id, g.skills.map((s) => s.skillId)])).toEqual([["money", ["payments", "split-bill"]], ["apps", ["slack"]]])
   })
 })
+
+describe("skill pages", () => {
+  it("fits nine a page, and never fewer than one page", async () => {
+    const { pageCount } = await import("@/components/elements/Pager")
+    expect([pageCount(0, 9), pageCount(9, 9), pageCount(10, 9), pageCount(32, 9)]).toEqual([1, 1, 2, 4])
+  })
+})
