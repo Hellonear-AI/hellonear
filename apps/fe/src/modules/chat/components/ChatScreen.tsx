@@ -405,6 +405,7 @@ function TurnView({
         return (
           <ApprovalCard
             mindId={mindId}
+            name={name}
             step={step}
             wallet={wallet}
             busy={busy}

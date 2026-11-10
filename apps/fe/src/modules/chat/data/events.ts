@@ -197,29 +197,3 @@ export function paymentOf(step: ToolStep): Payment | null {
   if (typeof to !== "string" || typeof amountNear !== "string") return null
   return { to, amountNear, txHash: r.txHash, status: r.status, message: r.message }
 }
-
-const TOOL_LABEL: Record<string, string> = {
-  send_payment: "Preparing a payment",
-  get_balance: "Checking the balance",
-  list_payments: "Looking at past payments",
-  near_view_account: "Looking up a NEAR account",
-  http_request: "Calling a website",
-  get_time: "Checking the time",
-  gmail_list_emails: "Reading your inbox",
-  gmail_read_email: "Reading an email",
-  gmail_create_draft: "Saving a draft in Gmail",
-  gmail_organize: "Tidying your inbox",
-  googlecalendar_list_events: "Checking your calendar",
-  googlecalendar_create_event: "Adding to your calendar",
-  googlecalendar_create_meeting: "Scheduling a meeting",
-  mail_send: "Sending an email",
-  mail_list: "Checking its inbox",
-  mail_read: "Reading an email",
-  skill: "Picking up a skill",
-  skill_read: "Picking up a skill",
-}
-
-/** Plain words for what a tool is doing; unknown tools get a neutral line. */
-export function toolLabel(tool: string): string {
-  return TOOL_LABEL[tool] ?? "Using a tool"
-}
