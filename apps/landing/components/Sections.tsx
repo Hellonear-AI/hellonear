@@ -105,37 +105,38 @@ export function ApprovalScene() {
           className="absolute inset-0 h-full w-full"
         />
 
-        {/* One glass card floating just above the lawn, left of the Mind, turned like the ground. */}
-        <div className="absolute left-[5.5%] top-[10%] h-[80%] w-[23%] [perspective:1600px]">
-          <div className="ap-card glass-float flex h-full w-full flex-col gap-[4.2%] rounded-[clamp(18px,1.6vw,28px)] p-[7%] [transform:rotateX(12deg)_rotateZ(10deg)]">
-            <div className="flex items-center gap-2">
-              <span className="relative size-7 shrink-0 overflow-hidden rounded-full bg-white/70">
+        {/* No outer card: Penny's bubble and the approval card float on their own, close together,
+            lying on the lawn in its perspective. Each is light frosted glass with its own shadow. */}
+        <div className="absolute left-[5%] top-[20%] w-[25%] [perspective:1400px]">
+          <div className="flex flex-col gap-2.5 [transform:rotateX(22deg)_rotateZ(12deg)] [transform-style:preserve-3d]">
+            <div className="flex items-center gap-2 pl-1">
+              <span className="relative size-7 shrink-0 overflow-hidden rounded-full bg-white/80 shadow-[4px_8px_14px_-4px_rgb(12_34_6/0.5)]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/minds/payments-mind.webp" alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-contain p-0.5" />
               </span>
-              <span className="text-[14px] font-semibold">Penny</span>
+              <span className="text-[14px] font-semibold text-white [text-shadow:0_1px_6px_rgb(0_0_0/0.4)]">Penny</span>
             </div>
-            <p className="rounded-[4px_16px_16px_16px] bg-white/55 px-3.5 py-2.5 text-[14px] leading-[1.4]">
+            <p className="glass-float rounded-[4px_18px_18px_18px] px-4 py-3 text-[14px] leading-[1.4]">
               Biznet sent your internet bill. I&apos;ve got it ready, it just needs your OK.
             </p>
-            <div className="mt-auto flex flex-col gap-3 rounded-[18px] bg-white/70 p-4">
+            <div className="glass-float flex flex-col gap-3 rounded-[20px] p-4">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[13px] text-[var(--color-text-2)]">Penny wants to send</span>
+                <span className="text-[13px] text-[var(--color-text)]/70">Penny wants to send</span>
                 <span className="flex shrink-0 items-center gap-1 rounded-full bg-[var(--color-warning-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-warning)]">
                   <I d={Icon.hourglass} size={12} /> Needs approval
                 </span>
               </div>
               <div className="flex items-end gap-1.5">
                 <span className="text-[40px] font-medium leading-none tracking-[-1.5px]">1.5</span>
-                <span className="text-[15px] font-medium text-[var(--color-text-2)]">NEAR</span>
+                <span className="text-[15px] font-medium text-[var(--color-text)]/70">NEAR</span>
               </div>
               <div className="flex items-center gap-2 text-[13px]">
-                <span className="text-[var(--color-text-2)]">to</span>
+                <span className="text-[var(--color-text)]/70">to</span>
                 <span className="rounded-[8px] bg-white/70 px-2.5 py-1 font-mono">biznet.testnet</span>
               </div>
-              <p className="text-[12.5px] leading-[1.4] text-[var(--color-text-2)]">Within your 2 NEAR limit, to an address on your list.</p>
+              <p className="text-[12.5px] leading-[1.4] text-[var(--color-text)]/70">Within your 2 NEAR limit, to an address on your list.</p>
               <div className="flex justify-end gap-2">
-                <span className="rounded-full border border-[var(--color-border-strong)] bg-white/60 px-4 py-2 text-[13px] font-medium">Decline</span>
+                <span className="rounded-full border border-white/70 bg-white/60 px-4 py-2 text-[13px] font-medium">Decline</span>
                 <span className="ap-approve flex items-center gap-1.5 rounded-full bg-[var(--color-primary)] px-4 py-2 text-[13px] font-medium text-[var(--color-on-primary)]">
                   <I d={Icon.check} size={14} /> Approve
                 </span>

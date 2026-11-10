@@ -654,12 +654,12 @@ body {
 /* Frosted glass card floating above the lawn: its shadow falls down-right, away from the sun
    (upper left), and a little off the ground, so it reads as hovering. */
 .glass-float {
-  background: rgb(255 255 255 / 0.28);
-  border: 1px solid rgb(255 255 255 / 0.45);
-  -webkit-backdrop-filter: blur(14px) saturate(1.25);
-  backdrop-filter: blur(14px) saturate(1.25);
+  background: rgb(255 255 255 / 0.52);
+  border: 1px solid rgb(255 255 255 / 0.6);
+  -webkit-backdrop-filter: blur(6px) saturate(1.2);
+  backdrop-filter: blur(6px) saturate(1.2);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.6),
-    28px 46px 40px -10px rgb(12 34 6 / 0.42),
-    60px 90px 80px -20px rgb(12 34 6 / 0.25);
+    18px 30px 28px -8px rgb(12 34 6 / 0.42),
+    40px 64px 60px -18px rgb(12 34 6 / 0.22);
 }
