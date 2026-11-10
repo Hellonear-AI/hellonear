@@ -143,8 +143,15 @@ test('Add to my calendar (#146): today at a time of day in the owner\'s zone; ne
   assert.deepEqual(todayAt(now, 'America/New_York', '23:30', 60), { start: '2026-11-10T23:30:00-05:00', end: '2026-11-11T00:30:00-05:00' })
   assert.deepEqual(todayAt(now, undefined, '08:00', 15), { start: '2026-11-10T08:00:00+00:00', end: '2026-11-10T08:15:00+00:00' })
   const ctx = { requestContext: { get: (k: string) => ({ [DEMO_KEY]: true, timeZone: 'Asia/Jakarta' } as Record<string, unknown>)[k] } }
-  const out = await toolRegistry.googlecalendar_block_time.execute!({ title: 'Focus', at: '09:00', minutes: 45 } as any, ctx as any) as any
+  const out = await toolRegistry.googlecalendar_block_time.execute!({ title: 'Focus', at: '09:00', minutes: '45' } as any, ctx as any) as any
   assert.deepEqual([out.source, out.status, out.title], ['sample_calendar', 'created', 'Focus'])
   assert.match(out.start, /T09:00:00\+07:00$/)
   assert.match(out.end, /T09:45:00\+07:00$/)
+})
+
+test('a Mind with the skills may run a job with the canvas-only steps; without them it may not (#146)', async () => {
+  const { missingTools } = await import('../src/skills.ts')
+  assert.deepEqual(missingTools(['daily-planner', 'email-address'], ['googlecalendar_block_time', 'mail_send_to_owner']), [])
+  assert.deepEqual(missingTools(['daily-planner'], ['googlecalendar_block_time', 'mail_send_to_owner']), ['mail_send_to_owner'])
+  assert.deepEqual(missingTools(['daily-planner', 'email-address'], ['mail_send', 'googlecalendar_create_event']), ['mail_send', 'googlecalendar_create_event'])
 })

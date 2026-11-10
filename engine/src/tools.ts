@@ -232,12 +232,13 @@ const calendarBlockTime = createTool({
   inputSchema: z.object({
     title: z.string().trim().min(1).max(200),
     at: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'a time like 09:00'),
-    minutes: z.coerce.number().int().min(5).max(480),
+    // Text, as canvas fields are saved: Mastra checks a mapping's types against this schema when the job is saved.
+    minutes: z.string().regex(/^\d{1,3}$/, 'whole minutes, 5 to 480').refine((m) => Number(m) >= 5 && Number(m) <= 480, 'whole minutes, 5 to 480'),
     description: z.string().max(2000).optional(),
   }),
   outputSchema: z.object({ source: z.string(), eventId: z.string(), title: z.string(), start: z.string(), end: z.string(), link: z.string(), status: z.literal('created') }),
   execute: async ({ title, at, minutes, description }, context) => {
-    const { start, end } = todayAt(new Date(), ownerZone(context), at, minutes)
+    const { start, end } = todayAt(new Date(), ownerZone(context), at, Number(minutes))
     if (isDemo(context)) return createSampleEvent({ title, start, end })
     const data = await composioTool(context, 'googlecalendar', 'GOOGLECALENDAR_CREATE_EVENT', {
       calendar_id: 'primary', summary: title, ...composioTiming(start, end),

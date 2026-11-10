@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { createSkill } from '@mastra/core/skills'
 import { parse } from 'yaml'
 import { z } from 'zod'
-import { toolRegistry, toolsFor } from './tools.ts'
+import { CANVAS_ONLY, toolRegistry, toolsFor } from './tools.ts'
 
 const frontmatterSchema = z.object({
   name: z.string().regex(/^[a-z0-9-]+$/),
@@ -96,6 +96,9 @@ export const skillCatalogSummaries = () => equippableSkills().map((s) => ({ ...s
 
 // Workflow tools the Mind has not equipped (skills can be unequipped after a workflow is saved).
 export function missingTools(skillIds: string[], tools: string[]): string[] {
-  const allowed = Object.keys(toolsFor(usableSkills(skillIds).flatMap((s) => s.tools), { unattended: true }))
+  // The model's unattended tools, plus the canvas-only steps (#146) the Mind's skills grant: toolsFor hides those from
+  // the model, but a canvas may use them.
+  const granted = usableSkills(skillIds).flatMap((s) => s.tools)
+  const allowed = [...Object.keys(toolsFor(granted, { unattended: true })), ...granted.filter((t) => CANVAS_ONLY.has(t))]
   return tools.filter((t) => !allowed.includes(t))
 }
