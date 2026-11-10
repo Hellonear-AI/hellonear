@@ -2257,7 +2257,7 @@ describe('Telegram approvals (#208)', () => {
     const m = await linkedMind(['shop.testnet'], 5n * 10n ** 21n) // 0.005 NEAR
     await m.say('pay 0.01 NEAR to shop.testnet')
     const ask = await m.nextAsk(1)
-    assert.equal(ask.text, "Pay 0.01 NEAR to shop.testnet\n\n✓ Within your 0.05 NEAR limit\n✓ On your list of addresses\n✗ Not enough balance: 0.00 NEAR\n\nApproving now would fail: the wallet doesn't hold enough NEAR. Add NEAR in Wallet first.\n\nWaiting for you.")
+    assert.equal(ask.text, "<b>Pay 0.01 NEAR to shop.testnet</b>\n\n✓ Within your 0.05 NEAR limit\n✓ On your list of addresses\n✗ Not enough balance: 0.00 NEAR\n\nApproving now would fail: the wallet doesn't hold enough NEAR. Add NEAR in Wallet first.\n\nWaiting for you.")
     assert.doesNotMatch(ask.text, /refused by the wallet policy/)
     assert.deepEqual(ask.buttons, { Decline: ask.buttons.Decline, "Add NEAR to this Mind's wallet first": `http://localhost:3000/minds/${m.mindId}/wallet` })
     assert.deepEqual((await query('select action from telegram_approvals where mind_id = $1', [m.mindId])).map((r) => r.action), ['decline'])
