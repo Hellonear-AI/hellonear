@@ -1474,7 +1474,8 @@ describe('chat threads (#54)', () => {
     assert.equal((await a.call('PATCH', `/v1/minds/${mindId}/threads/${threadId}`, { title: 'x' }, { origin: 'https://evil.example' })).status, 403)
   })
 
-  test('delete (#207): the engine forgets the thread, then its runs, events and title go; payments and other chats stay', async () => {
+  test('delete (#207): gone for the owner at once, the engine told to forget it, purged after 30 days; payments stay', async () => {
+    const { sweepDeletedThreads } = await import('../src/threads.ts')
     const a = await signIn()
     const mindId = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Delete' }, origin)).json()).mind.id
     const gone = (await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { message: 'forget me' }, origin)))[0].threadId
@@ -1485,27 +1486,37 @@ describe('chat threads (#54)', () => {
     const payment = `pay_${randomBytes(4).toString('hex')}`
     await query(`insert into wallet_payments (id, mind_id, to_account, amount_yocto, status) values ($1, $2, 'shop.testnet', 1, 'sent')`, [payment, mindId])
 
-    // The engine fails: nothing is deleted, so the Mind never remembers a chat the owner can no longer see.
+    // The engine cannot forget it yet: the chat is still gone for the owner, and the engine is asked again later.
     fake.forgetStatus = 500
     let res = await a.call('DELETE', `/v1/minds/${mindId}/threads/${gone}`, undefined, origin)
     fake.forgetStatus = 204
-    assert.deepEqual([res.status, (await res.json()).error], [503, 'engine_error'])
-    assert.equal((await query('select 1 from runs where thread_id = $1', [gone])).length, 2)
-
-    res = await a.call('DELETE', `/v1/minds/${mindId}/threads/${gone}`, undefined, origin)
     assert.equal(res.status, 204)
-    assert.ok(fake.forgotten.includes(gone))
-    assert.equal(fake.requests.findLast((r) => r.method === 'DELETE' && r.path.includes('/threads/'))!.path, `/v1/minds/${mindId}/threads/${gone}`)
-    assert.equal((await query('select 1 from runs where thread_id = $1', [gone])).length, 0)
-    assert.equal((await query('select 1 from run_events where run_id = any($1)', [runIds])).length, 0)
-    assert.equal((await query('select 1 from thread_titles where thread_id = $1', [gone])).length, 0)
-    assert.equal((await query('select 1 from wallet_payments where id = $1', [payment])).length, 1)
     assert.deepEqual((await (await a.call('GET', `/v1/minds/${mindId}/threads`)).json()).threads.map((t: any) => t.threadId), [kept])
     assert.equal((await a.call('GET', `/v1/minds/${mindId}/threads/${gone}/messages`)).status, 404)
     assert.equal((await a.call('GET', `/v1/runs/${runIds[0]}?mindId=${mindId}`)).status, 404)
-    // Gone means gone: deleting again, or chatting on in it, is a 404.
+    assert.ok(!(await (await a.call('GET', `/v1/minds/${mindId}/runs`)).json()).runs.some((r: any) => r.threadId === gone))
+    assert.equal((await a.call('GET', `/v1/minds/${mindId}/runs?threadId=${gone}`).then((r) => r.json())).runs.length, 0)
+    // Gone means gone: renaming, deleting again or chatting on in it is a 404.
+    assert.equal((await a.call('PATCH', `/v1/minds/${mindId}/threads/${gone}`, { title: 'x' }, origin)).status, 404)
     assert.equal((await a.call('DELETE', `/v1/minds/${mindId}/threads/${gone}`, undefined, origin)).status, 404)
     assert.equal((await a.call('POST', `/v1/minds/${mindId}/chat`, { threadId: gone, message: 'hello?' }, origin)).status, 404)
+    // Kept meanwhile (no undo, but nothing lost before the purge), and payments are never touched.
+    assert.equal((await query('select 1 from runs where thread_id = $1', [gone])).length, 2)
+    assert.equal((await query<{ forgotten_at: Date | null }>('select forgotten_at from thread_meta where thread_id = $1', [gone]))[0].forgotten_at, null)
+
+    // The sweep asks the engine again; then the purge 30 days later removes the runs, their events and the row.
+    assert.ok((await sweepDeletedThreads()).forgotten >= 1)
+    assert.ok(fake.forgotten.includes(gone))
+    assert.equal(fake.requests.findLast((r) => r.method === 'DELETE' && r.path.endsWith(`/threads/${gone}`))!.path, `/v1/minds/${mindId}/threads/${gone}`)
+    assert.notEqual((await query<{ forgotten_at: Date | null }>('select forgotten_at from thread_meta where thread_id = $1', [gone]))[0].forgotten_at, null)
+    await sweepDeletedThreads(new Date(Date.now() + 29 * 86_400_000))
+    assert.equal((await query('select 1 from runs where thread_id = $1', [gone])).length, 2, 'not before 30 days')
+    await sweepDeletedThreads(new Date(Date.now() + 31 * 86_400_000))
+    assert.equal((await query('select 1 from runs where thread_id = $1', [gone])).length, 0)
+    assert.equal((await query('select 1 from run_events where run_id = any($1)', [runIds])).length, 0)
+    assert.equal((await query('select 1 from thread_meta where thread_id = $1', [gone])).length, 0)
+    assert.equal((await query('select 1 from wallet_payments where id = $1', [payment])).length, 1)
+    assert.equal((await query('select 1 from runs where thread_id = $1', [kept])).length, 1)
   })
 
   test('delete (#207): refused while a run of the thread waits for an approval or is still running', async () => {
@@ -1517,6 +1528,7 @@ describe('chat threads (#54)', () => {
     let res = await a.call('DELETE', `/v1/minds/${mindId}/threads/${threadId}`, undefined, origin)
     assert.deepEqual([res.status, (await res.json()).error], [409, 'thread_busy'])
     assert.equal(fake.forgotten.length, asked, 'the engine is not asked while the thread is busy')
+    assert.equal((await (await a.call('GET', `/v1/minds/${mindId}/threads`)).json()).threads.length, 1, 'still listed')
     await events(await a.call('POST', `/v1/runs/${evs[0].runId}/approve?mindId=${mindId}`, { toolCallId: 'call_1' }, origin))
     await query(`update runs set status = 'running' where id = $1`, [evs[0].runId])
     assert.equal((await a.call('DELETE', `/v1/minds/${mindId}/threads/${threadId}`, undefined, origin)).status, 409)

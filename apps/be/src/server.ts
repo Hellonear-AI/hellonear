@@ -17,7 +17,7 @@ import { itemSchema, sellerSchema, shop, txHashSchema } from './shop.ts'
 import { buyOffer, offerItemSchema, putOffer, putOfferSchema } from './offers.ts'
 import { issueMailToken, issueWalletToken, verifyMailToken, verifyWalletToken } from './walletToken.ts'
 import { EMAIL_SKILL, ensureInbox, inboxOf, listMail, listSends, mailEnabled, messageIdSchema, ownerMailSchema, readMail, releaseInbox, sendMail, sendMailSchema, sendMailToOwner } from './mail.ts'
-import { deleteThread, listThreads, parseCursor, renameThread, threadExists, threadMessages, threadTitleSchema } from './threads.ts'
+import { deleteThread, listThreads, parseCursor, renameThread, sweepDeletedThreads, threadExists, threadMessages, threadTitleSchema } from './threads.ts'
 import { connectTelegram, disconnectTelegram, outcomeOf, registerTelegramWebhooks, startTelegramPolling, telegramStatus, telegramTokenSchema, telegramWebhook, type MindRunner } from './telegram.ts'
 import { assertDemoRunAllowed, cleanupDemoUsers, createDemoUser, demoPaymentCap, denyDemo } from './demo.ts'
 import type { User } from './auth.ts'
@@ -429,7 +429,7 @@ export const server = createServer(async (req, res) => {
       if (sub === '/chat' && req.method === 'POST') {
         const body = await readBody(req, chatSchema)
         // Engine memory is keyed by thread id, so a thread id from another Mind (or user) must never pass.
-        if (body.threadId && !(await query('select 1 from runs where mind_id = $1 and thread_id = $2 limit 1', [mind.id, body.threadId])).length) {
+        if (body.threadId && !(await threadExists(mind.id, body.threadId))) {
           throw new HttpError(404, 'thread_not_found')
         }
         const threadId = body.threadId ?? `thr_${newId('x').slice(2)}`
@@ -525,6 +525,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const sweep = () => cleanupDemoUsers(async (mindId) => { await deleteAllWorkflows(mindId); await disconnectTelegram(mindId).catch(() => {}) }).then((n) => { if (n) console.log('demo users removed', n) }, (e) => console.error('demo cleanup failed', e instanceof Error ? e.message : e))
   void sweep()
   setInterval(sweep, 24 * 3600_000).unref()
+  // Deleted chats (#207): the engine is asked again to forget them, and after 30 days they are purged for good.
+  const threadSweep = () => sweepDeletedThreads().then((n) => { if (n.forgotten || n.purged) console.log('deleted threads', n) }, (e) => console.error('thread sweep failed', e instanceof Error ? e.message : e))
+  void threadSweep()
+  setInterval(threadSweep, 3600_000).unref()
   // Local dev without a public URL (#168): poll Telegram instead of waiting for webhooks.
   if (config.telegramPolling && !config.telegramWebhookBase) { startTelegramPolling(telegramRunner); console.log('telegram polling on') }
   // Every bot's webhook again, so bots connected before #208 also get button presses (callback_query).
