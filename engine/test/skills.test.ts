@@ -48,8 +48,8 @@ test('shared references load into the skill for skill_read, once per file, reuse
 test('wallet skills grant only the wallet tools they need; read-only ones can never pay (#177, #182, #184, #185, #189, #190)', () => {
   assert.deepEqual(skillCatalog.get('recipient-guard')?.tools, ['near_view_account', 'list_payments', 'send_payment', 'get_balance', 'get_time'])
   assert.deepEqual(skillCatalog.get('recipient-guard')?.references, ['near-recipients.md'])
-  assert.deepEqual(skillCatalog.get('split-bill')?.tools, ['add_numbers', 'send_payment', 'near_view_account', 'list_payments', 'get_balance', 'get_time'])
-  assert.deepEqual(skillCatalog.get('revenue-split')?.tools, ['get_balance', 'send_payment', 'near_view_account', 'add_numbers', 'list_payments', 'get_time'])
+  assert.deepEqual(skillCatalog.get('split-bill')?.tools, ['add_numbers', 'split_amount', 'send_payment', 'near_view_account', 'list_payments', 'get_balance', 'get_time'])
+  assert.deepEqual(skillCatalog.get('revenue-split')?.tools, ['get_balance', 'send_payment', 'near_view_account', 'add_numbers', 'split_amount', 'list_payments', 'get_time'])
   for (const id of ['freeze-advisor', 'treasury-report', 'spending-audit']) {
     const s = skillCatalog.get(id)!
     assert.ok(!s.tools.includes('send_payment'), `${id} never pays`)

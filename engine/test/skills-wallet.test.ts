@@ -165,7 +165,7 @@ describe('split-bill (#177)', () => {
     const paid = sent.slice(before).map((p) => `${p.to}:${Number(p.amountNear)}`).sort()
     assert.deepEqual(paid, ['alice.testnet:0.01', 'bob.testnet:0.01'], `${toolsOf(all)} ${finalText(all)}`)
     assert.equal(asks.length, 2, 'one approval per person')
-    assert.ok(called(all, 'add_numbers').length > 0, `shares checked with add_numbers: ${toolsOf(all)}`)
+    assert.ok(called(all, 'split_amount').length > 0, `shares worked out with split_amount: ${toolsOf(all)}`)
     assert.ok(noOnChainClaim(finalText(all)))
   })
 })
@@ -181,6 +181,7 @@ describe('revenue-split (#190)', () => {
     const paid = sent.slice(before).map((p) => `${p.to}:${Number(p.amountNear)}`).sort()
     assert.deepEqual(paid, ['alice.testnet:0.02', 'bob.testnet:0.03'], `${toolsOf(all)} ${finalText(all)}`)
     assert.equal(asks.length, 2, 'one approval per partner')
+    assert.ok(called(all, 'split_amount').length > 0, `shares worked out with split_amount: ${toolsOf(all)}`)
   })
 })
 
