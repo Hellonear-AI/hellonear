@@ -265,6 +265,13 @@ export function resultsBefore(steps: Step[], index = steps.length, self?: Self) 
   )
 }
 
+/** The notes earlier Ask steps wrote, as results for "Email me" (it may only send what the Mind wrote, #146). */
+export function notesBefore(steps: Step[], index = steps.length) {
+  return steps.slice(0, index).flatMap((s, i) =>
+    s.kind === "agent" ? [{ stepId: s.id, step: "Ask", stepKind: s.kind, source: `Note ${i + 1}`, name: "text", label: "Note", kind: "text" as const, who: undefined }] : []
+  )
+}
+
 export type DraftProblem = { where: string; text: string }
 
 /** What would stop Save, checked as you type, before the engine checks it again. */
@@ -284,6 +291,9 @@ function stepProblems(s: Step, out: DraftProblem[]) {
       for (const a of toolInfo(s.tool)?.args ?? []) {
         const v = (s.args[a.name] ?? "").trim()
         if (a.kind === "account" && !NEAR_ACCOUNT.test(v)) out.push({ where: s.id, text: "Enter a valid NEAR account, for example shop.testnet." })
+        if ((a.kind === "text" || a.kind === "note") && !v) out.push({ where: s.id, text: `${a.label} is required.` })
+        if (a.kind === "time" && !/^([01]\d|2[0-3]):[0-5]\d$/.test(v)) out.push({ where: s.id, text: "Time is required." })
+        if (a.kind === "minutes" && !(Number.isInteger(Number(v)) && Number(v) >= 5 && Number(v) <= 480)) out.push({ where: s.id, text: "Minutes must be a whole number from 5 to 480." })
       }
     }
 }

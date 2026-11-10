@@ -26,6 +26,8 @@ const TOOL: Record<string, (args: Record<string, unknown>) => string> = {
   add_numbers: () => "Add up numbers",
   googlecalendar_list_events: () => "Read the calendar",
   gmail_list_emails: () => "Read the inbox",
+  googlecalendar_block_time: (a) => `Add ${typeof a.title === "string" && a.title ? `"${a.title}"` : "an event"} to your calendar at ${typeof a.at === "string" ? a.at : "a set time"}`,
+  mail_send_to_owner: (a) => `Email you${typeof a.subject === "string" && a.subject ? `: "${a.subject}"` : ""}`,
 }
 
 /** Each tool and website step's result fields, in canvas order, to read prompts as {Balance}. */
