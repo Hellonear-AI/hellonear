@@ -41,7 +41,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   const wallet = useMindWallet(mindId).data ?? null
   const session = useSession()
   const thread = useThread(mindId, threadId)
-  const { active, send, resume } = useChatRun()
+  const { active, send, resume, stop } = useChatRun()
 
   const name = mind?.name ?? "Your Mind"
   const templateId = mind?.templateId ?? "general-assistant"
@@ -302,6 +302,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
               note={outOfMessages ? "Connect a wallet to send more messages." : tryOut ? `Try-out payments: ${limit ? `up to ${limit} NEAR, ` : ""}approved addresses only.` : composerNote(name, frozen)}
               locked={outOfMessages ? "Try-out finished" : undefined}
               onSend={(text) => send(text, threadId)}
+              onStop={stop}
             />
           </div>
         </div>
@@ -471,6 +472,9 @@ function TurnView({
           )}
         </div>
       )}
+
+      {/* Stopped with Stop (#121): what it said so far stays, and this says why it ends there. */}
+      {!live && view.status === "canceled" && <p className="text-[13px] text-muted-foreground">You stopped this reply.</p>}
 
       {/* The run ended with nothing to show: say so instead of leaving a bare "Thought for" (Ancung, 9 Nov). */}
       {!failed && !live && view.status === "finished" && !view.text.trim() && view.tools.length === 0 && (

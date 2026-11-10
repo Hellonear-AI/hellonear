@@ -21,6 +21,8 @@ export const chatApi = {
 
   send: (mindId: string, body: { message: string; threadId?: string }, onEvent: (e: RunEvent) => void, signal?: AbortSignal) =>
     stream(`/minds/${enc(mindId)}/chat`, { ...body, ...ownerTimeZone() }, onEvent, signal),
+  /** Stop a run that is still streaming (#121). Its stream then ends with run.finished "canceled". */
+  cancel: (runId: string) => api<unknown>(`/runs/${enc(runId)}/cancel`, { method: "POST", body: {} }),
   resume: (
     runId: string,
     action: "approve" | "decline",

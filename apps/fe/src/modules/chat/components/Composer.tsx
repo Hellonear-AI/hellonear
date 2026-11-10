@@ -1,21 +1,27 @@
 "use client"
 
-import { ArrowUpIcon, Loader2Icon } from "lucide-react"
+import { ArrowUpIcon, SquareIcon } from "lucide-react"
 import { useState, type KeyboardEvent } from "react"
 import { Button } from "@/components/ui/button"
 
-/** The message box (C1.1). Enter sends, Shift+Enter adds a line. While the Mind replies it waits. */
+/**
+ * The message box (C1.1). Enter sends, Shift+Enter adds a line. While the Mind replies, the send
+ * button becomes Stop (#121), like Claude and ChatGPT.
+ */
 export function Composer({
   name,
   busy,
   note,
   onSend,
+  onStop,
   locked,
 }: {
   name: string
   busy: boolean
   note: string
   onSend: (message: string) => void
+  /** Stops the reply in progress; without it the button just waits. */
+  onStop?: () => void
   /** Why nothing can be sent (a try-out with no messages left, T1.5): the box shows this and locks. */
   locked?: string
 }) {
@@ -59,9 +65,15 @@ export function Composer({
           disabled={Boolean(locked)}
           className="field-sizing-content max-h-40 min-h-10 flex-1 resize-none bg-transparent py-2 text-base text-foreground outline-none placeholder:text-tertiary-foreground md:text-[15px]"
         />
-        <Button type="submit" size="icon" disabled={!canSend} aria-label={busy ? `${name} is replying` : "Send"}>
-          {busy ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <ArrowUpIcon />}
-        </Button>
+        {busy && onStop ? (
+          <Button type="button" size="icon" onClick={onStop} aria-label={`Stop ${name}'s reply`} title="Stop">
+            <SquareIcon className="fill-current" />
+          </Button>
+        ) : (
+          <Button type="submit" size="icon" disabled={!canSend} aria-label="Send">
+            <ArrowUpIcon />
+          </Button>
+        )}
       </div>
       <p className="text-center text-xs text-muted-foreground">{note}</p>
     </form>

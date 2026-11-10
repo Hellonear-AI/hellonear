@@ -39,6 +39,8 @@ type ChatRun = {
   send: (message: string, threadId: string | null) => void
   /** Approve or decline a paused run. Progress and result show as one toast, on any screen. */
   resume: (answer: Answer & { threadId: string | null }) => void
+  /** Stop the reply in progress (#121). The backend ends its stream with run.finished "canceled". */
+  stop: () => void
 }
 
 const ChatRunContext = createContext<ChatRun | null>(null)
@@ -104,7 +106,7 @@ export function ChatRunProvider({ mindId, children }: { mindId: string; children
     [mindId, queryClient, router]
   )
 
-  const value = useMemo<ChatRun>(
+  const value = useMemo<Omit<ChatRun, "stop">>(
     () => ({
       active,
       send: (message, threadId) =>
@@ -133,8 +135,17 @@ export function ChatRunProvider({ mindId, children }: { mindId: string; children
     }),
     [active, mindId, queryClient, run]
   )
+  const stop = useCallback(() => {
+    const runId = active?.streaming ? (active.view.runId ?? active.events.find((e) => e.runId)?.runId) : null
+    if (!runId) return
+    // 409 not_running: it ended on its own first; nothing to tell the owner.
+    chatApi.cancel(runId).catch((err) => {
+      if (!(err instanceof Error && "status" in err && (err as { status: number }).status === 409)) toast.error("Could not stop the reply", { description: "Please try again." })
+    })
+  }, [active])
+  const withStop = useMemo(() => ({ ...value, stop }), [value, stop])
 
-  return <ChatRunContext.Provider value={value}>{children}</ChatRunContext.Provider>
+  return <ChatRunContext.Provider value={withStop}>{children}</ChatRunContext.Provider>
 }
 
 /** One toast per answer (Ancung, 9 Nov): "Sending …", then sent with a NearBlocks button, or why not. */

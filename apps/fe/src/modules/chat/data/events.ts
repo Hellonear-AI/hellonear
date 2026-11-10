@@ -42,7 +42,7 @@ export type ReplyPart =
   /** The model's reasoning (`reasoning.delta`, GLM only), with when it started and last wrote. */
   | { kind: "thought"; text: string; from: string; to: string }
 
-export type RunStatus = "running" | "awaiting_approval" | "finished" | "error"
+export type RunStatus = "running" | "awaiting_approval" | "finished" | "error" | "canceled"
 
 export type RunView = {
   runId: string | null
@@ -146,7 +146,8 @@ export function foldRun(events: RunEvent[]): RunView {
         break
       }
       case "run.finished":
-        view.status = "finished"
+        // A run stopped with Stop ends with run.finished "canceled" and no run.verified (#121).
+        view.status = e.status === "canceled" ? "canceled" : "finished"
         break
       case "run.verified": {
         const v = e.verification
