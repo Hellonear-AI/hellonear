@@ -2,7 +2,9 @@
 // through Mastra workflow schedules (spike 03), and every run shows up in the run history.
 import { z } from 'zod'
 import { mastraWorkflowId, type Canvas } from './builder.ts'
+import { USER_KEY } from './composio.ts'
 import { builderNodeId, type BuilderStep } from './graph.ts'
+import { MIND_ID_KEY } from './mail.ts'
 import { MIND_KEY, UNATTENDED_KEY, mastra, storage } from './mastra.ts'
 import { mindSchema, type Mind } from './mind.ts'
 import { missingTools } from './skills.ts'
@@ -68,8 +70,9 @@ export async function setAutopilot(mindId: string, workflowId: string, saved: Sa
     // Explicit, so fire times never depend on where the engine runs.
     timezone: saved.schedule!.timezone ?? 'UTC',
     inputData: req.input,
-    // Never secrets here (see problems()). Unattended: agent steps get no approval tools.
-    requestContext: { [MIND_KEY]: req.mind, [UNATTENDED_KEY]: true },
+    // Never secrets here (see problems()). Unattended: agent steps get no approval tools. The user and Mind ids are not
+    // secrets: the user's id opens their Composio session (calendar and inbox steps), both reach "Email me" (#146).
+    requestContext: { [MIND_KEY]: req.mind, [UNATTENDED_KEY]: true, [USER_KEY]: req.userId, [MIND_ID_KEY]: mindId },
     resourceId: req.userId,
     metadata: metadata(mindId, workflowId),
     status: req.enabled ? ('active' as const) : ('paused' as const),

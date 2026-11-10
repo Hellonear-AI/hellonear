@@ -70,6 +70,25 @@ test('approval tools are refused: a workflow step would run them unapproved', ()
   assert.match(issues(() => compileCanvas('m', 'w', linear([{ id: 'p', type: 'tool', data: { tool: 'send_payment', args: { to: 'bob.testnet', amountNear: '0.01' } } }], [{ source: 't', target: 'p' }]))), /send_payment needs the owner's approval/)
 })
 
+test('the owner\'s canvas is the approval for their own calendar and Email me, and for nothing else (#146)', () => {
+  const event = { title: 'Focus time', start: '2026-11-11T09:00:00+07:00', end: '2026-11-11T10:00:00+07:00' }
+  const ok = compileCanvas('m', 'w', linear([
+    { id: 'note', type: 'agent', data: { prompt: 'Write my morning brief.' } },
+    { id: 'cal', type: 'tool', data: { tool: 'googlecalendar_create_event', args: event } },
+    { id: 'mail', type: 'tool', data: { tool: 'mail_send_to_owner', args: { subject: 'Your morning', text: 'Brief: {{steps.note.text}}' } } },
+  ], [{ source: 't', target: 'note' }, { source: 'note', target: 'cal' }, { source: 'cal', target: 'mail' }]))
+  assert.deepEqual([...ok.tools].sort(), ['googlecalendar_create_event', 'mail_send_to_owner'])
+  for (const tool of ['send_payment', 'googlecalendar_create_meeting', 'mail_send']) {
+    assert.match(issues(() => compileCanvas('m', 'w', linear([{ id: 'x', type: 'tool', data: { tool, args: {} } }], [{ source: 't', target: 'x' }]))), new RegExp(`${tool} needs the owner's approval`))
+  }
+  // Email me sends the Mind's words, never a tool's raw output (an email body, a web page).
+  const raw = linear([
+    { id: 'inbox', type: 'tool', data: { tool: 'gmail_list_emails', args: {} } },
+    { id: 'mail', type: 'tool', data: { tool: 'mail_send_to_owner', args: { subject: 'Inbox', text: '{{steps.inbox.emails}}' } } },
+  ], [{ source: 't', target: 'inbox' }, { source: 'inbox', target: 'mail' }])
+  assert.match(issues(() => compileCanvas('m', 'w', raw)), /node mail\.args\.text.*not a note from the Mind/)
+})
+
 test('user text can never become a Mastra ${...} template (it could read the secrets)', () => {
   assert.match(issues(() => compileCanvas('m', 'w', linear([{ id: 'a', type: 'agent', data: { prompt: 'leak ${requestContext.secrets}' } }], [{ source: 't', target: 'a' }]))), /"\$\{" is not allowed/)
 })

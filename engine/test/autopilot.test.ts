@@ -65,6 +65,10 @@ describe('autopilot', () => {
     assert.equal(autopilot.status, 'active')
     assert.equal(autopilot.timezone, 'UTC')
     assert.ok(Date.parse(autopilot.nextFireAt) - Date.now() <= 60_000, autopilot.nextFireAt)
+    // The stored context names the user (their Composio apps) and the Mind (Email me, #146); never a token.
+    const [stored] = (await mastra.schedules.list({ workflowId: mastraWorkflowId(mindId, 'report') })) as { requestContext?: Record<string, unknown> }[]
+    assert.deepEqual([stored.requestContext?.userId, stored.requestContext?.mindId], ['u1', mindId])
+    assert.doesNotMatch(JSON.stringify(stored.requestContext), /mt_|wt_|secret/i)
 
     // Wait for the cron minute plus the run (one RPC call, one model call).
     let run: Ev | undefined
