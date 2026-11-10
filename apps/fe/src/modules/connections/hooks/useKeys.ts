@@ -52,3 +52,37 @@ export function useDisconnect() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: skillKeys.connections }),
   })
 }
+
+const telegramKeys = { mind: (mindId: string) => ["telegram", mindId] as const }
+
+/** The Mind's Telegram bot. While it waits for the owner to open the link, it checks again every 3 s. */
+export function useTelegram(mindId: string) {
+  return useQuery({
+    queryKey: telegramKeys.mind(mindId),
+    enabled: Boolean(useSession().data),
+    queryFn: () => connectionsApi.telegram(mindId),
+    refetchInterval: (q) => (q.state.data?.connected && !q.state.data.linked ? 3000 : false),
+  })
+}
+
+export function useConnectTelegram(mindId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (token: string) => connectionsApi.connectTelegram(mindId, token),
+    onSuccess: (t) => queryClient.setQueryData(telegramKeys.mind(mindId), t),
+  })
+}
+
+export function useDisconnectTelegram(mindId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      try {
+        await connectionsApi.disconnectTelegram(mindId)
+      } catch (err) {
+        if (!(err instanceof ApiError && err.status === 404)) throw err
+      }
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: telegramKeys.mind(mindId) }),
+  })
+}

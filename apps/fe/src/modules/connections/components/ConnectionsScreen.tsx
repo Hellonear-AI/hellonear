@@ -13,6 +13,7 @@ import { TryOutLockedDialog, useTryOutLock } from "@/modules/auth/components/Try
 import { useSession } from "@/modules/auth/hooks/useSession"
 import type { ApiSecret } from "@/modules/connections/api"
 import { DeleteKeyDialog, DisconnectDialog, KeyDialog } from "@/modules/connections/components/KeyDialogs"
+import { TelegramCard } from "@/modules/connections/components/TelegramCard"
 import { useSecrets, useDisconnect } from "@/modules/connections/hooks/useKeys"
 import type { ApiConnection } from "@/modules/minds/api"
 import { useMind } from "@/modules/minds/hooks/useMinds"
@@ -171,6 +172,8 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
             {connect.error && <p className="text-[13px] text-danger">Could not open Google. No changes were made. Please try again later.</p>}
             <p className="text-xs text-muted-foreground">More apps come later. For anything else, add a key below.</p>
           </section>
+
+          <TelegramCard mindId={mindId} name={name} />
 
           <section aria-labelledby="keys" className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5">
             <div className="flex items-start justify-between gap-3">
