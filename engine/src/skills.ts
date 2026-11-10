@@ -40,6 +40,8 @@ export type SkillEntry = {
   blurb?: string
   builtin?: boolean
   references?: string[]
+  // The SKILL.md body without its frontmatter, for the FE's skill detail page (#220).
+  markdown: string
   skill: ReturnType<typeof createSkill>
 }
 
@@ -58,6 +60,7 @@ export function parseSkillMd(text: string, folder: string, readReference = (file
     name: fm.name,
     description: fm.description,
     ...fm.metadata.hellonear,
+    markdown: instructions,
     skill: createSkill({ name: fm.name, description: fm.description, instructions, references, metadata: fm.metadata }),
   }
 }
@@ -87,12 +90,24 @@ export const equippableSkills = () => [...skillCatalog.values()].filter((s) => !
 export function skillSummary(id: string) {
   const s = skillCatalog.get(id)
   if (!s) throw new Error(`unknown skill ${id}`)
-  return { skillId: id, description: s.description, status: s.status, connections: s.connections, ...(s.note ? { note: s.note } : {}) }
+  return {
+    skillId: id, description: s.description, status: s.status, connections: s.connections,
+    ...(s.note ? { note: s.note } : {}), ...(s.title ? { title: s.title } : {}), ...(s.blurb ? { blurb: s.blurb } : {}),
+  }
 }
 
 // Every skill a Mind may equip, not only those a template starts with (e.g. the Visual Builder's
 // near-account and http-request). Blocked skills are listed so the UI can say why they are off.
 export const skillCatalogSummaries = () => equippableSkills().map((s) => ({ ...skillSummary(s.name), tools: s.tools }))
+
+// One equippable skill with its SKILL.md body (#220), for the FE's skill detail page. Built-in skills are hidden
+// like in the catalog. Shared references (engine/references/) are left out: they are long reference text the Mind
+// opens on demand, not a description of the skill.
+export function skillDetail(id: string) {
+  const s = skillCatalog.get(id)
+  if (!s || s.builtin) return undefined
+  return { skillId: id, title: s.title, blurb: s.blurb, status: s.status, connections: s.connections, tools: s.tools, markdown: s.markdown }
+}
 
 // Workflow tools the Mind has not equipped (skills can be unequipped after a workflow is saved).
 export function missingTools(skillIds: string[], tools: string[]): string[] {
