@@ -9,7 +9,9 @@ import { prefersReducedMotion } from "@/lib/media"
 // Chat streaming (design/CLAUDE.md, Motion): chunks are buffered and revealed at a steady pace,
 // each new word fades in over about 150 ms, no fake cursor. A finished reply renders as Markdown.
 
-const BASE_CHARS_PER_SECOND = 70
+// 140 a second, and a backlog is drained in about a sixth of a second (Ancung, 11 Nov: 70 felt slow).
+const BASE_CHARS_PER_SECOND = 140
+const CATCH_UP = 6
 
 /** How much of `text` to show: all of it at once for history, a steady reveal while streaming. */
 function useRevealed(text: string, live: boolean): number {
@@ -30,7 +32,7 @@ function useRevealed(text: string, live: boolean): number {
     const tick = (now: number) => {
       const behind = target.current - shownRef.current
       // Catch up faster when far behind, so a long reply never lags seconds after it arrived.
-      const speed = Math.max(BASE_CHARS_PER_SECOND, behind * 4)
+      const speed = Math.max(BASE_CHARS_PER_SECOND, behind * CATCH_UP)
       const step = Math.max(1, Math.floor(((now - last) / 1000) * speed))
       last = now
       shownRef.current = Math.min(target.current, shownRef.current + step)
