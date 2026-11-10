@@ -21,6 +21,7 @@ import { SkillLines } from "@/modules/skills/components/SkillLines"
 import { useSkillCatalog } from "@/modules/skills/hooks/useSkills"
 import { connectionStatus, useConnections } from "@/modules/connections/hooks/useConnections"
 import { AddSkillDialog } from "@/modules/skills/components/SkillDialogs"
+import { byCategory, CATEGORIES, categoryOf, type CategoryId } from "@/modules/skills/data/categories"
 
 type Filter = "all" | "added" | "not_added"
 
@@ -38,6 +39,7 @@ export function SkillsScreen({ mindId }: { mindId: string }) {
   const connections = useConnections({ watching }).data
   const [query, setQuery] = useState("")
   const [filter, setFilter] = useState<Filter>("all")
+  const [category, setCategory] = useState<CategoryId | "all">("all")
   const [adding, setAdding] = useState<string | null>(null)
   const [opened, setOpened] = useState(0)
 
@@ -53,6 +55,9 @@ export function SkillsScreen({ mindId }: { mindId: string }) {
   const shown = skills
     .filter((s) => matchesSearch(s.skillId, query))
     .filter((s) => (filter === "added" ? equipped.includes(s.skillId) : filter === "not_added" ? !equipped.includes(s.skillId) : true))
+    .filter((s) => category === "all" || categoryOf(s.skillId) === category)
+  // Grouped by what they're for, with a heading per group (Ancung, 11 Nov: 32 in one list).
+  const groups = byCategory(shown)
   // Try-out users get a sample inbox and calendar, so nothing needs connecting for them.
   const needsConnecting = (s: ApiSkill) => {
     const app = skillCopy(s.skillId).needs
@@ -81,6 +86,24 @@ export function SkillsScreen({ mindId }: { mindId: string }) {
           </div>
         }
       />
+
+      {/* What a skill is for; scrolls sideways on phones. */}
+      <div role="group" aria-label="Kind of skill" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:flex-wrap md:overflow-visible md:px-0">
+        {([{ id: "all", label: "All" }, ...CATEGORIES] as const).map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            aria-pressed={category === c.id}
+            onClick={() => setCategory(c.id)}
+            className={cn(
+              "h-9 shrink-0 rounded-full border px-4 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus",
+              category === c.id ? "border-transparent bg-primary text-primary-foreground" : "border-border bg-surface text-muted-foreground hover:bg-surface-hover hover:text-foreground"
+            )}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
@@ -117,22 +140,32 @@ export function SkillsScreen({ mindId }: { mindId: string }) {
           </p>
         </div>
       ) : (
-        <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {shown.map((s) => (
-            <SkillCard
-              key={s.skillId}
-              mindId={mindId}
-              skill={s}
-              added={equipped.includes(s.skillId)}
-              needsConnecting={needsConnecting(s)}
-              ctx={ctx}
-              onAdd={() => {
-                setOpened((n) => n + 1)
-                setAdding(s.skillId)
-              }}
-            />
+        <div className="flex flex-col gap-8">
+          {groups.map((g) => (
+            <section key={g.id} aria-labelledby={`skills-${g.id}`} className="flex flex-col gap-3">
+              <h2 id={`skills-${g.id}`} className="flex items-baseline gap-2 text-[15px] font-semibold text-foreground">
+                {g.label}
+                <span className="text-[13px] font-normal text-muted-foreground">{g.skills.length}</span>
+              </h2>
+              <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {g.skills.map((s) => (
+                  <SkillCard
+                    key={s.skillId}
+                    mindId={mindId}
+                    skill={s}
+                    added={equipped.includes(s.skillId)}
+                    needsConnecting={needsConnecting(s)}
+                    ctx={ctx}
+                    onAdd={() => {
+                      setOpened((n) => n + 1)
+                      setAdding(s.skillId)
+                    }}
+                  />
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
       )}
 
       {adding && (

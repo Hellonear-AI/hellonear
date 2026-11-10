@@ -108,3 +108,16 @@ describe("every engine skill has words on its card (#211)", () => {
     expect(skillLines("calendar-conflicts", { name: "Omaga", limit: null, tryOut: true }).map((l) => l.t)).toContain("A sample calendar for the try-out")
   })
 })
+
+describe("skill groups (Ancung, 11 Nov)", () => {
+  it("puts every known skill in exactly one group, in page order", async () => {
+    const { SKILLS } = await import("@/modules/skills/data/skills")
+    const { CATEGORIES, byCategory, categoryOf } = await import("@/modules/skills/data/categories")
+    const placed = CATEGORIES.flatMap((c) => c.skills)
+    expect(new Set(placed).size).toBe(placed.length)
+    expect(Object.keys(SKILLS).filter((id) => !placed.includes(id))).toEqual([])
+    expect(categoryOf("something-new")).toBe("apps")
+    const groups = byCategory([{ skillId: "slack" }, { skillId: "split-bill" }, { skillId: "payments" }])
+    expect(groups.map((g) => [g.id, g.skills.map((s) => s.skillId)])).toEqual([["money", ["payments", "split-bill"]], ["apps", ["slack"]]])
+  })
+})
