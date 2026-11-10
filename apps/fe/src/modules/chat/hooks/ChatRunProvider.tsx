@@ -107,6 +107,13 @@ export function ChatRunProvider({ mindId, children }: { mindId: string; children
             if (pathRef.current === chatPath) router.replace(`${chatPath}/${threadId}`)
             void queryClient.invalidateQueries({ queryKey: mindKeys.recentChats(mindId) })
           }
+          // A payment that has its result moved (or tried to move) money: read the wallet and the
+          // payments again now, not when the reply ends (Ancung, 11 Nov: a split bill or a purchase
+          // goes on working after it pays).
+          const toolOf = e.tool ?? events.find((x) => x.type === "tool.called" && x.toolCallId === e.toolCallId)?.tool
+          if ((e.type === "tool.result" || e.type === "tool.error") && toolOf === "send_payment") {
+            void queryClient.invalidateQueries({ queryKey: mindKeys.wallet(mindId) })
+          }
           if (e.type === "tool.approval_required" && e.toolCallId) {
             // Recent chats marks the chat as waiting at once (A), and if the owner is in another
             // chat, a toast says so with a way there (Ancung, 11 Nov: no Approvals page any more).

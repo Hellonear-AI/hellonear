@@ -47,6 +47,12 @@ export function useMind(mindId: string) {
   return { ...query, data: query.data?.find((m) => m.mindId === mindId) }
 }
 
+/**
+ * Every 10 s while something waits (it can be answered in Telegram since #208, and the chat should
+ * catch up soon), every 30 s otherwise.
+ */
+const approvalsPoll = (q: { state: { data?: unknown[] } }) => (q.state.data?.length ? 10_000 : 30_000)
+
 /** The approvals themselves, oldest request first (Approvals screen, A1). */
 export function useApprovals(mindId: string) {
   return useQuery({
@@ -54,7 +60,7 @@ export function useApprovals(mindId: string) {
     enabled: useSignedIn(),
     queryFn: () => walletApi.approvals(mindId),
     select: (approvals) => [...approvals].sort((a, b) => a.requestedAt.localeCompare(b.requestedAt)),
-    refetchInterval: 30_000,
+    refetchInterval: approvalsPoll,
   })
 }
 
@@ -74,7 +80,7 @@ export function useApprovalsCount(mindId: string) {
     enabled: useSignedIn(),
     queryFn: () => walletApi.approvals(mindId),
     select: (approvals) => approvals.length,
-    refetchInterval: 30_000,
+    refetchInterval: approvalsPoll,
   })
 }
 
