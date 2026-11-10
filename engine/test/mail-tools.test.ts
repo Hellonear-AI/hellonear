@@ -111,10 +111,28 @@ test('bad recipients never reach the backend; tokens and idempotency keys are ch
   assert.match(idempotencyKeyOf('x'.repeat(300))!, /^x{128}$/)
 })
 
-test('Email me (#146): never offered to the model; posts the run\'s user and Mind, never a recipient; a sample in a try-out', async () => {
+test('Email me (#146, #205): in a chat it waits for approval; unattended runs never get it; the canvas step runs without asking', () => {
+  // The registry's version is the canvas step: no approval, so the Builder accepts it (placing it is the approval).
   assert.equal(needsApproval('mail_send_to_owner'), false)
-  assert.deepEqual(Object.keys(toolsFor(['mail_send', 'mail_send_to_owner'])), ['get_time', 'mail_send'])
-  assert.deepEqual(Object.keys(toolsFor(['mail_send_to_owner'], { unattended: true })), ['get_time'])
+  assert.notEqual((toolRegistry.mail_send_to_owner as { requireApproval?: boolean }).requireApproval, true)
+  // A chat run gets the chat version, which waits for the owner like mail_send.
+  const chat = toolsFor(['mail_send', 'mail_send_to_owner'])
+  assert.deepEqual(Object.keys(chat), ['get_time', 'mail_send', 'mail_send_to_owner'])
+  const inChat = chat.mail_send_to_owner as { id: string; requireApproval?: boolean; description: string }
+  assert.equal(inChat.id, 'mail_send_to_owner')
+  assert.equal(inChat.requireApproval, true)
+  assert.match(inChat.description, /never ask for their address/)
+  // Workflows and Autopilot: no approval tool reaches the model, the chat version included.
+  assert.deepEqual(Object.keys(toolsFor(['mail_send', 'mail_send_to_owner'], { unattended: true })), ['get_time'])
+  // The Email address skill grants it, so a chat with that skill can email the owner.
+  const granted = toolsFor(skillCatalog.get('email-address')!.tools)
+  assert.equal((granted.mail_send_to_owner as { requireApproval?: boolean }).requireApproval, true)
+  assert.equal(toolsFor(skillCatalog.get('email-address')!.tools, { unattended: true }).mail_send_to_owner, undefined)
+  // Add to my calendar has no chat version: still never offered to the model.
+  assert.equal(toolsFor(['googlecalendar_block_time']).googlecalendar_block_time, undefined)
+})
+
+test('Email me (#146): posts the run\'s user and Mind, never a recipient; a sample in a try-out', async () => {
   const owner = (values: Record<string, unknown>) => ({ requestContext: { get: (k: string) => values[k] } })
   const send = (values: Record<string, unknown>) => toolRegistry.mail_send_to_owner.execute!({ subject: 'Your morning', text: 'Two meetings.' } as any, owner(values) as any) as Promise<any>
 
@@ -125,6 +143,10 @@ test('Email me (#146): never offered to the model; posts the run\'s user and Min
   assert.equal(call.headers['x-engine-key'], process.env.ENGINE_API_KEY)
   assert.equal(call.headers['x-mail-token'], undefined)
   assert.deepEqual(JSON.parse(call.body), { userId: 'usr_1', mindId: 'mnd_1', subject: 'Your morning', text: 'Two meetings.' })
+  // The chat version (#205) sends the same request, still without a recipient.
+  const inChat = toolsFor(['mail_send_to_owner']).mail_send_to_owner as any
+  await inChat.execute({ subject: 'Your morning', text: 'Two meetings.' }, owner({ userId: 'usr_1', [MIND_ID_KEY]: 'mnd_1' }))
+  assert.deepEqual([seen.at(-1)!.url, JSON.parse(seen.at(-1)!.body)], ['/internal/v1/mail/owner', { userId: 'usr_1', mindId: 'mnd_1', subject: 'Your morning', text: 'Two meetings.' }])
 
   await assert.rejects(send({ userId: 'usr_nogmail', [MIND_ID_KEY]: 'mnd_1' }), /connect Gmail first/)
   await assert.rejects(send({ [MIND_ID_KEY]: 'mnd_1' }), /no owner to email/)

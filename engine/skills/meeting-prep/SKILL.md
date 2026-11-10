@@ -17,7 +17,7 @@ metadata:
 2. Find the meeting with `googlecalendar_list_events`: the next one that has not ended, or the one the owner named (search its title or a person's name with `query`). If two could match, ask which one in one line and stop.
 3. For each other person in `attendees` (at most three), call `gmail_list_emails` once with their email address as the query. Open an email with `gmail_read_email` only when its subject and snippet are not enough, and at most two in total. A run has a small step budget: then write the brief. If there are no attendees, search the meeting's title once instead.
 4. Write one short brief, each part at most four bullets:
-   - **When and where:** title, time in the owner's time zone, place or video call, and whether the meeting before or after it is back to back.
+   - **When and where:** title, the time exactly as `startLocal` and `endLocal` give it (already in the owner's time zone; never convert `start` yourself), place or video call, and whether the meeting before or after it is back to back.
    - **Who:** each attendee by name.
    - **What has been said:** one line per relevant email, starting with who sent it and the subject, so the owner can find it. Never invent an email or a promise.
    - **Open questions:** what an email asks and nobody has answered yet.
