@@ -7,7 +7,18 @@ import { accountWho, promptParts, type PromptPart, type Self } from "@/modules/b
 import { HTTP_FIELDS, toolInfo } from "@/modules/builder/data/tools"
 import { shortAddress } from "@/modules/wallet/data/address"
 
-export type JobStep = { id: string; kind: CanvasNode["type"]; title: string; note?: string; branch?: "then" | "else"; /** An Ask step's prompt with result chips. */ prompt?: PromptPart[] }
+export type JobStep = {
+  id: string
+  kind: CanvasNode["type"]
+  title: string
+  note?: string
+  branch?: "then" | "else"
+  /** An Ask step's prompt with result chips. */
+  prompt?: PromptPart[]
+  /** An If's Yes and No lines (#164: Ifs anywhere, ways of any blocks). */
+  then?: JobStep[]
+  else?: JobStep[]
+}
 
 const OP: Record<string, string> = { eq: "is", ne: "is not", lt: "is under", lte: "is at most", gt: "is over", gte: "is at least" }
 
@@ -68,7 +79,45 @@ function stepOf(n: CanvasNode, mind: string, results: Results, self?: Self): Job
       // Earlier results show as chips, as in the Builder.
       return { id: n.id, kind: n.type, title: `${mind} writes you a note`, prompt: promptParts(n.data.prompt.trim(), results) }
     }
+    case "end":
+      return { id: n.id, kind: n.type, title: "End", note: "The job stops here." }
   }
+}
+
+/**
+ * A job as a tree (#164): the main line from the trigger, each If with its Yes and No lines, and
+ * what follows each If after both ways.
+ */
+export function jobTree(canvas: Canvas, mind: string, address?: string): JobStep[] {
+  const self = address ? { name: mind, address } : undefined
+  const byId = new Map(canvas.nodes.map((n) => [n.id, n]))
+  const results = resultsOf(canvas, self)
+  const seen = new Set<string>()
+  const lineFrom = (first: string | undefined): JobStep[] => {
+    const out: JobStep[] = []
+    let next = first
+    while (next && !seen.has(next)) {
+      const n = byId.get(next)
+      if (!n) break
+      seen.add(n.id)
+      const step = stepOf(n, mind, results, self)
+      const edges = canvas.edges.filter((e) => e.source === n.id)
+      if (n.type === "condition") {
+        step.then = lineFrom(edges.find((e) => e.sourceHandle === "then")?.target)
+        step.else = lineFrom(edges.find((e) => e.sourceHandle === "else")?.target)
+      }
+      out.push(step)
+      next = edges.find((e) => !e.sourceHandle)?.target
+    }
+    return out
+  }
+  const trigger = canvas.nodes.find((n) => n.type === "trigger")
+  return trigger ? lineFrom(trigger.id) : []
+}
+
+/** Every step of a tree, depth first. */
+export function flatSteps(tree: JobStep[]): JobStep[] {
+  return tree.flatMap((s) => [s, ...flatSteps(s.then ?? []), ...flatSteps(s.else ?? [])])
 }
 
 /** Steps in run order: the chain from the trigger, then the condition's yes and no endings. */

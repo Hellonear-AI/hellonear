@@ -6,6 +6,7 @@ import {
   CheckIcon,
   ChevronDownIcon,
   GitBranchIcon,
+  OctagonXIcon,
   GlobeIcon,
   InfoIcon,
   Loader2Icon,
@@ -42,7 +43,7 @@ import { runSummary, runText } from "@/modules/autopilot/data/runs"
 import { nodeSummary } from "@/modules/builder/data/testRun"
 import { ReplyText } from "@/modules/chat/components/ReplyText"
 import { scheduleText, whenNext, zoneName } from "@/modules/autopilot/data/schedule"
-import { jobSteps, type JobStep } from "@/modules/autopilot/data/steps"
+import { flatSteps, jobTree, type JobStep } from "@/modules/autopilot/data/steps"
 import { fromCanvas } from "@/modules/builder/data/draft"
 import { TONE, TONE_OF_NODE } from "@/modules/builder/data/tone"
 import { PromptPreview } from "@/modules/builder/components/PromptText"
@@ -211,6 +212,7 @@ const STEP_ICON: Record<JobStep["kind"], typeof BotIcon> = {
   http: GlobeIcon,
   condition: GitBranchIcon,
   agent: BotIcon,
+  end: OctagonXIcon,
 }
 
 function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string; workflowId: string }) {
@@ -255,7 +257,8 @@ function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string;
 
   const canvas = detail.data?.canvas
   const wallet = useMindWallet(mindId).data
-  const steps = canvas ? jobSteps(canvas, name, wallet?.address) : []
+  const tree = canvas ? jobTree(canvas, name, wallet?.address) : []
+  const steps = flatSteps(tree)
   const [openRun, setOpenRun] = useState<string | null>(null)
   const editable = Boolean(canvas && fromCanvas(canvas, "UTC"))
   const editHref = `${mindHref(mindId, "autopilot")}/${encodeURIComponent(workflowId)}`
@@ -315,7 +318,7 @@ function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string;
 
           <div className="flex flex-col gap-2">
             <h3 className="text-[13px] text-muted-foreground">Steps</h3>
-            <StepsTimeline steps={steps} />
+            <StepsTimeline steps={tree} />
           </div>
 
           <div className="flex flex-col gap-2">
@@ -363,24 +366,27 @@ function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string;
 }
 
 /**
- * A job's steps as a timeline (Ancung, 10 Nov: the plain list looked thin): each step's icon in
- * the Builder's colour for its kind, a line joining them, and an If's two ways side by side, an
- * empty way reading "Stops here".
+ * A job's steps as a timeline (Ancung, 10 Nov): each step's icon in the Builder's colour for its
+ * kind and a line joining them. An If shows its Yes and No side by side, each a timeline of its own
+ * that may hold more Ifs (#164); an empty way reads "Carries on", then the line goes on below.
  */
-function StepsTimeline({ steps }: { steps: JobStep[] }) {
-  const line = steps.filter((x) => !x.branch)
-  const ways = (["then", "else"] as const).map((h) => ({ h, way: steps.filter((x) => x.branch === h) }))
-  const hasIf = line.some((x) => x.kind === "condition")
+function StepsTimeline({ steps, nested = false }: { steps: JobStep[]; nested?: boolean }) {
   return (
-    <div className="flex flex-col">
-      <ol className="flex flex-col">
-        {line.map((x, i) => {
-          const Icon = STEP_ICON[x.kind]
-          const last = i === line.length - 1
-          return (
-            <li key={x.id} className="relative flex items-start gap-3 pb-4 last:pb-0">
-              {!last && <span aria-hidden className="absolute top-9 bottom-0 left-4 w-px bg-border-strong" />}
-              <span className={cn("relative flex size-8 shrink-0 items-center justify-center rounded-md [&>svg]:size-4", TONE[TONE_OF_NODE[x.kind]])}>
+    <ol className="flex flex-col">
+      {steps.map((x, i) => {
+        const Icon = STEP_ICON[x.kind]
+        const last = i === steps.length - 1
+        return (
+          <li key={x.id} className={cn("relative flex flex-col", !last && (nested ? "pb-2.5" : "pb-4"))}>
+            {!last && <span aria-hidden className={cn("absolute bottom-0 w-px bg-border-strong", nested ? "top-8 left-3.5" : "top-9 left-4")} />}
+            <div className="flex items-start gap-3">
+              <span
+                className={cn(
+                  "relative flex shrink-0 items-center justify-center rounded-md",
+                  nested ? "size-7 [&>svg]:size-3.5" : "size-8 [&>svg]:size-4",
+                  TONE[TONE_OF_NODE[x.kind]]
+                )}
+              >
                 <Icon />
               </span>
               <div className="flex min-w-0 flex-col pt-1">
@@ -388,43 +394,22 @@ function StepsTimeline({ steps }: { steps: JobStep[] }) {
                 {x.note && <span className="text-xs break-words text-muted-foreground">{x.note}</span>}
                 {x.prompt && <PromptPreview parts={x.prompt} className="line-clamp-3 text-xs break-words text-muted-foreground" />}
               </div>
-            </li>
-          )
-        })}
-      </ol>
-      {hasIf && (
-        <div className="mt-3 grid gap-2 pl-11 sm:grid-cols-2">
-          {ways.map(({ h, way }) => (
-            <div key={h} className="flex flex-col gap-2 rounded-md bg-muted/50 p-3">
-              {/* Sentence case, no wide caps (UI rules). */}
-              <span className="text-xs font-medium text-muted-foreground">{h === "then" ? "Yes" : "No"}</span>
-              {way.length ? (
-                // Every step of the way, in order (#153: a way can be a chain).
-                <ol className="flex flex-col gap-2.5">
-                  {way.map((step) => {
-                    const Icon = STEP_ICON[step.kind]
-                    return (
-                      <li key={step.id} className="flex items-start gap-2.5">
-                        <span className={cn("flex size-7 shrink-0 items-center justify-center rounded-md [&>svg]:size-3.5", TONE[TONE_OF_NODE[step.kind]])}>
-                          <Icon />
-                        </span>
-                        <div className="flex min-w-0 flex-col">
-                          <span className="text-sm font-medium text-foreground">{step.title}</span>
-                          {step.note && <span className="text-xs break-words text-muted-foreground">{step.note}</span>}
-                          {step.prompt && <PromptPreview parts={step.prompt} className="line-clamp-3 text-xs break-words text-muted-foreground" />}
-                        </div>
-                      </li>
-                    )
-                  })}
-                </ol>
-              ) : (
-                <span className="text-sm text-muted-foreground">Stops here</span>
-              )}
             </div>
-          ))}
-        </div>
-      )}
-    </div>
+            {x.kind === "condition" && (
+              <div className={cn("relative mt-2.5 grid gap-2 sm:grid-cols-2", nested ? "pl-10" : "pl-11")}>
+                {(["then", "else"] as const).map((h) => (
+                  <div key={h} className="flex min-w-0 flex-col gap-2 rounded-md bg-muted/50 p-3">
+                    {/* Sentence case, no wide caps (UI rules). */}
+                    <span className="text-xs font-medium text-muted-foreground">{h === "then" ? "Yes" : "No"}</span>
+                    {x[h]?.length ? <StepsTimeline steps={x[h]!} nested /> : <span className="text-sm text-muted-foreground">Carries on</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </li>
+        )
+      })}
+    </ol>
   )
 }
 

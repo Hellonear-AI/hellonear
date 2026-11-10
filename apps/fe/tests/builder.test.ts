@@ -1,6 +1,25 @@
 import { describe, expect, it } from "vitest"
 import { IDEAS } from "@/modules/autopilot/data/ideas"
-import { cronOf, draftProblems, emptyDraft, fromCanvas, moveStepIn, notesBefore, repeatOf, resultsBefore, toCanvas, workflowIdFor, type Draft } from "@/modules/builder/data/draft"
+import {
+  cronOf,
+  draftProblems,
+  emptyDraft,
+  fromCanvas,
+  isStep,
+  moveStepIn,
+  notesBefore,
+  repeatOf,
+  resultsBefore,
+  toCanvas,
+  workflowIdFor,
+  type Block,
+  type Draft,
+  type IfBlock,
+} from "@/modules/builder/data/draft"
+
+const stepsOf = (d: Draft | null | undefined) => d?.line.filter(isStep) ?? []
+const ifOf = (d: Draft | null | undefined) => d?.line.find((b): b is IfBlock => b.kind === "if")
+const job = (line: Block[]): Draft => ({ name: "Watch", repeat: "daily", day: 1, time: "09:00", timezone: "UTC", line })
 
 const draft: Draft = {
   name: "Evening wrap-up",
@@ -8,11 +27,10 @@ const draft: Draft = {
   day: 5,
   time: "21:30",
   timezone: "Asia/Jakarta",
-  steps: [
+  line: [
     { id: "a", kind: "agent", prompt: "  Sum up my day.  " },
     { id: "b", kind: "agent", prompt: "Give one tip." },
   ],
-  branch: null,
 }
 
 describe("Builder stage 1 (#20)", () => {
@@ -36,32 +54,33 @@ describe("Builder stage 1 (#20)", () => {
   })
 
   it("opens what it saved", () => {
-    expect(fromCanvas(toCanvas(draft), "UTC")).toEqual({ ...draft, steps: draft.steps.map((s) => (s.kind === "agent" ? { ...s, prompt: s.prompt.trim() } : s)) })
-    expect(fromCanvas(IDEAS[1].canvas({ timezone: "UTC", address: null }), "UTC")?.steps).toHaveLength(1)
+    expect(fromCanvas(toCanvas(draft), "UTC")).toEqual({ ...draft, line: draft.line.map((s) => (s.kind === "agent" ? { ...s, prompt: s.prompt.trim() } : s)) })
+    expect(fromCanvas(IDEAS[1].canvas({ timezone: "UTC", address: null }), "UTC")?.line).toHaveLength(1)
   })
 
   it("stage 2: opens and saves a tool step and an If (the balance check idea)", () => {
     const balance = IDEAS[0].canvas({ timezone: "Asia/Jakarta", address: "x.testnet" })
     const d = fromCanvas(balance, "UTC")!
-    expect(d.steps).toEqual([{ id: "balance", kind: "tool", tool: "near_view_account", args: { accountId: "x.testnet" } }])
-    expect(d.branch).toMatchObject({ stepId: "balance", field: "balanceNear", op: "lt", right: "5", else: [] })
-    expect(d.branch?.then[0]?.kind).toBe("agent")
+    expect(stepsOf(d)).toEqual([{ id: "balance", kind: "tool", tool: "near_view_account", args: { accountId: "x.testnet" } }])
+    expect(ifOf(d)).toMatchObject({ stepId: "balance", field: "balanceNear", op: "lt", right: "5", else: [] })
+    expect(ifOf(d)?.then[0]?.kind).toBe("agent")
     const again = toCanvas(d)
     expect(again.nodes.find((n) => n.type === "condition")).toMatchObject({ data: { left: "{{steps.balance.balanceNear}}", op: "lt", right: 5 } })
     expect(again.edges).toContainEqual({ source: "low", target: "note", sourceHandle: "then" })
-    expect(resultsBefore(d.steps).map((r) => r.label)).toEqual(["Balance (NEAR)"])
+    expect(resultsBefore(stepsOf(d)).map((r) => r.label)).toEqual(["Balance (NEAR)"])
   })
 
   it("says what an If still needs", () => {
     const tool = { id: "t", kind: "tool" as const, tool: "near_view_account", args: { accountId: "shop.testnet" } }
-    const base: Draft = { ...draft, steps: [tool], branch: { id: "c", stepId: "t", field: "balanceNear", op: "lt", right: "", then: [], else: [] } }
-    expect(draftProblems(base).map((p) => p.text)).toEqual(["Enter a number in the If block.", "Add a step to If yes or If no."])
-    expect(draftProblems({ ...base, steps: [{ ...tool, args: { accountId: "Not An Account!" } }] }).some((p) => p.where === "t")).toBe(true)
-    const text: Draft = { ...draft, steps: [{ id: "n", kind: "tool", tool: "get_time", args: {} }], branch: { id: "c", stepId: "n", field: "weekday", op: "eq", right: "Friday", then: [{ id: "y", kind: "agent", prompt: "Weekend plan." }], else: [] } }
-    expect(draftProblems(text)).toEqual([])
-    expect(toCanvas(text).nodes.find((n) => n.type === "condition")).toMatchObject({ data: { right: "Friday" } })
-    // Engine rule: both ways can't ask the Mind.
-    const both: Draft = { ...text, branch: { ...text.branch!, else: [{ id: "n2", kind: "agent", prompt: "Other." }] } }
+    const iff: IfBlock = { id: "c", kind: "if", stepId: "t", field: "balanceNear", op: "lt", right: "", then: [], else: [] }
+    expect(draftProblems({ ...draft, line: [tool, iff] }).map((p) => p.text)).toEqual(["Enter a number in the If block.", "Add a step to If yes or If no."])
+    expect(draftProblems({ ...draft, line: [{ ...tool, args: { accountId: "Not An Account!" } }, iff] }).some((p) => p.where === "t")).toBe(true)
+    const time = { id: "n", kind: "tool" as const, tool: "get_time", args: {} }
+    const weekend: IfBlock = { id: "c", kind: "if", stepId: "n", field: "weekday", op: "eq", right: "Friday", then: [{ id: "y", kind: "agent", prompt: "Weekend plan." }], else: [] }
+    expect(draftProblems({ ...draft, line: [time, weekend] })).toEqual([])
+    expect(toCanvas({ ...draft, line: [time, weekend] }).nodes.find((n) => n.type === "condition")).toMatchObject({ data: { right: "Friday" } })
+    // Two ways of one Ask each would share one input.
+    const both = { ...draft, line: [time, { ...weekend, else: [{ id: "n2", kind: "agent" as const, prompt: "Other." }] }] }
     expect(draftProblems(both).map((p) => p.where)).toEqual(["n2"])
   })
 
@@ -74,7 +93,7 @@ describe("Builder stage 1 (#20)", () => {
 
   it("says what stops Save", () => {
     expect(draftProblems(emptyDraft("UTC")).map((p) => p.where)).toEqual(["name", "steps"])
-    expect(draftProblems({ ...draft, steps: [{ id: "x", kind: "agent", prompt: " " }] }).map((p) => p.where)).toEqual(["x"])
+    expect(draftProblems({ ...draft, line: [{ id: "x", kind: "agent", prompt: " " }] }).map((p) => p.where)).toEqual(["x"])
     expect(draftProblems(draft)).toEqual([])
   })
 })
@@ -92,28 +111,27 @@ describe("Builder Test run (B1.2)", () => {
 
 describe("Builder website block", () => {
   const web = { id: "w", kind: "http" as const, method: "GET" as const, url: "https://status.example.com/health", key: "SHOP_TOKEN", body: "" }
-  const job: Draft = {
+  const site: Draft = {
     name: "Status check",
     repeat: "daily",
     day: 1,
     time: "09:00",
     timezone: "UTC",
-    steps: [web],
-    branch: { id: "c", stepId: "w", field: "status", op: "gte", right: "400", then: [{ id: "y", kind: "agent", prompt: "Tell me the site is down." }], else: [] },
+    line: [web, { id: "c", kind: "if", stepId: "w", field: "status", op: "gte", right: "400", then: [{ id: "y", kind: "agent", prompt: "Tell me the site is down." }], else: [] }],
   }
 
   it("saves an http node with the key as a Bearer secret, and opens it again", () => {
-    const c = toCanvas(job)
+    const c = toCanvas(site)
     expect(c.nodes.find((n) => n.type === "http")).toMatchObject({ data: { method: "GET", url: web.url, headers: { Authorization: "Bearer {{secrets.SHOP_TOKEN}}" } } })
     expect(c.nodes.find((n) => n.type === "condition")).toMatchObject({ data: { left: "{{steps.w.status}}", right: 400 } })
-    expect(fromCanvas(c, "UTC")?.steps[0]).toEqual(web)
-    expect(resultsBefore(job.steps).map((r) => r.label)).toEqual(["Status code (like 200)", "Answer"])
+    expect(fromCanvas(c, "UTC")?.line[0]).toEqual(web)
+    expect(resultsBefore([web]).map((r) => r.label)).toEqual(["Status code (like 200)", "Answer"])
   })
 
   it("wants an https address and leaves headers it can't show alone", () => {
-    expect(draftProblems({ ...job, steps: [{ ...web, url: "http://x.com" }] }).some((p) => p.where === "w")).toBe(true)
-    expect(draftProblems(job)).toEqual([])
-    const odd = toCanvas(job)
+    expect(draftProblems({ ...site, line: [{ ...web, url: "http://x.com" }, site.line[1]] }).some((p) => p.where === "w")).toBe(true)
+    expect(draftProblems(site)).toEqual([])
+    const odd = toCanvas(site)
     const http = odd.nodes.find((n) => n.type === "http")!
     if (http.type === "http") http.data.headers = { "X-Api-Key": "abc" }
     expect(fromCanvas(odd, "UTC")).toBeNull()
@@ -195,13 +213,11 @@ describe("TimePicker minutes", () => {
 
 describe("Builder If ways, as in n8n (10 Nov)", () => {
   const tool = { id: "t", kind: "tool" as const, tool: "near_view_account", args: { accountId: "shop.testnet" } }
-  const base: Draft = { name: "Watch", repeat: "daily", day: 1, time: "09:00", timezone: "UTC", steps: [tool], branch: null }
+  const check = (then: Block[], els: Block[]): IfBlock => ({ id: "c", kind: "if", stepId: "t", field: "balanceNear", op: "lt", right: "5", then, else: els })
 
-  it("saves an empty Yes with a step on No as the opposite check, so either way can stop", async () => {
-    const { engineBranch, toCanvas } = await import("@/modules/builder/data/draft")
+  it("saves an empty Yes with a step on No as the opposite check", () => {
     const web = { id: "w", kind: "http" as const, method: "POST" as const, url: "https://hooks.example.com/x", key: "", body: "Low" }
-    const d: Draft = { ...base, branch: { id: "c", stepId: "t", field: "balanceNear", op: "lt", right: "5", then: [], else: [web] } }
-    expect(engineBranch(d.branch!)).toMatchObject({ op: "gte", then: [web], else: [] })
+    const d = job([tool, check([], [web])])
     const c = toCanvas(d)
     expect(c.nodes.find((n) => n.type === "condition")).toMatchObject({ data: { op: "gte", right: 5 } })
     expect(c.edges).toContainEqual({ source: "c", target: "w", sourceHandle: "then" })
@@ -209,14 +225,13 @@ describe("Builder If ways, as in n8n (10 Nov)", () => {
   })
 
   it("lets a way hold a tool or a website, and opens it again", () => {
-    const d: Draft = { ...base, branch: { id: "c", stepId: "t", field: "balanceNear", op: "lt", right: "5", then: [{ id: "n", kind: "tool", tool: "get_time", args: {} }], else: [] } }
-    expect(fromCanvas(toCanvas(d), "UTC")?.branch?.then).toEqual([{ id: "n", kind: "tool", tool: "get_time", args: {} }])
+    const d = job([tool, check([{ id: "n", kind: "tool", tool: "get_time", args: {} }], [])])
+    expect(ifOf(fromCanvas(toCanvas(d), "UTC"))?.then).toEqual([{ id: "n", kind: "tool", tool: "get_time", args: {} }])
   })
 
-  it("needs a step on at least one way, and only one way may ask the Mind", () => {
-    const empty: Draft = { ...base, branch: { id: "c", stepId: "t", field: "balanceNear", op: "lt", right: "5", then: [], else: [] } }
-    expect(draftProblems(empty).map((p) => p.text)).toEqual(["Add a step to If yes or If no."])
-    const both: Draft = { ...base, branch: { ...empty.branch!, then: [{ id: "a", kind: "agent", prompt: "x" }], else: [{ id: "b", kind: "agent", prompt: "y" }] } }
+  it("needs a step on at least one way, and two one-Ask ways can't both ask", () => {
+    expect(draftProblems(job([tool, check([], [])])).map((p) => p.text)).toEqual(["Add a step to If yes or If no."])
+    const both = job([tool, check([{ id: "a", kind: "agent", prompt: "x" }], [{ id: "b", kind: "agent", prompt: "y" }])])
     expect(draftProblems(both).map((p) => p.where)).toEqual(["b"])
   })
 
@@ -259,9 +274,9 @@ describe("Prompt chips (10 Nov)", () => {
 })
 
 describe("Add to my calendar and Email me (#146)", () => {
-  const job: Draft = {
+  const brief: Draft = {
     ...draft,
-    steps: [
+    line: [
       { id: "note", kind: "agent", prompt: "Write my morning brief." },
       { id: "cal", kind: "tool", tool: "googlecalendar_block_time", args: { title: "Focus time", at: "09:00", minutes: "30" } },
       { id: "mail", kind: "tool", tool: "mail_send_to_owner", args: { subject: "Your morning", text: "{{steps.note.text}}" } },
@@ -269,22 +284,22 @@ describe("Add to my calendar and Email me (#146)", () => {
   }
 
   it("saves both as tool steps and opens them again", () => {
-    const c = toCanvas(job)
+    const c = toCanvas(brief)
     expect(c.nodes.slice(2).map((n) => n.data)).toEqual([
       { tool: "googlecalendar_block_time", args: { title: "Focus time", at: "09:00", minutes: "30" } },
       { tool: "mail_send_to_owner", args: { subject: "Your morning", text: "{{steps.note.text}}" } },
     ])
-    expect(fromCanvas(c, "UTC")?.steps).toEqual(job.steps)
+    expect(fromCanvas(c, "UTC")?.line).toEqual(brief.line)
   })
 
   it("Email me offers only the notes earlier Ask steps wrote", () => {
-    const steps = [{ id: "bal", kind: "tool" as const, tool: "near_view_account", args: { accountId: "shop.testnet" } }, ...job.steps]
+    const steps = [{ id: "bal", kind: "tool" as const, tool: "near_view_account", args: { accountId: "shop.testnet" } }, ...stepsOf(brief)]
     expect(notesBefore(steps, 3).map((n) => `${n.stepId}.${n.name}`)).toEqual(["note.text"])
     expect(notesBefore(steps, 1)).toEqual([])
   })
 
   it("needs a name, a time, 5 to 480 minutes, a subject and an email", () => {
-    const bad: Draft = { ...job, steps: [{ id: "cal", kind: "tool", tool: "googlecalendar_block_time", args: { title: " ", at: "9", minutes: "2" } }, { id: "mail", kind: "tool", tool: "mail_send_to_owner", args: { subject: "", text: "" } }] }
+    const bad: Draft = { ...brief, line: [{ id: "cal", kind: "tool", tool: "googlecalendar_block_time", args: { title: " ", at: "9", minutes: "2" } }, { id: "mail", kind: "tool", tool: "mail_send_to_owner", args: { subject: "", text: "" } }] }
     expect(draftProblems(bad).map((p) => p.text)).toEqual([
       "Event name is required.",
       "Time is required.",
@@ -292,7 +307,7 @@ describe("Add to my calendar and Email me (#146)", () => {
       "Subject is required.",
       "Email is required.",
     ])
-    expect(draftProblems(job)).toEqual([])
+    expect(draftProblems(brief)).toEqual([])
   })
 })
 
@@ -307,45 +322,75 @@ describe("run lines for Add to my calendar and Email me (#146)", () => {
   })
 })
 
-describe("If ways as chains (#153, engine #160)", () => {
-  const tool = { id: "t", kind: "tool" as const, tool: "near_view_account", args: { accountId: "shop.testnet" } }
+describe("Ifs anywhere and End (#164)", () => {
+  const bal = { id: "bal", kind: "tool" as const, tool: "near_view_account", args: { accountId: "shop.testnet" } }
   const time = { id: "time", kind: "tool" as const, tool: "get_time", args: {} }
   const note = { id: "note", kind: "agent" as const, prompt: "Say the balance and the time." }
-  const base: Draft = { name: "Watch", repeat: "daily", day: 1, time: "09:00", timezone: "UTC", steps: [tool], branch: null }
+  const urgent = { id: "urgent", kind: "agent" as const, prompt: "Urgent." }
+  const end = (id: string) => ({ id, kind: "end" as const })
+  const low: IfBlock = {
+    id: "low",
+    kind: "if",
+    stepId: "bal",
+    field: "balanceNear",
+    op: "lt",
+    right: "10",
+    then: [{ id: "very", kind: "if", stepId: "bal", field: "balanceNear", op: "lt", right: "2", then: [urgent, end("e1")], else: [note] }],
+    else: [time],
+  }
+  const tree = job([bal, low, { id: "after", kind: "agent", prompt: "Wrap up." }])
 
-  it("saves a way as a chain: the If to its first step, then step to step, and opens it again", async () => {
-    const d: Draft = { ...base, branch: { id: "c", stepId: "t", field: "balanceNear", op: "lt", right: "100", then: [time, note], else: [] } }
-    const c = toCanvas(d)
-    expect(c.edges).toContainEqual({ source: "c", target: "time", sourceHandle: "then" })
-    expect(c.edges).toContainEqual({ source: "time", target: "note" })
-    expect(fromCanvas(c, "UTC")?.branch?.then).toEqual([time, note])
+  it("saves the tree as the engine wants it and opens it again", () => {
+    const c = toCanvas(tree)
+    expect(c.edges).toContainEqual({ source: "low", target: "very", sourceHandle: "then" })
+    expect(c.edges).toContainEqual({ source: "very", target: "urgent", sourceHandle: "then" })
+    expect(c.edges).toContainEqual({ source: "urgent", target: "e1" })
+    expect(c.edges).toContainEqual({ source: "low", target: "time", sourceHandle: "else" })
+    // What follows an If hangs off it with a plain edge.
+    expect(c.edges).toContainEqual({ source: "low", target: "after" })
+    expect(c.nodes.find((n) => n.id === "e1")).toMatchObject({ type: "end", data: {} })
+    expect(fromCanvas(c, "UTC")?.line).toEqual(tree.line)
+    expect(draftProblems(tree)).toEqual([])
   })
 
-  it("lets two ways ask the Mind once a way has several steps", () => {
-    const one: Draft = { ...base, branch: { id: "c", stepId: "t", field: "balanceNear", op: "lt", right: "1", then: [note], else: [{ ...note, id: "n2" }] } }
-    expect(draftProblems(one).map((p) => p.where)).toEqual(["n2"])
-    const chain: Draft = { ...one, branch: { ...one.branch!, then: [time, note] } }
-    expect(draftProblems(chain)).toEqual([])
+  it("lets a step read only what came before it on its own path", async () => {
+    const { stepsBefore, stepsAt } = await import("@/modules/builder/data/draft")
+    expect(stepsBefore(tree.line, "urgent").map((s) => s.id)).toEqual(["bal"])
+    expect(stepsBefore(tree.line, "time").map((s) => s.id)).toEqual(["bal"])
+    // After an If its ways may not have run, so they can't be read.
+    expect(stepsBefore(tree.line, "after").map((s) => s.id)).toEqual(["bal"])
+    expect(stepsAt(tree.line, [{ at: "low", h: "else" }], 1).map((s) => s.id)).toEqual(["bal", "time"])
   })
 
-  it("lets a step read the main line and the earlier steps of its own way", async () => {
-    const { wayLine, wayOf } = await import("@/modules/builder/data/draft")
-    const d: Draft = { ...base, branch: { id: "c", stepId: "t", field: "balanceNear", op: "lt", right: "1", then: [time, note], else: [] } }
-    expect(wayLine(d, "then", 1).map((s) => s.id)).toEqual(["t", "time"])
-    expect(wayOf(d, "note")).toEqual({ h: "then", index: 1 })
-    expect(wayOf(d, "t")).toBeNull()
+  it("puts End only at the end of a path, nothing after a path that ends, and an If only after something to check", async () => {
+    const { canPlace, closes } = await import("@/modules/builder/data/draft")
+    const way = [{ at: "low", h: "then" as const }, { at: "very", h: "then" as const }]
+    expect(canPlace(tree.line, way, 2, "agent")).toBe(false)
+    expect(canPlace(tree.line, way, 1, "end")).toBe(false)
+    expect(canPlace(tree.line, [{ at: "low", h: "else" }], 1, "end")).toBe(true)
+    expect(canPlace(tree.line, [], 0, "if")).toBe(false)
+    expect(canPlace(tree.line, [], 1, "if")).toBe(true)
+    // An If whose ways both end closes the path.
+    expect(closes({ ...low, then: [end("x")], else: [end("y")] })).toBe(true)
+    const shut = job([bal, { ...low, then: [end("x")], else: [end("y")] }, note])
+    expect(draftProblems(shut).map((p) => p.where)).toContain("note")
   })
-})
 
-describe("Autopilot steps for a chained way (#153)", () => {
-  it("lists every step of each way, in order", async () => {
-    const { jobSteps } = await import("@/modules/autopilot/data/steps")
-    const d: Draft = {
-      name: "Watch", repeat: "daily", day: 1, time: "09:00", timezone: "UTC",
-      steps: [{ id: "t", kind: "tool", tool: "near_view_account", args: { accountId: "shop.testnet" } }],
-      branch: { id: "c", stepId: "t", field: "balanceNear", op: "lt", right: "100", then: [{ id: "time", kind: "tool", tool: "get_time", args: {} }, { id: "note", kind: "agent", prompt: "Write it down." }], else: [] },
-    }
-    const steps = jobSteps(toCanvas(d), "Omaga")
-    expect(steps.filter((s) => s.branch === "then").map((s) => s.id)).toEqual(["time", "note"])
+  it("moves a block and takes one out with its ways", async () => {
+    const { removeBlock, insertBlock, locate } = await import("@/modules/builder/data/draft")
+    expect(locate(tree.line, "note")).toEqual({ path: [{ at: "low", h: "then" }, { at: "very", h: "else" }], index: 0 })
+    const out = removeBlock(tree.line, "very")
+    expect(locate(out, "urgent")).toBeNull()
+    expect(insertBlock(out, [{ at: "low", h: "then" }], 0, note).find((b) => b.id === "low")).toMatchObject({ then: [note] })
+  })
+
+  it("Autopilot lists the tree: each If with its ways, then what follows", async () => {
+    const { jobTree, flatSteps } = await import("@/modules/autopilot/data/steps")
+    const t = jobTree(toCanvas(tree), "Omaga")
+    expect(t.map((s) => s.id)).toEqual(["start", "bal", "low", "after"])
+    const lowStep = t.find((s) => s.id === "low")!
+    expect(lowStep.then?.[0].then?.map((s) => s.id)).toEqual(["urgent", "e1"])
+    expect(lowStep.else?.map((s) => s.id)).toEqual(["time"])
+    expect(flatSteps(t).find((s) => s.id === "e1")?.title).toBe("End")
   })
 })

@@ -1,8 +1,9 @@
 // The Builder's own model of a job (design "7 · Automations" B1), kept to what the engine accepts
-// (docs/api-contract.md §2): a Start block with a schedule, a straight line of steps, then at most
-// one If whose yes and no endings are one step each (the no ending may be "stop"). Steps are
-// "Ask the Mind" (an agent node) or a tool from data/tools.ts. A saved canvas this model can't hold
-// (a website call, two Ifs) isn't opened here.
+// (docs/api-contract.md §2, the tree canvas of #164): a Start block with a schedule, then a line of
+// blocks. A block is a step ("Ask the Mind", a tool from data/tools.ts, or a website call), an If
+// with its own Yes and No lines, or End. Ifs can sit anywhere, ways can hold any blocks, a way
+// that doesn't end carries on after its If, and End stops that path. A saved canvas this model
+// can't hold isn't opened here.
 
 import type { Canvas, CanvasNode } from "@/modules/autopilot/api"
 import { HTTP_FIELDS, NEAR_ACCOUNT, toolInfo, type BuilderTool } from "@/modules/builder/data/tools"
@@ -29,18 +30,27 @@ export const stepTitle = (s: Step) => (s.kind === "tool" ? (toolInfo(s.tool)?.ti
 
 const BEARER = /^Bearer \{\{secrets\.([A-Z][A-Z0-9_]{0,63})\}\}$/
 
-export type Branch = {
+/** An If: compares one earlier result and runs its Yes or its No line, then carries on (#164). */
+export type IfBlock = {
   id: string
-  /** The earlier tool step and the field of its result the If looks at. */
+  kind: "if"
+  /** The earlier step and the field of its result the If looks at. */
   stepId: string
   field: string
   op: Op
   /** As typed; a number field turns it into a number on save. */
   right: string
-  /** What runs when the check is true, or false; empty means the job stops there (as in n8n). */
-  then: Step[]
-  else: Step[]
+  /** The Yes and No lines; empty, or without an End, the path carries on after the If. */
+  then: Block[]
+  else: Block[]
 }
+/** End: the path stops here (#164); nothing can follow it. */
+export type EndBlock = { id: string; kind: "end" }
+export type Block = Step | IfBlock | EndBlock
+/** The If's former name, kept for the If panel. */
+export type Branch = IfBlock
+
+export const isStep = (b: Block): b is Step => b.kind === "agent" || b.kind === "tool" || b.kind === "http"
 
 export type Draft = {
   name: string
@@ -50,15 +60,20 @@ export type Draft = {
   /** "08:00", 24 h. */
   time: string
   timezone: string
-  steps: Step[]
-  branch: Branch | null
+  /** The main line after Start. */
+  line: Block[]
 }
+
+/** Where a line sits: [] is the main line; each part steps into an If's Yes or No. */
+export type LinePath = { at: string; h: "then" | "else" }[]
+
+export const MAX_NODES = 20
 
 export const PROMPT_MAX = 4000
 export const NAME_MAX = 60
 
 export function emptyDraft(timezone: string): Draft {
-  return { name: "", repeat: "daily", day: 1, time: "08:00", timezone, steps: [], branch: null }
+  return { name: "", repeat: "daily", day: 1, time: "08:00", timezone, line: [] }
 }
 
 export function cronOf(d: Pick<Draft, "repeat" | "day" | "time">): string {
@@ -101,7 +116,7 @@ function stepNode(s: Step, x: number, y: number): CanvasNode {
   return { id: s.id, type: "tool", position: pos(x, y), data: { tool: s.tool, args: Object.fromEntries(Object.entries(s.args).map(([k, v]) => [k, v.trim()])) } }
 }
 
-export function rightValue(b: Branch, steps: Step[]): string | number {
+export function rightValue(b: IfBlock, steps: Step[]): string | number {
   const kind = stepFields(steps.find((s) => s.id === b.stepId)).find((f) => f.name === b.field)?.kind
   return kind === "number" ? Number(b.right) : b.right.trim()
 }
@@ -110,32 +125,34 @@ export function rightValue(b: Branch, steps: Step[]): string | number {
 export const INVERT: Record<Op, Op> = { eq: "ne", ne: "eq", lt: "gte", gte: "lt", lte: "gt", gt: "lte" }
 
 /**
- * The branch as the engine wants it: a condition needs a "then" step (docs/api-contract.md §2). An
- * empty Yes with a step on No is saved as the opposite check with that step on Yes, so either side
- * can be the one that stops (n8n leaves an output unconnected; Ancung, 10 Nov).
+ * The engine's tree canvas (#164): each block links to the next in its line; an If links to its
+ * Yes and No lines with `then` / `else` and to what follows it with a plain edge.
  */
-export function engineBranch(b: Branch): Branch {
-  return !b.then.length && b.else.length ? { ...b, op: INVERT[b.op], then: b.else, else: [] } : b
-}
-
 export function toCanvas(d: Draft): Canvas {
   const nodes: CanvasNode[] = [{ id: "start", type: "trigger", position: pos(0, 0), data: { schedule: { cron: cronOf(d), timezone: d.timezone } } }]
-  d.steps.forEach((s, i) => nodes.push(stepNode(s, 0, (i + 1) * 140)))
-  const order = nodes.map((n) => n.id)
-  const edges: Canvas["edges"] = order.slice(1).map((id, i) => ({ source: order[i], target: id }))
-  const b = d.branch ? engineBranch(d.branch) : null
-  if (b) {
-    const y = (d.steps.length + 1) * 140
-    nodes.push({ id: b.id, type: "condition", position: pos(0, y), data: { left: ref(b.stepId, b.field), op: b.op, right: rightValue(b, d.steps) } })
-    edges.push({ source: order[order.length - 1], target: b.id })
-    // Each way is a chain (#153, engine #160): the If to its first step, then step to step.
-    for (const [h, x] of [["then", -160], ["else", 160]] as const) {
-      b[h].forEach((st, i) => {
-        nodes.push(stepNode(st, x, y + 140 * (i + 1)))
-        edges.push(i === 0 ? { source: b.id, target: st.id, sourceHandle: h } : { source: b[h][i - 1].id, target: st.id })
-      })
+  const edges: Canvas["edges"] = []
+  let row = 0
+  const emit = (line: Block[], from: { source: string; handle?: "then" | "else" }, x: number, path: Step[]) => {
+    let prev = from
+    const seen = [...path]
+    for (const b0 of line) {
+      // An empty Yes with steps on No is saved as the opposite check with them on Yes: the older
+      // engine shape needs a "then" edge, and the meaning is the same (Ancung, 10 Nov).
+      const b: Block = b0.kind === "if" && !b0.then.length && b0.else.length ? { ...b0, op: INVERT[b0.op], then: b0.else, else: [] } : b0
+      row += 1
+      const y = row * 140
+      if (b.kind === "if") nodes.push({ id: b.id, type: "condition", position: pos(x, y), data: { left: ref(b.stepId, b.field), op: b.op, right: rightValue(b, seen) } })
+      else if (b.kind === "end") nodes.push({ id: b.id, type: "end", position: pos(x, y), data: {} })
+      else nodes.push(stepNode(b, x, y))
+      edges.push(prev.handle ? { source: prev.source, target: b.id, sourceHandle: prev.handle } : { source: prev.source, target: b.id })
+      if (b.kind === "if") {
+        emit(b.then, { source: b.id, handle: "then" }, x - 220, seen)
+        emit(b.else, { source: b.id, handle: "else" }, x + 220, seen)
+      } else if (isStep(b)) seen.push(b)
+      prev = { source: b.id }
     }
   }
+  emit(d.line, { source: "start" }, 0, [])
   return { name: d.name.trim(), nodes, edges }
 }
 
@@ -161,50 +178,43 @@ export function fromCanvas(c: Canvas, fallbackZone: string): Draft | null {
   const rep = trigger.data.schedule ? repeatOf(trigger.data.schedule.cron) : null
   if (!rep) return null
   const byId = new Map(c.nodes.map((n) => [n.id, n]))
-  const steps: Step[] = []
-  let branch: Branch | null = null
-  let at = trigger.id
-  const seen = new Set<string>([at])
-  for (;;) {
-    const out = c.edges.filter((e) => e.source === at)
-    if (out.length === 0) break
-    if (out.length > 1 || out[0].sourceHandle) return null
-    const n = byId.get(out[0].target)
-    if (!n || seen.has(n.id)) return null
-    seen.add(n.id)
-    if (n.type === "condition") {
-      const m = n.data.left.match(/^\{\{\s*steps\.([\w-]+)\.(\w+)\s*\}\}$/)
-      if (!m) return null
-      // A way is a chain to its end; undefined when it holds something the Builder can't edit.
-      const ending = (h: "then" | "else"): Step[] | undefined => {
-        const e = c.edges.find((x) => x.source === n.id && x.sourceHandle === h)
-        const way: Step[] = []
-        let next = e?.target
-        while (next) {
-          const node = byId.get(next)
-          const s = stepOf(node)
-          if (!s || seen.has(s.id)) return undefined
-          seen.add(s.id)
-          way.push(s)
-          const out = c.edges.filter((x) => x.source === s.id)
-          if (out.length > 1 || out[0]?.sourceHandle) return undefined
-          next = out[0]?.target
-        }
-        return way
+  const seen = new Set<string>([trigger.id])
+  const outOf = (id: string) => c.edges.filter((e) => e.source === id)
+  // A line from a node to where it stops, following plain edges; undefined if it can't be edited.
+  const lineFrom = (first: string | undefined): Block[] | undefined => {
+    const line: Block[] = []
+    let next = first
+    while (next) {
+      const n = byId.get(next)
+      if (!n || seen.has(n.id)) return undefined
+      seen.add(n.id)
+      const out = outOf(n.id)
+      const plain = out.filter((e) => !e.sourceHandle)
+      if (plain.length > 1) return undefined
+      if (n.type === "condition") {
+        const m = n.data.left.match(/^\{\{\s*steps\.([\w-]+)\.(\w+)\s*\}\}$/)
+        if (!m) return undefined
+        const yes = lineFrom(out.find((e) => e.sourceHandle === "then")?.target)
+        const no = lineFrom(out.find((e) => e.sourceHandle === "else")?.target)
+        if (!yes || !no) return undefined
+        line.push({ id: n.id, kind: "if", stepId: m[1], field: m[2], op: n.data.op, right: String(n.data.right), then: yes, else: no })
+      } else if (n.type === "end") {
+        if (out.length) return undefined
+        line.push({ id: n.id, kind: "end" })
+      } else {
+        const st = stepOf(n)
+        if (!st || out.some((e) => e.sourceHandle)) return undefined
+        line.push(st)
       }
-      const yes = ending("then")
-      const no = ending("else")
-      if (yes === undefined || no === undefined) return null
-      branch = { id: n.id, stepId: m[1], field: m[2], op: n.data.op, right: String(n.data.right), then: yes, else: no }
-      break
+      next = plain[0]?.target
     }
-    const s = stepOf(n)
-    if (!s) return null
-    steps.push(s)
-    at = n.id
+    return line
   }
-  if (seen.size !== c.nodes.length) return null
-  return { name: c.name, ...rep, timezone: trigger.data.schedule?.timezone ?? fallbackZone, steps, branch }
+  const start = outOf(trigger.id)
+  if (start.length > 1 || start[0]?.sourceHandle) return null
+  const line = lineFrom(start[0]?.target)
+  if (!line || seen.size !== c.nodes.length) return null
+  return { name: c.name, ...rep, timezone: trigger.data.schedule?.timezone ?? fallbackZone, line }
 }
 
 /** Moves a step so it lands at place `to` in the line as it was before the move (a drop spot's index). */
@@ -310,22 +320,137 @@ export function draftProblems(d: Draft): DraftProblem[] {
   const out: DraftProblem[] = []
   if (!d.name.trim()) out.push({ where: "name", text: "Job name is required." })
   if (!/^\d{2}:\d{2}$/.test(d.time)) out.push({ where: "start", text: "Time is required." })
-  if (!d.steps.length) out.push({ where: "steps", text: "Add at least one step after Start." })
-  for (const s of d.steps) stepProblems(s, out)
-  const b = d.branch
-  if (b) {
-    const field = stepFields(d.steps.find((s) => s.id === b.stepId)).find((f) => f.name === b.field) ?? null
-    if (!field || field.kind === "list") out.push({ where: b.id, text: "Select a value to compare in the If block." })
-    else if (field.kind === "number" && (b.right.trim() === "" || !Number.isFinite(Number(b.right)))) out.push({ where: b.id, text: "Enter a number in the If block." })
-    else if (field.kind === "text" && !b.right.trim()) out.push({ where: b.id, text: "Enter a value in the If block." })
-    if (!b.then.length && !b.else.length) out.push({ where: b.id, text: "Add a step to If yes or If no." })
-    // Engine rule (docs/api-contract.md §2): both ways can't ask the Mind (they'd need the same input).
-    // Engine rule: two ways of one Ask each share one input. A way of several steps has its own (#160).
-    if (b.then.length === 1 && b.else.length === 1 && b.then[0].kind === "agent" && b.else[0].kind === "agent")
-      out.push({ where: b.else[0].id, text: "If yes and If no cannot both ask the Mind when each way is one step." })
-    for (const st of [...b.then, ...b.else]) stepProblems(st, out)
+  if (!allBlocks(d.line).some(isStep)) out.push({ where: "steps", text: "Add at least one step after Start." })
+  if (allBlocks(d.line).length + 1 > MAX_NODES) out.push({ where: "steps", text: `A job can have at most ${MAX_NODES - 1} blocks.` })
+  const check = (line: Block[], before: Step[]) => {
+    const seen = [...before]
+    line.forEach((b, i) => {
+      if (i > 0 && closes(line[i - 1])) out.push({ where: b.id, text: "Nothing can follow here: the path above already ends." })
+      if (isStep(b)) {
+        stepProblems(b, out)
+        seen.push(b)
+      } else if (b.kind === "if") {
+        const field = stepFields(seen.find((x) => x.id === b.stepId)).find((f) => f.name === b.field) ?? null
+        if (!field || field.kind === "list") out.push({ where: b.id, text: "Select a value to compare in the If block." })
+        else if (field.kind === "number" && (b.right.trim() === "" || !Number.isFinite(Number(b.right)))) out.push({ where: b.id, text: "Enter a number in the If block." })
+        else if (field.kind === "text" && !b.right.trim()) out.push({ where: b.id, text: "Enter a value in the If block." })
+        if (!b.then.length && !b.else.length) out.push({ where: b.id, text: "Add a step to If yes or If no." })
+        // Older engine rule, kept to be safe: two ways of one Ask each would share one input.
+        if (b.then.length === 1 && b.else.length === 1 && b.then[0].kind === "agent" && b.else[0].kind === "agent")
+          out.push({ where: b.else[0].id, text: "If yes and If no cannot both ask the Mind when each way is one step." })
+        check(b.then, seen)
+        check(b.else, seen)
+      }
+    })
   }
+  check(d.line, [])
   return out
+}
+
+/** Every block, depth first, in reading order. */
+export function allBlocks(line: Block[]): Block[] {
+  return line.flatMap((b) => (b.kind === "if" ? [b, ...allBlocks(b.then), ...allBlocks(b.else)] : [b]))
+}
+
+/** A block that ends its path: End, or an If whose Yes and No both end. Nothing may follow it. */
+export function closes(b: Block | undefined): boolean {
+  if (!b) return false
+  if (b.kind === "end") return true
+  return b.kind === "if" && lineCloses(b.then) && lineCloses(b.else)
+}
+export const lineCloses = (line: Block[]) => closes(line[line.length - 1])
+
+/** The line at `path`. */
+export function lineAt(line: Block[], path: LinePath): Block[] {
+  let cur = line
+  for (const p of path) {
+    const b = cur.find((x) => x.id === p.at)
+    if (!b || b.kind !== "if") return []
+    cur = b[p.h]
+  }
+  return cur
+}
+
+/** The main line with the line at `path` replaced by `fn` of it. */
+export function withLine(line: Block[], path: LinePath, fn: (l: Block[]) => Block[]): Block[] {
+  if (!path.length) return fn(line)
+  const [p, ...rest] = path
+  return line.map((b) => (b.id === p.at && b.kind === "if" ? { ...b, [p.h]: withLine(b[p.h], rest, fn) } : b))
+}
+
+/** Where a block sits: its line's path and its index there. */
+export function locate(line: Block[], id: string, path: LinePath = []): { path: LinePath; index: number } | null {
+  for (let i = 0; i < line.length; i++) {
+    const b = line[i]
+    if (b.id === id) return { path, index: i }
+    if (b.kind === "if") {
+      for (const h of ["then", "else"] as const) {
+        const hit = locate(b[h], id, [...path, { at: b.id, h }])
+        if (hit) return hit
+      }
+    }
+  }
+  return null
+}
+
+export function findBlock(line: Block[], id: string): Block | null {
+  return allBlocks(line).find((b) => b.id === id) ?? null
+}
+
+/** Change one block wherever it is. */
+export function updateBlock(line: Block[], id: string, patch: Partial<Block>): Block[] {
+  return line.map((b) =>
+    b.id === id ? ({ ...b, ...patch } as Block) : b.kind === "if" ? { ...b, then: updateBlock(b.then, id, patch), else: updateBlock(b.else, id, patch) } : b
+  )
+}
+
+/** Take a block out (an If goes with its ways); an If that looked at it forgets what it looked at. */
+export function removeBlock(line: Block[], id: string): Block[] {
+  return line
+    .filter((b) => b.id !== id)
+    .map((b) => (b.kind === "if" ? { ...b, ...(b.stepId === id ? { stepId: "", field: "" } : {}), then: removeBlock(b.then, id), else: removeBlock(b.else, id) } : b))
+}
+
+/** Put a block at `index` of the line at `path`. */
+export function insertBlock(line: Block[], path: LinePath, index: number, block: Block): Block[] {
+  return withLine(line, path, (l) => [...l.slice(0, index), block, ...l.slice(index)])
+}
+
+/**
+ * The steps a place can read (`{{steps.…}}`, #164): those earlier on its own path back to Start.
+ * An If's ways may not run, so blocks after an If can't read inside them; a way can read what
+ * came before its If, never the other way.
+ */
+export function stepsAt(line: Block[], path: LinePath, index: number): Step[] {
+  const out: Step[] = []
+  let cur = line
+  for (const p of path) {
+    const at = cur.findIndex((b) => b.id === p.at)
+    out.push(...cur.slice(0, at).filter(isStep))
+    const b = cur[at]
+    if (!b || b.kind !== "if") return out
+    cur = b[p.h]
+  }
+  out.push(...cur.slice(0, index).filter(isStep))
+  return out
+}
+
+/** The steps a block can read: those before it on its path. */
+export function stepsBefore(line: Block[], id: string): Step[] {
+  const hit = locate(line, id)
+  return hit ? stepsAt(line, hit.path, hit.index) : []
+}
+
+/** Whether a new block of this kind may go at `index` of the line at `path` (#164 rules). */
+export function canPlace(line: Block[], path: LinePath, index: number, kind: Block["kind"], self?: Self): boolean {
+  const here = lineAt(line, path)
+  // Nothing after a block that ends the path, and End only last.
+  if (index > 0 && closes(here[index - 1])) return false
+  if (kind === "end" && index !== here.length) return false
+  if (kind === "end" && here.length === 0 && path.length === 0) return false
+  if (allBlocks(line).length + 1 >= MAX_NODES) return false
+  if (kind === "if") return resultsBefore(stepsAt(line, path, index), undefined, self).some(comparable)
+  return true
 }
 
 const REF = /\{\{\s*steps\.([\w-]+)\.(\w+)\s*\}\}/g
@@ -386,16 +511,3 @@ export function promptParts(prompt: string, results: Token[]): PromptPart[] {
   return out
 }
 
-/** The steps a way's step can read: the main line, then the earlier steps of its own way (#160). */
-export function wayLine(d: Pick<Draft, "steps" | "branch">, h: "then" | "else", index: number): Step[] {
-  return [...d.steps, ...(d.branch?.[h] ?? []).slice(0, index)]
-}
-
-/** Which way a step sits on, and where; null for the main line. */
-export function wayOf(d: Pick<Draft, "branch">, id: string): { h: "then" | "else"; index: number } | null {
-  for (const h of ["then", "else"] as const) {
-    const index = d.branch?.[h].findIndex((st) => st.id === id) ?? -1
-    if (index >= 0) return { h, index }
-  }
-  return null
-}

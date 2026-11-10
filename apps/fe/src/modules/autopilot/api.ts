@@ -14,6 +14,8 @@ export type CanvasNode =
   | { id: string; type: "tool"; position: { x: number; y: number }; data: { tool: string; args: Record<string, unknown> } }
   | { id: string; type: "http"; position: { x: number; y: number }; data: { method: string; url: string; headers?: Record<string, string>; body?: string } }
   | { id: string; type: "condition"; position: { x: number; y: number }; data: { left: string; op: "eq" | "ne" | "lt" | "lte" | "gt" | "gte"; right: unknown } }
+  /** End (#164): stops that path; it has no next step. */
+  | { id: string; type: "end"; position: { x: number; y: number }; data: Record<string, never> }
 
 export type Canvas = { name: string; nodes: CanvasNode[]; edges: { source: string; target: string; sourceHandle?: "then" | "else" }[] }
 
