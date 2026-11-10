@@ -34,6 +34,7 @@ import { Working } from "@/modules/chat/components/ChatScreen"
 import { MindAvatar } from "@/components/elements/MindAvatar"
 import { refusalReasons } from "@/modules/chat/components/RunCards"
 import { foldRun, type RunEvent } from "@/modules/chat/data/events"
+import { PaymentAmount } from "@/modules/wallet/components/ApprovalParts"
 import { mindsApi, type ApiWallet } from "@/modules/minds/api"
 import { mindKeys } from "@/modules/minds/hooks/useMinds"
 
@@ -309,11 +310,7 @@ function Result({
               <span className="text-[13px] text-muted-foreground">It wants to send</span>
               <Badge variant="destructive">Suspicious</Badge>
             </div>
-            <p className="flex items-end gap-2">
-              <span className="text-4xl leading-9 font-medium tracking-[-1.5px] text-foreground">{outcome.payment.amountNear}</span>
-              <span className="text-base font-medium text-muted-foreground">NEAR</span>
-            </p>
-            <span className="w-fit max-w-full truncate rounded-sm bg-surface px-3 py-1.5 font-mono text-[13px] text-foreground">{outcome.payment.to}</span>
+            <PaymentAmount amountNear={outcome.payment.amountNear} to={outcome.payment.to} toClassName="w-fit bg-surface py-1.5" />
             <p className="text-[13px] text-foreground">
               You never asked for this. It came from the attack{reasons.length ? `, and ${reasons.map((r) => r.toLowerCase()).join(" and ")}` : ""}.
             </p>

@@ -1,7 +1,7 @@
 // What happened to an approve or decline (design A1.3), as the toast shows it.
 
 import { isApiCode } from "@/lib/api"
-import { paymentOf, type RunView } from "@/modules/chat/data/events"
+import { paymentOf, pendingStep, type RunView } from "@/modules/chat/data/events"
 import { stepText } from "@/modules/chat/data/steps"
 
 export type Answer = { runId: string; toolCallId: string; action: "approve" | "decline"; tool: string; args: unknown }
@@ -21,7 +21,7 @@ const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
 export function answerOutcome(answer: Answer, run: { view: RunView; streaming: boolean; failed: unknown }): Outcome {
   const step = run.view.tools.find((t) => t.toolCallId === answer.toolCallId)
-  const payment = paymentOf(step ?? { toolCallId: answer.toolCallId, tool: answer.tool, status: "awaiting_approval", args: answer.args, result: undefined })
+  const payment = paymentOf(step ?? pendingStep(answer))
   const what = payment ? `${payment.amountNear} NEAR to ${payment.to}` : (THING[answer.tool] ?? "the request")
   const nothing = payment ? "No payment was sent." : "No changes were made."
 

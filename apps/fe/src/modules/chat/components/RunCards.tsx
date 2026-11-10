@@ -1,6 +1,5 @@
 "use client"
 
-import Link from "next/link"
 import { useState } from "react"
 import {
   ArrowUpRightIcon,
@@ -11,10 +10,7 @@ import {
   XIcon,
 } from "lucide-react"
 import { cn } from "cn"
-import { Spinner } from "@/components/elements/Spinner"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { mindHref } from "@/components/layout/nav"
 import { explorerTxUrl } from "@/lib/format"
 import { compareNear } from "@/lib/near"
 import { approvalDetails, type ApprovalDetails } from "@/modules/chat/data/approvalDetails"
@@ -22,6 +18,7 @@ import { paymentOf, type Payment, type ToolStep } from "@/modules/chat/data/even
 import { toolLabel } from "@/modules/chat/data/steps"
 import type { ApiWallet } from "@/modules/minds/api"
 import { FreezeDialog } from "@/modules/wallet/components/FreezeDialog"
+import { ApprovalActions, ApprovalCheckList } from "@/modules/wallet/components/ApprovalParts"
 import { approvalChecks } from "@/modules/wallet/data/checks"
 
 // What a run did, in the chat (design C1.1, C1.3, C1.4, C1.7): a pill per tool, a receipt for a
@@ -152,37 +149,17 @@ export function ApprovalCard({
         </Badge>
       </div>
       {details && <ApprovalDetailLines details={details} />}
-      {checks.length > 0 && (
-        <ul className="flex flex-col gap-1.5">
-          {checks.map((c) => (
-            <li key={c.text} className="flex items-center gap-2 text-[13px] text-foreground">
-              {c.ok ? <CheckIcon className="size-3.5 shrink-0 text-success" /> : <XIcon className="size-3.5 shrink-0 text-danger" />}
-              {c.text}
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" onClick={() => onAnswer("decline")} disabled={busy}>
-          {sending === "decline" && <Spinner />}
-          {sending === "decline" ? "Declining" : "Decline"}
-        </Button>
-        {next === "approve" || sending === "approve" ? (
-          <Button size="sm" onClick={() => onAnswer("approve")} disabled={busy} aria-live="polite">
-            {sending === "approve" ? <Spinner /> : <CheckIcon />}
-            {sending === "approve" ? "Sending" : "Approve"}
-          </Button>
-        ) : next === "unfreeze" && !wallet?.shared ? (
-          <Button size="sm" onClick={() => setUnfreeze((u) => ({ open: true, key: u.key + 1 }))} disabled={busy}>
-            <SnowflakeIcon />
-            Unfreeze first
-          </Button>
-        ) : (
-          <Button size="sm" nativeButton={false} render={<Link href={mindHref(mindId, next === "unfreeze" ? "approvals" : "wallet")} />}>
-            {next === "unfreeze" ? "Unfreeze first" : next === "add_address" ? "Add the address first" : "Change limits first"}
-          </Button>
-        )}
-      </div>
+      <ApprovalCheckList checks={checks} />
+      <ApprovalActions
+        small
+        mindId={mindId}
+        next={next}
+        sending={sending}
+        busy={busy}
+        onApprove={() => onAnswer("approve")}
+        onDecline={() => onAnswer("decline")}
+        onUnfreeze={wallet?.shared ? undefined : () => setUnfreeze((u) => ({ open: true, key: u.key + 1 }))}
+      />
       {unfreeze.key > 0 && <FreezeDialog key={unfreeze.key} mindId={mindId} name={name} freeze={false} open={unfreeze.open} onOpenChange={(open) => setUnfreeze((u) => ({ ...u, open }))} />}
     </div>
   )

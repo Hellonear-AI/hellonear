@@ -10,7 +10,7 @@ import { mindHref } from "@/components/layout/nav"
 import { api } from "@/lib/api"
 import { shortWhen, clockTime } from "@/lib/format"
 import { StepRow } from "@/modules/chat/components/ReplySteps"
-import type { RunEvent } from "@/modules/chat/data/events"
+import { pendingStep, type RunEvent } from "@/modules/chat/data/events"
 import { stepText } from "@/modules/chat/data/steps"
 import { useChatRun } from "@/modules/chat/hooks/ChatRunProvider"
 import { MindGraph } from "@/modules/graph/components/MindGraph"
@@ -252,7 +252,7 @@ export function LiveView({ mindId, className }: { mindId: string; className?: st
                   </span>
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate text-[13px] text-foreground">
-                      {p?.amountNear && p.to ? `${p.amountNear} NEAR to ${p.to}` : stepText({ toolCallId: a.toolCallId, tool: a.tool, status: "awaiting_approval", args: a.args, result: null }).label.replace(/\.\.\.$/, "")}
+                      {p?.amountNear && p.to ? `${p.amountNear} NEAR to ${p.to}` : stepText(pendingStep(a)).label.replace(/\.\.\.$/, "")}
                     </span>
                     <span className="text-xs text-muted-foreground">Waiting for your OK</span>
                   </span>

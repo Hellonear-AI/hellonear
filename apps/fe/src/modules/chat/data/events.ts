@@ -23,6 +23,15 @@ export type RunEvent = {
 /** `stopped`: still running when the owner pressed Stop (#121); it never got a result. */
 export type ToolStatus = "running" | "ok" | "error" | "policy_denied" | "wallet_frozen" | "awaiting_approval" | "declined" | "stopped"
 
+/** A step waiting for the owner, made from an approval request (Approvals, the live view, answers). */
+export const pendingStep = (a: { toolCallId: string; tool: string; args: unknown }): ToolStep => ({
+  toolCallId: a.toolCallId,
+  tool: a.tool,
+  status: "awaiting_approval",
+  args: a.args,
+  result: undefined,
+})
+
 export type ToolStep = {
   toolCallId: string
   tool: string

@@ -7,12 +7,10 @@ import {
   CircleSlashIcon,
   InboxIcon,
   SnowflakeIcon,
-  XIcon,
 } from "lucide-react"
 import { useState } from "react"
 import { EmptyState } from "@/components/elements/EmptyState"
 import { chatKeys } from "@/lib/queryKeys"
-import { Spinner } from "@/components/elements/Spinner"
 import { CountBadge } from "@/components/elements/CountBadge"
 import { MindAvatar } from "@/components/elements/MindAvatar"
 import { PageTitle } from "@/components/elements/PageTitle"
@@ -24,7 +22,8 @@ import { formatNear, shortWhen, timeAgo } from "@/lib/format"
 import { TryOutLockedDialog, useTryOutLock } from "@/modules/auth/components/TryOutLockedDialog"
 import { useSession } from "@/modules/auth/hooks/useSession"
 import { chatApi } from "@/modules/chat/api"
-import { paymentOf, type ToolStep } from "@/modules/chat/data/events"
+import { paymentOf, pendingStep } from "@/modules/chat/data/events"
+import { ApprovalActions, ApprovalCheckList, PaymentAmount } from "@/modules/wallet/components/ApprovalParts"
 import { toolLabel } from "@/modules/chat/data/steps"
 import { answerLost } from "@/modules/chat/data/answer"
 import { useChatRun } from "@/modules/chat/hooks/ChatRunProvider"
@@ -108,7 +107,7 @@ export function ApprovalsScreen({ mindId }: { mindId: string }) {
                 approval={a}
                 wallet={wallet}
                 // One answer at a time: the others wait their turn (A1.2).
-                state={sending ? (answer?.toolCallId === a.toolCallId ? "sending" : "waiting") : "idle"}
+                state={sending && answer ? (answer.toolCallId === a.toolCallId ? answer.action : "waiting") : "idle"}
                 onApprove={() => respond(a, "approve")}
                 onDecline={() => respond(a, "decline")}
                 onUnfreeze={openFreeze}
@@ -129,7 +128,8 @@ export function ApprovalsScreen({ mindId }: { mindId: string }) {
   )
 }
 
-type CardState = "idle" | "sending" | "waiting"
+/** Idle, sending this card's answer, or waiting while another card's answer goes. */
+type CardState = "idle" | "approve" | "decline" | "waiting"
 
 function ApprovalCard({
   mindId,
@@ -152,7 +152,7 @@ function ApprovalCard({
   onDecline: () => void
   onUnfreeze: () => void
 }) {
-  const step: ToolStep = { toolCallId: approval.toolCallId, tool: approval.tool, status: "awaiting_approval", args: approval.args, result: undefined }
+  const step = pendingStep(approval)
   const payment = paymentOf(step)
   const details = payment ? null : approvalDetails(step)
   const { checks, next } = payment ? approvalChecks(payment, wallet) : { checks: [], next: "approve" as const }
@@ -161,7 +161,7 @@ function ApprovalCard({
 
   return (
     <article
-      aria-busy={state === "sending" || undefined}
+      aria-busy={state === "approve" || state === "decline" || undefined}
       className="flex flex-col gap-3.5 rounded-lg border border-border bg-surface p-5 transition-opacity duration-200 ease-out data-[waiting=true]:opacity-60"
       data-waiting={state === "waiting"}
     >
@@ -173,11 +173,7 @@ function ApprovalCard({
 
       {payment ? (
         <div className="flex flex-wrap items-center gap-3">
-          <p className="flex items-end gap-2">
-            <span className="text-4xl leading-9 font-medium tracking-[-1.5px] text-foreground">{payment.amountNear}</span>
-            <span className="text-base font-medium text-muted-foreground">NEAR</span>
-          </p>
-          <span className="max-w-full truncate rounded-sm bg-muted px-3 py-2 font-mono text-[13px] text-foreground">{payment.to}</span>
+          <PaymentAmount amountNear={payment.amountNear} to={payment.to} toClassName="bg-muted py-2" />
         </div>
       ) : (
         <div className="flex flex-col gap-2">
@@ -188,39 +184,18 @@ function ApprovalCard({
 
       {asked && <p className="rounded-md bg-muted px-3 py-2.5 text-[13px] leading-5 text-muted-foreground">You asked: &ldquo;{asked}&rdquo;</p>}
 
-      {checks.length > 0 && (
-        <ul className="flex flex-col gap-2">
-          {checks.map((c) => (
-            <li key={c.text} className="flex items-center gap-2 text-[13px] text-foreground">
-              {c.ok ? <CheckIcon className="size-4 shrink-0 text-success" /> : <XIcon className="size-4 shrink-0 text-danger" />}
-              {c.text}
-            </li>
-          ))}
-        </ul>
-      )}
+      <ApprovalCheckList large checks={checks} />
 
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button variant="outline" disabled={busy} onClick={onDecline}>
-          Decline
-        </Button>
-        {next === "approve" || state === "sending" ? (
-          <Button disabled={busy} onClick={onApprove}>
-            {state === "sending" ? <Spinner /> : <CheckIcon />}
-            {state === "sending" ? "Sending" : "Approve"}
-          </Button>
-        ) : next === "unfreeze" ? (
-          <Button disabled={busy} onClick={onUnfreeze}>
-            <SnowflakeIcon />
-            Unfreeze first
-          </Button>
-        ) : (
-          // Approving would be refused before signing, so send the owner to fix the limit
-          // (a change that needs their signature) instead of offering a button that can't work.
-          <Button disabled={busy} nativeButton={false} render={<Link href={mindHref(mindId, "wallet")} />}>
-            {next === "add_address" ? "Add the address first" : "Change limits first"}
-          </Button>
-        )}
-      </div>
+      <ApprovalActions
+        className="justify-end"
+        mindId={mindId}
+        next={next}
+        sending={state === "approve" || state === "decline" ? state : null}
+        busy={busy}
+        onApprove={onApprove}
+        onDecline={onDecline}
+        onUnfreeze={onUnfreeze}
+      />
     </article>
   )
 }
