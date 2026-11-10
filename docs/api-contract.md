@@ -270,7 +270,7 @@ Each event with a `nodeId` lights up one node. Node ids are stable across runs s
 | Tool | `tool:{toolKey}` | `tool.*` events |
 | Skill | `skill:{skillId}` | when the agent loads a skill: Mastra tool `skill` (`args.name`) or `skill_read` (`args.skillName`) **[tested, #13]**; `skill_search` stays a tool node |
 | Wallet | `wallet:{mindId}` | wallet tools (`pay_invoice`, `get_balance`, …) |
-| App | `app:{appName}` | app tools named `<app>_<action>`: `gmail_*` → `app:gmail`, `googlecalendar_*` → `app:googlecalendar` (the backend's toolkit ids; `googlecalendar_create_meeting` stays on `app:googlecalendar` even when it makes a Meet link), `mail_*` → `app:mail` (the Mind's own AgentMail address, #96) **[tested]** |
+| App | `app:{appName}` | app tools named `<app>_<action>`: `gmail_*` → `app:gmail`, `googlecalendar_*` → `app:googlecalendar` (the backend's toolkit ids; `googlecalendar_create_meeting` stays on `app:googlecalendar` even when it makes a Meet link), `mail_*` → `app:mail` (the Mind's own AgentMail address, #96), and the business apps (#194) the same way: `googlesheets_*`, `googledrive_*`, `googledocs_*`, `slack_*`, `notion_*`, `outlook_*` → `app:<toolkit>` **[tested]** |
 | Model | `model:{modelId}` | `run.started` |
 | Memory | `memory:{mindId}` | memory tools |
 | Other Mind | `mind:{otherMindId}` | subagent delegation |
@@ -403,7 +403,7 @@ The owner connects an app (`gmail`, `googlecalendar` (#57) or `googlemeet` (#97,
 
 | Route | Body | Answer |
 |---|---|---|
-| `GET /v1/connections` | | `{ connections: [{ toolkit: "gmail" \| "googlecalendar" \| "googlemeet", status: "connected" \| "pending" \| "expired" \| "not_connected", since? }] }` (no Composio ids) **[tested]** |
+| `GET /v1/connections` | | `{ connections: [{ toolkit: "gmail" \| "googlecalendar" \| "googlemeet" \| "googlesheets" \| "googledrive" \| "googledocs" \| "slack" \| "discord" \| "notion" \| "outlook" \| "hubspot", status: "connected" \| "pending" \| "expired" \| "not_connected", since? }] }` (no Composio ids) **[tested]** |
 | `POST /v1/connections/{toolkit}` | `{}` | `{ redirectUrl }`: a Composio Connect Link (`https://connect.composio.dev/…`). Open it in the browser; after sign-in Composio sends the owner to `{FE_ORIGIN}/connections?toolkit={toolkit}&status=success\|failed`, then the FE reads `GET /v1/connections` (the query string proves nothing). An unfinished attempt is replaced. `409 already_connected` **[tested; live against Composio, 5 Nov]** |
 | `DELETE /v1/connections/{toolkit}` | | `204` (Composio deletes the connection and its tokens) or `404` **[tested]** |
 

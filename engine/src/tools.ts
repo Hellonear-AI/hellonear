@@ -7,6 +7,7 @@ import { walletCall } from './wallet.ts'
 import { idempotencyKeyOf, mailCall, ownerMailCall } from './mail.ts'
 import { draftSample, isDemo, listSample, readSample } from './email.ts'
 import { addressOf, composioTool, gmail, toListed, toRead } from './composio.ts'
+import { appTools } from './apps.ts'
 import {
   ISO_WITH_OFFSET, MAX_ATTENDEES, MAX_RANGE_DAYS, checkAttendees, composioTiming, createSampleEvent, createSampleMeeting, listSampleCalendar, listedEvents,
   meetLinkOf, rangeOf, withMeetLink,
@@ -488,6 +489,7 @@ export const toolRegistry = {
   googlecalendar_list_events: calendarListEvents, googlecalendar_create_event: calendarCreateEvent,
   googlecalendar_create_meeting: calendarCreateMeeting, googlecalendar_block_time: calendarBlockTime,
   mail_send: mailSend, mail_list: mailList, mail_read: mailRead, mail_send_to_owner: mailSendToOwner,
+  ...appTools,
 } as const
 export type ToolKey = keyof typeof toolRegistry
 
