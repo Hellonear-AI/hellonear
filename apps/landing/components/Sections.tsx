@@ -289,8 +289,16 @@ export function SeeInside() {
   // Dark, like the night the approvals scroll ends in. On desktop the title is shown at the end of that
   // scroll (ApprovalsScroll), so this section starts with the graph and the page reads as one night.
   return (
-    <section id="skills" className="relative overflow-hidden text-[#F2F1EC]" style={{ background: NIGHT_BG }}>
-      <Starfield count={180} seed={23} />
+    // Desktop: pulled up under the centred title at the end of the approvals scroll (its top part is
+    // see-through, over that same night), so the graph starts right below the title.
+    <section
+      id="skills"
+      className="graph-section relative z-10 overflow-hidden text-[#F2F1EC] md:-mt-[calc(50vh-130px)]"
+      style={{ "--night": NIGHT_BG } as React.CSSProperties}
+    >
+      <div className="absolute inset-x-0 bottom-0 top-0 md:top-[calc(50vh-130px)]">
+        <Starfield count={180} seed={23} />
+      </div>
       <div className="relative mx-auto flex max-w-[1200px] flex-col gap-12 px-5 pb-28 pt-24 md:pt-6">
         <div className="flex flex-col items-center gap-3 text-center md:hidden">
           <h2 className="max-w-[760px] text-[40px] font-medium leading-[1.05] tracking-[-1.4px]">Watch your Mind think</h2>
