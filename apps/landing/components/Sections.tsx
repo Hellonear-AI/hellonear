@@ -292,8 +292,8 @@ export function SeeInside() {
     <section id="skills" className="relative overflow-hidden text-[#F2F1EC]" style={{ background: NIGHT_BG }}>
       <Starfield count={180} seed={23} />
       <div className="relative mx-auto flex max-w-[1200px] flex-col gap-12 px-5 pb-28 pt-24 md:pt-6">
-        <div className="flex flex-col items-start gap-3 md:hidden">
-          <h2 className="max-w-[760px] text-[36px] font-medium leading-[1.08] tracking-[-1.2px]">Watch your Mind think</h2>
+        <div className="flex flex-col items-center gap-3 text-center md:hidden">
+          <h2 className="max-w-[760px] text-[40px] font-medium leading-[1.05] tracking-[-1.4px]">Watch your Mind think</h2>
           <p className="max-w-[600px] text-[17px] leading-[1.5] text-[#F2F1EC]/70">{GRAPH_SUB}</p>
         </div>
         <MindGraph />

@@ -178,16 +178,12 @@ export function MindGraph() {
     !!active && ((active.edge[0] === a && active.edge[1] === b) || (active.edge[0] === b && active.edge[1] === a));
 
   return (
-    <div ref={wrap} className="relative overflow-hidden rounded-[32px] border border-white/10 bg-white/[0.02]">
-      <div
-        className="pointer-events-none absolute inset-0 opacity-60"
-        style={{ background: "radial-gradient(60% 70% at 50% 50%, rgb(216 240 74 / 0.08), transparent 70%)" }}
-        aria-hidden="true"
-      />
+    // No panel: the graph sits straight on the night sky; its edges fade out (a mask on the SVG).
+    <div ref={wrap} className="relative">
       <svg
         ref={svg}
         viewBox="0 0 1000 640"
-        className="relative block h-auto w-full touch-none select-none"
+        className="graph-fade relative block h-auto w-full touch-none select-none"
         role="img"
         aria-label="Penny's graph: its skills, tools, apps, memory and wallet. Nodes light up as Penny pays a bill."
         onPointerMove={onMove}

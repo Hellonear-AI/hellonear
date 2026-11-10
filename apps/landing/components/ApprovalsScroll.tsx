@@ -66,7 +66,7 @@ export function ApprovalsScroll() {
     const sky = q(".ap-sky")[0] as HTMLElement;
     const stars = q(".ap-stars")[0] as HTMLElement;
     const fogLight = q(".ap-fog-light")[0] as HTMLElement;
-    const graphTitle = q(".ap-graph-title")[0] as HTMLElement;
+    const grain = q(".grain")[0] as HTMLElement;
     const clouds = q(".ap-cloud") as HTMLElement[];
     const st = { open: 0, track: 0, up: 0 };
     const clamp = (v: number) => Math.min(1, Math.max(0, v));
@@ -122,8 +122,8 @@ export function ApprovalsScroll() {
         c.style.transform = `translate3d(0, ${y}px, 0) scale(${1.1 + 0.3 * u})`;
         c.style.opacity = String(smooth(0.0, 0.3, u) * (1 - smooth(0.58, 0.85, u)));
       });
-      // the Mind Graph's title waits behind the clouds and settles as they clear
-      graphTitle.style.transform = `translate3d(0, ${24 * (1 - smooth(0.55, 0.9, u))}px, 0)`;
+      // the film grain belongs to the photo; it goes with it, so the night matches the next section
+      grain.style.opacity = String(1 - smooth(0.4, 0.5, u));
       // the copy slides left with the photo, by the same distance (no fade)
       copy.style.transform = `translate3d(${sx - x0}px,0,0)`;
       // "Tricked?" sits at the photo's edge at rest; it comes in as the camera starts to move
@@ -208,10 +208,10 @@ export function ApprovalsScroll() {
             </div>
             {/* The Mind Graph's title, on the same night as the section below, so it is already there
                 when the clouds clear and the graph follows right under it. */}
-            <div className="absolute inset-x-0 bottom-[8vh]">
-              <div className="ap-graph-title mx-auto flex max-w-[1200px] flex-col items-start gap-3 px-5 text-[#F2F1EC]">
-                <h2 className="max-w-[760px] text-[48px] font-medium leading-[1.08] tracking-[-1.2px]">Watch your Mind think</h2>
-                <p className="max-w-[600px] text-[17px] leading-[1.5] text-[#F2F1EC]/70">{GRAPH_SUB}</p>
+            <div className="absolute inset-0 grid place-items-center">
+              <div className="flex max-w-[860px] flex-col items-center gap-4 px-5 text-center text-[#F2F1EC]">
+                <h2 className="text-[72px] font-medium leading-[1.02] tracking-[-2.4px]">Watch your Mind think</h2>
+                <p className="max-w-[620px] text-[19px] leading-[1.5] text-[#F2F1EC]/70">{GRAPH_SUB}</p>
               </div>
             </div>
           </div>

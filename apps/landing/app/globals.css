@@ -698,3 +698,13 @@ body {
 @media (prefers-reduced-motion: no-preference) {
   .star-twinkle { animation: star-twinkle 3.6s ease-in-out infinite; }
 }
+
+/* The Mind Graph has no frame: its four edges fade into the night. */
+.graph-fade {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 9%, #000 91%, transparent),
+    linear-gradient(to bottom, transparent, #000 9%, #000 91%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to right, transparent, #000 9%, #000 91%, transparent),
+    linear-gradient(to bottom, transparent, #000 9%, #000 91%, transparent);
+  mask-composite: intersect;
+}
