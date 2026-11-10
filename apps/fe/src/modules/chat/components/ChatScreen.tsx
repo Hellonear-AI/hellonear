@@ -5,6 +5,7 @@ import { cn } from "cn"
 import { ArrowDownIcon, CircleXIcon, NetworkIcon, RotateCcwIcon, SnowflakeIcon } from "lucide-react"
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { MindAvatar } from "@/components/elements/MindAvatar"
+import { CopyButton } from "@/components/elements/CopyButton"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -242,6 +243,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
                       style={pinned && i === shown.length - 1 && viewHeight ? { minHeight: viewHeight - composerHeight - 32 } : undefined}
                     >
                     <TurnView
+                      last={i === shown.length - 1}
                       mindId={mindId}
                       name={name}
                       templateId={templateId}
@@ -303,6 +305,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
               locked={outOfMessages ? "Try-out finished" : undefined}
               onSend={(text) => send(text, threadId)}
               onStop={stop}
+              draftKey={`hellonear.draft.${mindId}.${threadId ?? "new"}`}
             />
           </div>
         </div>
@@ -356,7 +359,10 @@ function TurnView({
   wallet,
   answering,
   onAnswer,
+  last = false,
 }: {
+  /** The newest turn: only it offers Retry, like Claude's regenerate on the last reply. */
+  last?: boolean
   mindId: string
   name: string
   templateId: string
@@ -465,9 +471,26 @@ function TurnView({
           })}
           {working && <Working name={name} />}
           {!live && view.text && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {view.verified && <VerifiedBadge level={view.verified} />}
               {view.at && <span className="text-xs text-muted-foreground">{clockTime(view.at)}</span>}
+              {/* Actions under a finished reply, like Claude (Ancung, 10 Nov). */}
+              <span className="flex items-center gap-0.5">
+                <CopyButton text={view.text} label="Copy reply" />
+                {/* Retry sends the same message again as a new turn; the backend has no "replace this
+                    reply" yet, so the old one stays above it. */}
+                {last && turn.message && !busy && (
+                  <button
+                    type="button"
+                    onClick={onRetry}
+                    aria-label="Ask again"
+                    title="Ask again"
+                    className="inline-flex size-7 items-center justify-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus [&_svg]:size-4"
+                  >
+                    <RotateCcwIcon />
+                  </button>
+                )}
+              </span>
             </div>
           )}
         </div>

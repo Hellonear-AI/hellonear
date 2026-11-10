@@ -1,7 +1,7 @@
 "use client"
 
 import { ArrowUpIcon, SquareIcon } from "lucide-react"
-import { useState, type KeyboardEvent } from "react"
+import { useEffect, useState, type KeyboardEvent } from "react"
 import { Button } from "@/components/ui/button"
 
 /**
@@ -14,6 +14,7 @@ export function Composer({
   note,
   onSend,
   onStop,
+  draftKey,
   locked,
 }: {
   name: string
@@ -22,17 +23,40 @@ export function Composer({
   onSend: (message: string) => void
   /** Stops the reply in progress; without it the button just waits. */
   onStop?: () => void
+  /** Where the unsent text is kept on this device, one per chat (Ancung, 10 Nov, like Claude). */
+  draftKey?: string
   /** Why nothing can be sent (a try-out with no messages left, T1.5): the box shows this and locks. */
   locked?: string
 }) {
   const [value, setValue] = useState("")
+  // The unsent text stays per chat: leave a chat and come back, it is still there.
+  useEffect(() => {
+    let saved = ""
+    try {
+      saved = draftKey ? (localStorage.getItem(draftKey) ?? "") : ""
+    } catch {
+      // no storage: start empty
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- read once per chat from this device
+    setValue(saved)
+  }, [draftKey])
+  const change = (next: string) => {
+    setValue(next)
+    if (!draftKey) return
+    try {
+      if (next.trim()) localStorage.setItem(draftKey, next)
+      else localStorage.removeItem(draftKey)
+    } catch {
+      // no storage
+    }
+  }
   const message = value.trim()
   const canSend = !busy && !locked && message.length > 0
 
   function send() {
     if (!canSend) return
     onSend(message)
-    setValue("")
+    change("")
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -57,7 +81,7 @@ export function Composer({
         <textarea
           id="chat-message"
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => change(e.target.value)}
           onKeyDown={onKeyDown}
           rows={1}
           maxLength={4000}
