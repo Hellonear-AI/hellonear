@@ -107,8 +107,9 @@ export function stepSim(sim: Sim, kinds: Map<string, NodeKind>): boolean {
     // A pull to the centre, and friction.
     b.vx -= b.x * 0.0025 * a
     b.vy -= b.y * 0.0025 * a
-    b.vx *= 0.82
-    b.vy *= 0.82
+    // A little less friction than a dead stop, so a pulled bubble sways back (Obsidian).
+    b.vx *= 0.86
+    b.vy *= 0.86
     b.x += b.vx
     b.y += b.vy
   }

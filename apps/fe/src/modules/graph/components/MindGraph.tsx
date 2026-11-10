@@ -29,7 +29,7 @@ type Props = {
 }
 
 type Colors = Record<
-  "fg" | "muted" | "faint" | "line" | "surface" | "bg" | "info" | "success" | "danger" | "warning" | "mind" | "skill" | "tool" | "app" | "wallet" | "memory" | "model",
+  "fg" | "muted" | "faint" | "line" | "glow" | "surface" | "bg" | "info" | "success" | "danger" | "warning" | "mind" | "skill" | "tool" | "app" | "wallet" | "memory" | "model",
   string
 >
 
@@ -38,6 +38,8 @@ const VAR: Record<keyof Colors, string> = {
   muted: "--muted-foreground",
   faint: "--tertiary-foreground",
   line: "--border-strong",
+  // The one accent (lime in dark mode, its deep olive in light), for the hover glow.
+  glow: "--focus",
   surface: "--surface",
   bg: "--background",
   info: "--info",
@@ -271,13 +273,20 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         if (!a || !b || !t) continue
         const on = glowing(t)
         const path = trailLinks.has(`${l.source}>${l.target}`)
-        ctx.globalAlpha = lit && !(lit.has(l.source) && lit.has(l.target)) ? 0.12 : on ? 0.95 : path ? (data.current.live ? 0.9 : 0.55) : 0.5
-        ctx.strokeStyle = on ? stateColor(t) : path ? colors.info : colors.line
-        ctx.lineWidth = (on || path ? 2.2 : 1.1) / v.k
+        // Like Obsidian: the hovered node's own links light up in the accent, with a soft glow.
+        const hot = hover.current !== null && (l.source === hover.current || l.target === hover.current)
+        ctx.globalAlpha = lit && !(lit.has(l.source) && lit.has(l.target)) ? 0.12 : on || hot ? 0.95 : path ? (data.current.live ? 0.9 : 0.55) : 0.5
+        ctx.strokeStyle = on ? stateColor(t) : hot ? colors.glow : path ? colors.info : colors.line
+        ctx.lineWidth = (on || path || hot ? 2.2 : 1.1) / v.k
+        if (hot && !on) {
+          ctx.shadowColor = colors.glow
+          ctx.shadowBlur = 10 * dpr
+        }
         ctx.beginPath()
         ctx.moveTo(a.x, a.y)
         ctx.lineTo(b.x, b.y)
         ctx.stroke()
+        ctx.shadowBlur = 0
       }
 
       // While the reply streams, slow dots keep flowing along its whole trail.
@@ -397,6 +406,19 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
           ctx.globalAlpha = dim ? 0.22 : 1
         }
 
+        if (hover.current === n.id) {
+          ctx.save()
+          ctx.shadowColor = colors.glow
+          ctx.shadowBlur = 22 * dpr
+          ctx.strokeStyle = colors.glow
+          ctx.lineWidth = 2 / v.k
+          ctx.globalAlpha = 0.9
+          ctx.beginPath()
+          ctx.arc(b.x, b.y, b.r + 2 / v.k, 0, Math.PI * 2)
+          ctx.stroke()
+          ctx.restore()
+        }
+
         if (n.id === data.current.selected) {
           ctx.strokeStyle = colors.fg
           ctx.lineWidth = 2 / v.k
@@ -418,10 +440,15 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         const b = s.bodies.get(n.id)
         if (!b) continue
         const dim = lit && !lit.has(n.id)
-        const strong = hover.current === n.id || n.id === data.current.selected || glowing(n)
+        const strong = hover.current === n.id || n.id === data.current.selected || glowing(n) || onTrail.has(n.id) || Boolean(lit?.has(n.id))
+        // Like Obsidian, labels fade in as you zoom in (Ancung, 10 Nov): tools from 0.95x, the
+        // rest from 0.6x; the Mind, hovered, picked and working nodes always show theirs.
+        const from = n.kind === "tool" ? 0.95 : 0.6
+        const fade = n.kind === "mind" || strong ? 1 : Math.max(0, Math.min(1, (v.k - from) / 0.3))
+        if (fade <= 0.02) continue
         const px = (n.kind === "mind" ? 13 : n.kind === "tool" ? 10.5 : 11.5) / Math.max(0.8, v.k)
         ctx.font = `${n.kind === "mind" || strong ? 600 : 500} ${px}px ${font}`
-        ctx.globalAlpha = dim ? 0.18 : 1
+        ctx.globalAlpha = (dim ? 0.18 : 1) * fade
         ctx.strokeStyle = colors.bg
         ctx.lineWidth = 4 / v.k
         const y = b.y + b.r + 5 / v.k
@@ -471,7 +498,8 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
           b.vx = 0
           b.vy = 0
           b.pinned = true
-          s.alpha = Math.max(s.alpha, 0.25)
+          // Keep it warm while dragging, so linked bubbles follow like rubber bands (Obsidian).
+          s.alpha = Math.max(s.alpha, 0.6)
         }
       } else {
         view.current.auto = false
@@ -486,6 +514,8 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       if (drag.id && s && drag.id !== mind) {
         const b = s.bodies.get(drag.id)
         if (b) b.pinned = false
+        // Let go: it springs back into place.
+        s.alpha = Math.max(s.alpha, 0.7)
       }
       if (!drag.moved) select.current(drag.id)
       drag = null
