@@ -95,49 +95,51 @@ export function ApprovalVisual() {
 export function ApprovalScene() {
   return (
     <div className="ap-scene relative h-full w-full overflow-hidden rounded-l-[36px] bg-[#4f7a2a]">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/scenes/approval-scene.webp"
-        alt="The Payments Mind lying on a sunny lawn, glancing at the approval card"
-        className="ap-scene-bg absolute inset-0 h-full w-full object-cover object-left"
-      />
+      {/* The image keeps its own aspect (4096 x 1759) at the frame's height, anchored left, so the card
+          can be placed in image coordinates and always sits beside the Mind. */}
+      <div className="ap-scene-bg absolute inset-y-0 left-0 aspect-[4096/1759] h-full">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/scenes/approval-scene.webp"
+          alt="The Payments Mind lying on a sunny lawn, glancing at the approval card"
+          className="absolute inset-0 h-full w-full"
+        />
 
-      {/* The UI lies on the lawn: tilted back like the ground, turned a little like the Mind. */}
-      <div className="absolute left-[5%] top-1/2 w-[min(520px,58%)] -translate-y-1/2 [perspective:1400px]">
-        <div className="ap-ui flex flex-col gap-4 [transform-style:preserve-3d] [transform:rotateX(26deg)_rotateZ(-5deg)]">
-          <div className="flex flex-col gap-2">
+        {/* One glass card floating just above the lawn, left of the Mind, turned like the ground. */}
+        <div className="absolute left-[5.5%] top-[10%] h-[80%] w-[23%] [perspective:1600px]">
+          <div className="ap-card glass-float flex h-full w-full flex-col gap-[4.2%] rounded-[clamp(18px,1.6vw,28px)] p-[7%] [transform:rotateX(12deg)_rotateZ(10deg)]">
             <div className="flex items-center gap-2">
-              <span className="relative size-8 overflow-hidden rounded-full bg-white/70">
+              <span className="relative size-7 shrink-0 overflow-hidden rounded-full bg-white/70">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/minds/payments-mind.webp" alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-contain p-0.5" />
               </span>
-              <span className="text-[15px] font-semibold text-white [text-shadow:0_1px_6px_rgb(0_0_0/0.35)]">Penny</span>
+              <span className="text-[14px] font-semibold">Penny</span>
             </div>
-            <p className="glass rounded-[4px_20px_20px_20px] px-5 py-4 text-[17px] leading-[1.45]">
+            <p className="rounded-[4px_16px_16px_16px] bg-white/55 px-3.5 py-2.5 text-[14px] leading-[1.4]">
               Biznet sent your internet bill. I&apos;ve got it ready, it just needs your OK.
             </p>
-          </div>
-          <div className="glass flex flex-col gap-5 rounded-[24px] p-7">
-            <div className="flex items-center justify-between">
-              <span className="text-[16px] text-[var(--color-text-2)]">Penny wants to send</span>
-              <span className="flex items-center gap-1.5 rounded-full bg-[var(--color-warning-soft)] px-3 py-1 text-[13px] font-medium text-[var(--color-warning)]">
-                <I d={Icon.hourglass} size={14} /> Needs approval
-              </span>
-            </div>
-            <div className="flex items-end gap-2">
-              <span className="text-[56px] font-medium leading-none tracking-[-2px]">1.5</span>
-              <span className="text-[18px] font-medium text-[var(--color-text-2)]">NEAR</span>
-            </div>
-            <div className="flex items-center gap-2.5 text-[16px]">
-              <span className="text-[var(--color-text-2)]">to</span>
-              <span className="rounded-[10px] bg-white/60 px-3.5 py-1.5 font-mono">biznet.testnet</span>
-            </div>
-            <p className="text-[15px] text-[var(--color-text-2)]">Within your 2 NEAR limit, to an address on your list.</p>
-            <div className="flex justify-end gap-2.5">
-              <span className="rounded-full border border-[var(--color-border-strong)] bg-white/50 px-6 py-3 text-[15px] font-medium">Decline</span>
-              <span className="ap-approve flex items-center gap-2 rounded-full bg-[var(--color-primary)] px-6 py-3 text-[15px] font-medium text-[var(--color-on-primary)]">
-                <I d={Icon.check} /> Approve
-              </span>
+            <div className="mt-auto flex flex-col gap-3 rounded-[18px] bg-white/70 p-4">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[13px] text-[var(--color-text-2)]">Penny wants to send</span>
+                <span className="flex shrink-0 items-center gap-1 rounded-full bg-[var(--color-warning-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-warning)]">
+                  <I d={Icon.hourglass} size={12} /> Needs approval
+                </span>
+              </div>
+              <div className="flex items-end gap-1.5">
+                <span className="text-[40px] font-medium leading-none tracking-[-1.5px]">1.5</span>
+                <span className="text-[15px] font-medium text-[var(--color-text-2)]">NEAR</span>
+              </div>
+              <div className="flex items-center gap-2 text-[13px]">
+                <span className="text-[var(--color-text-2)]">to</span>
+                <span className="rounded-[8px] bg-white/70 px-2.5 py-1 font-mono">biznet.testnet</span>
+              </div>
+              <p className="text-[12.5px] leading-[1.4] text-[var(--color-text-2)]">Within your 2 NEAR limit, to an address on your list.</p>
+              <div className="flex justify-end gap-2">
+                <span className="rounded-full border border-[var(--color-border-strong)] bg-white/60 px-4 py-2 text-[13px] font-medium">Decline</span>
+                <span className="ap-approve flex items-center gap-1.5 rounded-full bg-[var(--color-primary)] px-4 py-2 text-[13px] font-medium text-[var(--color-on-primary)]">
+                  <I d={Icon.check} size={14} /> Approve
+                </span>
+              </div>
             </div>
           </div>
         </div>

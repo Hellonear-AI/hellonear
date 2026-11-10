@@ -162,12 +162,7 @@ export function ApprovalsScroll() {
         .to(line2, { x: 0, duration: MOVE * 0.8, ease: "power2.inOut" }, LETTERS + MOVE * 0.2)
         // The frame swipes in from the right edge (a wipe, its contents slide a little slower).
         .fromTo(q(".ap-visual"), { clipPath: "inset(0 0 0 100%)" }, { clipPath: "inset(0 0 0 0%)", duration: CARD, ease: "power3.out" }, LETTERS + MOVE * 0.75)
-        .fromTo(q(".ap-scene-bg"), { xPercent: 12 }, { xPercent: 0, duration: CARD, ease: "power3.out" }, LETTERS + MOVE * 0.75)
-        .fromTo(
-          q(".ap-ui"),
-          // keep the lying-on-the-lawn tilt (GSAP owns the transform, so it is set here too)
-          { y: 40, rotationX: 26, rotationZ: -5, autoAlpha: 0 },
-          { y: 0, rotationX: 26, rotationZ: -5, autoAlpha: 1, duration: CARD * 0.9, ease: "power3.out" }, LETTERS + MOVE * 0.85);
+        .fromTo(q(".ap-scene-bg"), { xPercent: 5 }, { xPercent: 0, duration: CARD, ease: "power3.out" }, LETTERS + MOVE * 0.75);
       reveal.reverse(); // start "reversed" so the first play() runs it forward
 
       return () => gsap.set([title, line2, run, lift, ...chars], { clearProps: "transform,opacity" });
