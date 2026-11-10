@@ -1,8 +1,8 @@
 // Mind Graph node ids (docs/api-contract.md §4). Pure functions, no config or network.
 // buy_data (#150) pays from the wallet, so it is drawn on the wallet node too.
 const WALLET_TOOLS = new Set(['send_payment', 'get_balance', 'list_payments', 'buy_data'])
-// mail_* is the Mind's own AgentMail address (#96): one `app:mail` node.
-const APP_TOOL = /^(gmail|googlecalendar|mail)_/
+// mail_* is the Mind's own AgentMail address (#96): one `app:mail` node. The business apps (#194) follow the same rule.
+const APP_TOOL = /^(gmail|googlecalendar|mail|googlesheets|googledrive|googledocs|slack|notion|outlook)_/
 
 // Mastra's built-in skill tools take the skill name in different arguments.
 const SKILL_NAME_ARG: Record<string, string> = { skill: 'name', skill_read: 'skillName' }
