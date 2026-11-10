@@ -1450,6 +1450,89 @@ describe('chat threads (#54)', () => {
     assert.deepEqual(messages.map((m: any) => [m.role, m.text]), [['user', 'pay the bill'], ['assistant', 'Paid.']])
   })
 
+  test('rename (#207): the owner\'s title wins over the first message and the engine\'s title, and is checked', async () => {
+    const a = await signIn()
+    const mindId = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Rename' }, origin)).json()).mind.id
+    const threadId = (await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { message: 'plan my week' }, origin)))[0].threadId
+    let res = await a.call('PATCH', `/v1/minds/${mindId}/threads/${threadId}`, { title: '  Week   plan\n ' }, origin)
+    assert.equal(res.status, 200)
+    const { thread } = await res.json()
+    assert.deepEqual([thread.threadId, thread.title, thread.messageCount], [threadId, 'Week plan', 2])
+    // A title the engine makes later does not replace it.
+    const runId = (await query<{ id: string }>('select id from runs where thread_id = $1', [threadId]))[0].id
+    await query(`insert into run_events (run_id, seq, type, payload, ts) values ($1, 1000, 'thread.titled', $2, now())`, [runId, JSON.stringify({ type: 'thread.titled', runId, threadId, title: 'Engine title' })])
+    assert.equal((await (await a.call('GET', `/v1/minds/${mindId}/threads`)).json()).threads[0].title, 'Week plan')
+    // Renaming again replaces it.
+    await a.call('PATCH', `/v1/minds/${mindId}/threads/${threadId}`, { title: 'Dentist' }, origin)
+    assert.equal((await (await a.call('GET', `/v1/minds/${mindId}/threads`)).json()).threads[0].title, 'Dentist')
+    for (const bad of [{ title: '   ' }, { title: 'x'.repeat(61) }, { title: 5 }, {}]) {
+      res = await a.call('PATCH', `/v1/minds/${mindId}/threads/${threadId}`, bad, origin)
+      assert.deepEqual([res.status, (await res.json()).error], [400, 'invalid_title'], JSON.stringify(bad))
+    }
+    assert.equal((await a.call('PATCH', `/v1/minds/${mindId}/threads/thr_${'0'.repeat(24)}`, { title: 'x' }, origin)).status, 404)
+    // Same CSRF rule as every other write.
+    assert.equal((await a.call('PATCH', `/v1/minds/${mindId}/threads/${threadId}`, { title: 'x' }, { origin: 'https://evil.example' })).status, 403)
+  })
+
+  test('delete (#207): the engine forgets the thread, then its runs, events and title go; payments and other chats stay', async () => {
+    const a = await signIn()
+    const mindId = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Delete' }, origin)).json()).mind.id
+    const gone = (await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { message: 'forget me' }, origin)))[0].threadId
+    await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { threadId: gone, message: 'again' }, origin))
+    const kept = (await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { message: 'keep me' }, origin)))[0].threadId
+    await a.call('PATCH', `/v1/minds/${mindId}/threads/${gone}`, { title: 'Old' }, origin)
+    const runIds = (await query<{ id: string }>('select id from runs where thread_id = $1', [gone])).map((r) => r.id)
+    const payment = `pay_${randomBytes(4).toString('hex')}`
+    await query(`insert into wallet_payments (id, mind_id, to_account, amount_yocto, status) values ($1, $2, 'shop.testnet', 1, 'sent')`, [payment, mindId])
+
+    // The engine fails: nothing is deleted, so the Mind never remembers a chat the owner can no longer see.
+    fake.forgetStatus = 500
+    let res = await a.call('DELETE', `/v1/minds/${mindId}/threads/${gone}`, undefined, origin)
+    fake.forgetStatus = 204
+    assert.deepEqual([res.status, (await res.json()).error], [503, 'engine_error'])
+    assert.equal((await query('select 1 from runs where thread_id = $1', [gone])).length, 2)
+
+    res = await a.call('DELETE', `/v1/minds/${mindId}/threads/${gone}`, undefined, origin)
+    assert.equal(res.status, 204)
+    assert.ok(fake.forgotten.includes(gone))
+    assert.equal(fake.requests.findLast((r) => r.method === 'DELETE' && r.path.includes('/threads/'))!.path, `/v1/minds/${mindId}/threads/${gone}`)
+    assert.equal((await query('select 1 from runs where thread_id = $1', [gone])).length, 0)
+    assert.equal((await query('select 1 from run_events where run_id = any($1)', [runIds])).length, 0)
+    assert.equal((await query('select 1 from thread_titles where thread_id = $1', [gone])).length, 0)
+    assert.equal((await query('select 1 from wallet_payments where id = $1', [payment])).length, 1)
+    assert.deepEqual((await (await a.call('GET', `/v1/minds/${mindId}/threads`)).json()).threads.map((t: any) => t.threadId), [kept])
+    assert.equal((await a.call('GET', `/v1/minds/${mindId}/threads/${gone}/messages`)).status, 404)
+    assert.equal((await a.call('GET', `/v1/runs/${runIds[0]}?mindId=${mindId}`)).status, 404)
+    // Gone means gone: deleting again, or chatting on in it, is a 404.
+    assert.equal((await a.call('DELETE', `/v1/minds/${mindId}/threads/${gone}`, undefined, origin)).status, 404)
+    assert.equal((await a.call('POST', `/v1/minds/${mindId}/chat`, { threadId: gone, message: 'hello?' }, origin)).status, 404)
+  })
+
+  test('delete (#207): refused while a run of the thread waits for an approval or is still running', async () => {
+    const a = await signIn()
+    const mindId = (await (await a.call('POST', '/v1/minds', { templateId: 'payments-mind', name: 'Busy' }, origin)).json()).mind.id
+    const evs = await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { message: 'pay the bill' }, origin))
+    const threadId = evs[0].threadId
+    const asked = fake.forgotten.length
+    let res = await a.call('DELETE', `/v1/minds/${mindId}/threads/${threadId}`, undefined, origin)
+    assert.deepEqual([res.status, (await res.json()).error], [409, 'thread_busy'])
+    assert.equal(fake.forgotten.length, asked, 'the engine is not asked while the thread is busy')
+    await events(await a.call('POST', `/v1/runs/${evs[0].runId}/approve?mindId=${mindId}`, { toolCallId: 'call_1' }, origin))
+    await query(`update runs set status = 'running' where id = $1`, [evs[0].runId])
+    assert.equal((await a.call('DELETE', `/v1/minds/${mindId}/threads/${threadId}`, undefined, origin)).status, 409)
+    await query(`update runs set status = 'finished' where id = $1`, [evs[0].runId])
+    assert.equal((await a.call('DELETE', `/v1/minds/${mindId}/threads/${threadId}`, undefined, origin)).status, 204)
+  })
+
+  test('delete (#207): a Telegram chat starts a new thread after its thread is deleted', async () => {
+    const a = await signIn()
+    const mindId = (await (await a.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Tg' }, origin)).json()).mind.id
+    const threadId = (await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { message: 'from telegram' }, origin)))[0].threadId
+    await query(`insert into mind_telegram (mind_id, bot_id, bot_username, token_ciphertext, webhook_secret, thread_id) values ($1, $2, 'tgbot', 'x', 'y', $3)`, [mindId, Math.floor(Math.random() * 1e9), threadId])
+    assert.equal((await a.call('DELETE', `/v1/minds/${mindId}/threads/${threadId}`, undefined, origin)).status, 204)
+    assert.equal((await query<{ thread_id: string | null }>('select thread_id from mind_telegram where mind_id = $1', [mindId]))[0].thread_id, null)
+  })
+
   test('another user, another Mind or an unknown thread answers 404', async () => {
     const a = await signIn()
     const b = await signIn()
@@ -1464,7 +1547,11 @@ describe('chat threads (#54)', () => {
     assert.equal((await a.call('GET', `/v1/minds/${mindA}/threads/thr_${'0'.repeat(24)}/messages`)).status, 404)
     assert.equal((await a.call('GET', `/v1/minds/${mindA}/threads/not-a-thread/messages`)).status, 404)
     assert.equal((await a.call('GET', `/v1/minds/${mindA}/threads/${threadId}/messages?before=yesterday`)).status, 400)
-    assert.equal((await a.call('DELETE', `/v1/minds/${mindA}/threads/${threadId}`, undefined, origin)).status, 405)
+    assert.equal((await a.call('PUT', `/v1/minds/${mindA}/threads/${threadId}`, {}, origin)).status, 405)
+    // Rename and delete check ownership the same way.
+    assert.equal((await b.call('DELETE', `/v1/minds/${mindA}/threads/${threadId}`, undefined, origin)).status, 404)
+    assert.equal((await a.call('DELETE', `/v1/minds/${mindA2}/threads/${threadId}`, undefined, origin)).status, 404)
+    assert.equal((await a.call('PATCH', `/v1/minds/${mindA2}/threads/${threadId}`, { title: 'mine' }, origin)).status, 404)
     assert.deepEqual((await (await a.call('GET', `/v1/minds/${mindA2}/threads`)).json()).threads, [])
   })
 })

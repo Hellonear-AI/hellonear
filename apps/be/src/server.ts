@@ -17,7 +17,7 @@ import { itemSchema, sellerSchema, shop, txHashSchema } from './shop.ts'
 import { buyOffer, offerItemSchema, putOffer, putOfferSchema } from './offers.ts'
 import { issueMailToken, issueWalletToken, verifyMailToken, verifyWalletToken } from './walletToken.ts'
 import { EMAIL_SKILL, ensureInbox, inboxOf, listMail, listSends, mailEnabled, messageIdSchema, ownerMailSchema, readMail, releaseInbox, sendMail, sendMailSchema, sendMailToOwner } from './mail.ts'
-import { listThreads, parseCursor, threadExists, threadMessages } from './threads.ts'
+import { deleteThread, listThreads, parseCursor, renameThread, threadExists, threadMessages, threadTitleSchema } from './threads.ts'
 import { connectTelegram, disconnectTelegram, outcomeOf, registerTelegramWebhooks, startTelegramPolling, telegramStatus, telegramTokenSchema, telegramWebhook, type MindRunner } from './telegram.ts'
 import { assertDemoRunAllowed, cleanupDemoUsers, createDemoUser, demoPaymentCap, denyDemo } from './demo.ts'
 import type { User } from './auth.ts'
@@ -462,6 +462,15 @@ export const server = createServer(async (req, res) => {
         const before = raw === null ? undefined : parseCursor(raw)
         if (before === null) throw new HttpError(400, 'invalid_before')
         return sendJson(res, 200, await threadMessages(mind.id, thread[1], limitOf(url, 50, 200), before))
+      }
+      const one = sub.match(/^\/threads\/(thr_[a-f0-9]{24})$/)
+      if (one && req.method === 'PATCH') {
+        const body = await readBody(req, threadTitleSchema).catch((e) => { throw e instanceof HttpError && e.message === 'invalid_body' ? new HttpError(400, 'invalid_title') : e })
+        return sendJson(res, 200, { thread: await renameThread(mind.id, one[1], body.title) })
+      }
+      if (one && req.method === 'DELETE') {
+        await deleteThread(mind.id, one[1])
+        return res.writeHead(204).end()
       }
       if (sub.startsWith('/threads')) throw new HttpError(req.method === 'GET' ? 404 : 405, req.method === 'GET' ? 'thread_not_found' : 'method_not_allowed')
       if (sub === '/approvals' && req.method === 'GET') return sendJson(res, 200, { approvals: await pendingApprovals(mind.id) })
