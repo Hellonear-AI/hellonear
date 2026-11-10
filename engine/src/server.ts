@@ -13,7 +13,7 @@ import { WALLET_KEY, walletContext, walletTokenSchema } from './wallet.ts'
 import { MAIL_KEY, MIND_ID_KEY, mailContext, mailTokenSchema } from './mail.ts'
 import { DEMO_KEY } from './email.ts'
 import { USER_KEY } from './composio.ts'
-import { missingTools, skillCatalogSummaries, usableSkills } from './skills.ts'
+import { missingTools, skillCatalogSummaries, skillDetail, usableSkills } from './skills.ts'
 import { attestationStatus, modelInfo, verifyCompletions, warmAttestation } from './models.ts'
 import { summarize } from './verify.ts'
 import { templateSummaries, templates } from './templates.ts'
@@ -200,6 +200,12 @@ export const server = createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/v1/templates') return sendJson(res, 200, { templates: templateSummaries() })
     if (req.method === 'GET' && url.pathname === '/v1/skills') return sendJson(res, 200, { skills: skillCatalogSummaries() })
+    // Skill ids are [a-z0-9-] (skills.ts), so anything else falls through to 404 without decoding.
+    const skillPath = url.pathname.match(/^\/v1\/skills\/([a-z0-9-]+)$/)
+    if (req.method === 'GET' && skillPath) {
+      const skill = skillDetail(skillPath[1])
+      return skill ? sendJson(res, 200, { skill }) : sendJson(res, 404, { error: 'not_found' })
+    }
     if (req.method === 'GET' && url.pathname === '/v1/attacks') return sendJson(res, 200, { attacks: attackSummaries() })
 
     const agent = mastra.getAgent('mind')
