@@ -426,11 +426,12 @@ const mailSend = createTool({
   },
 })
 
-// Autopilot's "Email me" (#146): only as a step the owner put on a job's canvas (CANVAS_ONLY), never offered to the
-// model. The recipient is not an input: the backend sends to the address of the owner's connected Gmail.
-const mailSendToOwner = createTool({
+// "Email me" (#146): email the owner from this Mind's own address. The recipient is not an input: the backend sends to
+// the address of the owner's connected Gmail. As a step the owner put on a job's canvas it runs without asking (the
+// canvas is the approval, CANVAS_ONLY); in a chat the model gets mailSendToOwnerInChat, which waits for the owner (#205).
+const ownerMailTool = (description: string, requireApproval: boolean) => createTool({
   id: 'mail_send_to_owner',
-  description: 'Email the owner from this Mind\'s own email address. Only the owner receives it.',
+  description,
   inputSchema: z.object({
     subject: z.string().trim().min(1).max(200),
     text: z.string().min(1).max(10_000),
@@ -451,7 +452,10 @@ const mailSendToOwner = createTool({
     const idempotencyKey = idempotencyKeyOf(context?.agent?.toolCallId)
     return ownerMailCall(context, { subject, text, ...(idempotencyKey ? { idempotencyKey } : {}) })
   },
+  requireApproval,
 })
+const mailSendToOwner = ownerMailTool('Email the owner from this Mind\'s own email address. Only the owner receives it.', false)
+const mailSendToOwnerInChat = ownerMailTool('Email the owner (the person in this chat) at their own connected Gmail address, from this Mind\'s own email address. Use it when the owner asks to be emailed ("email me", "send it to my email"); never ask for their address, the recipient is always the owner. Always waits for the owner to approve.', true)
 
 const mailList = createTool({
   id: 'mail_list',
@@ -666,10 +670,14 @@ export type ToolKey = keyof typeof toolRegistry
 // Tools that only run after the owner approves them in the chat (payments, calendar writes).
 export const needsApproval = (key: string) => (toolRegistry as Record<string, { requireApproval?: boolean }>)[key]?.requireApproval === true
 
-// Tools that exist only as steps the owner puts on a job's canvas, and are never offered to the model, in a chat or a
-// workflow (#146): the owner's canvas is the approval. They only touch the owner's own things: an event on their own
-// calendar (no guests, nobody emailed) and an email to the owner.
+// Tools that run without asking only as steps the owner puts on a job's canvas (#146): the owner's canvas is the
+// approval. The registry's versions are never offered to the model. They only touch the owner's own things: an event
+// on their own calendar (no guests, nobody emailed) and an email to the owner.
 export const CANVAS_ONLY: ReadonlySet<string> = new Set(['mail_send_to_owner', 'googlecalendar_block_time'])
+
+// Chat versions of canvas-only tools, which wait for the owner's approval like any other approval tool (#205), so
+// "email me the link" works in a chat. Unattended runs never get them.
+const IN_CHAT: Partial<Record<ToolKey, typeof mailSendToOwnerInChat>> = { mail_send_to_owner: mailSendToOwnerInChat }
 
 // Tools every Mind has, plus the tools of its equipped skills. Unknown keys are ignored.
 // Unattended runs (workflows) never get approval tools: nobody is there to approve,
@@ -677,6 +685,9 @@ export const CANVAS_ONLY: ReadonlySet<string> = new Set(['mail_send_to_owner', '
 export function toolsFor(skillToolKeys: string[], opts: { unattended?: boolean } = {}) {
   const keys = new Set<string>(['get_time', ...skillToolKeys])
   return Object.fromEntries(
-    [...keys].filter((k): k is ToolKey => k in toolRegistry && !CANVAS_ONLY.has(k) && !(opts.unattended && needsApproval(k))).map((k) => [k, toolRegistry[k]]),
+    [...keys].filter((k): k is ToolKey => k in toolRegistry).flatMap((k) => {
+      if (CANVAS_ONLY.has(k)) return !opts.unattended && IN_CHAT[k] ? [[k, IN_CHAT[k]]] : []
+      return opts.unattended && needsApproval(k) ? [] : [[k, toolRegistry[k]]]
+    }),
   )
 }
