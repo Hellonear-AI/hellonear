@@ -91,7 +91,13 @@ export function LiveView({ mindId, active, className }: { mindId: string; active
   const catalog = useSkillCatalog().data
   const history = useMindEvents(mindId)
   const approvalList = useApprovals(mindId).data
-  const approvals = useMemo(() => approvalList ?? [], [approvalList])
+  // A request this chat's run already answered (its tool has a result) isn't waiting any more,
+  // even before GET …/approvals is read again (Ancung, 11 Nov: a sent payment still said "Waiting for you").
+  const answered = useMemo(
+    () => new Set((active?.view.tools ?? []).filter((t) => t.status !== "awaiting_approval").map((t) => t.toolCallId)),
+    [active?.view.tools]
+  )
+  const approvals = useMemo(() => (approvalList ?? []).filter((a) => !answered.has(a.toolCallId)), [approvalList, answered])
   const [selected, setSelected] = useState<string | null>(null)
   const queryClient = useQueryClient()
   const name = mind?.name ?? "Your Mind"
