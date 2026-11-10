@@ -52,9 +52,9 @@ export function ApprovalsScroll() {
     //   open  0..1  the window opens from the right edge (scrubbed, before the pin)
     //   track 0..1  pinned: the window grows to the whole screen and the stage scales up and moves left,
     //               so the camera passes the Mind and lands on "Tricked?" (desktop only)
-    //   up    0..1  still pinned: the camera tilts up off the lawn into the sky. The lawn sinks out of
-    //               the bottom, clouds pass in front, the sky turns from day to dusk to night and the
-    //               stars come out, so the dark Mind Graph section below continues the same sky.
+    //   up    0..1  still pinned: soft blurred clouds and fog rise from the bottom and slowly cover the
+    //               lawn; behind them it turns to night; then the fog clears upward onto a starry sky,
+    //               so the dark Mind Graph section below continues the same night.
     const STAGE_W = 1680;
     const STAGE_H = 722;
     const visual = q(".ap-visual")[0] as HTMLElement;
@@ -62,10 +62,9 @@ export function ApprovalsScroll() {
     const copy = q(".ap-copy")[0] as HTMLElement;
     const tricked = q(".ap-tricked")[0] as HTMLElement;
     const sky = q(".ap-sky")[0] as HTMLElement;
-    const dusk = q(".ap-dusk")[0] as HTMLElement;
-    const night = q(".ap-night")[0] as HTMLElement;
     const stars = q(".ap-stars")[0] as HTMLElement;
-    const haze = q(".ap-haze")[0] as HTMLElement;
+    const fogLight = q(".ap-fog-light")[0] as HTMLElement;
+    const fogDark = q(".ap-fog-dark")[0] as HTMLElement;
     const clouds = q(".ap-cloud") as HTMLElement[];
     const st = { open: 0, track: 0, up: 0 };
     const clamp = (v: number) => Math.min(1, Math.max(0, v));
@@ -105,25 +104,29 @@ export function ApprovalsScroll() {
       const x0 = L0 + (1 - st.open) * 90; // a little parallax while it opens
       const x1 = W - STAGE_W * s1;
       const sx = lerp(x0, x1, t);
-      // tilting up: the lawn sinks out of the bottom while the sky above it comes down into view
+      stage.style.transform = `translate3d(${sx}px, ${lerp(T0, 0, t)}px, 0) scale(${sc})`;
+      // into the clouds: fog and blurred clouds rise and cover the lawn; under that cover it turns to
+      // night; then they keep rising and thin out onto the stars. Every fade starts at zero slope, so
+      // nothing pops in.
       const u = st.up;
-      const lift = H * 1.05 * u;
-      stage.style.transform = `translate3d(${sx}px, ${lerp(T0, 0, t) + lift}px, 0) scale(${sc})`;
-      sky.style.transform = `translate3d(0, ${lift - H}px, 0)`;
       sky.style.visibility = u > 0 ? "visible" : "hidden";
-      const duskO = smooth(0.15, 0.55, u);
-      dusk.style.opacity = String(duskO);
-      night.style.opacity = String(smooth(0.45, 0.92, u));
-      stars.style.opacity = String(smooth(0.6, 1, u));
-      haze.style.opacity = String(1 - smooth(0.4, 0.85, u));
-      // clouds sit on the horizon (where the lawn meets the sky), so the seam is never seen, and
-      // rise a little faster than it; they dim at dusk and fade out as night falls
+      sky.style.opacity = String(smooth(0.4, 0.56, u));
+      stars.style.opacity = String(smooth(0.62, 1, u));
+      fogLight.style.opacity = String(smooth(0.22, 0.47, u) * (1 - smooth(0.5, 0.64, u)));
+      fogDark.style.opacity = String(0.75 * smooth(0.48, 0.58, u) * (1 - smooth(0.68, 0.95, u)));
+      fogLight.style.transform = fogDark.style.transform = `translate3d(0, ${H * (0.55 - 1.1 * u)}px, 0)`;
+      // day clouds rise from below and fill the screen; night clouds (the same, darkened) carry on
+      // rising out of the top while the stars come through
       clouds.forEach((c, i) => {
-        const ch = c.offsetHeight || H * 0.5;
-        const y = lift - ch * (0.62 + i * 0.1) - H * 0.12 * u;
-        c.style.transform = `translate3d(0, ${y}px, 0)`;
-        c.style.opacity = String(smooth(0.0, 0.08, u) * (1 - smooth(0.72, 0.95, u)));
-        c.style.filter = `brightness(${1 - 0.3 * duskO})`;
+        const night = i >= 4;
+        const j = i % 4;
+        const k = [1, 1.2, 0.9, 1.35][j];
+        const v = night ? u - 0.42 : u;
+        const y = H * (night ? 0.55 + j * 0.1 - 2.1 * v * k : 1.0 + j * 0.12 - 1.7 * v * k);
+        c.style.transform = `translate3d(0, ${y}px, 0) scale(${1.1 + 0.3 * u})`;
+        c.style.opacity = String(
+          night ? smooth(0.44, 0.56, u) * (1 - smooth(0.78, 0.98, u)) : smooth(0.0, 0.3, u) * (1 - smooth(0.5, 0.6, u)),
+        );
       });
       // the copy slides left with the photo, by the same distance (no fade)
       copy.style.transform = `translate3d(${sx - x0}px,0,0)`;
@@ -202,21 +205,40 @@ export function ApprovalsScroll() {
         {/* The scene window: covers the whole pinned screen on desktop, shown through a clip-path. */}
         <div className="ap-visual relative mt-8 h-[520px] w-full overflow-hidden bg-[#4f7a2a] md:absolute md:inset-0 md:mt-0 md:h-auto md:[clip-path:inset(0_0_0_100%)]">
           <ApprovalScene />
-          {/* The sky above the lawn, seen when the camera tilts up (desktop only). */}
-          <div className="ap-sky invisible absolute inset-x-0 -top-[25%] bottom-0 hidden will-change-transform md:block" aria-hidden="true">
-            <div className="absolute inset-0" style={{ background: "linear-gradient(#5F8FC4, #A3C1DF 70%, #E3E6E2)" }} />
-            <div className="ap-dusk absolute inset-0 opacity-0" style={{ background: "linear-gradient(#27325c, #7b6a93 60%, #e8a983)" }} />
-            <div className="ap-night absolute inset-0 opacity-0" style={{ background: "linear-gradient(#04050b, #0a0d1c)" }} />
-            {/* haze over the horizon, spilling onto the top of the lawn */}
-            <div className="ap-haze absolute inset-x-0 top-full h-[35%]" style={{ background: "linear-gradient(#E3E6E2, rgb(227 230 226 / 0.55) 30%, transparent)" }} />
+          {/* Into the clouds (desktop only): the night behind, then the fog and blurred clouds in front. */}
+          <div className="ap-sky invisible absolute inset-0 hidden opacity-0 md:block" style={{ background: "linear-gradient(#04050b, #0a0d1c)" }} aria-hidden="true">
             <div className="ap-stars absolute inset-0 opacity-0">
               <Starfield count={160} seed={11} />
             </div>
           </div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/hero/cumulus-left.webp" alt="" aria-hidden="true" className="ap-cloud pointer-events-none absolute -left-[8%] top-0 hidden w-[70%] opacity-0 will-change-transform md:block" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/hero/cumulus-right.webp" alt="" aria-hidden="true" className="ap-cloud pointer-events-none absolute -right-[10%] top-0 hidden w-[75%] opacity-0 will-change-transform md:block" />
+          {[
+            ["cumulus-left", "-left-[15%] w-[85%]"],
+            ["cumulus-right", "-right-[15%] w-[90%]"],
+            ["cumulus-right", "left-[10%] w-[80%]"],
+            ["cumulus-left", "-right-[5%] w-[95%]"],
+          ]
+            .flatMap((c) => [c])
+            .concat([
+              ["cumulus-left", "-left-[15%] w-[85%]"],
+              ["cumulus-right", "-right-[15%] w-[90%]"],
+              ["cumulus-right", "left-[10%] w-[80%]"],
+              ["cumulus-left", "-right-[5%] w-[95%]"],
+            ])
+            .map(([img, pos], i) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={i}
+              src={`/hero/${img}.webp`}
+              alt=""
+              aria-hidden="true"
+              className={`ap-cloud pointer-events-none absolute top-0 hidden opacity-0 will-change-transform md:block ${pos}`}
+              style={{
+                filter: `blur(${[10, 16, 22, 28][i % 4]}px)${i >= 4 ? " brightness(0.32) saturate(0.7) hue-rotate(200deg)" : ""}`,
+              }}
+            />
+          ))}
+          <div className="ap-fog-light pointer-events-none absolute inset-x-0 -top-[60%] hidden h-[220%] opacity-0 will-change-transform md:block" style={{ background: "linear-gradient(transparent, #EEF0EC 30%, #EEF0EC 70%, transparent)" }} aria-hidden="true" />
+          <div className="ap-fog-dark pointer-events-none absolute inset-x-0 -top-[60%] hidden h-[220%] opacity-0 will-change-transform md:block" style={{ background: "linear-gradient(transparent, #1b2240 30%, #141a33 70%, transparent)" }} aria-hidden="true" />
           <div className="grain pointer-events-none absolute inset-0" aria-hidden="true" />
         </div>
       </div>
