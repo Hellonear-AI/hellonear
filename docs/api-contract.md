@@ -401,7 +401,7 @@ The owner connects an app (`gmail`, `googlecalendar` (#57) or `googlemeet` (#97,
 
 | Route | Body | Answer |
 |---|---|---|
-| `GET /v1/connections` | | `{ connections: [{ toolkit: "gmail" \| "googlecalendar" \| "googlemeet", status: "connected" \| "pending" \| "expired" \| "not_connected", since? }] }` (no Composio ids) **[tested]** |
+| `GET /v1/connections` | | `{ connections: [{ toolkit: "gmail" \| "googlecalendar" \| "googlemeet" \| "googlesheets" \| "googledrive" \| "googledocs" \| "slack" \| "discord" \| "notion" \| "outlook" \| "hubspot", status: "connected" \| "pending" \| "expired" \| "not_connected", since? }] }` (no Composio ids) **[tested]** |
 | `POST /v1/connections/{toolkit}` | `{}` | `{ redirectUrl }`: a Composio Connect Link (`https://connect.composio.dev/…`). Open it in the browser; after sign-in Composio sends the owner to `{FE_ORIGIN}/connections?toolkit={toolkit}&status=success\|failed`, then the FE reads `GET /v1/connections` (the query string proves nothing). An unfinished attempt is replaced. `409 already_connected` **[tested; live against Composio, 5 Nov]** |
 | `DELETE /v1/connections/{toolkit}` | | `204` (Composio deletes the connection and its tokens) or `404` **[tested]** |
 
