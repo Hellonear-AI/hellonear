@@ -8,8 +8,9 @@ import { stepSim, syncSim, type Sim } from "@/modules/graph/data/sim"
 
 // The Mind Graph drawn on a plain canvas (Ancung, 10 Nov: Obsidian-like, no library): bubbles that
 // settle with a small force layout, lines that carry moving dots while a tool runs, rings that
-// pulse with the result, the apps' own logos, hover that lights a node's neighbours and dims the
-// rest, drag to move a bubble, drag the background to pan, and the wheel to zoom.
+// pulse with the result, the apps' own logos, a lime torch on the lines under the mouse, drag to
+// move a bubble, drag the background to pan, and the wheel to zoom. Hover dims nothing (Ancung,
+// 10 Nov: dimming the rest felt odd); the hovered label turns bold.
 
 type Props = {
   mindId: string
@@ -202,17 +203,6 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       v.y += (ty - v.y) * 0.12
     }
 
-    // Who lights up with the hovered node: itself, its links' other ends.
-    const neighbours = (id: string | null) => {
-      if (!id) return null
-      const set = new Set([id])
-      for (const l of data.current.links) {
-        if (l.source === id) set.add(l.target)
-        if (l.target === id) set.add(l.source)
-      }
-      return set
-    }
-
     // The chain of links from the Mind to a node, for the moving dots.
     const pathTo = (id: string) => {
       const parent = new Map(data.current.links.map((l) => [l.target, l.source]))
@@ -252,7 +242,6 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       ctx.clearRect(0, 0, w, h)
       ctx.setTransform(dpr * v.k, 0, 0, dpr * v.k, dpr * (w / 2 + v.x), dpr * (h / 2 + v.y))
 
-      const lit = neighbours(hover.current)
       const byId = new Map(data.current.nodes.map((n) => [n.id, n]))
       const sinceSeen = (n: GraphNode) => now - (seen.current.get(n.id)?.at ?? -Infinity)
       const glowing = (n: GraphNode) =>
@@ -275,7 +264,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         if (!a || !b || !t) continue
         const on = glowing(t)
         const path = trailLinks.has(`${l.source}>${l.target}`)
-        ctx.globalAlpha = lit && !(lit.has(l.source) && lit.has(l.target)) ? 0.12 : on ? 0.95 : path ? (data.current.live ? 0.9 : 0.55) : 0.5
+        ctx.globalAlpha = on ? 0.95 : path ? (data.current.live ? 0.9 : 0.55) : 0.5
         ctx.strokeStyle = on ? stateColor(t) : path ? colors.info : colors.line
         ctx.lineWidth = (on || path ? 2.2 : 1.1) / v.k
         ctx.beginPath()
@@ -363,7 +352,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       for (const n of data.current.nodes) {
         const b = s.bodies.get(n.id)
         if (!b) continue
-        const dim = lit && !lit.has(n.id)
+        const dim = false
         ctx.globalAlpha = dim ? 0.22 : 1
 
         if (glowing(n)) {
@@ -453,7 +442,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       for (const n of data.current.nodes) {
         const b = s.bodies.get(n.id)
         if (!b) continue
-        const dim = lit && !lit.has(n.id)
+        const dim = false
         const strong = hover.current === n.id || n.id === data.current.selected || glowing(n)
         const px = (n.kind === "mind" ? 13 : n.kind === "tool" ? 10.5 : 11.5) / Math.max(0.8, v.k)
         ctx.font = `${n.kind === "mind" || strong ? 600 : 500} ${px}px ${font}`
