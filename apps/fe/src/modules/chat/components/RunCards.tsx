@@ -111,7 +111,8 @@ export function PaymentFailed({ payment }: { payment: Payment }) {
 /**
  * Waiting for the owner (C1.1). Answered right here (Ancung, 9 Nov; the design sent "Review and
  * approve" to Approvals): the same checks as Approvals (A1), and Approve only when nothing would
- * refuse it; otherwise the button leads to the fix. Approvals still lists every request.
+ * refuse it; otherwise the button leads to the fix. There is no Approvals page since 11 Nov: Recent
+ * chats marks the chats that wait, and a toast says so when the owner is in another chat.
  */
 export function ApprovalCard({
   mindId,
@@ -133,7 +134,7 @@ export function ApprovalCard({
 }) {
   const payment = paymentOf(step)
   const details = payment ? null : approvalDetails(step)
-  // Unfreeze opens the same dialog as on Approvals, right here (it used to send the owner there).
+  // Unfreeze opens the freeze dialog right here.
   const [unfreeze, setUnfreeze] = useState({ open: false, key: 0 })
   const { checks, next } = payment ? approvalChecks(payment, wallet) : { checks: [], next: "approve" as const }
   return (

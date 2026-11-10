@@ -6,11 +6,10 @@ import { usePathname } from "next/navigation"
 import type { ReactNode } from "react"
 import { ThinkingOrb } from "thinking-orbs"
 import { cn } from "cn"
-import { CountBadge } from "@/components/elements/CountBadge"
 import { mindHref, NAV_ITEMS } from "@/components/layout/nav"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { useApprovalsCount, useRecentChats } from "@/modules/minds/hooks/useMinds"
+import { useApprovals, useRecentChats } from "@/modules/minds/hooks/useMinds"
 import { useActiveRun } from "@/modules/chat/hooks/ChatRunProvider"
 
 export function useActiveSegment(mindId: string) {
@@ -22,11 +21,10 @@ export function useActiveSegment(mindId: string) {
 /** Nav/Default, Nav/Active and Nav/With count from the design: 40 px rows, 18 px icons. */
 export function NavList({ mindId, onNavigate }: { mindId: string; onNavigate?: () => void }) {
   const active = useActiveSegment(mindId)
-  const { data: approvals = 0 } = useApprovalsCount(mindId)
 
   return (
     <nav aria-label="Places" className="flex flex-col gap-0.5">
-      {NAV_ITEMS.map(({ segment, label, icon: Icon, count }) => {
+      {NAV_ITEMS.map(({ segment, label, icon: Icon }) => {
         const isActive = active === segment
         return (
           <Link
@@ -43,7 +41,6 @@ export function NavList({ mindId, onNavigate }: { mindId: string; onNavigate?: (
           >
             <Icon className="size-[18px] shrink-0" />
             <span className="flex-1 truncate">{label}</span>
-            {count === "approvals" && <CountBadge count={approvals} />}
           </Link>
         )
       })}
@@ -51,14 +48,13 @@ export function NavList({ mindId, onNavigate }: { mindId: string; onNavigate?: (
   )
 }
 
-/** Icon-only nav for the rail (72 px): 44 px buttons with a tooltip, approvals keep their count. */
+/** Icon-only nav for the rail (72 px): 44 px buttons with a tooltip. */
 export function RailNav({ mindId }: { mindId: string }) {
   const active = useActiveSegment(mindId)
-  const { data: approvals = 0 } = useApprovalsCount(mindId)
 
   return (
     <nav aria-label="Places" className="flex flex-col items-center gap-1">
-      {NAV_ITEMS.map(({ segment, label, icon: Icon, count }) => {
+      {NAV_ITEMS.map(({ segment, label, icon: Icon }) => {
         const isActive = active === segment
         return (
           <Tooltip key={segment}>
@@ -78,11 +74,6 @@ export function RailNav({ mindId }: { mindId: string }) {
               }
             >
               <Icon className="size-5" />
-              {count === "approvals" && approvals > 0 && (
-                <span className="absolute top-1 right-1 flex size-4 items-center justify-center rounded-full bg-brand text-[10px] font-semibold text-on-brand ring-2 ring-surface">
-                  {approvals}
-                </span>
-              )}
             </TooltipTrigger>
             <TooltipContent side="right">{label}</TooltipContent>
           </Tooltip>
@@ -99,6 +90,10 @@ export function RecentChats({ mindId, onNavigate }: { mindId: string; onNavigate
   // The chat the Mind is answering right now, even when another one is open (Ancung, 10 Nov).
   const active = useActiveRun()
   const replying = active?.streaming ? active.threadId : null
+  // Chats paused on an approval (Ancung, 11 Nov: no Approvals page; the chat says it waits, and
+  // its card answers there). They go to the top of the list.
+  const waitingIn = new Set((useApprovals(mindId).data ?? []).map((a) => a.threadId))
+  const listed = [...chats].sort((a, b) => Number(waitingIn.has(b.threadId)) - Number(waitingIn.has(a.threadId)))
 
   return (
     <section aria-labelledby="recent-chats" className="flex flex-col gap-0.5 pt-2">
@@ -120,7 +115,7 @@ export function RecentChats({ mindId, onNavigate }: { mindId: string; onNavigate
         {chats.length === 0 && (
           <p className="px-3 py-2 text-xs text-tertiary-foreground">No chats yet</p>
         )}
-        {chats.map((chat) => {
+        {listed.map((chat) => {
           const href = `${mindHref(mindId, "chat")}/${chat.threadId}`
           const isOpen = pathname === href
           return (
@@ -140,6 +135,11 @@ export function RecentChats({ mindId, onNavigate }: { mindId: string; onNavigate
               {replying === chat.threadId ? (
                 <span role="status" aria-label="Replying" title="Replying" className="flex shrink-0">
                   <ThinkingOrb state="solving" size={20} aria-hidden className="-my-1" />
+                </span>
+              ) : waitingIn.has(chat.threadId) ? (
+                <span role="status" title="Waiting for your approval" className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium text-warning">
+                  <span aria-hidden className="size-1.5 rounded-full bg-warning" />
+                  Waiting
                 </span>
               ) : (
                 <span className="shrink-0 text-[11px] text-tertiary-foreground">{chat.when}</span>
