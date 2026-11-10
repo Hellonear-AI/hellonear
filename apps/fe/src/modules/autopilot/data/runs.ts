@@ -31,7 +31,7 @@ export function runText(run: WorkflowRun): string | null {
 
 export function runSummary(run: WorkflowRun, name: string): string | null {
   const failed = run.nodes.find((n) => n.status === "error")
-  if (failed) return cut(`A step didn't work: ${(failed.error ?? "no reason given").replace(/^\w*Error:\s*/, "")}`)
+  if (failed) return cut(`A step failed: ${(failed.error ?? "no reason given").replace(/^\w*Error:\s*/, "")}`)
   const wrote = [...run.nodes].reverse().find((n) => n.nodeType === "agent" && textOf(n.output))
   if (wrote) return cut(plainText(textOf(wrote.output)!))
   const balance = run.nodes.find((n) => n.output && typeof (n.output as { balanceNear?: unknown }).balanceNear !== "undefined")

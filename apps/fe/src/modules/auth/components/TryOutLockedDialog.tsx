@@ -14,17 +14,17 @@ export type LockedAction = "add-funds" | "freeze" | "limits" | "wallet" | "keys"
 export function lockedReason(action: LockedAction, name: string): string {
   switch (action) {
     case "freeze":
-      return `Freezing needs the owner's signature. In try-out, ${name} uses a shared test wallet that only HelloNear can change.`
+      return `Freezing needs the owner's signature. In a try-out, ${name} uses a shared test wallet that only HelloNear can change.`
     case "add-funds":
-      return `Funds come from your own wallet. In try-out, ${name} uses a shared test wallet that HelloNear fills.`
+      return `Funds come from your own wallet. In a try-out, ${name} uses a shared test wallet that HelloNear fills.`
     case "limits":
-      return `Changing limits needs the owner's signature. In try-out, ${name} uses a shared test wallet with limits HelloNear sets.`
+      return `Changing limits needs the owner's signature. In a try-out, ${name} uses a shared test wallet with limits HelloNear sets.`
     case "wallet":
-      return `A wallet of ${name}'s own needs your signature for its limits. In try-out, ${name} pays from a shared test wallet.`
+      return `A wallet of ${name}'s own needs your signature for its limits. In a try-out, ${name} pays from a shared test wallet.`
     case "keys":
       return "Keys are kept for your account, and a try-out can't keep them. Connect a wallet to save keys for your own services."
     case "autopilot":
-      return `Jobs that run on a schedule need your own account. In try-out, you can still run ${name}'s jobs by hand with Run now.`
+      return `Jobs that run on a schedule need your own account. In a try-out, you can still run ${name}'s jobs by hand with Run now.`
   }
 }
 

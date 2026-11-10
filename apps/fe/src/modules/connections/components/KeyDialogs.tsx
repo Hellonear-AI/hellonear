@@ -141,7 +141,7 @@ export function KeyDialog({
               <p role="alert" className="text-[13px] text-danger">
                 {save.error instanceof ApiError && save.error.code === "demo_not_allowed"
                   ? "Connect a wallet to save keys. This try-out can't keep them."
-                  : "Couldn't save the key. Nothing changed; try again."}
+                  : "Could not save the key. No changes were made. Please try again."}
               </p>
             )}
           </fieldset>
@@ -197,7 +197,7 @@ export function DeleteKeyDialog({ mindName, secret, open, onOpenChange }: { mind
         <p className="text-xs text-muted-foreground">You can add it again later with the same name.</p>
         {del.error && (
           <p role="alert" className="text-[13px] text-danger">
-            Couldn&apos;t delete the key. Nothing changed; try again.
+            Could not delete the key. No changes were made. Please try again.
           </p>
         )}
         <DialogFooter>
@@ -262,7 +262,7 @@ export function DisconnectDialog({
         <p className="text-xs text-muted-foreground">You can connect {app} again any time from this page.</p>
         {disconnect.error && (
           <p role="alert" className="text-[13px] text-danger">
-            Couldn&apos;t disconnect {app}. Nothing changed; try again.
+            Could not disconnect {app}. No changes were made. Please try again.
           </p>
         )}
         <DialogFooter>

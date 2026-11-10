@@ -139,14 +139,14 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
           <div className="mx-auto flex min-h-full w-full max-w-[804px] flex-col gap-5 px-4 pt-6 pb-12 md:px-10">
             {notFound ? (
               <Centered>
-                <p className="text-sm text-muted-foreground">This chat isn&apos;t here any more.</p>
+                <p className="text-sm text-muted-foreground">This chat is no longer available.</p>
                 <Button variant="outline" nativeButton={false} render={<Link href={mindHref(mindId, "chat")} />}>
                   Start a new chat
                 </Button>
               </Centered>
             ) : thread.isError && shown.length === 0 ? (
               <Centered>
-                <p className="text-sm text-muted-foreground">Couldn&apos;t load this chat. Check your connection and try again.</p>
+                <p className="text-sm text-muted-foreground">Could not load this chat. Check your connection and try again.</p>
                 <Button variant="outline" onClick={() => void thread.refetch()}>
                   Try again
                 </Button>
@@ -429,15 +429,15 @@ export function dayLabel(at: string, previous: string | null, now: Date = new Da
 export function failureText(name: string, error: unknown): string {
   if (error instanceof ApiError) {
     if (error.code === "demo_run_limit") return `That's all the messages this try-out has. Connect a wallet to keep chatting with ${name}.`
-    if (error.code === "demo_rate_limited") return "Too many messages from this network right now. Wait a few minutes, then try again."
+    if (error.code === "demo_rate_limited") return "Too many messages from this network. Please try again in a few minutes."
     if (error.status === 401) return "Your session ended. Sign in again to keep chatting."
-    if (error.status >= 500) return `${name} couldn't answer. The AI service didn't respond, so nothing happened.`
-    return `${name} couldn't answer. Nothing happened.`
+    if (error.status >= 500) return `${name} could not answer. The AI service didn't respond, so nothing happened.`
+    return `${name} could not answer. Nothing happened.`
   }
   if (error === "no_reply") return `${name} thought about it but didn't write a reply. Try asking again.`
   // A string is a run.error from the stream: the message was stored before the run broke.
-  if (typeof error === "string") return `${name} couldn't answer. The AI service stopped partway. Your message is saved and nothing else happened.`
-  return `${name} couldn't answer. The connection dropped, so check yours and try again.`
+  if (typeof error === "string") return `${name} could not answer. The AI service stopped partway. Your message is saved and nothing else happened.`
+  return `${name} could not answer. The connection dropped, so check yours and try again.`
 }
 
 function VerifiedBadge({ level }: { level: "gateway_tee" | "model_tee" }) {

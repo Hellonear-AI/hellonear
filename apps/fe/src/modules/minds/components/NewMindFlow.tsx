@@ -60,7 +60,7 @@ export function NewMindFlow() {
   if (session.isError) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-3 p-6 text-center">
-        <p className="text-sm text-muted-foreground">Couldn&apos;t reach HelloNear. Check your connection and try again.</p>
+        <p className="text-sm text-muted-foreground">Could not reach HelloNear. Check your connection and try again.</p>
         <Button variant="outline" onClick={() => void session.refetch()}>
           Try again
         </Button>
@@ -157,13 +157,13 @@ function setUpNotice(err: unknown, name: string): Notice {
     }
   }
   if (err instanceof SetUpError && err.step === "check") {
-    return { text: "Meteor signed, but the limits don't show up yet. Check again in a moment.", retry: "Check again" }
+    return { text: "Meteor signed, but the limits do not show yet. Please check again.", retry: "Check again" }
   }
   const cause = err instanceof SetUpError ? err.cause : err
   if (cause instanceof ApiError && (cause.code === "outlayer_error" || cause.code === "outlayer_unreachable")) {
-    return { text: "The wallet service didn't answer. Nothing was signed. Try again in a moment.", retry: "Try again" }
+    return { text: "The wallet service did not respond. No transaction was signed. Please try again later.", retry: "Try again" }
   }
-  return { text: `Couldn't set up ${name}. Nothing was signed. Try again.`, retry: "Try again" }
+  return { text: `Could not set up ${name}. Nothing was signed. Try again.`, retry: "Try again" }
 }
 
 function errorText(err: unknown): string {

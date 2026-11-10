@@ -129,8 +129,8 @@ export function freezeErrorText(err: unknown, freeze: boolean): string {
       return `Your wallet is signed in as ${err.cause.actual.join(", ") || "another account"}. Switch it to ${err.cause.expected}, then try again.`
     }
     if (err.step === "sign") return `Meteor didn't sign, so the wallet wasn't ${what}.`
-    if (err.step === "check") return `Meteor signed, but the wallet doesn't show it yet. Check again in a moment.`
+    if (err.step === "check") return `Meteor signed, but the wallet does not show the change yet. Please check again.`
     if (err.cause instanceof ApiError && err.cause.code === "demo_not_allowed") return "Connect a wallet to do this."
   }
-  return `Couldn't reach the wallet service, so nothing changed. Try again in a moment.`
+  return `Could not reach the wallet service, so nothing changed. Please try again later.`
 }

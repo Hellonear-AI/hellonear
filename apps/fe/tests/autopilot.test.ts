@@ -59,7 +59,7 @@ describe("run lines and refusals", () => {
   it("prefers what the Mind wrote, then what it found, then the error", () => {
     expect(runSummary(run("success", [{ nodeType: "tool", status: "ok", output: { balanceNear: 0.76 } }, { nodeType: "agent", status: "ok", output: { text: "Top it up." } }]), "Omaga")).toBe("Top it up.")
     expect(runSummary(run("success", [{ nodeType: "tool", status: "ok", output: { balanceNear: 42 } }]), "Omaga")).toBe("Balance 42 NEAR, no note needed")
-    expect(runSummary(run("failed", [{ nodeType: "tool", status: "error", error: "Error: NEAR RPC: timeout" }]), "Omaga")).toBe("A step didn't work: NEAR RPC: timeout")
+    expect(runSummary(run("failed", [{ nodeType: "tool", status: "error", error: "Error: NEAR RPC: timeout" }]), "Omaga")).toBe("A step failed: NEAR RPC: timeout")
     expect(runSummary(run("running", []), "Omaga")).toBeNull()
   })
 

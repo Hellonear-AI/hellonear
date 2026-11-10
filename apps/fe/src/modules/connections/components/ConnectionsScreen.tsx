@@ -95,7 +95,7 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
               <Skeleton className="h-36 w-full" />
             ) : connections.isError ? (
               <div className="flex flex-col items-start gap-2">
-                <p className="text-[13px] text-muted-foreground">Couldn&apos;t check your apps. Try again in a moment.</p>
+                <p className="text-[13px] text-muted-foreground">Could not check your apps. Please try again later.</p>
                 <Button variant="outline" size="sm" onClick={() => void connections.refetch()}>
                   Try again
                 </Button>
@@ -168,7 +168,7 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
                 })}
               </ul>
             )}
-            {connect.error && <p className="text-[13px] text-danger">Couldn&apos;t open Google. Nothing changed; try again in a moment.</p>}
+            {connect.error && <p className="text-[13px] text-danger">Could not open Google. No changes were made. Please try again later.</p>}
             <p className="text-xs text-muted-foreground">More apps come later. For anything else, add a key below.</p>
           </section>
 
@@ -188,7 +188,7 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
             {secrets.isPending ? (
               <Skeleton className="h-24 w-full" />
             ) : secrets.isError ? (
-              <p className="text-[13px] text-muted-foreground">Couldn&apos;t load your keys.</p>
+              <p className="text-[13px] text-muted-foreground">Could not load your keys.</p>
             ) : !secrets.data?.length ? (
               <p className="py-2 text-[13px] text-muted-foreground">
                 {demo ? "A try-out can't keep keys." : `No keys yet. Add one when you want ${name} to call a service of your own.`}

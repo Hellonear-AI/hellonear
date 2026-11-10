@@ -17,13 +17,13 @@ describe("try-out sign-in (T1.1)", () => {
   })
   it("says what happened when a try-out can't start (T1.2)", () => {
     expect(demoError(new ApiError(429, "demo_rate_limited"))).toContain("Too many try-outs from this network")
-    expect(demoError(new ApiError(404, "not_found"))).toContain("isn't available right now")
+    expect(demoError(new ApiError(404, "not_found"))).toContain("not available at the moment")
   })
 })
 
 describe("wallet sign-in errors (L1.3)", () => {
-  it("says nothing changed when the wallet didn't sign", () => {
-    expect(walletError(new Error("User rejected"))).toBe("Sign-in was canceled in the wallet. Nothing changed.")
+  it("says the sign-in was canceled when the wallet didn't sign", () => {
+    expect(walletError(new Error("User rejected"))).toBe("Sign-in was canceled in the wallet. No changes were made.")
     expect(walletError(new ApiError(401, "invalid_nonce"))).toContain("expired")
   })
 })
@@ -38,7 +38,7 @@ describe("try-out owner actions (T1.4)", () => {
       expect(text).not.toMatch(/[—·]/) // no em dash, no "·" (UI rules)
     }
     expect(lockedReason("freeze", "Penny")).toBe(
-      "Freezing needs the owner's signature. In try-out, Penny uses a shared test wallet that only HelloNear can change."
+      "Freezing needs the owner's signature. In a try-out, Penny uses a shared test wallet that only HelloNear can change."
     )
     expect(lockedReason("keys", "Penny")).toContain("can't keep them")
   })

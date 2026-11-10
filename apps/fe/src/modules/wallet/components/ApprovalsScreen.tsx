@@ -88,7 +88,7 @@ export function ApprovalsScreen({ mindId }: { mindId: string }) {
             <Skeleton className="h-64 w-full rounded-lg" />
           ) : approvals.isError ? (
             <div className="flex flex-col items-start gap-3 rounded-lg border border-border bg-surface p-5">
-              <p className="text-sm text-muted-foreground">Couldn&apos;t load the approvals. Check your connection and try again.</p>
+              <p className="text-sm text-muted-foreground">Could not load the approvals. Check your connection and try again.</p>
               <Button variant="outline" onClick={() => void approvals.refetch()}>
                 Try again
               </Button>
@@ -242,7 +242,7 @@ function NothingWaiting({ mindId, name }: { mindId: string; name: string }) {
       <span className="flex size-12 items-center justify-center rounded-full bg-muted">
         <InboxIcon className="size-5 text-muted-foreground" />
       </span>
-      <p className="text-[15px] font-semibold text-foreground">Nothing waiting for you</p>
+      <p className="text-[15px] font-semibold text-foreground">No pending approvals</p>
       <p className="max-w-sm text-sm text-muted-foreground">When {name} wants to pay someone, it shows up here first.</p>
       <Button variant="outline" size="sm" nativeButton={false} render={<Link href={mindHref(mindId, "wallet")} />}>
         Change limits
@@ -298,7 +298,7 @@ function RecentDecisions({ mindId }: { mindId: string }) {
       {isPending ? (
         <Skeleton className="mt-2 h-24 w-full" />
       ) : isError ? (
-        <p className="py-3 text-[13px] text-muted-foreground">Couldn&apos;t load the payments.</p>
+        <p className="py-3 text-[13px] text-muted-foreground">Could not load the payments.</p>
       ) : !payments?.length ? (
         <p className="py-3 text-[13px] text-muted-foreground">No payments yet.</p>
       ) : (
