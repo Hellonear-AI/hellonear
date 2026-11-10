@@ -1,7 +1,7 @@
 // The system prompt built from a Mind's config. No network, LLM or database.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { WRITING_STYLE_RULE, buildInstructions, mindSchema, resourceId, skillsLine } from '../src/mind.ts'
+import { LANGUAGE_RULE, SMALL_TALK_RULE, WRITING_STYLE_RULE, buildInstructions, mindSchema, resourceId, skillsLine } from '../src/mind.ts'
 
 test('every Mind is told not to use em or en dashes', () => {
   for (const templateId of ['payments-mind', 'email-manager', 'general-assistant']) {
@@ -41,4 +41,27 @@ test('the owner\'s time zone goes into the prompt with its offset (#124)', () =>
   const mind = mindSchema.parse({ templateId: 't', name: 'Tz', soul: { identity: 'x' } })
   assert.match(buildInstructions(mind, { timeZone: 'Asia/Jakarta' }), /Asia\/Jakarta \(UTC\+07:00 now\)/)
   assert.ok(!/time zone is/.test(buildInstructions(mind)), 'no zone, no line')
+})
+
+test('every Mind answers greetings and small talk without tools, and still calls them when asked (#205)', () => {
+  for (const templateId of ['payments-mind', 'email-manager', 'general-assistant']) {
+    const mind = mindSchema.parse({ templateId, name: 'Penny', soul: { identity: 'You help.' } })
+    assert.ok(buildInstructions(mind).includes(SMALL_TALK_RULE))
+  }
+  assert.match(SMALL_TALK_RULE, /"halo"/)
+  assert.match(SMALL_TALK_RULE, /no tool calls: do not load a skill, check the time, read the calendar or inbox, or update your memory/)
+  // Real requests still get their tools: "what time is it", "plan my day", a payment.
+  assert.match(SMALL_TALK_RULE, /Call a tool only when the message asks for something that tool does \(the time, the calendar, a plan for the day, a payment\)/)
+})
+
+test('every Mind replies in the owner\'s language with standard spelling, KBBI words for Indonesian (#205)', () => {
+  const mind = mindSchema.parse({ templateId: 'payments-mind', name: 'Penny', soul: { identity: 'You help.' } })
+  const prompt = buildInstructions(mind)
+  assert.ok(prompt.includes(LANGUAGE_RULE))
+  assert.match(LANGUAGE_RULE, /language of the owner's last message/)
+  assert.match(LANGUAGE_RULE, /never invent words/)
+  assert.match(LANGUAGE_RULE, /KBBI/)
+  assert.match(LANGUAGE_RULE, /short and simple/)
+  // Both house rules sit with the writing style rule, before the skills line.
+  assert.ok(prompt.indexOf(LANGUAGE_RULE) < prompt.indexOf('Your skills') && prompt.indexOf(SMALL_TALK_RULE) < prompt.indexOf('Your skills'))
 })
