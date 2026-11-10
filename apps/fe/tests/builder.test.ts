@@ -371,6 +371,21 @@ describe("Ifs anywhere and End (#164)", () => {
     expect(insertBlock(out, [{ at: "low", h: "then" }], 0, note).find((b) => b.id === "low")).toMatchObject({ then: [note] })
   })
 
+  it("walks the tree in reading order and rebuilds it from the bottom up", async () => {
+    const { walk, mapTree, allBlocks, updateBlock, findBlock } = await import("@/modules/builder/data/draft")
+    const seen: string[] = []
+    walk(tree.line, (b, path) => void seen.push(`${path.map((p) => p.h).join("/")}:${b.id}`))
+    expect(seen).toEqual([":bal", ":low", "then:very", "then/then:urgent", "then/then:e1", "then/else:note", "else:time", ":after"])
+    // It stops at the first hit.
+    const stops: string[] = []
+    expect(walk(tree.line, (b) => (stops.push(b.id), b.id === "very"))).toBe(true)
+    expect(stops).toEqual(["bal", "low", "very"])
+    expect(allBlocks(mapTree(tree.line, (l) => l.filter((b) => b.kind !== "end"))).map((b) => b.id)).not.toContain("e1")
+    // A patch that brings its own ways wins over the rebuilt ones (Swap Yes and No).
+    const swapped = updateBlock(tree.line, "low", { then: low.else, else: low.then })
+    expect(findBlock(swapped, "low")).toMatchObject({ then: [time], else: low.then })
+  })
+
   it("Autopilot lists the tree: each If with its ways, then what follows", async () => {
     const { jobTree, flatSteps } = await import("@/modules/autopilot/data/steps")
     const t = jobTree(toCanvas(tree), "Omaga")
@@ -379,6 +394,61 @@ describe("Ifs anywhere and End (#164)", () => {
     expect(lowStep.then?.[0].then?.map((s) => s.id)).toEqual(["urgent", "e1"])
     expect(lowStep.else?.map((s) => s.id)).toEqual(["time"])
     expect(flatSteps(t).find((s) => s.id === "e1")?.title).toBe("End")
+  })
+})
+
+describe("engine issues pinned to their blocks (B1.3)", () => {
+  it("finds the block by its id or its index, and drops the id from the words", async () => {
+    const { engineIssues } = await import("@/modules/builder/data/issues")
+    const ids = ["start", "ask-1", "check-1"]
+    expect(
+      engineIssues(
+        [
+          { path: "nodes", message: "node ask-1: prompt is empty" },
+          { path: "nodes.2.data", message: "bad op" },
+          { message: "node gone-9: unknown" },
+          {},
+        ],
+        ids
+      )
+    ).toEqual([
+      { node: "ask-1", text: "prompt is empty" },
+      { node: "check-1", text: "bad op" },
+      { node: null, text: "unknown" },
+      { node: null, text: "This job contains something that is not allowed." },
+    ])
+  })
+})
+
+describe("places, slots and Test run lights", () => {
+  const bal: Block = { id: "bal", kind: "tool", tool: "near_view_account", args: { accountId: "a.testnet" } }
+  const check: IfBlock = { id: "check", kind: "if", stepId: "bal", field: "balanceNear", op: "lt", right: "5", then: [{ id: "note", kind: "agent", prompt: "Low" }], else: [] }
+
+  it("builds and reads a way's slot id, and where it adds", async () => {
+    const { parseSlot, slotId, slotPlace, placeKey, takesMore } = await import("@/modules/builder/data/places")
+    expect(parseSlot(slotId("check", "then"))).toEqual({ ifId: "check", h: "then" })
+    expect(parseSlot("start")).toBeNull()
+    expect(parseSlot(null)).toBeNull()
+    expect(slotPlace([bal, check], check, "then")).toEqual({ path: [{ at: "check", h: "then" }], index: 1 })
+    expect(placeKey({ path: [{ at: "check", h: "else" }], index: 0 })).toBe("check:else#0")
+    expect(takesMore([bal])).toBe(true)
+    expect(takesMore([bal, check])).toBe(false)
+  })
+
+  it("starts a new If on the first value it can compare", async () => {
+    const { newBlock } = await import("@/modules/builder/data/blocks")
+    expect(newBlock("if", [bal], { path: [], index: 1 }, { name: "Omaga", address: "" }, "")).toMatchObject({ kind: "if", stepId: "bal", field: "balanceNear", op: "lt" })
+    expect(newBlock("tool", [], { path: [], index: 0 }, { name: "Omaga", address: "o.testnet" }, "o.testnet")).toMatchObject({ kind: "tool", args: { accountId: "o.testnet" } })
+  })
+
+  it("lights an If from the way that ran, or from carrying on after a run that went well", async () => {
+    const { withIf, finishedWell } = await import("@/modules/builder/data/testRun")
+    expect(withIf({ bal: { status: "ok" }, note: { status: "ok" } }, [bal, check], false).check).toEqual({ status: "ok", note: "Yes" })
+    expect(withIf({ bal: { status: "ok" } }, [bal, check], true).check).toEqual({ status: "ok", note: "Carried on" })
+    expect(withIf({ bal: { status: "ok" } }, [bal, check], false).check).toBeUndefined()
+    expect(finishedWell({ running: false, nodes: {}, status: "ok", failed: false })).toBe(true)
+    expect(finishedWell({ running: false, nodes: {}, status: "failed", failed: false })).toBe(false)
+    expect(finishedWell(null)).toBe(false)
   })
 })
 

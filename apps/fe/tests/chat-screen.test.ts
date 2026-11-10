@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { ApiError } from "@/lib/api"
-import { dayLabel, failureText } from "@/modules/chat/components/ChatScreen"
-import { refusalReasons } from "@/modules/chat/components/RunCards"
+import { dayLabel, failureText } from "@/modules/chat/data/thread"
+import { refusalReasons } from "@/modules/wallet/data/checks"
 
 describe("refusalReasons", () => {
   const policy = { perTransactionNear: "2", whitelist: ["shop.testnet"], transactionTypes: ["transfer"], boundToThisWallet: true }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { attackCopy, KNOWN_ATTACKS } from "@/modules/attack/data/attacks"
 import { attackOutcome, verdictIn } from "@/modules/attack/data/outcome"
-import type { RunEvent } from "@/modules/chat/data/events"
+import type { RunEvent } from "@/modules/runs/data/events"
 
 let seq = 0
 const ev = (type: string, extra: Record<string, unknown> = {}): RunEvent =>

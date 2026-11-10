@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { compareNear } from "@/lib/near"
 import { addressError, DEFAULT_PER_PAYMENT, MAX_ADDRESSES, normalizeAccount, perPaymentError } from "@/modules/minds/data/limits"
-import type { ApiWallet } from "@/modules/minds/api"
+import type { ApiWallet } from "@/modules/wallet/api"
 import { walletActionText } from "@/modules/wallet/data/errors"
 import { useSaveLimits } from "@/modules/wallet/hooks/useWalletActions"
 

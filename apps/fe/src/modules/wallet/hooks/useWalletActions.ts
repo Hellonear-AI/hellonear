@@ -2,31 +2,10 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { compareNear, toYocto } from "@/lib/near"
-import { mindsApi, type ApiWallet } from "@/modules/minds/api"
+import { walletApi, type ApiWallet } from "@/modules/wallet/api"
 import { mindKeys } from "@/modules/minds/hooks/useMinds"
+import { OwnerActionError, ownerStep, readWalletUntil } from "@/modules/wallet/data/ownerAction"
 import { useOwnerTransaction } from "@/modules/wallet/hooks/useOwnerTransaction"
-
-/** Where an owner action stopped: preparing it, the owner's signature, or reading the wallet back. */
-export class WalletActionError extends Error {
-  constructor(
-    readonly step: "build" | "sign" | "check",
-    readonly cause: unknown
-  ) {
-    super(`Wallet action failed at ${step}`)
-  }
-}
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
-/** Read the wallet until `done` says the change shows (OutLayer can take a moment). */
-async function readBack(mindId: string, done: (w: ApiWallet) => boolean): Promise<ApiWallet> {
-  for (let i = 0; i < 6; i++) {
-    const wallet = await mindsApi.wallet(mindId).catch(() => null)
-    if (wallet && done(wallet)) return wallet
-    await sleep(1500)
-  }
-  throw new WalletActionError("check", null)
-}
 
 export type Limits = { perTransactionNear: string; whitelist: string[] }
 
@@ -48,19 +27,12 @@ export function useSaveLimits(mindId: string) {
   const sign = useOwnerTransaction()
   return useMutation({
     mutationFn: async ({ limits, createWallet }: { limits: Limits; createWallet: boolean }) => {
-      let transaction
-      try {
-        if (createWallet) await mindsApi.createWallet(mindId)
-        transaction = await mindsApi.policyTransaction(mindId, limits)
-      } catch (err) {
-        throw new WalletActionError("build", err)
-      }
-      try {
-        await sign(transaction)
-      } catch (err) {
-        throw new WalletActionError("sign", err)
-      }
-      return readBack(mindId, (w) => sameLimits(w.policy, limits))
+      const transaction = await ownerStep("build", async () => {
+        if (createWallet) await walletApi.createWallet(mindId)
+        return walletApi.policyTransaction(mindId, limits)
+      })
+      await ownerStep("sign", () => sign(transaction))
+      return readWalletUntil(mindId, (w) => sameLimits(w.policy, limits))
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: mindKeys.wallet(mindId) }),
   })
@@ -76,13 +48,9 @@ export function useAddFunds(mindId: string) {
   return useMutation({
     mutationFn: async ({ address, amountNear, balanceBefore }: { address: string; amountNear: string; balanceBefore: string }) => {
       const deposit = toYocto(amountNear)
-      if (!deposit) throw new WalletActionError("build", new Error("Not an amount"))
-      try {
-        await sign({ receiverId: address, actions: [{ type: "Transfer", params: { deposit } }] })
-      } catch (err) {
-        throw new WalletActionError("sign", err)
-      }
-      return readBack(mindId, (w) => compareNear(w.balanceNear, balanceBefore) === 1)
+      if (!deposit) throw new OwnerActionError("build", new Error("Not an amount"))
+      await ownerStep("sign", () => sign({ receiverId: address, actions: [{ type: "Transfer", params: { deposit } }] }))
+      return readWalletUntil(mindId, (w) => compareNear(w.balanceNear, balanceBefore) === 1)
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: mindKeys.wallet(mindId) })

@@ -2,7 +2,7 @@
 // arguments (engine/src/tools.ts input schemas). A meeting emails other people in the owner's
 // name, so its card says who and whether there is a Meet link before the owner approves (#97).
 
-import type { ToolStep } from "@/modules/chat/data/events"
+import type { ToolStep } from "@/modules/runs/data/events"
 
 export type ApprovalDetails = { title: string; lines: { label: string; value: string }[]; note?: string }
 

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { ApiError } from "@/lib/api"
 import { authApi } from "@/modules/auth/api"
-import { demoError, walletError } from "@/modules/auth/components/SignInScreen"
+import { demoError, walletError } from "@/modules/auth/data/errors"
 import { lockedReason, type LockedAction } from "@/modules/auth/components/TryOutLockedDialog"
 
 afterEach(() => vi.unstubAllGlobals())

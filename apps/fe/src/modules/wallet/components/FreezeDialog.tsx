@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { isApiCode } from "@/lib/api"
 import { clockTime } from "@/lib/format"
-import { WrongAccountError } from "@/modules/wallet/hooks/useOwnerTransaction"
-import { FreezeError, useFreeze } from "@/modules/wallet/hooks/useFreeze"
+import { OwnerActionError, wrongAccountText } from "@/modules/wallet/data/ownerAction"
+import { useFreeze } from "@/modules/wallet/hooks/useFreeze"
 
 // W3 Freeze: ask (W3.1), wait for Meteor (W3.2, can't be closed by accident), done (W3.3);
 // and the unfreeze ask (W3.4). Copy from the design; the "unfrozen" result isn't designed.
@@ -125,10 +125,9 @@ export function FreezeDialog({
 
 export function freezeErrorText(err: unknown, freeze: boolean): string {
   const what = freeze ? "frozen" : "unfrozen"
-  if (err instanceof FreezeError) {
-    if (err.step === "sign" && err.cause instanceof WrongAccountError) {
-      return `Your wallet is signed in as ${err.cause.actual.join(", ") || "another account"}. Switch it to ${err.cause.expected}, then try again.`
-    }
+  if (err instanceof OwnerActionError) {
+    const wrong = err.step === "sign" ? wrongAccountText(err) : null
+    if (wrong) return wrong
     if (err.step === "sign") return `Meteor didn't sign, so the wallet wasn't ${what}.`
     if (err.step === "check") return `Meteor signed, but the wallet does not show the change yet. Please check again.`
     if (isApiCode(err.cause, "demo_not_allowed")) return "Connect a wallet to do this."

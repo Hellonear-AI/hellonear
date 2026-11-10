@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { mindsApi } from "@/modules/minds/api"
+import { walletApi } from "@/modules/wallet/api"
 import { addressError, checkLimits, perPaymentError } from "@/modules/minds/data/limits"
 
 afterEach(() => vi.unstubAllGlobals())
@@ -48,17 +48,17 @@ describe("checkLimits", () => {
 describe("mindsApi wallet set-up", () => {
   it("treats an existing wallet (409 wallet_exists) as created", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({ error: "wallet_exists" }, { status: 409 })))
-    await expect(mindsApi.createWallet("m1")).resolves.toBeUndefined()
+    await expect(walletApi.createWallet("m1")).resolves.toBeUndefined()
   })
   it("still throws other wallet errors", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({ error: "outlayer_error" }, { status: 502 })))
-    await expect(mindsApi.createWallet("m1")).rejects.toMatchObject({ code: "outlayer_error" })
+    await expect(walletApi.createWallet("m1")).rejects.toMatchObject({ code: "outlayer_error" })
   })
   it("posts the limits and returns the transaction to sign", async () => {
     const transaction = { receiverId: "outlayer.testnet", actions: [] }
     const fetchMock = vi.fn(async () => Response.json({ transaction }))
     vi.stubGlobal("fetch", fetchMock)
-    await expect(mindsApi.policyTransaction("m1", { perTransactionNear: "2", whitelist: ["shop.testnet"] })).resolves.toEqual(transaction)
+    await expect(walletApi.policyTransaction("m1", { perTransactionNear: "2", whitelist: ["shop.testnet"] })).resolves.toEqual(transaction)
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe("/api/v1/minds/m1/wallet/policy")
     expect(JSON.parse(init.body as string)).toEqual({ perTransactionNear: "2", whitelist: ["shop.testnet"] })

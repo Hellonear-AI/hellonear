@@ -4,88 +4,31 @@
 // No "·" separators: the result is set apart by its colour.
 
 import { formatNear } from "@/lib/format"
-import type { ToolStep } from "@/modules/chat/data/events"
+import type { ToolStep } from "@/modules/runs/data/events"
+import { TOOLS, type StepOrb } from "@/modules/runs/data/tools"
 import { skillCopy } from "@/modules/skills/data/skills"
 
-const LABELS: Record<string, [doing: string, done: string]> = {
-  get_balance: ["Checking the balance", "Checked the balance"],
-  list_payments: ["Looking at past payments", "Looked at past payments"],
-  send_payment: ["Sending a payment", "Sent a payment"],
-  near_view_account: ["Looking up a NEAR account", "Looked up"],
-  http_request: ["Calling a website", "Called a website"],
-  get_time: ["Checking the time", "Checked the time"],
-  gmail_list_emails: ["Reading your inbox", "Read your inbox"],
-  gmail_read_email: ["Reading an email", "Read an email"],
-  gmail_create_draft: ["Saving a draft in Gmail", "Saved a draft in Gmail"],
-  gmail_organize: ["Tidying your inbox", "Tidied your inbox"],
-  googlecalendar_list_events: ["Checking your calendar", "Checked your calendar"],
-  googlecalendar_create_event: ["Adding to your calendar", "Added to your calendar"],
-  googlecalendar_create_meeting: ["Scheduling a meeting", "Scheduled a meeting"],
-  mail_send: ["Sending an email", "Sent an email"],
-  mail_list: ["Checking its inbox", "Checked its inbox"],
-  mail_read: ["Reading an email", "Read an email"],
-  // Paid data (#150): the first call gets a price, the second the report.
-  buy_data: ["Buying a report", "Asked for a report"],
-  skill: ["Picking up a skill", "Picked up a skill"],
-  skill_read: ["Picking up a skill", "Picked up a skill"],
-  skill_search: ["Looking for a skill", "Looked for a skill"],
-  // Mastra's working memory (engine/src/mastra.ts): what the Mind keeps about the owner between chats.
-  updateWorkingMemory: ["Updating its memory", "Updated its memory"],
-}
 
 /** Plain words for what a tool is doing (an approval card's title); unknown tools get a neutral line. */
 export function toolLabel(tool: string): string {
-  return LABELS[tool]?.[0] ?? "Using a tool"
+  return TOOLS[tool]?.doing ?? "Using a tool"
 }
 
-/**
- * Which thinking orb a step shows while it runs, by what kind of work it is (Ancung, 10 Nov), so
- * the motion says what the Mind is doing. Only the free states of thinking-orbs.
- */
-export type StepOrb = "searching" | "connecting" | "composing" | "working" | "solving" | "breathing" | "listening"
 
-const ORB: Record<string, StepOrb> = {
-  // Reading and looking things up: a scan sweeps a globe.
-  gmail_list_emails: "searching",
-  gmail_read_email: "searching",
-  mail_list: "searching",
-  mail_read: "searching",
-  googlecalendar_list_events: "searching",
-  near_view_account: "searching",
-  get_balance: "searching",
-  list_payments: "searching",
-  skill_search: "searching",
-  skill: "searching",
-  skill_read: "searching",
-  // Reaching a website or an API: a constellation wires itself.
-  http_request: "connecting",
-  // Writing: an undulating sash.
-  gmail_create_draft: "composing",
-  mail_send: "composing",
-  mail_send_to_owner: "composing",
-  // Acting on something: particles on orbits.
-  send_payment: "working",
-  googlecalendar_create_event: "working",
-  googlecalendar_create_meeting: "working",
-  googlecalendar_block_time: "working",
-  gmail_organize: "working",
-  // Working something out.
-  get_time: "solving",
-  add_numbers: "solving",
-  // Remembering: a slow breathing ring.
-  updateWorkingMemory: "breathing",
-}
 
+export type { StepOrb }
+
+/** Which orb a running step shows; waiting for the owner listens. */
 export function stepOrb(step: Pick<ToolStep, "tool" | "status">): StepOrb {
   // Waiting for the owner: a waveform rolling, as if listening.
   if (step.status === "awaiting_approval") return "listening"
-  return ORB[step.tool] ?? "working"
+  return TOOLS[step.tool]?.orb ?? "working"
 }
 
 export type StepText = { label: string; detail: string | null; tone: "doing" | "done" | "failed" | "stopped" }
 
 export function stepText(step: ToolStep): StepText {
-  const [doing, done] = LABELS[step.tool] ?? ["Using a tool", "Used a tool"]
+  const { doing, done } = TOOLS[step.tool] ?? { doing: "Using a tool", done: "Used a tool" }
   if (step.status === "running" || step.status === "awaiting_approval") return { label: `${doing}...`, detail: null, tone: "doing" }
   if (step.status === "ok") return { label: done, detail: summary(step), tone: "done" }
   if (step.status === "declined") return { label: doing, detail: "you declined", tone: "failed" }

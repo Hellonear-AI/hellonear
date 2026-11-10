@@ -12,8 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatNear } from "@/lib/format"
 import { TryOutLockedDialog, useTryOutLock, type LockedAction } from "@/modules/auth/components/TryOutLockedDialog"
-import { useSession } from "@/modules/auth/hooks/useSession"
-import type { ApiWallet } from "@/modules/minds/api"
+import { useIsTryOut } from "@/modules/auth/hooks/useSession"
+import type { ApiWallet } from "@/modules/wallet/api"
 import { useMind, useMindWallet, usePayments } from "@/modules/minds/hooks/useMinds"
 import { activityLine, filterActivity, spentToday, type ActivityFilter } from "@/modules/wallet/data/activity"
 import { shortAddress } from "@/modules/wallet/data/address"
@@ -33,7 +33,7 @@ export function WalletScreen({ mindId }: { mindId: string }) {
   const mind = useMind(mindId).data
   const walletQuery = useMindWallet(mindId)
   const wallet = walletQuery.data
-  const demo = Boolean(useSession().data?.demo)
+  const demo = useIsTryOut()
   const [open, setOpen] = useState<Open>(null)
   // A new key per opening, so each dialog starts from what is saved.
   const [opened, setOpened] = useState(0)

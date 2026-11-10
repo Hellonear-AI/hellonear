@@ -1,28 +1,21 @@
 // What happened to an approve or decline (design A1.3), as the toast shows it.
 
 import { isApiCode } from "@/lib/api"
-import { paymentOf, type RunView } from "@/modules/chat/data/events"
-import { stepText } from "@/modules/chat/data/steps"
+import { paymentOf, pendingStep, type RunView } from "@/modules/runs/data/events"
+import { stepText } from "@/modules/runs/data/steps"
+import { TOOLS } from "@/modules/runs/data/tools"
 
 export type Answer = { runId: string; toolCallId: string; action: "approve" | "decline"; tool: string; args: unknown }
 
 export type Outcome = { kind: "sending" | "sent" | "declined" | "blocked" | "failed"; title: string; detail?: string; txHash?: string }
 
-/** What the owner said yes or no to, when it isn't a payment ("Declining the meeting"). */
-const THING: Record<string, string> = {
-  googlecalendar_create_event: "the event",
-  googlecalendar_create_meeting: "the meeting",
-  mail_send: "the email",
-  gmail_create_draft: "the draft",
-  gmail_organize: "the inbox clean-up",
-}
 
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
 export function answerOutcome(answer: Answer, run: { view: RunView; streaming: boolean; failed: unknown }): Outcome {
   const step = run.view.tools.find((t) => t.toolCallId === answer.toolCallId)
-  const payment = paymentOf(step ?? { toolCallId: answer.toolCallId, tool: answer.tool, status: "awaiting_approval", args: answer.args, result: undefined })
-  const what = payment ? `${payment.amountNear} NEAR to ${payment.to}` : (THING[answer.tool] ?? "the request")
+  const payment = paymentOf(step ?? pendingStep(answer))
+  const what = payment ? `${payment.amountNear} NEAR to ${payment.to}` : (TOOLS[answer.tool]?.thing ?? "the request")
   const nothing = payment ? "No payment was sent." : "No changes were made."
 
   if (run.streaming) {

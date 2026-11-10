@@ -5,6 +5,7 @@ import { mindKeys } from "@/lib/queryKeys"
 import { shortWhen } from "@/lib/format"
 import { useSession } from "@/modules/auth/hooks/useSession"
 import { mindsApi } from "@/modules/minds/api"
+import { walletApi } from "@/modules/wallet/api"
 import { cleanThreadTitle, type Mind, type RecentChat } from "@/modules/minds/data/minds"
 
 // Every screen reads Minds through these hooks, so the shared React Query cache is the
@@ -31,7 +32,7 @@ export function useMinds() {
           templateId: m.templateId,
           skills: m.skills,
           // A wallet that can't be read shouldn't hide the Mind: show it without a balance.
-          balanceNear: await mindsApi.wallet(m.id).then(
+          balanceNear: await walletApi.wallet(m.id).then(
             (w) => (w ? w.balanceNear : null),
             () => undefined
           ),
@@ -51,7 +52,7 @@ export function useApprovals(mindId: string) {
   return useQuery({
     queryKey: mindKeys.approvals(mindId),
     enabled: useSignedIn(),
-    queryFn: () => mindsApi.approvals(mindId),
+    queryFn: () => walletApi.approvals(mindId),
     select: (approvals) => [...approvals].sort((a, b) => a.requestedAt.localeCompare(b.requestedAt)),
     refetchInterval: 30_000,
   })
@@ -62,7 +63,7 @@ export function usePayments(mindId: string, limit = 5) {
   return useQuery({
     queryKey: [...mindKeys.payments(mindId), limit],
     enabled: useSignedIn(),
-    queryFn: () => mindsApi.payments(mindId, limit),
+    queryFn: () => walletApi.payments(mindId, limit),
   })
 }
 
@@ -71,7 +72,7 @@ export function useApprovalsCount(mindId: string) {
   return useQuery({
     queryKey: mindKeys.approvals(mindId),
     enabled: useSignedIn(),
-    queryFn: () => mindsApi.approvals(mindId),
+    queryFn: () => walletApi.approvals(mindId),
     select: (approvals) => approvals.length,
     refetchInterval: 30_000,
   })
@@ -82,7 +83,7 @@ export function useMindWallet(mindId: string) {
   return useQuery({
     queryKey: mindKeys.wallet(mindId),
     enabled: useSignedIn(),
-    queryFn: () => mindsApi.wallet(mindId),
+    queryFn: () => walletApi.wallet(mindId),
     staleTime: 30_000,
   })
 }
@@ -102,6 +103,15 @@ export function useRecentChats(mindId: string) {
 }
 
 /** The starter templates for Choose a Mind (`GET /templates`, cached 60 s by the backend). */
+/** The whole Mind (soul, model), which the shell's list leaves out (Settings). */
+export function useFullMind(mindId: string) {
+  return useQuery({
+    queryKey: mindKeys.full(mindId),
+    enabled: useSignedIn(),
+    queryFn: async () => (await mindsApi.list()).find((m) => m.id === mindId) ?? null,
+  })
+}
+
 export function useTemplates() {
   return useQuery({
     queryKey: mindKeys.templates,

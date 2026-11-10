@@ -2,7 +2,7 @@
 
 import { useNearWallet } from "near-connect-hooks"
 import { useSession } from "@/modules/auth/hooks/useSession"
-import type { OwnerTransaction } from "@/modules/minds/api"
+import type { OwnerTransaction } from "@/modules/wallet/api"
 
 /** The wallet is signed in to another account than the HelloNear session. */
 export class WrongAccountError extends Error {

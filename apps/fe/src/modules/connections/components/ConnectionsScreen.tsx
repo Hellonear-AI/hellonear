@@ -12,14 +12,15 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { shortWhen } from "@/lib/format"
 import { TryOutLockedDialog, useTryOutLock } from "@/modules/auth/components/TryOutLockedDialog"
-import { useSession } from "@/modules/auth/hooks/useSession"
+import { useIsTryOut } from "@/modules/auth/hooks/useSession"
 import type { ApiSecret } from "@/modules/connections/api"
 import { DeleteKeyDialog, DisconnectDialog, KeyDialog } from "@/modules/connections/components/KeyDialogs"
-import { useSecrets, useDisconnect } from "@/modules/connections/hooks/useKeys"
-import type { ApiConnection } from "@/modules/minds/api"
+import { useSecrets } from "@/modules/connections/hooks/useKeys"
+import { useDisconnect } from "@/modules/connections/hooks/useConnections"
+import type { ApiConnection } from "@/modules/connections/api"
 import { useMind } from "@/modules/minds/hooks/useMinds"
 import { TOOLKIT_NAME } from "@/modules/skills/data/skills"
-import { connectionStatus, useConnect, useConnections } from "@/modules/skills/hooks/useSkills"
+import { connectionStatus, useConnect, useConnections } from "@/modules/connections/hooks/useConnections"
 
 // `paused` and `lost` say what stops when the app's connection ends (Google Meet read like the
 // calendar before, 10 Nov).
@@ -53,7 +54,7 @@ type Open = { kind: "add" } | { kind: "replace"; secret: ApiSecret } | { kind: "
  */
 export function ConnectionsScreen({ mindId }: { mindId: string }) {
   const mind = useMind(mindId).data
-  const demo = Boolean(useSession().data?.demo)
+  const demo = useIsTryOut()
   const [watching, setWatching] = useState<ApiConnection["toolkit"] | null>(null)
   const connections = useConnections({ watching })
   const secrets = useSecrets()

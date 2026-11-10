@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { chatApi } from "@/modules/chat/api"
-import { foldRun, paymentOf, type RunEvent } from "@/modules/chat/data/events"
-import { toolLabel } from "@/modules/chat/data/steps"
+import { foldRun, paymentOf, type RunEvent } from "@/modules/runs/data/events"
+import { toolLabel } from "@/modules/runs/data/steps"
 import { toTurns } from "@/modules/chat/hooks/useThread"
 
 afterEach(() => vi.unstubAllGlobals())

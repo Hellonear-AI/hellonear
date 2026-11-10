@@ -4,8 +4,8 @@ import { CheckIcon, ListChecksIcon, ChevronDownIcon, SquareIcon, XIcon } from "l
 import { ThinkingOrb } from "thinking-orbs"
 import { useEffect, useId, useState, type ReactNode } from "react"
 import { cn } from "cn"
-import type { ToolStep } from "@/modules/chat/data/events"
-import { duration, stepDuration, stepOrb, stepText } from "@/modules/chat/data/steps"
+import type { ToolStep } from "@/modules/runs/data/events"
+import { duration, stepDuration, stepOrb, stepText } from "@/modules/runs/data/steps"
 
 // The Mind's work inside its reply (Ancung, 9 Nov, instead of a separate live view): one quiet
 // row per tool and per stretch of reasoning. Running rows shimmer; finished rows open to show

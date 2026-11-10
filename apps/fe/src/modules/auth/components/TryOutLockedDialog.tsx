@@ -5,7 +5,7 @@ import { useState } from "react"
 import { Spinner } from "@/components/elements/Spinner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
-import { walletError } from "@/modules/auth/components/SignInScreen"
+import { walletError } from "@/modules/auth/data/errors"
 import { useSwitchToWallet } from "@/modules/auth/hooks/useSession"
 
 /** Owner actions a try-out can't do (the backend answers them with 403 `demo_not_allowed`). */

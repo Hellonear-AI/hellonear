@@ -9,8 +9,8 @@ import { ApiError, isApiCode } from "@/lib/api"
 import { useLeaveTryOut, useSession, useSignOut } from "@/modules/auth/hooks/useSession"
 import { checkLimits, DEFAULT_PER_PAYMENT } from "@/modules/minds/data/limits"
 import { useCreateMind, useMinds } from "@/modules/minds/hooks/useMinds"
-import { SetUpError, useSetUpMind } from "@/modules/minds/hooks/useSetUpMind"
-import { WrongAccountError } from "@/modules/wallet/hooks/useOwnerTransaction"
+import { useSetUpMind } from "@/modules/minds/hooks/useSetUpMind"
+import { OwnerActionError, wrongAccountText } from "@/modules/wallet/data/ownerAction"
 import { ChooseMindStep } from "@/modules/minds/components/ChooseMindStep"
 import { SetLimitsStep } from "@/modules/minds/components/SetLimitsStep"
 import { MindReady } from "@/modules/minds/components/MindReady"
@@ -132,11 +132,9 @@ export function NewMindFlow() {
 }
 
 function setUpNotice(err: unknown, name: string): Notice {
-  if (err instanceof SetUpError && err.step === "sign") {
-    if (err.cause instanceof WrongAccountError) {
-      const actual = err.cause.actual.join(", ") || "another account"
-      return { text: `Your wallet is signed in as ${actual}. Switch it to ${err.cause.expected}, then try again.`, retry: "Try again" }
-    }
+  if (err instanceof OwnerActionError && err.step === "sign") {
+    const wrong = wrongAccountText(err)
+    if (wrong) return { text: wrong, retry: "Try again" }
     // The wallet sent the transaction but the contract refused it (it carries the execution error).
     if (/ExecutionError|FunctionCallError|publishing_transaction_failed/.test(errorText(err.cause))) {
       return {
@@ -149,10 +147,10 @@ function setUpNotice(err: unknown, name: string): Notice {
       retry: "Try again",
     }
   }
-  if (err instanceof SetUpError && err.step === "check") {
+  if (err instanceof OwnerActionError && err.step === "check") {
     return { text: "Meteor signed, but the limits do not show yet. Please check again.", retry: "Check again" }
   }
-  const cause = err instanceof SetUpError ? err.cause : err
+  const cause = err instanceof OwnerActionError ? err.cause : err
   if (isApiCode(cause, "outlayer_error", "outlayer_unreachable")) {
     return { text: "The wallet service did not respond. No transaction was signed. Please try again later.", retry: "Try again" }
   }

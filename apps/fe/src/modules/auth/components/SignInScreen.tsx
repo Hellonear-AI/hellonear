@@ -12,8 +12,8 @@ import { Logo } from "@/components/elements/Logo"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { mindHref } from "@/components/layout/nav"
-import { ApiError, isApiCode } from "@/lib/api"
-import { lastAccount, signInErrorMessage, useDemoSignIn, useSession, useSignIn } from "@/modules/auth/hooks/useSession"
+import { demoError, walletError } from "@/modules/auth/data/errors"
+import { lastAccount, useDemoSignIn, useSession, useSignIn } from "@/modules/auth/hooks/useSession"
 import { useMinds } from "@/modules/minds/hooks/useMinds"
 
 const METEOR = "meteor-wallet"
@@ -254,17 +254,4 @@ function AboutMind({ open, onOpenChange }: { open: boolean; onOpenChange: (open:
       </DialogContent>
     </Dialog>
   )
-}
-
-/** L1.3: say what happened and that nothing changed; the same button works again. */
-export function walletError(err: unknown): string {
-  if (err instanceof ApiError) return signInErrorMessage(err)
-  return "Sign-in was canceled in the wallet. No changes were made."
-}
-
-/** T1.2 and a backend without try-out mode. */
-export function demoError(err: unknown): string {
-  if (isApiCode(err, "demo_rate_limited")) return "Too many try-outs from this network. Please try again later or connect a wallet."
-  if (err instanceof ApiError && err.status === 404) return "Try-out is not available at the moment. Please connect a wallet."
-  return "Could not start a try-out. Please try again later."
 }

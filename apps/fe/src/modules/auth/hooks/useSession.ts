@@ -28,6 +28,9 @@ export function useSession() {
   })
 }
 
+/** Whether this session is a try-out (no wallet; owner actions are locked, T1.4). */
+export const useIsTryOut = () => Boolean(useSession().data?.demo)
+
 /**
  * Sign in (NEP-413): connect a wallet if none is connected (Meteor is first in the picker),
  * get a challenge, let the wallet sign exactly `{ message, recipient, nonce }`, then log in.

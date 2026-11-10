@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { formatNear } from "@/lib/format"
 import { compareNear, toYocto } from "@/lib/near"
 import { useSession } from "@/modules/auth/hooks/useSession"
-import type { ApiWallet } from "@/modules/minds/api"
+import type { ApiWallet } from "@/modules/wallet/api"
 import { ownerAvailableNear } from "@/modules/wallet/api"
 import { shortAddress } from "@/modules/wallet/data/address"
 import { walletActionText } from "@/modules/wallet/data/errors"

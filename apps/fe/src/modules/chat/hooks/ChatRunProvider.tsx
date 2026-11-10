@@ -10,7 +10,7 @@ import { isApiCode } from "@/lib/api"
 import { explorerTxUrl } from "@/lib/format"
 import { chatApi } from "@/modules/chat/api"
 import { answerOutcome, type Answer, type Outcome } from "@/modules/chat/data/answer"
-import { foldRun, type RunEvent, type RunView } from "@/modules/chat/data/events"
+import { foldRun, type RunEvent, type RunView } from "@/modules/runs/data/events"
 import { chatKeys } from "@/modules/chat/hooks/useThread"
 import { mindKeys } from "@/modules/minds/hooks/useMinds"
 

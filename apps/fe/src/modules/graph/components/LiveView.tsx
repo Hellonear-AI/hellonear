@@ -9,9 +9,10 @@ import { graphKeys } from "@/lib/queryKeys"
 import { mindHref } from "@/components/layout/nav"
 import { api } from "@/lib/api"
 import { shortWhen, clockTime } from "@/lib/format"
-import { StepRow } from "@/modules/chat/components/ReplySteps"
-import type { RunEvent } from "@/modules/chat/data/events"
-import { stepText } from "@/modules/chat/data/steps"
+import { StepRow } from "@/modules/runs/components/ReplySteps"
+import { pendingStep, type RunEvent } from "@/modules/runs/data/events"
+import { stepText } from "@/modules/runs/data/steps"
+import { TOOLS } from "@/modules/runs/data/tools"
 import { useChatRun } from "@/modules/chat/hooks/ChatRunProvider"
 import { MindGraph } from "@/modules/graph/components/MindGraph"
 import { buildGraph, callNode, callsOf, liveStates, type GraphNode } from "@/modules/graph/data/graph"
@@ -41,13 +42,6 @@ const KIND_WORD: Record<GraphNode["kind"], string> = {
   workflow: "Autopilot job",
 }
 
-const TOOL_WORDS: Record<string, string> = {
-  near_view_account: "Looks up NEAR testnet accounts. It can only read.",
-  http_request: "Calls the websites you allowed, with your saved keys kept out of sight.",
-  get_time: "Tells the date and time on your clock.",
-  skill_search: "Finds the right skill for a task.",
-  add_numbers: "Adds numbers exactly instead of guessing.",
-}
 
 /** One plain line on what a node is. */
 function describe(n: GraphNode, mind: string): string {
@@ -70,7 +64,7 @@ function describe(n: GraphNode, mind: string): string {
           ? "Meet links for the meetings Daily planner schedules."
           : `Your ${n.label}, through the connection you made in Connections.`
     default:
-      return TOOL_WORDS[rest] ?? `A tool ${mind} can use.`
+      return TOOLS[rest]?.about ?? `A tool ${mind} can use.`
   }
 }
 
@@ -252,7 +246,7 @@ export function LiveView({ mindId, className }: { mindId: string; className?: st
                   </span>
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate text-[13px] text-foreground">
-                      {p?.amountNear && p.to ? `${p.amountNear} NEAR to ${p.to}` : stepText({ toolCallId: a.toolCallId, tool: a.tool, status: "awaiting_approval", args: a.args, result: null }).label.replace(/\.\.\.$/, "")}
+                      {p?.amountNear && p.to ? `${p.amountNear} NEAR to ${p.to}` : stepText(pendingStep(a)).label.replace(/\.\.\.$/, "")}
                     </span>
                     <span className="text-xs text-muted-foreground">Waiting for your OK</span>
                   </span>

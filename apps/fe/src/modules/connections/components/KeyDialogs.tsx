@@ -12,8 +12,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { isApiCode } from "@/lib/api"
 import type { ApiSecret } from "@/modules/connections/api"
 import { keyNameError, keyValueError, parseHosts } from "@/modules/connections/data/keys"
-import { useDeleteSecret, useDisconnect, useSaveSecret } from "@/modules/connections/hooks/useKeys"
-import type { ApiConnection } from "@/modules/minds/api"
+import { useDeleteSecret, useSaveSecret } from "@/modules/connections/hooks/useKeys"
+import { useDisconnect } from "@/modules/connections/hooks/useConnections"
+import type { ApiConnection } from "@/modules/connections/api"
 import { TOOLKIT_NAME } from "@/modules/skills/data/skills"
 
 function Field({ label, help, error, children, id }: { label: string; help: string; error: string | null; children: ReactNode; id: string }) {

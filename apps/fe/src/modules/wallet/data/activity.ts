@@ -4,7 +4,7 @@
 
 import { clockTime, formatNear, shortWhen } from "@/lib/format"
 import { compareNear } from "@/lib/near"
-import type { ApiPayment } from "@/modules/minds/api"
+import type { ApiPayment } from "@/modules/wallet/api"
 
 export type ActivityFilter = "all" | "sent" | "blocked"
 
