@@ -31,6 +31,7 @@ import { LiveView } from "@/modules/graph/components/LiveView"
 import { setLiveOpen, useLiveOpen } from "@/modules/graph/data/liveOpen"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer"
+import { MEDIA, matches, prefersReducedMotion } from "@/lib/media"
 
 /** `read`: the run's events are in, so an empty reply is known to be empty, not still loading. */
 type Shown = { key: string; message: string | null; createdAt: string; view: RunView; live: boolean; failed: unknown; read: boolean }
@@ -65,8 +66,8 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   const [liveDrawer, setLiveDrawer] = useState(false)
   const [liveAnimate, setLiveAnimate] = useState(false)
   const toggleLive = () => {
-    if (!window.matchMedia("(min-width: 768px)").matches) return setLiveDrawer(true)
-    if (!window.matchMedia("(min-width: 1280px)").matches) return setLiveSheet(true)
+    if (!matches(MEDIA.md)) return setLiveDrawer(true)
+    if (!matches(MEDIA.xl)) return setLiveSheet(true)
     setLiveAnimate(true)
     setLiveOpen(!liveOpen)
   }
@@ -625,7 +626,7 @@ function ThreadSkeleton() {
  * end puts the message where pinning put it, not under the fade. Read in the browser only.
  */
 function pinGap(): number {
-  return window.matchMedia("(min-width: 768px)").matches ? 24 : 60
+  return matches(MEDIA.md) ? 24 : 60
 }
 
 /**
@@ -668,7 +669,7 @@ function useChatScroll(ready: boolean, pinKey: string | null) {
     if (!first && (!pinKey || placed.current === pinKey)) return
     const want = pinKey ?? "end"
     placed.current = want
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    const reduce = prefersReducedMotion()
     if (pinKey && lastRef.current) {
       el.scrollTo({ top: lastRef.current.offsetTop - pinGap(), behavior: first || reduce ? "auto" : "smooth" })
     } else {
@@ -679,7 +680,7 @@ function useChatScroll(ready: boolean, pinKey: string | null) {
   const toBottom = useCallback(() => {
     const el = ref.current
     if (!el) return
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    const reduce = prefersReducedMotion()
     el.scrollTo({ top: el.scrollHeight, behavior: reduce ? "auto" : "smooth" })
   }, [])
 

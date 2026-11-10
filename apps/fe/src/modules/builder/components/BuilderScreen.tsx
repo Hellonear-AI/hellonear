@@ -25,7 +25,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { createContext, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react"
 import { cn } from "cn"
 import { mindHref } from "@/components/layout/nav"
 import { ChoiceSelect } from "@/components/elements/ChoiceSelect"
@@ -96,6 +96,8 @@ import { useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
 import { skillCopy } from "@/modules/skills/data/skills"
 import { useSetSkills, useSkillCatalog } from "@/modules/skills/hooks/useSkills"
 import { shortAddress } from "@/modules/wallet/data/address"
+import { useMediaQuery } from "@/hooks/useMediaQuery"
+import { MEDIA, matches } from "@/lib/media"
 
 const ZONE = () => browserTimeZone() ?? "UTC"
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
@@ -161,7 +163,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const [draft, setDraft] = useState<Draft>(initial)
   // The block whose settings show on the right; null closes that panel (n8n opens it on demand).
   // Desktop opens on Start's settings; phones open on the canvas, since settings are a sheet there.
-  const [selected, setSelected] = useState<string | null>(() => (window.matchMedia("(min-width: 1024px)").matches ? "start" : null))
+  const [selected, setSelected] = useState<string | null>(() => (matches(MEDIA.lg) ? "start" : null))
   const {
     frame: canvasFrame,
     content: canvasContent,
@@ -179,15 +181,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   // Phones (B1.8): a + between blocks opens "Add a block" for that place.
   const [sheetAt, setSheetAt] = useState<Place | null>(null)
   // The fold only applies from lg (1024 px); below that the list sits on top, always open.
-  const desktop = useSyncExternalStore(
-    (on) => {
-      const q = window.matchMedia("(min-width: 1024px)")
-      q.addEventListener("change", on)
-      return () => q.removeEventListener("change", on)
-    },
-    () => window.matchMedia("(min-width: 1024px)").matches,
-    () => true
-  )
+  const desktop = useMediaQuery(MEDIA.lg, true)
   // The Blocks panel folds to icons; remembered on this device.
   const [paletteOpen, setPaletteOpen] = useState(() => {
     try {
