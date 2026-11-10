@@ -256,3 +256,18 @@ describe("a reply never vanishes", () => {
     expect(turns[0].view.parts).toEqual([{ kind: "text", text: "Hello!" }])
   })
 })
+
+describe("thinking sent as text (GLM, 11 Nov)", () => {
+  it("moves what came before </think> into a thought, and keeps only the reply as text", () => {
+    const ev = (seq: number, text: string): RunEvent => ({ type: "text.delta", runId: "r", seq, ts: `2026-11-11T00:00:0${seq}Z`, text }) as RunEvent
+    const view = foldRun([ev(1, "Let me plan the trip. "), ev(2, "Bandung first.</think>"), ev(3, "Here is your plan.")])
+    expect(view.parts.map((p) => p.kind)).toEqual(["thought", "text"])
+    expect(view.parts[0]).toMatchObject({ kind: "thought", text: "Let me plan the trip. Bandung first." })
+    expect(view.text).toBe("Here is your plan.")
+  })
+  it("leaves ordinary text alone", () => {
+    const view = foldRun([{ type: "text.delta", runId: "r", seq: 1, ts: "2026-11-11T00:00:01Z", text: "Hi Ancung." } as RunEvent])
+    expect(view.text).toBe("Hi Ancung.")
+    expect(view.parts).toEqual([{ kind: "text", text: "Hi Ancung." }])
+  })
+})
