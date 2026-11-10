@@ -85,10 +85,17 @@ export function jobSteps(canvas: Canvas, mind: string, address?: string): JobSte
     seen.add(here.id)
     out.push(stepOf(here, mind, results, self))
     if (here.type === "condition") {
+      // Each way to its end: a way can be a chain of steps (#153, engine #160).
       for (const handle of ["then", "else"] as const) {
         const e = canvas.edges.find((x) => x.source === here.id && x.sourceHandle === handle)
-        const t = e && byId.get(e.target)
-        if (t) out.push({ ...stepOf(t, mind, results, self), branch: handle })
+        let t = e && byId.get(e.target)
+        while (t && !seen.has(t.id)) {
+          seen.add(t.id)
+          out.push({ ...stepOf(t, mind, results, self), branch: handle })
+          const id: string = t.id
+          const next = canvas.edges.find((x) => x.source === id)
+          t = next ? byId.get(next.target) : undefined
+        }
       }
       break
     }

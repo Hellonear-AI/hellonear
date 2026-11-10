@@ -38,8 +38,8 @@ export type Branch = {
   /** As typed; a number field turns it into a number on save. */
   right: string
   /** What runs when the check is true, or false; empty means the job stops there (as in n8n). */
-  then: Step | null
-  else: Step | null
+  then: Step[]
+  else: Step[]
 }
 
 export type Draft = {
@@ -115,7 +115,7 @@ export const INVERT: Record<Op, Op> = { eq: "ne", ne: "eq", lt: "gte", gte: "lt"
  * can be the one that stops (n8n leaves an output unconnected; Ancung, 10 Nov).
  */
 export function engineBranch(b: Branch): Branch {
-  return !b.then && b.else ? { ...b, op: INVERT[b.op], then: b.else, else: null } : b
+  return !b.then.length && b.else.length ? { ...b, op: INVERT[b.op], then: b.else, else: [] } : b
 }
 
 export function toCanvas(d: Draft): Canvas {
@@ -128,13 +128,12 @@ export function toCanvas(d: Draft): Canvas {
     const y = (d.steps.length + 1) * 140
     nodes.push({ id: b.id, type: "condition", position: pos(0, y), data: { left: ref(b.stepId, b.field), op: b.op, right: rightValue(b, d.steps) } })
     edges.push({ source: order[order.length - 1], target: b.id })
-    if (b.then) {
-      nodes.push(stepNode(b.then, -160, y + 140))
-      edges.push({ source: b.id, target: b.then.id, sourceHandle: "then" })
-    }
-    if (b.else) {
-      nodes.push(stepNode(b.else, 160, y + 140))
-      edges.push({ source: b.id, target: b.else.id, sourceHandle: "else" })
+    // Each way is a chain (#153, engine #160): the If to its first step, then step to step.
+    for (const [h, x] of [["then", -160], ["else", 160]] as const) {
+      b[h].forEach((st, i) => {
+        nodes.push(stepNode(st, x, y + 140 * (i + 1)))
+        edges.push(i === 0 ? { source: b.id, target: st.id, sourceHandle: h } : { source: b[h][i - 1].id, target: st.id })
+      })
     }
   }
   return { name: d.name.trim(), nodes, edges }
@@ -176,13 +175,22 @@ export function fromCanvas(c: Canvas, fallbackZone: string): Draft | null {
     if (n.type === "condition") {
       const m = n.data.left.match(/^\{\{\s*steps\.([\w-]+)\.(\w+)\s*\}\}$/)
       if (!m) return null
-      const ending = (h: "then" | "else") => {
+      // A way is a chain to its end; undefined when it holds something the Builder can't edit.
+      const ending = (h: "then" | "else"): Step[] | undefined => {
         const e = c.edges.find((x) => x.source === n.id && x.sourceHandle === h)
-        if (!e) return null
-        const s = stepOf(byId.get(e.target))
-        if (!s) return undefined
-        seen.add(s.id)
-        return s
+        const way: Step[] = []
+        let next = e?.target
+        while (next) {
+          const node = byId.get(next)
+          const s = stepOf(node)
+          if (!s || seen.has(s.id)) return undefined
+          seen.add(s.id)
+          way.push(s)
+          const out = c.edges.filter((x) => x.source === s.id)
+          if (out.length > 1 || out[0]?.sourceHandle) return undefined
+          next = out[0]?.target
+        }
+        return way
       }
       const yes = ending("then")
       const no = ending("else")
@@ -310,10 +318,12 @@ export function draftProblems(d: Draft): DraftProblem[] {
     if (!field || field.kind === "list") out.push({ where: b.id, text: "Select a value to compare in the If block." })
     else if (field.kind === "number" && (b.right.trim() === "" || !Number.isFinite(Number(b.right)))) out.push({ where: b.id, text: "Enter a number in the If block." })
     else if (field.kind === "text" && !b.right.trim()) out.push({ where: b.id, text: "Enter a value in the If block." })
-    if (!b.then && !b.else) out.push({ where: b.id, text: "Add a step to If yes or If no." })
+    if (!b.then.length && !b.else.length) out.push({ where: b.id, text: "Add a step to If yes or If no." })
     // Engine rule (docs/api-contract.md §2): both ways can't ask the Mind (they'd need the same input).
-    if (b.then?.kind === "agent" && b.else?.kind === "agent") out.push({ where: b.else.id, text: "If yes and If no cannot both ask the Mind." })
-    for (const s of [b.then, b.else]) if (s) stepProblems(s, out)
+    // Engine rule: two ways of one Ask each share one input. A way of several steps has its own (#160).
+    if (b.then.length === 1 && b.else.length === 1 && b.then[0].kind === "agent" && b.else[0].kind === "agent")
+      out.push({ where: b.else[0].id, text: "If yes and If no cannot both ask the Mind when each way is one step." })
+    for (const st of [...b.then, ...b.else]) stepProblems(st, out)
   }
   return out
 }
@@ -374,4 +384,18 @@ export function promptParts(prompt: string, results: Token[]): PromptPart[] {
   }
   if (at < prompt.length) out.push({ text: prompt.slice(at) })
   return out
+}
+
+/** The steps a way's step can read: the main line, then the earlier steps of its own way (#160). */
+export function wayLine(d: Pick<Draft, "steps" | "branch">, h: "then" | "else", index: number): Step[] {
+  return [...d.steps, ...(d.branch?.[h] ?? []).slice(0, index)]
+}
+
+/** Which way a step sits on, and where; null for the main line. */
+export function wayOf(d: Pick<Draft, "branch">, id: string): { h: "then" | "else"; index: number } | null {
+  for (const h of ["then", "else"] as const) {
+    const index = d.branch?.[h].findIndex((st) => st.id === id) ?? -1
+    if (index >= 0) return { h, index }
+  }
+  return null
 }

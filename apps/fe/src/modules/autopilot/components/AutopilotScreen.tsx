@@ -369,7 +369,7 @@ function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string;
  */
 function StepsTimeline({ steps }: { steps: JobStep[] }) {
   const line = steps.filter((x) => !x.branch)
-  const ways = (["then", "else"] as const).map((h) => ({ h, step: steps.find((x) => x.branch === h) ?? null }))
+  const ways = (["then", "else"] as const).map((h) => ({ h, way: steps.filter((x) => x.branch === h) }))
   const hasIf = line.some((x) => x.kind === "condition")
   return (
     <div className="flex flex-col">
@@ -394,28 +394,34 @@ function StepsTimeline({ steps }: { steps: JobStep[] }) {
       </ol>
       {hasIf && (
         <div className="mt-3 grid gap-2 pl-11 sm:grid-cols-2">
-          {ways.map(({ h, step }) => {
-            const Icon = step ? STEP_ICON[step.kind] : null
-            return (
-              <div key={h} className="flex flex-col gap-2 rounded-md bg-muted/50 p-3">
-                <span className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{h === "then" ? "Yes" : "No"}</span>
-                {step && Icon ? (
-                  <div className="flex items-start gap-2.5">
-                    <span className={cn("flex size-7 shrink-0 items-center justify-center rounded-md [&>svg]:size-3.5", TONE[TONE_OF_NODE[step.kind]])}>
-                      <Icon />
-                    </span>
-                    <div className="flex min-w-0 flex-col">
-                      <span className="text-sm font-medium text-foreground">{step.title}</span>
-                      {step.note && <span className="text-xs break-words text-muted-foreground">{step.note}</span>}
-                      {step.prompt && <PromptPreview parts={step.prompt} className="line-clamp-3 text-xs break-words text-muted-foreground" />}
-                    </div>
-                  </div>
-                ) : (
-                  <span className="text-sm text-muted-foreground">Stops here</span>
-                )}
-              </div>
-            )
-          })}
+          {ways.map(({ h, way }) => (
+            <div key={h} className="flex flex-col gap-2 rounded-md bg-muted/50 p-3">
+              {/* Sentence case, no wide caps (UI rules). */}
+              <span className="text-xs font-medium text-muted-foreground">{h === "then" ? "Yes" : "No"}</span>
+              {way.length ? (
+                // Every step of the way, in order (#153: a way can be a chain).
+                <ol className="flex flex-col gap-2.5">
+                  {way.map((step) => {
+                    const Icon = STEP_ICON[step.kind]
+                    return (
+                      <li key={step.id} className="flex items-start gap-2.5">
+                        <span className={cn("flex size-7 shrink-0 items-center justify-center rounded-md [&>svg]:size-3.5", TONE[TONE_OF_NODE[step.kind]])}>
+                          <Icon />
+                        </span>
+                        <div className="flex min-w-0 flex-col">
+                          <span className="text-sm font-medium text-foreground">{step.title}</span>
+                          {step.note && <span className="text-xs break-words text-muted-foreground">{step.note}</span>}
+                          {step.prompt && <PromptPreview parts={step.prompt} className="line-clamp-3 text-xs break-words text-muted-foreground" />}
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ol>
+              ) : (
+                <span className="text-sm text-muted-foreground">Stops here</span>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

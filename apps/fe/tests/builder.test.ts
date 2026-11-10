@@ -44,8 +44,8 @@ describe("Builder stage 1 (#20)", () => {
     const balance = IDEAS[0].canvas({ timezone: "Asia/Jakarta", address: "x.testnet" })
     const d = fromCanvas(balance, "UTC")!
     expect(d.steps).toEqual([{ id: "balance", kind: "tool", tool: "near_view_account", args: { accountId: "x.testnet" } }])
-    expect(d.branch).toMatchObject({ stepId: "balance", field: "balanceNear", op: "lt", right: "5", else: null })
-    expect(d.branch?.then?.kind).toBe("agent")
+    expect(d.branch).toMatchObject({ stepId: "balance", field: "balanceNear", op: "lt", right: "5", else: [] })
+    expect(d.branch?.then[0]?.kind).toBe("agent")
     const again = toCanvas(d)
     expect(again.nodes.find((n) => n.type === "condition")).toMatchObject({ data: { left: "{{steps.balance.balanceNear}}", op: "lt", right: 5 } })
     expect(again.edges).toContainEqual({ source: "low", target: "note", sourceHandle: "then" })
@@ -54,14 +54,14 @@ describe("Builder stage 1 (#20)", () => {
 
   it("says what an If still needs", () => {
     const tool = { id: "t", kind: "tool" as const, tool: "near_view_account", args: { accountId: "shop.testnet" } }
-    const base: Draft = { ...draft, steps: [tool], branch: { id: "c", stepId: "t", field: "balanceNear", op: "lt", right: "", then: null, else: null } }
+    const base: Draft = { ...draft, steps: [tool], branch: { id: "c", stepId: "t", field: "balanceNear", op: "lt", right: "", then: [], else: [] } }
     expect(draftProblems(base).map((p) => p.text)).toEqual(["Enter a number in the If block.", "Add a step to If yes or If no."])
     expect(draftProblems({ ...base, steps: [{ ...tool, args: { accountId: "Not An Account!" } }] }).some((p) => p.where === "t")).toBe(true)
-    const text: Draft = { ...draft, steps: [{ id: "n", kind: "tool", tool: "get_time", args: {} }], branch: { id: "c", stepId: "n", field: "weekday", op: "eq", right: "Friday", then: { id: "y", kind: "agent", prompt: "Weekend plan." }, else: null } }
+    const text: Draft = { ...draft, steps: [{ id: "n", kind: "tool", tool: "get_time", args: {} }], branch: { id: "c", stepId: "n", field: "weekday", op: "eq", right: "Friday", then: [{ id: "y", kind: "agent", prompt: "Weekend plan." }], else: [] } }
     expect(draftProblems(text)).toEqual([])
     expect(toCanvas(text).nodes.find((n) => n.type === "condition")).toMatchObject({ data: { right: "Friday" } })
     // Engine rule: both ways can't ask the Mind.
-    const both: Draft = { ...text, branch: { ...text.branch!, else: { id: "n2", kind: "agent", prompt: "Other." } } }
+    const both: Draft = { ...text, branch: { ...text.branch!, else: [{ id: "n2", kind: "agent", prompt: "Other." }] } }
     expect(draftProblems(both).map((p) => p.where)).toEqual(["n2"])
   })
 
@@ -99,7 +99,7 @@ describe("Builder website block", () => {
     time: "09:00",
     timezone: "UTC",
     steps: [web],
-    branch: { id: "c", stepId: "w", field: "status", op: "gte", right: "400", then: { id: "y", kind: "agent", prompt: "Tell me the site is down." }, else: null },
+    branch: { id: "c", stepId: "w", field: "status", op: "gte", right: "400", then: [{ id: "y", kind: "agent", prompt: "Tell me the site is down." }], else: [] },
   }
 
   it("saves an http node with the key as a Bearer secret, and opens it again", () => {
@@ -200,8 +200,8 @@ describe("Builder If ways, as in n8n (10 Nov)", () => {
   it("saves an empty Yes with a step on No as the opposite check, so either way can stop", async () => {
     const { engineBranch, toCanvas } = await import("@/modules/builder/data/draft")
     const web = { id: "w", kind: "http" as const, method: "POST" as const, url: "https://hooks.example.com/x", key: "", body: "Low" }
-    const d: Draft = { ...base, branch: { id: "c", stepId: "t", field: "balanceNear", op: "lt", right: "5", then: null, else: web } }
-    expect(engineBranch(d.branch!)).toMatchObject({ op: "gte", then: web, else: null })
+    const d: Draft = { ...base, branch: { id: "c", stepId: "t", field: "balanceNear", op: "lt", right: "5", then: [], else: [web] } }
+    expect(engineBranch(d.branch!)).toMatchObject({ op: "gte", then: [web], else: [] })
     const c = toCanvas(d)
     expect(c.nodes.find((n) => n.type === "condition")).toMatchObject({ data: { op: "gte", right: 5 } })
     expect(c.edges).toContainEqual({ source: "c", target: "w", sourceHandle: "then" })
@@ -209,14 +209,14 @@ describe("Builder If ways, as in n8n (10 Nov)", () => {
   })
 
   it("lets a way hold a tool or a website, and opens it again", () => {
-    const d: Draft = { ...base, branch: { id: "c", stepId: "t", field: "balanceNear", op: "lt", right: "5", then: { id: "n", kind: "tool", tool: "get_time", args: {} }, else: null } }
-    expect(fromCanvas(toCanvas(d), "UTC")?.branch?.then).toEqual({ id: "n", kind: "tool", tool: "get_time", args: {} })
+    const d: Draft = { ...base, branch: { id: "c", stepId: "t", field: "balanceNear", op: "lt", right: "5", then: [{ id: "n", kind: "tool", tool: "get_time", args: {} }], else: [] } }
+    expect(fromCanvas(toCanvas(d), "UTC")?.branch?.then).toEqual([{ id: "n", kind: "tool", tool: "get_time", args: {} }])
   })
 
   it("needs a step on at least one way, and only one way may ask the Mind", () => {
-    const empty: Draft = { ...base, branch: { id: "c", stepId: "t", field: "balanceNear", op: "lt", right: "5", then: null, else: null } }
+    const empty: Draft = { ...base, branch: { id: "c", stepId: "t", field: "balanceNear", op: "lt", right: "5", then: [], else: [] } }
     expect(draftProblems(empty).map((p) => p.text)).toEqual(["Add a step to If yes or If no."])
-    const both: Draft = { ...base, branch: { ...empty.branch!, then: { id: "a", kind: "agent", prompt: "x" }, else: { id: "b", kind: "agent", prompt: "y" } } }
+    const both: Draft = { ...base, branch: { ...empty.branch!, then: [{ id: "a", kind: "agent", prompt: "x" }], else: [{ id: "b", kind: "agent", prompt: "y" }] } }
     expect(draftProblems(both).map((p) => p.where)).toEqual(["b"])
   })
 
@@ -304,5 +304,48 @@ describe("run lines for Add to my calendar and Email me (#146)", () => {
     expect(nodeSummary({ sendId: "m1", status: "sent", to: ["owner@gmail.example"] })).toBe("Emailed you at owner@gmail.example")
     expect(nodeSummary({ sendId: "mail_sample", status: "sent", sample: true })).toBe("Sample only: no email was sent")
     expect(nodeSummary({ sendId: "m2", status: "rejected", message: "limit: 20 emails per Mind per day" })).toBe("Not sent: limit: 20 emails per Mind per day")
+  })
+})
+
+describe("If ways as chains (#153, engine #160)", () => {
+  const tool = { id: "t", kind: "tool" as const, tool: "near_view_account", args: { accountId: "shop.testnet" } }
+  const time = { id: "time", kind: "tool" as const, tool: "get_time", args: {} }
+  const note = { id: "note", kind: "agent" as const, prompt: "Say the balance and the time." }
+  const base: Draft = { name: "Watch", repeat: "daily", day: 1, time: "09:00", timezone: "UTC", steps: [tool], branch: null }
+
+  it("saves a way as a chain: the If to its first step, then step to step, and opens it again", async () => {
+    const d: Draft = { ...base, branch: { id: "c", stepId: "t", field: "balanceNear", op: "lt", right: "100", then: [time, note], else: [] } }
+    const c = toCanvas(d)
+    expect(c.edges).toContainEqual({ source: "c", target: "time", sourceHandle: "then" })
+    expect(c.edges).toContainEqual({ source: "time", target: "note" })
+    expect(fromCanvas(c, "UTC")?.branch?.then).toEqual([time, note])
+  })
+
+  it("lets two ways ask the Mind once a way has several steps", () => {
+    const one: Draft = { ...base, branch: { id: "c", stepId: "t", field: "balanceNear", op: "lt", right: "1", then: [note], else: [{ ...note, id: "n2" }] } }
+    expect(draftProblems(one).map((p) => p.where)).toEqual(["n2"])
+    const chain: Draft = { ...one, branch: { ...one.branch!, then: [time, note] } }
+    expect(draftProblems(chain)).toEqual([])
+  })
+
+  it("lets a step read the main line and the earlier steps of its own way", async () => {
+    const { wayLine, wayOf } = await import("@/modules/builder/data/draft")
+    const d: Draft = { ...base, branch: { id: "c", stepId: "t", field: "balanceNear", op: "lt", right: "1", then: [time, note], else: [] } }
+    expect(wayLine(d, "then", 1).map((s) => s.id)).toEqual(["t", "time"])
+    expect(wayOf(d, "note")).toEqual({ h: "then", index: 1 })
+    expect(wayOf(d, "t")).toBeNull()
+  })
+})
+
+describe("Autopilot steps for a chained way (#153)", () => {
+  it("lists every step of each way, in order", async () => {
+    const { jobSteps } = await import("@/modules/autopilot/data/steps")
+    const d: Draft = {
+      name: "Watch", repeat: "daily", day: 1, time: "09:00", timezone: "UTC",
+      steps: [{ id: "t", kind: "tool", tool: "near_view_account", args: { accountId: "shop.testnet" } }],
+      branch: { id: "c", stepId: "t", field: "balanceNear", op: "lt", right: "100", then: [{ id: "time", kind: "tool", tool: "get_time", args: {} }, { id: "note", kind: "agent", prompt: "Write it down." }], else: [] },
+    }
+    const steps = jobSteps(toCanvas(d), "Omaga")
+    expect(steps.filter((s) => s.branch === "then").map((s) => s.id)).toEqual(["time", "note"])
   })
 })

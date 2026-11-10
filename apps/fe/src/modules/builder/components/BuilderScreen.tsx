@@ -24,7 +24,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { createContext, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
+import { createContext, Fragment, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
 import { cn } from "cn"
 import { mindHref } from "@/components/layout/nav"
 import { ChoiceSelect } from "@/components/elements/ChoiceSelect"
@@ -58,6 +58,8 @@ import {
   INVERT,
   moveStepIn,
   tokenLabels,
+  wayLine,
+  wayOf,
   promptFromDisplay,
   promptParts,
   type Self,
@@ -233,10 +235,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       nameField.current?.focus()
       return
     }
-    const br = draft.branch
-    if (br && br.then?.id === where) setSelected(`${br.id}:then`)
-    else if (br && br.else?.id === where) setSelected(`${br.id}:else`)
-    else if (where === "start" || where === "steps") setSelected("start")
+    if (where === "start" || where === "steps") setSelected("start")
     else setSelected(where)
   }
   // Unsaved changes ask before you leave: the back arrow, the browser's Back, closing the tab.
@@ -283,7 +282,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const flagged = (id: string) => (tried && problems.some((p) => p.where === id)) || (!dirtySinceSave && engineIssues.some((i) => i.node === id))
 
   // A job may only use its Mind's tools: the skills it needs and doesn't have are added on Save.
-  const usedTools = [...draft.steps, draft.branch?.then, draft.branch?.else].flatMap((s) => (!s ? [] : s.kind === "tool" ? [s.tool] : s.kind === "http" ? ["http_request"] : []))
+  const usedTools = [...draft.steps, ...(draft.branch?.then ?? []), ...(draft.branch?.else ?? [])].flatMap((s) => (s.kind === "tool" ? [s.tool] : s.kind === "http" ? ["http_request"] : []))
   const missingSkills = [...new Set(usedTools.map((t) => catalog?.find((s) => s.tools.includes(t))?.skillId).filter((s): s is string => Boolean(s)))].filter(
     (s) => mind && !mind.skills.includes(s)
   )
@@ -357,20 +356,21 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
         ? { id, kind, method: "GET", url: "https://", key: "", body: "" }
         : { id, kind, tool: TOOLS[0].tool, args: { accountId: address } }
   }
-  /** Put a block on If yes or If no (B1: each way of an If takes one block; empty stops). */
+  /** Add a block at the end of If yes or If no: each way is a chain of steps (#153, engine #160); empty stops. */
   function setEnding(h: "then" | "else", kind: "agent" | "tool" | "http") {
-    const br = draft.branch
-    if (!br) return
+    if (!draft.branch) return
     const step = newStep(kind)
-    setBranch({ [h]: step } as Partial<Branch>)
-    setSelected(`${br.id}:${h}`)
+    setDraft((d) => (d.branch ? { ...d, branch: { ...d.branch, [h]: [...d.branch[h], step] } } : d))
+    setSelected(step.id)
   }
+  const setWayStep = (h: "then" | "else", id: string, patch: Partial<Step>) =>
+    setDraft((d) => (d.branch ? { ...d, branch: { ...d.branch, [h]: d.branch[h].map((x) => (x.id === id ? ({ ...x, ...patch } as Step) : x)) } } : d))
   function addIf() {
     const first = resultsBefore(draft.steps, undefined, self).find(comparable)
     const id = newId("check")
     setDraft((d) => ({
       ...d,
-      branch: { id, stepId: first?.stepId ?? "", field: first?.name ?? "", op: first?.kind === "number" ? "lt" : "eq", right: "", then: null, else: null },
+      branch: { id, stepId: first?.stepId ?? "", field: first?.name ?? "", op: first?.kind === "number" ? "lt" : "eq", right: "", then: [], else: [] },
     }))
     setSelected(id)
   }
@@ -378,7 +378,12 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
     setDraft((d) => ({
       ...d,
       steps: d.steps.filter((s) => s.id !== id),
-      branch: d.branch && d.branch.stepId === id ? { ...d.branch, stepId: "", field: "" } : d.branch,
+      branch: d.branch && {
+        ...d.branch,
+        ...(d.branch.stepId === id ? { stepId: "", field: "" } : {}),
+        then: d.branch.then.filter((x) => x.id !== id),
+        else: d.branch.else.filter((x) => x.id !== id),
+      },
     }))
     setSelected("start")
   }
@@ -427,6 +432,8 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const b = draft.branch
   const step = draft.steps.find((s) => s.id === selected)
   const ending = b && (selected === `${b.id}:then` ? "then" : selected === `${b.id}:else` ? "else" : null)
+  const inWay = selected ? wayOf(draft, selected) : null
+  const wayStep = inWay && b ? b[inWay.h][inWay.index] : null
   const canIf = !b && resultsBefore(draft.steps, undefined, self).some(comparable)
 
   const palette = (compact: boolean) => (
@@ -768,32 +775,39 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                   <div key={h} className="flex min-w-0 flex-1 flex-col items-center">
                     <span aria-hidden className="h-6 w-px bg-border-strong" />
                     <span className="pb-1.5 text-xs font-medium text-muted-foreground">{h === "then" ? "Yes" : "No"}</span>
-                    {b[h] ? (
-                      <>
+                    {b[h].map((st, k) => (
+                      <Fragment key={st.id}>
+                        {k > 0 && <span aria-hidden className="h-4 w-px bg-border-strong" />}
                         <StepCard
-                          step={b[h]!}
+                          step={st}
                           name={name}
-                          results={resultsBefore(draft.steps, undefined, self)}
-                          active={selected === `${b.id}:${h}`}
-                          problem={flagged(b[h]!.id)}
-                          onClick={() => setSelected(`${b.id}:${h}`)}
+                          results={resultsBefore(wayLine(draft, h, k), undefined, self)}
+                          active={selected === st.id}
+                          problem={flagged(st.id)}
+                          onClick={() => setSelected(st.id)}
                         />
+                      </Fragment>
+                    ))}
+                    {b[h].length > 0 && <span aria-hidden className="h-3 w-px bg-border-strong" />}
+                    {/* Under the last block of a way, one more can follow (#153); empty, the job stops there. */}
+                    <EndingSlot
+                      id={`slot-${h}`}
+                      more={b[h].length > 0}
+                      active={selected === `${b.id}:${h}`}
+                      over={over}
+                      setOver={setOver}
+                      accepts={Boolean(drag && "add" in drag && drag.add !== "if")}
+                      onPick={() => setSelected(`${b.id}:${h}`)}
+                      onDrop={() => {
+                        if (drag && "add" in drag && drag.add !== "if") setEnding(h, drag.add)
+                        endDrag()
+                      }}
+                    />
+                    {b[h].length > 0 && (
+                      <>
                         <span aria-hidden className="h-3 w-px bg-border-strong" />
                         <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">End</span>
                       </>
-                    ) : (
-                      <EndingSlot
-                        id={`slot-${h}`}
-                        active={selected === `${b.id}:${h}`}
-                        over={over}
-                        setOver={setOver}
-                        accepts={Boolean(drag && "add" in drag && drag.add !== "if")}
-                        onPick={() => setSelected(`${b.id}:${h}`)}
-                        onDrop={() => {
-                          if (drag && "add" in drag && drag.add !== "if") setEnding(h, drag.add)
-                          endDrag()
-                        }}
-                      />
                     )}
                   </div>
                 ))}
@@ -853,22 +867,29 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             />
           ) : b && selected === b.id ? (
             <IfPanel branch={b} steps={draft.steps} self={self} onChange={setBranch} onDelete={() => (set({ branch: null }), setSelected("start"))} />
-          ) : b && ending && b[ending] ? (
+          ) : b && inWay && wayStep ? (
             (() => {
-              const e = b[ending]!
-              const label = ending === "then" ? "If yes" : "If no"
-              const patch = (p: Partial<Step>) => setBranch({ [ending]: { ...e, ...p } as Step } as Partial<Branch>)
-              const remove = () => setBranch({ [ending]: null } as Partial<Branch>)
+              const e = wayStep
+              const label = inWay.h === "then" ? "If yes" : "If no"
+              const line = wayLine(draft, inWay.h, inWay.index)
+              const patch = (p: Partial<Step>) => setWayStep(inWay.h, e.id, p)
+              const remove = () => removeStep(e.id)
               return e.kind === "agent" ? (
-                <AskPanel name={name} title={`${label}: ask ${name}`} step={e} results={resultsBefore(draft.steps, undefined, self)} onChange={(p) => patch({ prompt: p })} onDelete={remove} />
+                <AskPanel name={name} title={`${label}: ask ${name}`} step={e} results={resultsBefore(line, undefined, self)} onChange={(p) => patch({ prompt: p })} onDelete={remove} />
               ) : e.kind === "http" ? (
-                <HttpPanel step={e} results={resultsBefore(draft.steps, undefined, self)} missingSkill={missingSkills.find((x) => catalog?.find((c) => c.skillId === x)?.tools.includes("http_request"))} name={name} onChange={patch} onDelete={remove} />
+                <HttpPanel step={e} results={resultsBefore(line, undefined, self)} missingSkill={missingSkills.find((x) => catalog?.find((c) => c.skillId === x)?.tools.includes("http_request"))} name={name} onChange={patch} onDelete={remove} />
               ) : (
-                <ToolPanel step={e} address={address} name={name} notes={notesBefore(draft.steps)} missingSkill={missingSkills.find((x) => catalog?.find((c) => c.skillId === x)?.tools.includes(e.tool))} onChange={patch} onDelete={remove} />
+                <ToolPanel step={e} address={address} name={name} notes={notesBefore(line)} missingSkill={missingSkills.find((x) => catalog?.find((c) => c.skillId === x)?.tools.includes(e.tool))} onChange={patch} onDelete={remove} />
               )
             })()
           ) : b && ending ? (
-            <EndingPanel name={name} which={ending} otherAsks={b[ending === "then" ? "else" : "then"]?.kind === "agent"} onPick={(kind) => setEnding(ending, kind)} />
+            <EndingPanel
+              name={name}
+              which={ending}
+              more={b[ending].length > 0}
+              otherAsks={b[ending].length === 0 && b[ending === "then" ? "else" : "then"].length === 1 && b[ending === "then" ? "else" : "then"][0].kind === "agent"}
+              onPick={(kind) => setEnding(ending, kind)}
+            />
           ) : (
             <StartPanel draft={draft} set={set} />
           )}
@@ -969,9 +990,9 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
  */
 function withIf(nodes: Record<string, NodeRun>, b: Branch | null, finished: boolean): Record<string, NodeRun> {
   if (!b) return nodes
-  const took = [b.then, b.else].find((x) => x && nodes[x.id])
-  if (took) return { ...nodes, [b.id]: { status: "ok", note: took === b.then ? "Yes" : "No" } }
-  if (finished && nodes[b.stepId]?.status === "ok") return { ...nodes, [b.id]: { status: "ok", note: b.then ? "No, so it stopped" : "Yes, so it stopped" } }
+  const took = (["then", "else"] as const).find((h) => b[h].some((x) => nodes[x.id]))
+  if (took) return { ...nodes, [b.id]: { status: "ok", note: took === "then" ? "Yes" : "No" } }
+  if (finished && nodes[b.stepId]?.status === "ok") return { ...nodes, [b.id]: { status: "ok", note: b.then.length ? "No, so it stopped" : "Yes, so it stopped" } }
   return nodes
 }
 
@@ -1514,11 +1535,14 @@ function IfPanel({ branch, steps, self, onChange, onDelete }: { branch: Branch; 
 function EndingPanel({
   name,
   which,
+  more = false,
   otherAsks,
   onPick,
 }: {
   name: string
   which: "then" | "else"
+  /** The way already has steps: this adds one more after them. */
+  more?: boolean
   /** The other way already asks the Mind, which the engine allows only once. */
   otherAsks: boolean
   onPick: (kind: "agent" | "tool" | "http") => void
@@ -1531,7 +1555,9 @@ function EndingPanel({
   return (
     <>
       <PanelHead icon={<SquareIcon />} title={which === "then" ? "If yes" : "If no"} />
-      <p className="text-sm text-muted-foreground">Nothing runs here yet, so the job stops. Add a block, or drag one onto this way.</p>
+      <p className="text-sm text-muted-foreground">
+        {more ? "Add the next step on this way. It can use what the earlier steps found." : "Nothing runs here yet, so the job stops. Add a block, or drag one onto this way."}
+      </p>
       <div className="flex flex-col gap-2">
         {options.map((o) => (
           <button
@@ -1557,6 +1583,7 @@ function EndingPanel({
 /** An empty way of the If: tap to pick a block, or drop one on it. Empty means the job stops. */
 function EndingSlot({
   id,
+  more = false,
   active,
   over,
   setOver,
@@ -1565,6 +1592,8 @@ function EndingSlot({
   onDrop,
 }: {
   id: string
+  /** The way already has steps: a smaller slot that adds one more. */
+  more?: boolean
   active: boolean
   over: string | null
   setOver: (id: string | null) => void
@@ -1603,8 +1632,8 @@ function EndingSlot({
       )}
     >
       <PlusIcon className="size-4 text-muted-foreground" />
-      <span className="text-sm font-medium text-foreground">{accepts ? "Drop to add it here" : "Add a step"}</span>
-      <span className="text-xs text-muted-foreground">Empty: the job stops here</span>
+      <span className="text-sm font-medium text-foreground">{accepts ? "Drop to add it here" : more ? "Add the next step" : "Add a step"}</span>
+      {!more && <span className="text-xs text-muted-foreground">Empty: the job stops here</span>}
     </button>
   )
 }
