@@ -3,6 +3,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useRef, useState } from "react"
 import { mindsApi } from "@/modules/minds/api"
+import { walletApi } from "@/modules/wallet/api"
 import type { Mind } from "@/modules/minds/data/minds"
 import { mindKeys } from "@/modules/minds/hooks/useMinds"
 import { OwnerActionError, ownerStep, readWalletUntil } from "@/modules/wallet/data/ownerAction"
@@ -41,7 +42,7 @@ export function useSetUpMind() {
             queryClient.setQueryData<Mind[]>(mindKeys.all, (old) => [created, ...(old ?? []).filter((m) => m.mindId !== mind.id)])
           }
           if (!p.walletReady) {
-            await mindsApi.createWallet(p.mindId)
+            await walletApi.createWallet(p.mindId)
             p.walletReady = true
           }
         }
@@ -53,7 +54,7 @@ export function useSetUpMind() {
       if (!p.signed) {
         // Building the transaction is part of creating it, for the user.
         const transaction = await ownerStep("build", () =>
-          mindsApi.policyTransaction(mindId, { perTransactionNear: input.perTransactionNear, whitelist: input.whitelist })
+          walletApi.policyTransaction(mindId, { perTransactionNear: input.perTransactionNear, whitelist: input.whitelist })
         )
         setStage("signing")
         await ownerStep("sign", () => signTransaction(transaction))

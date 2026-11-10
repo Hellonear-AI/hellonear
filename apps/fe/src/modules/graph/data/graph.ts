@@ -4,7 +4,7 @@
 // light up the same nodes the history built.
 
 import type { RunEvent, ToolStatus, ToolStep } from "@/modules/chat/data/events"
-import type { ApiSkill } from "@/modules/minds/api"
+import type { ApiSkill } from "@/modules/skills/api"
 import { skillCopy } from "@/modules/skills/data/skills"
 import { TOOLS } from "@/modules/chat/data/tools"
 

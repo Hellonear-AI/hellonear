@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { compareNear } from "@/lib/near"
 import { timeAgo } from "@/lib/format"
-import { mindsApi, type ApiWallet } from "@/modules/minds/api"
+import { walletApi, type ApiWallet } from "@/modules/wallet/api"
 import { approvalChecks } from "@/modules/wallet/data/checks"
 import { freezeErrorText } from "@/modules/wallet/components/FreezeDialog"
 import { OwnerActionError } from "@/modules/wallet/data/ownerAction"
@@ -74,8 +74,8 @@ describe("freeze", () => {
     const transaction = { receiverId: "outlayer.testnet", actions: [] }
     const fetchMock = vi.fn(async () => Response.json({ transaction }))
     vi.stubGlobal("fetch", fetchMock)
-    await expect(mindsApi.freezeTransaction("m1", true)).resolves.toEqual(transaction)
-    await mindsApi.freezeTransaction("m1", false)
+    await expect(walletApi.freezeTransaction("m1", true)).resolves.toEqual(transaction)
+    await walletApi.freezeTransaction("m1", false)
     const urls = (fetchMock.mock.calls as unknown as [string][]).map(([u]) => u)
     expect(urls).toEqual(["/api/v1/minds/m1/wallet/freeze", "/api/v1/minds/m1/wallet/unfreeze"])
   })

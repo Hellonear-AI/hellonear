@@ -1,4 +1,4 @@
-import { mindsApi, type ApiWallet } from "@/modules/minds/api"
+import { walletApi, type ApiWallet } from "@/modules/wallet/api"
 import { WrongAccountError } from "@/modules/wallet/hooks/useOwnerTransaction"
 
 // Owner actions (set up limits, change them, freeze, add funds) share one shape: the backend
@@ -23,7 +23,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 /** Read the Mind's wallet until `done` says the change shows; throws a "check" error if it never does. */
 export async function readWalletUntil(mindId: string, done: (w: ApiWallet) => boolean): Promise<ApiWallet> {
   for (let i = 0; i < READ_BACK.tries; i++) {
-    const wallet = await mindsApi.wallet(mindId).catch(() => null)
+    const wallet = await walletApi.wallet(mindId).catch(() => null)
     if (wallet && done(wallet)) return wallet
     await sleep(READ_BACK.everyMs)
   }

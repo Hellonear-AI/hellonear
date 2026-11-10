@@ -1,7 +1,7 @@
 "use client"
 
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { mindsApi } from "@/modules/minds/api"
+import { walletApi } from "@/modules/wallet/api"
 import { mindKeys } from "@/modules/minds/hooks/useMinds"
 import { ownerStep, readWalletUntil } from "@/modules/wallet/data/ownerAction"
 import { useOwnerTransaction } from "@/modules/wallet/hooks/useOwnerTransaction"
@@ -17,7 +17,7 @@ export function useFreeze(mindId: string) {
 
   return useMutation({
     mutationFn: async (freeze: boolean) => {
-      const transaction = await ownerStep("build", () => mindsApi.freezeTransaction(mindId, freeze))
+      const transaction = await ownerStep("build", () => walletApi.freezeTransaction(mindId, freeze))
       await ownerStep("sign", () => sign(transaction))
       const wallet = await readWalletUntil(mindId, (w) => w.frozen === freeze)
       return { at: new Date().toISOString(), wallet }

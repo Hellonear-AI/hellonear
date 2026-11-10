@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { fromYocto, toYocto } from "@/lib/near"
-import type { ApiPayment } from "@/modules/minds/api"
+import type { ApiPayment } from "@/modules/wallet/api"
 import { ownerAvailableNear } from "@/modules/wallet/api"
 import { activityLine, addNear, filterActivity, spentToday } from "@/modules/wallet/data/activity"
 import { shortAddress } from "@/modules/wallet/data/address"

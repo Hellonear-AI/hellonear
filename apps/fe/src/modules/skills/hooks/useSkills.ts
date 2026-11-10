@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { skillKeys } from "@/lib/queryKeys"
 import { useSession } from "@/modules/auth/hooks/useSession"
 import { mindsApi } from "@/modules/minds/api"
+import { skillsApi } from "@/modules/skills/api"
 import type { Mind } from "@/modules/minds/data/minds"
 import { mindKeys } from "@/modules/minds/hooks/useMinds"
 
@@ -14,7 +15,7 @@ export function useSkillCatalog() {
   return useQuery({
     queryKey: skillKeys.catalog,
     enabled: Boolean(useSession().data),
-    queryFn: mindsApi.skills,
+    queryFn: skillsApi.skills,
     staleTime: 60_000,
   })
 }

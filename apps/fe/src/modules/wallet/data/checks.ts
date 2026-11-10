@@ -4,7 +4,7 @@
 
 import { formatNear } from "@/lib/format"
 import { compareNear } from "@/lib/near"
-import type { ApiWallet } from "@/modules/minds/api"
+import type { ApiWallet } from "@/modules/wallet/api"
 
 export type Check = { ok: boolean; text: string }
 

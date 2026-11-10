@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { compareNear, toYocto } from "@/lib/near"
-import { mindsApi, type ApiWallet } from "@/modules/minds/api"
+import { walletApi, type ApiWallet } from "@/modules/wallet/api"
 import { mindKeys } from "@/modules/minds/hooks/useMinds"
 import { OwnerActionError, ownerStep, readWalletUntil } from "@/modules/wallet/data/ownerAction"
 import { useOwnerTransaction } from "@/modules/wallet/hooks/useOwnerTransaction"
@@ -28,8 +28,8 @@ export function useSaveLimits(mindId: string) {
   return useMutation({
     mutationFn: async ({ limits, createWallet }: { limits: Limits; createWallet: boolean }) => {
       const transaction = await ownerStep("build", async () => {
-        if (createWallet) await mindsApi.createWallet(mindId)
-        return mindsApi.policyTransaction(mindId, limits)
+        if (createWallet) await walletApi.createWallet(mindId)
+        return walletApi.policyTransaction(mindId, limits)
       })
       await ownerStep("sign", () => sign(transaction))
       return readWalletUntil(mindId, (w) => sameLimits(w.policy, limits))

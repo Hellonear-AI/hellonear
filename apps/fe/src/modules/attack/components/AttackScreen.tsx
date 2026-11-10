@@ -35,7 +35,7 @@ import { MindAvatar } from "@/components/elements/MindAvatar"
 import { refusalReasons } from "@/modules/chat/components/RunCards"
 import { foldRun, type RunEvent } from "@/modules/chat/data/events"
 import { PaymentAmount } from "@/modules/wallet/components/ApprovalParts"
-import { mindsApi, type ApiWallet } from "@/modules/minds/api"
+import { walletApi, type ApiWallet } from "@/modules/wallet/api"
 import { mindKeys } from "@/modules/minds/hooks/useMinds"
 
 type Run = {
@@ -71,7 +71,7 @@ export function AttackScreen() {
   const mindId = run?.events.find((e) => e.mindId)?.mindId ?? null
   const wallet = useQuery({
     queryKey: mindId ? mindKeys.wallet(mindId) : ["minds", "none", "wallet"],
-    queryFn: () => mindsApi.wallet(mindId as string),
+    queryFn: () => walletApi.wallet(mindId as string),
     enabled: Boolean(mindId),
   })
 
