@@ -56,6 +56,8 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
   const lastSelected = useRef<string | null>(null)
   // Frame the layout at once on the next draw, instead of easing toward it.
   const snap = useRef(false)
+  // Fit was pressed: glide to the frame until there.
+  const fitting = useRef(false)
   const hover = useRef<string | null>(null)
   // Where the cursor is, in graph space, for the torch on the lines.
   const torch = useRef<{ x: number; y: number } | null>(null)
@@ -186,10 +188,13 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         v.y = to.y
         return
       }
-      // Ease toward the frame a little every frame.
-      v.k += (to.k - v.k) * 0.12
-      v.x += (to.x - v.x) * 0.12
-      v.y += (to.y - v.y) * 0.12
+      // Ease toward the frame a little every frame; reduced motion jumps.
+      const t = still.matches ? 1 : 0.12
+      v.k += (to.k - v.k) * t
+      v.x += (to.x - v.x) * t
+      v.y += (to.y - v.y) * t
+      // Fit glides until it's there, then stops (the layout may be still the whole time).
+      if (Math.abs(to.k - v.k) < 0.001 && Math.hypot(to.x - v.x, to.y - v.y) < 0.5) fitting.current = false
     }
 
     // The chain of links from the Mind to a node, for the moving dots.
@@ -211,7 +216,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       if (!s) return
       const kinds = new Map(data.current.nodes.map((n) => [n.id, n.kind]))
       const moving = stepSim(s, kinds)
-      if (view.current.auto && (moving || snap.current || now < 1500)) fit()
+      if (view.current.auto && (moving || snap.current || fitting.current || now < 1500)) fit()
       // Glide to the picked node and zoom in a little; a jump with reduced motion.
       const f = focus.current ? s.bodies.get(focus.current) : null
       if (f) {
@@ -608,6 +613,8 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         onClick={() => {
           focus.current = null
           view.current.auto = true
+          // Glide back to the frame even when nothing moves (Ancung, 11 Nov: Fit did nothing on a still graph).
+          fitting.current = true
         }}
         className="absolute right-2 bottom-2 rounded-full bg-surface/90 px-2.5 py-1 text-xs text-muted-foreground shadow-xs outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus"
       >
