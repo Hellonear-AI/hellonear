@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { ThinkingOrb } from "thinking-orbs"
 import { cn } from "cn"
 import { ArrowDownIcon, CircleXIcon, NetworkIcon, RotateCcwIcon, SnowflakeIcon } from "lucide-react"
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
@@ -507,12 +508,10 @@ function TurnView({
  */
 export function Working({ name }: { name: string }) {
   return (
-    <span role="status" aria-label={`${name} is thinking`} className="flex h-[22px] items-center gap-2.5">
-      <span aria-hidden className="flex items-center gap-1">
-        {[0, 1, 2].map((i) => (
-          <span key={i} className="typing-dot size-1.5 rounded-full bg-muted-foreground" style={{ animationDelay: `${i * 160}ms` }} />
-        ))}
-      </span>
+    <span role="status" aria-label={`${name} is thinking`} className="flex h-[22px] items-center gap-2">
+      {/* A thinking orb (thinking-orbs, Axel's pick, 10 Nov) instead of three dots. It follows the
+          dark class, freezes with reduced motion and pauses off screen by itself. */}
+      <ThinkingOrb state="solving" size={20} aria-hidden className="shrink-0" />
       <span aria-hidden className="text-shimmer text-[13px]">
         Thinking...
       </span>
