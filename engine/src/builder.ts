@@ -175,8 +175,17 @@ export function compileCanvas(mindId: string, workflowId: string, input: unknown
     }
     const tool = n.data.tool
     if (!(tool in toolRegistry)) fail(`${where}.tool`, `unknown tool ${tool}`)
-    // A workflow tool step runs without asking (spike 02), so approval tools are never allowed.
+    // A workflow tool step runs without asking (spike 02), so approval tools are never allowed. The canvas-only tools
+    // (tools.ts CANVAS_ONLY, #146) need no approval: the owner placing them on the canvas is the approval.
     else if (needsApproval(tool)) fail(`${where}.tool`, `${tool} needs the owner's approval and cannot run in a workflow`)
+    // Email me sends only the Mind's own words, never raw tool output such as an email body or a web page (#146).
+    if (tool === 'mail_send_to_owner') {
+      for (const [k, v] of Object.entries(n.data.args)) {
+        for (const m of typeof v === 'string' ? v.matchAll(REF) : []) {
+          if (m[2] && steps[m[2]] && steps[m[2]].type !== 'agent') fail(`${where}.args.${k}`, `{{steps.${m[2]}…}} is not a note from the Mind; Email me can only send what the Mind wrote`)
+        }
+      }
+    }
     tools.add(tool)
     steps[n.id] = { node: n.id, type: 'tool', tool }
     return { config: Object.fromEntries(Object.entries(n.data.args).map(([k, v]) => [k, describe(`${where}.args.${k}`, v)])), step: { type: 'tool', id: n.id, toolId: tool } }

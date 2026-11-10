@@ -3,7 +3,7 @@ name: daily-planner
 description: Use when the owner asks about the current time or date, what is on their calendar, wants a short plan for their day, wants an event added, wants to schedule a meeting or call with other people or a Google Meet link, or needs quick arithmetic for planning.
 metadata:
   hellonear:
-    tools: [get_time, add_numbers, googlecalendar_list_events, googlecalendar_create_event, googlecalendar_create_meeting]
+    tools: [get_time, add_numbers, googlecalendar_list_events, googlecalendar_create_event, googlecalendar_create_meeting, googlecalendar_block_time]
     connections: [googlecalendar, googlemeet]
     status: available
     title: Daily planner

@@ -37,9 +37,33 @@ export async function mailCall<T>(context: Ctx, method: 'GET' | 'POST', path: st
 
 // Sends that AgentMail or our limits refused: no email went out. They become tool.error events.
 export const MAIL_REFUSALS = new Set(['rejected', 'rate_limited'])
-export const isMailRefusal = (tool: string | undefined, result: { status?: unknown } | undefined) => tool === 'mail_send' && MAIL_REFUSALS.has(String(result?.status))
+export const isMailRefusal = (tool: string | undefined, result: { status?: unknown } | undefined) => (tool === 'mail_send' || tool === 'mail_send_to_owner') && MAIL_REFUSALS.has(String(result?.status))
 
 // AgentMail's Idempotency-Key alphabet (docs.agentmail.to/idempotency): the tool call id, cleaned, so one approved
 // call sends one email even if it runs twice.
 export const idempotencyKeyOf = (toolCallId: unknown) =>
   typeof toolCallId === 'string' && toolCallId ? toolCallId.replace(/[^A-Za-z0-9._~-]/g, '-').slice(0, 128) : undefined
+
+// Autopilot's "Email me" (#146): the backend's /internal/v1/mail/owner with the engine key, the run's user and Mind.
+// A scheduled run has no mail token, so the user and Mind ids travel in the requestContext (not secrets), and the
+// backend picks the recipient (the owner's Gmail address) itself.
+export const MIND_ID_KEY = 'mindId'
+export async function ownerMailCall<T>(context: Ctx, body: { subject: string; text: string; idempotencyKey?: string }): Promise<T> {
+  const userId = context?.requestContext?.get('userId') as string | undefined
+  const mindId = context?.requestContext?.get(MIND_ID_KEY) as string | undefined
+  if (!userId || !mindId) throw new Error('mail: this run has no owner to email')
+  const base = process.env.BACKEND_URL
+  if (!base) throw new Error('BACKEND_URL is not set (see engine/.env.example)')
+  const res = await fetch(new URL('/internal/v1/mail/owner', base), {
+    method: 'POST',
+    headers: { 'x-engine-key': process.env.ENGINE_API_KEY ?? '', 'content-type': 'application/json' },
+    body: JSON.stringify({ userId, mindId, ...body }),
+    redirect: 'error',
+    signal: AbortSignal.timeout(30_000),
+  })
+  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>
+  if (json.error === 'gmail_not_connected') throw new Error('mail: connect Gmail first, so the Mind knows your address')
+  if (json.error === 'no_inbox') throw new NoInboxError()
+  if (!res.ok) throw new Error(`mail: ${res.status} ${String(json.error ?? 'error')}`)
+  return json as T
+}

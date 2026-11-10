@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { IDEAS } from "@/modules/autopilot/data/ideas"
-import { cronOf, draftProblems, emptyDraft, fromCanvas, moveStepIn, repeatOf, resultsBefore, toCanvas, workflowIdFor, type Draft } from "@/modules/builder/data/draft"
+import { cronOf, draftProblems, emptyDraft, fromCanvas, moveStepIn, notesBefore, repeatOf, resultsBefore, toCanvas, workflowIdFor, type Draft } from "@/modules/builder/data/draft"
 
 const draft: Draft = {
   name: "Evening wrap-up",
@@ -255,5 +255,54 @@ describe("Prompt chips (10 Nov)", () => {
       { chip: "Answer", ref: "{{steps.w.body}}", tone: "http" },
       { text: ". {{steps.x.y}}" },
     ])
+  })
+})
+
+describe("Add to my calendar and Email me (#146)", () => {
+  const job: Draft = {
+    ...draft,
+    steps: [
+      { id: "note", kind: "agent", prompt: "Write my morning brief." },
+      { id: "cal", kind: "tool", tool: "googlecalendar_block_time", args: { title: "Focus time", at: "09:00", minutes: "30" } },
+      { id: "mail", kind: "tool", tool: "mail_send_to_owner", args: { subject: "Your morning", text: "{{steps.note.text}}" } },
+    ],
+  }
+
+  it("saves both as tool steps and opens them again", () => {
+    const c = toCanvas(job)
+    expect(c.nodes.slice(2).map((n) => n.data)).toEqual([
+      { tool: "googlecalendar_block_time", args: { title: "Focus time", at: "09:00", minutes: "30" } },
+      { tool: "mail_send_to_owner", args: { subject: "Your morning", text: "{{steps.note.text}}" } },
+    ])
+    expect(fromCanvas(c, "UTC")?.steps).toEqual(job.steps)
+  })
+
+  it("Email me offers only the notes earlier Ask steps wrote", () => {
+    const steps = [{ id: "bal", kind: "tool" as const, tool: "near_view_account", args: { accountId: "shop.testnet" } }, ...job.steps]
+    expect(notesBefore(steps, 3).map((n) => `${n.stepId}.${n.name}`)).toEqual(["note.text"])
+    expect(notesBefore(steps, 1)).toEqual([])
+  })
+
+  it("needs a name, a time, 5 to 480 minutes, a subject and an email", () => {
+    const bad: Draft = { ...job, steps: [{ id: "cal", kind: "tool", tool: "googlecalendar_block_time", args: { title: " ", at: "9", minutes: "2" } }, { id: "mail", kind: "tool", tool: "mail_send_to_owner", args: { subject: "", text: "" } }] }
+    expect(draftProblems(bad).map((p) => p.text)).toEqual([
+      "Event name is required.",
+      "Time is required.",
+      "Minutes must be a whole number from 5 to 480.",
+      "Subject is required.",
+      "Email is required.",
+    ])
+    expect(draftProblems(job)).toEqual([])
+  })
+})
+
+describe("run lines for Add to my calendar and Email me (#146)", () => {
+  it("say what happened, and that a try-out sample did nothing", async () => {
+    const { nodeSummary } = await import("@/modules/builder/data/testRun")
+    expect(nodeSummary({ source: "googlecalendar", status: "created", title: "Focus time", start: "2026-11-11T09:00:00+07:00" })).toBe('Added "Focus time" at 09:00 to your calendar')
+    expect(nodeSummary({ source: "sample_calendar", status: "created", title: "Focus time", start: "2026-11-11T09:00:00+07:00" })).toBe('Sample only: "Focus time" at 09:00 was not added to a real calendar')
+    expect(nodeSummary({ sendId: "m1", status: "sent", to: ["owner@gmail.example"] })).toBe("Emailed you at owner@gmail.example")
+    expect(nodeSummary({ sendId: "mail_sample", status: "sent", sample: true })).toBe("Sample only: no email was sent")
+    expect(nodeSummary({ sendId: "m2", status: "rejected", message: "limit: 20 emails per Mind per day" })).toBe("Not sent: limit: 20 emails per Mind per day")
   })
 })

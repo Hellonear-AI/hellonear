@@ -14,7 +14,7 @@ import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema
 import { createWallet, freezeTransaction, getWallet, hasWallet, isDemoMind, policySchema, policyTransaction } from './wallets.ts'
 import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
 import { issueMailToken, issueWalletToken, verifyMailToken, verifyWalletToken } from './walletToken.ts'
-import { EMAIL_SKILL, ensureInbox, inboxOf, listMail, listSends, mailEnabled, messageIdSchema, readMail, releaseInbox, sendMail, sendMailSchema } from './mail.ts'
+import { EMAIL_SKILL, ensureInbox, inboxOf, listMail, listSends, mailEnabled, messageIdSchema, ownerMailSchema, readMail, releaseInbox, sendMail, sendMailSchema, sendMailToOwner } from './mail.ts'
 import { listThreads, parseCursor, threadExists, threadMessages } from './threads.ts'
 import { assertDemoRunAllowed, cleanupDemoUsers, createDemoUser, demoPaymentCap, denyDemo } from './demo.ts'
 import type { User } from './auth.ts'
@@ -131,6 +131,15 @@ export const server = createServer(async (req, res) => {
       if (internal[1] === 'balance' && req.method === 'GET') return sendJson(res, 200, await walletBalance(mindId))
       if (internal[1] === 'payments' && req.method === 'GET') return sendJson(res, 200, { payments: await listPayments(mindId, limitOf(url, 20, 100)) })
       throw new HttpError(405, 'method_not_allowed')
+    }
+    // Autopilot's "Email me" (#146): engine key only, since a scheduled run carries no run token; the recipient is
+    // decided here (the owner's Gmail address), never by the engine.
+    if (path === '/internal/v1/mail/owner') {
+      if (!sameSecret(String(req.headers['x-engine-key'] ?? ''), config.engineApiKey)) throw new HttpError(401, 'unauthorized')
+      if (req.method !== 'POST') throw new HttpError(405, 'method_not_allowed')
+      const body = await readBody(req, ownerMailSchema)
+      await requireMind(body.userId, body.mindId)
+      return sendJson(res, 200, await sendMailToOwner(body))
     }
     // The mail tools (#96): same three checks, with a mail token that names the run's Mind.
     const mail = path.match(/^\/internal\/v1\/mail\/(send|messages)(?:\/([^/]+))?$/)

@@ -10,7 +10,7 @@ import { resourceId, runRequestSchema, type Mind } from './mind.ts'
 import { SECRETS_KEY, redact, type Secret } from './secrets.ts'
 import { TIME_ZONE_KEY } from './tools.ts'
 import { WALLET_KEY, walletContext, walletTokenSchema } from './wallet.ts'
-import { MAIL_KEY, mailContext, mailTokenSchema } from './mail.ts'
+import { MAIL_KEY, MIND_ID_KEY, mailContext, mailTokenSchema } from './mail.ts'
 import { DEMO_KEY } from './email.ts'
 import { USER_KEY } from './composio.ts'
 import { missingTools, skillCatalogSummaries, usableSkills } from './skills.ts'
@@ -75,11 +75,13 @@ function sendJson(res: ServerResponse, status: number, body: unknown) {
   res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body))
 }
 
-function contextFor(mind: Mind, secrets: Secret[], opts: { unattended?: boolean; walletToken?: string; mailToken?: string; demo?: boolean; userId?: string; timeZone?: string } = {}) {
+function contextFor(mind: Mind, secrets: Secret[], opts: { unattended?: boolean; walletToken?: string; mailToken?: string; demo?: boolean; userId?: string; mindId?: string; timeZone?: string } = {}) {
   const requestContext = new RequestContext()
   requestContext.set(MIND_KEY, mind)
   // The run's user: Composio sessions (Gmail) are opened for this user only (#13).
   if (opts.userId) requestContext.set(USER_KEY, opts.userId)
+  // The run's Mind, for Autopilot's "Email me" (#146). Not a secret.
+  if (opts.mindId) requestContext.set(MIND_ID_KEY, opts.mindId)
   if (opts.unattended) requestContext.set(UNATTENDED_KEY, true)
   // Not registered as a tracing requestContextKey, so tracing never records it.
   requestContext.set(SECRETS_KEY, new Map(secrets.map((s) => [s.name, s])))
@@ -154,7 +156,7 @@ async function pipeWorkflow(res: ServerResponse, run: { stream: (args: any) => {
     res.write(`data: ${JSON.stringify(event)}\n\n`)
   }
   try {
-    const out = run.stream({ inputData: opts.input, requestContext: contextFor(opts.mind, opts.secrets, { unattended: true, walletToken: opts.walletToken, mailToken: opts.mailToken, demo: opts.demo, userId: opts.userId, timeZone: opts.timeZone }) })
+    const out = run.stream({ inputData: opts.input, requestContext: contextFor(opts.mind, opts.secrets, { unattended: true, walletToken: opts.walletToken, mailToken: opts.mailToken, demo: opts.demo, userId: opts.userId, mindId: opts.mindId, timeZone: opts.timeZone }) })
     for await (const chunk of out.fullStream) for (const event of await normalize(chunk)) write(event)
     if (runId) {
       const info = await modelInfo(opts.model)
@@ -180,7 +182,7 @@ function abortOnClose(res: ServerResponse): AbortSignal {
 }
 
 const agentOptions = (mind: Mind, secrets: Secret[], userId: string, mindId: string, threadId: string, tokens: { walletToken?: string; mailToken?: string; timeZone?: string }, demo?: boolean) => ({
-  requestContext: contextFor(mind, secrets, { ...tokens, demo, userId }),
+  requestContext: contextFor(mind, secrets, { ...tokens, demo, userId, mindId }),
   memory: { resource: resourceId(userId, mindId, mind.personaVersion), thread: threadId },
   maxSteps: 8,
   // No automatic retries: each completion must map to one verifiable request (NEAR AI SDK guide).
