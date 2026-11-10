@@ -57,3 +57,20 @@ describe("run lines and refusals", () => {
     expect(issueText({ code: "something_new", message: "Engine words." }, "Omaga")).toBe("Engine words.")
   })
 })
+
+describe("the way the last run went (Autopilot steps)", () => {
+  it("lights an If's way when a step in it ran, and End after a step that ran", async () => {
+    const { wayRan, wentThrough } = await import("@/modules/autopilot/components/StepsTimeline")
+    const step = (id: string, kind: "tool" | "agent" | "end" | "trigger" = "agent") => ({ id, kind, title: id })
+    const inner = { id: "low", kind: "condition" as const, title: "If", then: [step("urgent"), step("e1", "end")], else: [step("calm"), step("e2", "end")] }
+    const tree = [step("t", "trigger"), step("bal", "tool"), { id: "check", kind: "condition" as const, title: "If", then: [inner], else: [step("site")] }]
+    const ran = new Set(["bal", "urgent"])
+    expect(wentThrough(tree, 0, ran)).toBe(true)
+    expect(wentThrough(tree, 2, ran)).toBe(true)
+    expect(wayRan(tree[2].then, ran)).toBe(true)
+    expect(wayRan(tree[2].else, ran)).toBe(false)
+    expect(wentThrough(inner.then, 1, ran)).toBe(true)
+    expect(wayRan(inner.else, ran)).toBe(false)
+    expect(wentThrough(tree, 0, new Set())).toBe(false)
+  })
+})

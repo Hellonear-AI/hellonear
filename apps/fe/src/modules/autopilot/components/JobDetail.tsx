@@ -7,7 +7,7 @@ import {
   Trash2Icon,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Spinner } from "@/components/elements/Spinner"
 import { mindHref } from "@/components/layout/nav"
 import { Button } from "@/components/ui/button"
@@ -68,6 +68,9 @@ export function JobDetail({ mindId, name, workflowId }: { mindId: string; name: 
   const wallet = useMindWallet(mindId).data
   const tree = canvas ? jobTree(canvas, name, wallet?.address) : []
   const steps = flatSteps(tree)
+  // The steps the latest run reached (newest first), so the timeline can show the way it went.
+  const lastRun = runs.data?.[0]
+  const ran = useMemo(() => new Set(lastRun?.nodes.map((n) => n.nodeId) ?? []), [lastRun])
   const [openRun, setOpenRun] = useState<string | null>(null)
   const editable = Boolean(canvas && fromCanvas(canvas, "UTC"))
   const editHref = `${mindHref(mindId, "autopilot")}/${encodeURIComponent(workflowId)}`
@@ -127,7 +130,8 @@ export function JobDetail({ mindId, name, workflowId }: { mindId: string; name: 
 
           <div className="flex flex-col gap-2">
             <h3 className="text-[13px] text-muted-foreground">Steps</h3>
-            <StepsTimeline steps={tree} />
+            <StepsTimeline steps={tree} ran={ran} />
+            {ran.size > 0 && <p className="text-xs text-muted-foreground">The green line is the way the last run went.</p>}
           </div>
 
           <div className="flex flex-col gap-2">
