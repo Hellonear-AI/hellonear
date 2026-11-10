@@ -381,6 +381,39 @@ const mailRead = createTool({
   execute: async ({ messageId }, context) => mailCall(context, 'GET', `/internal/v1/mail/messages/${encodeURIComponent(messageId)}`),
 })
 
+// Paid data (#150): a 402 pattern on testnet NEAR. Without a payment the backend answers 402 with the price and the
+// account to pay; the Mind pays with send_payment (the owner approves, the wallet policy checks it) and calls again
+// with the tx hash. The backend serves the report only for this Mind's own fresh payment, once.
+const SHOP_ITEMS = ['network-status', 'gas-price'] as const
+const buyData = createTool({
+  id: 'buy_data',
+  description: 'Buy a small live data report about NEAR testnet. Call it without paymentTxHash to get the price and the account to pay (status payment_required); after the owner approved and send_payment returned sent, call it again with that txHash to get the report (status paid). Items: network-status (latest block, protocol version, validators), gas-price (gas price and the cost of a transfer).',
+  inputSchema: z.object({
+    item: z.enum(SHOP_ITEMS),
+    paymentTxHash: z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{43,44}$/, 'a NEAR transaction hash').optional(),
+  }),
+  outputSchema: z.object({
+    status: z.enum(['payment_required', 'paid', 'refused']),
+    item: z.string(),
+    title: z.string().optional(),
+    priceNear: z.string().optional(),
+    payTo: z.string().optional(),
+    reason: z.string().optional(),
+    data: z.record(z.string(), z.unknown()).optional(),
+    receipt: z.object({ txHash: z.string(), paymentId: z.string(), amountNear: z.string() }).optional(),
+  }),
+  execute: async ({ item, paymentTxHash }, context) => {
+    const path = `/internal/v1/shop/${item}${paymentTxHash ? `?tx=${encodeURIComponent(paymentTxHash)}` : ''}`
+    const out = await walletCall<Record<string, any>>(context, 'GET', path, undefined, [402, 409])
+    if (out.httpStatus === 409) return { status: 'refused' as const, item, reason: 'this payment was already used for a report; a new report needs a new payment' }
+    if (out.httpStatus === 402) {
+      const reason = { payment_not_found: 'no payment from this Mind with that hash in the last hour', payment_does_not_match: 'that payment went to another account or was under the price', payment_not_on_chain: 'NEAR does not show that transfer as successful' }[String(out.error)]
+      return { status: 'payment_required' as const, item, title: out.title, priceNear: out.priceNear, payTo: out.payTo, ...(reason ? { reason } : {}) }
+    }
+    return { status: 'paid' as const, item, title: out.title, data: out.data, receipt: out.receipt }
+  },
+})
+
 // Read-only NEAR account lookup on testnet (#20 "check balance"). Public RPC, no keys, moves nothing.
 const NEAR_RPC_URL = process.env.NEAR_RPC_URL ?? 'https://rpc.testnet.near.org'
 const YOCTO_PER_NEAR = 10n ** 24n
@@ -406,7 +439,7 @@ const nearViewAccount = createTool({
 })
 
 export const toolRegistry = {
-  get_time: getTime, add_numbers: addNumbers, http_request: httpRequest, near_view_account: nearViewAccount,
+  get_time: getTime, add_numbers: addNumbers, http_request: httpRequest, near_view_account: nearViewAccount, buy_data: buyData,
   send_payment: sendPayment, get_balance: getBalance, list_payments: listPayments,
   gmail_list_emails: gmailListEmails, gmail_read_email: gmailReadEmail, gmail_create_draft: gmailCreateDraft,
   googlecalendar_list_events: calendarListEvents, googlecalendar_create_event: calendarCreateEvent,
