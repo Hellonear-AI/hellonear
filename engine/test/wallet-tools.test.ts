@@ -21,6 +21,17 @@ const backend = createServer(async (req, res) => {
   }
   if (req.url === '/internal/v1/wallet/balance') return send(200, { address: 'abc123', balanceNear: '0.98' })
   if (req.url?.startsWith('/internal/v1/wallet/payments')) return send(200, { payments: [{ paymentId: 'p1', status: 'sent', to: 'shop.testnet', amountNear: '0.01', txHash: 'TxHash111', at: '2026-11-05T00:00:00.000Z' }] })
+  // Mind as Seller (#181).
+  if (req.url === '/internal/v1/offers/weekly-digest' && req.method === 'PUT') return send(200, { sellerMindId: 'mnd_' + 'a'.repeat(24), item: 'weekly-digest', ...JSON.parse(body), content: undefined, payTo: 'f'.repeat(64) })
+  if (req.url?.startsWith('/internal/v1/minds/')) {
+    const u = new URL(req.url, 'http://x')
+    const offer = { status: 'payment_required', sellerMindId: 'mnd_' + 'a'.repeat(24), item: 'weekly-digest', title: 'Digest', priceNear: '0.002', payTo: 'f'.repeat(64) }
+    if (!u.pathname.endsWith('/weekly-digest')) return send(404, { error: 'no_offer' })
+    const tx = u.searchParams.get('tx')
+    if (!tx) return send(402, offer)
+    if (tx.startsWith('2222')) return send(409, { error: 'payment_already_used' })
+    return send(200, { ...offer, status: 'paid', content: 'Three things.', receipt: { txHash: tx, paymentId: 'p9', amountNear: '0.002', payTo: 'f'.repeat(64) } })
+  }
   if (req.url?.startsWith('/internal/v1/shop/')) {
     const q = new URL(req.url, 'http://x').searchParams
     // Best Price Buyer (#176): s2 is cheapest but off the wallet's list, s1 is next.
@@ -157,4 +168,25 @@ test('near_check_transfer (#180) reads one transaction from the RPC: signer, rec
     else process.env.NEAR_RPC_URL = before
     await new Promise<void>((r) => rpc.close(() => r()))
   }
+})
+
+test('sell_offer and buy_from_mind (#181): publish waits for approval; buying is 402, then paid once', async () => {
+  assert.equal(toolRegistry.sell_offer.requireApproval, true)
+  assert.notEqual((toolRegistry.buy_from_mind as { requireApproval?: boolean }).requireApproval, true)
+  const seller = 'mnd_' + 'a'.repeat(24)
+  const put = await run('sell_offer', { item: 'weekly-digest', title: 'Digest', priceNear: '0.002', content: 'Three things.' }, TOKEN)
+  assert.equal(seen.at(-1)!.method, 'PUT')
+  assert.deepEqual(JSON.parse(seen.at(-1)!.body), { title: 'Digest', priceNear: '0.002', content: 'Three things.' })
+  assert.deepEqual([put.sellerMindId, put.payTo], [seller, 'f'.repeat(64)])
+  const offer = await run('buy_from_mind', { sellerMindId: seller, item: 'weekly-digest' }, TOKEN)
+  assert.deepEqual([offer.status, offer.priceNear, offer.payTo], ['payment_required', '0.002', 'f'.repeat(64)])
+  assert.equal(seen.at(-1)!.url, `/internal/v1/minds/${seller}/offers/weekly-digest`)
+  const hash = (c: string) => c.repeat(4) + 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQ'
+  const paid = await run('buy_from_mind', { sellerMindId: seller, item: 'weekly-digest', paymentTxHash: hash('9') }, TOKEN)
+  assert.deepEqual([paid.status, paid.content, paid.receipt.txHash], ['paid', 'Three things.', hash('9')])
+  assert.equal((await run('buy_from_mind', { sellerMindId: seller, item: 'weekly-digest', paymentTxHash: hash('2') }, TOKEN)).status, 'refused')
+  assert.match((await run('buy_from_mind', { sellerMindId: seller, item: 'nothing' }, TOKEN)).reason, /sells nothing/)
+  const validate = (input: unknown) => toolRegistry.buy_from_mind.inputSchema!['~standard'].validate(input) as any
+  assert.ok((await validate({ sellerMindId: 'alice.testnet', item: 'weekly-digest' })).issues?.length, 'a seller is a Mind id, never an account')
+  await assert.rejects(run('sell_offer', { item: 'weekly-digest', title: 't', priceNear: '0.002', content: 'c' }), /no wallet yet/)
 })

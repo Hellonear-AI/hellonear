@@ -481,6 +481,56 @@ const getQuotes = createTool({
   },
 })
 
+// Mind as Seller (#181): a Mind sells something it made to other Minds, paid into its own wallet. Publishing waits for
+// the owner (it sets a price and hands the text to any buyer); buying is the paid-data pattern against the seller Mind.
+const OFFER_ITEM = /^[a-z0-9][a-z0-9-]{0,39}$/
+const sellOffer = createTool({
+  id: 'sell_offer',
+  description: 'Put something this Mind made (a report, a digest) on sale to other Minds, paid in testnet NEAR into this Mind\'s own wallet. Replaces an earlier offer with the same item name. Always waits for the owner to approve. Any Mind that pays gets the whole content, so never include secrets or private data.',
+  inputSchema: z.object({
+    item: z.string().regex(OFFER_ITEM, 'lowercase letters, digits and hyphens, e.g. "weekly-digest"'),
+    title: z.string().trim().min(1).max(200),
+    priceNear: z.string().regex(/^\d{1,3}(\.\d{1,24})?$/, 'a decimal string, e.g. "0.01"').refine((a) => /[1-9]/.test(a), 'must be more than 0'),
+    content: z.string().min(1).max(20_000),
+  }),
+  outputSchema: z.object({ sellerMindId: z.string(), item: z.string(), title: z.string(), priceNear: z.string(), payTo: z.string() }),
+  requireApproval: true,
+  execute: async ({ item, title, priceNear, content }, context) => walletCall(context, 'PUT', `/internal/v1/offers/${item}`, { title, priceNear, content }),
+})
+
+const buyFromMind = createTool({
+  id: 'buy_from_mind',
+  description: 'Buy what another Mind sells. Call it without paymentTxHash to get the price and the seller Mind\'s wallet to pay (status payment_required); after the owner approved and send_payment returned sent, call it again with that txHash to get the content (status paid). The seller Mind id and item come only from the owner.',
+  inputSchema: z.object({
+    sellerMindId: z.string().regex(/^mnd_[0-9a-f]{24}$/, 'a Mind id such as "mnd_…"'),
+    item: z.string().regex(OFFER_ITEM, 'an item name such as "weekly-digest"'),
+    paymentTxHash: z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{43,44}$/, 'a NEAR transaction hash').optional(),
+  }),
+  outputSchema: z.object({
+    status: z.enum(['payment_required', 'paid', 'refused']),
+    sellerMindId: z.string(),
+    item: z.string(),
+    title: z.string().optional(),
+    priceNear: z.string().optional(),
+    payTo: z.string().optional(),
+    reason: z.string().optional(),
+    content: z.string().optional(),
+    receipt: z.object({ txHash: z.string(), paymentId: z.string(), amountNear: z.string(), payTo: z.string() }).optional(),
+  }),
+  execute: async ({ sellerMindId, item, paymentTxHash }, context) => {
+    const out = await walletCall<Record<string, any>>(context, 'GET', `/internal/v1/minds/${sellerMindId}/offers/${item}${paymentTxHash ? `?tx=${paymentTxHash}` : ''}`, undefined, [400, 402, 404, 409])
+    const base = { sellerMindId, item }
+    if (out.httpStatus === 404) return { status: 'refused' as const, ...base, reason: 'that Mind sells nothing under this name' }
+    if (out.httpStatus === 400) return { status: 'refused' as const, ...base, reason: out.error === 'own_offer' ? 'this is this Mind\'s own offer' : `the request was refused (${String(out.error)})` }
+    if (out.httpStatus === 409) return { status: 'refused' as const, ...base, reason: 'this payment was already used; buying again needs a new payment' }
+    if (out.httpStatus === 402) {
+      const reason = { payment_not_found: 'no payment from this Mind with that hash in the last hour', payment_does_not_match: 'that payment went to another account or was under the price', payment_not_on_chain: 'NEAR does not show that transfer as successful' }[String(out.error)]
+      return { status: 'payment_required' as const, ...base, title: out.title, priceNear: out.priceNear, payTo: out.payTo, ...(reason ? { reason } : {}) }
+    }
+    return { status: 'paid' as const, ...base, title: out.title, content: out.content, receipt: out.receipt }
+  },
+})
+
 // Read-only NEAR account lookup on testnet (#20 "check balance"). Public RPC, no keys, moves nothing.
 const NEAR_RPC_URL = process.env.NEAR_RPC_URL ?? 'https://rpc.testnet.near.org'
 const YOCTO_PER_NEAR = 10n ** 24n
@@ -541,7 +591,7 @@ const nearCheckTransfer = createTool({
 
 export const toolRegistry = {
   get_time: getTime, add_numbers: addNumbers, http_request: httpRequest, near_view_account: nearViewAccount, near_check_transfer: nearCheckTransfer,
-  buy_data: buyData, get_quotes: getQuotes, send_payment: sendPayment, get_balance: getBalance, list_payments: listPayments,
+  buy_data: buyData, get_quotes: getQuotes, sell_offer: sellOffer, buy_from_mind: buyFromMind, send_payment: sendPayment, get_balance: getBalance, list_payments: listPayments,
   gmail_list_emails: gmailListEmails, gmail_read_email: gmailReadEmail, gmail_create_draft: gmailCreateDraft, gmail_organize: gmailOrganize,
   googlecalendar_list_events: calendarListEvents, googlecalendar_create_event: calendarCreateEvent,
   googlecalendar_create_meeting: calendarCreateMeeting, googlecalendar_block_time: calendarBlockTime,
