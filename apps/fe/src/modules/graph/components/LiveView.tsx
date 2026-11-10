@@ -115,6 +115,7 @@ export function LiveView({ mindId, className }: { mindId: string; className?: st
         onSelect={setSelected}
         trail={trail}
         live={streaming}
+        run={activeEvents?.at(-1)?.runId ?? null}
         label={`A map of ${name}'s skills, apps and tools. The steps of this reply are listed below it.`}
         className="h-[360px] shrink-0 rounded-lg bg-muted/50"
       />

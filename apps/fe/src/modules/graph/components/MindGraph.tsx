@@ -23,6 +23,8 @@ type Props = {
   trail?: string[]
   /** The reply is still streaming: the trail carries moving dots. */
   live?: boolean
+  /** The run on screen. Only its changes pulse; history loading in never does. */
+  run?: string | null
   className?: string
 }
 
@@ -61,7 +63,7 @@ const FILL: Record<NodeKind, keyof Colors> = { mind: "mind", skill: "skill", too
 /** How long a finished state keeps glowing (ms). */
 const AFTERGLOW = { ok: 1600, error: 4000, denied: 4000 } as const
 
-export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect, label, trail = [], live = false, className }: Props) {
+export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect, label, trail = [], live = false, run = null, className }: Props) {
   const wrap = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
   const logos = useRef<HTMLDivElement>(null)
@@ -88,11 +90,12 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
     for (const n of nodes) {
       const key = `${n.state ?? ""}:${n.at ?? ""}`
       const old = seen.current.get(n.id)
-      // The first time a node shows, its state is history: no pulse.
-      if (!old) seen.current.set(n.id, { key, at: n.state === "running" || n.state === "waiting" ? now : -Infinity })
-      else if (old.key !== key) seen.current.set(n.id, { key, at: now })
+      // Only the run on screen pulses. History arriving after the first draw also changes states,
+      // and lit up the whole graph on open (Ancung, 10 Nov).
+      const mine = Boolean(run && n.run === run)
+      if (!old || old.key !== key) seen.current.set(n.id, { key, at: mine ? now : -Infinity })
     }
-  }, [nodes, links, selected, trail, live, mind])
+  }, [nodes, links, selected, trail, live, run, mind])
 
   // The avatar and the apps' logos as images the canvas can draw.
   useEffect(() => {
