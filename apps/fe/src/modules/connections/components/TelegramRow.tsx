@@ -3,6 +3,7 @@
 import { CheckIcon, ExternalLinkIcon, SendIcon } from "lucide-react"
 import { useState } from "react"
 import { ResponsiveDialog } from "@/components/elements/ResponsiveDialog"
+import { TelegramLogo } from "@/components/elements/AppLogos"
 import { Spinner } from "@/components/elements/Spinner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -27,9 +28,8 @@ export function TelegramRow({ mindId, name }: { mindId: string; name: string }) 
 
   return (
     <li className="flex flex-col gap-3 rounded-md bg-muted px-4 py-3 sm:flex-row sm:items-center">
-      {/* Not Telegram's own logo yet: app logos are copied as published, never redrawn. */}
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-surface text-info [&>svg]:size-4.5">
-        <SendIcon />
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-surface">
+        <TelegramLogo />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex flex-wrap items-center gap-2">
