@@ -15,4 +15,9 @@ describe("Stop (#121)", () => {
   it("still reads a normal end as finished", () => {
     expect(foldRun([ev("run.started"), ev("text.delta", { text: "Hi" }), ev("run.finished", { status: "finished" })]).status).toBe("finished")
   })
+
+  it("marks a tool still running at Stop as stopped, not running", () => {
+    const view = foldRun([ev("run.started"), ev("tool.called", { tool: "get_balance", toolCallId: "a" }), ev("run.finished", { status: "canceled" })])
+    expect(view.tools[0].status).toBe("stopped")
+  })
 })

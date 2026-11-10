@@ -390,7 +390,7 @@ function TurnView({
 
   // Steps and thoughts are rows; approvals, receipts and refusals are cards that stay in place.
   const isRow = (step: ToolStep) =>
-    step.status !== "awaiting_approval" && (!paymentOf(step) || step.status === "running" || step.status === "declined")
+    step.status !== "awaiting_approval" && (!paymentOf(step) || step.status === "running" || step.status === "declined" || step.status === "stopped")
   const rowPart = (part: ReplyPart) => part.kind === "thought" || (part.kind === "tool" && Boolean(byCall.get(part.toolCallId) && isRow(byCall.get(part.toolCallId)!)))
   // Once the reply is done, its rows fold into one line above it (Ancung, 9 Nov, like Claude).
   const folded = !live && parts.some(rowPart)
@@ -426,7 +426,7 @@ function TurnView({
       }
       return null
     }
-    if (!payment || step.status === "running" || step.status === "declined") return <StepRow step={step} />
+    if (!payment || step.status === "running" || step.status === "declined" || step.status === "stopped") return <StepRow step={step} />
     if (step.status === "ok") return <PaymentReceipt payment={payment} policy={policy} />
     if (step.status === "policy_denied" || step.status === "wallet_frozen") {
       return <PaymentRefused step={step} payment={payment} policy={policy} mindName={name} />

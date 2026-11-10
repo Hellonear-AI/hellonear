@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckIcon, ListChecksIcon, ChevronDownIcon, Loader2Icon, XIcon } from "lucide-react"
+import { CheckIcon, ListChecksIcon, ChevronDownIcon, Loader2Icon, SquareIcon, XIcon } from "lucide-react"
 import { useEffect, useId, useState, type ReactNode } from "react"
 import { cn } from "cn"
 import type { ToolStep } from "@/modules/chat/data/events"
@@ -19,6 +19,8 @@ export function StepRow({ step }: { step: ToolStep }) {
       <Loader2Icon className="animate-spin motion-reduce:animate-[hn-fade-pulse_1.6s_ease_infinite]" />
     ) : tone === "done" ? (
       <CheckIcon className="text-success" />
+    ) : tone === "stopped" ? (
+      <SquareIcon className="fill-current text-muted-foreground" />
     ) : (
       <XIcon className="text-danger" />
     )
