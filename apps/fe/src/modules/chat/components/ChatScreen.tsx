@@ -31,7 +31,8 @@ import { setLiveOpen, useLiveOpen } from "@/modules/graph/data/liveOpen"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer"
 
-type Shown = { key: string; message: string | null; createdAt: string; view: RunView; live: boolean; failed: unknown }
+/** `read`: the run's events are in, so an empty reply is known to be empty, not still loading. */
+type Shown = { key: string; message: string | null; createdAt: string; view: RunView; live: boolean; failed: unknown; read: boolean }
 
 /**
  * Chat (design 4 · Chat, C1): the thread, what each run did, and the composer. `threadId` null
@@ -85,8 +86,8 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   // replayed its entrance, so the sent message and first thought seemed to appear twice (Ancung).
   const shown: Shown[] = thread.turns.map((t) =>
     activeHere && t.runId === activeRunId
-      ? { key: `active-${activeHere.id}`, message: t.message, createdAt: t.createdAt, view: activeHere.view, live: activeHere.streaming, failed: activeHere.failed }
-      : { key: t.runId, message: t.message, createdAt: t.createdAt, view: t.view, live: false, failed: null }
+      ? { key: `active-${activeHere.id}`, message: t.message, createdAt: t.createdAt, view: activeHere.view, live: activeHere.streaming, failed: activeHere.failed, read: true }
+      : { key: t.runId, message: t.message, createdAt: t.createdAt, view: t.view, live: false, failed: null, read: t.read }
   )
   if (activeHere && !thread.turns.some((t) => t.runId === activeRunId)) {
     shown.push({
@@ -96,6 +97,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
       view: activeHere.view,
       live: activeHere.streaming,
       failed: activeHere.failed,
+      read: true,
     })
   }
 
@@ -487,7 +489,9 @@ function TurnView({
       {!live && view.status === "canceled" && <p className="text-[13px] text-muted-foreground">You stopped this reply.</p>}
 
       {/* The run ended with nothing to show: say so instead of leaving a bare "Thought for" (Ancung, 9 Nov). */}
-      {!failed && !live && view.status === "finished" && !view.text.trim() && view.tools.length === 0 && (
+      {/* Only once the run's events are read: a stopped reply has no text either, and flashed this
+          card while its events were still loading (Ancung, 10 Nov). */}
+      {!failed && !live && turn.read && view.status === "finished" && !view.text.trim() && view.tools.length === 0 && (
         <FailedReply name={name} error="no_reply" canRetry={Boolean(turn.message) && !busy} onRetry={onRetry} />
       )}
 
