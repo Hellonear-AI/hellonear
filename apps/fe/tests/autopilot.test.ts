@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { issueText } from "@/modules/autopilot/components/AutopilotScreen"
+import { issueText } from "@/modules/autopilot/data/issues"
 import { IDEAS } from "@/modules/autopilot/data/ideas"
 import { runSummary } from "@/modules/autopilot/data/runs"
 import { scheduleText, whenNext, zoneName } from "@/modules/autopilot/data/schedule"
