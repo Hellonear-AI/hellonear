@@ -3,6 +3,7 @@
 import { CheckIcon, ExternalLinkIcon, KeyRoundIcon, PencilIcon, PlusIcon, Trash2Icon, TriangleAlertIcon } from "lucide-react"
 import { useState, type ReactNode } from "react"
 import { cn } from "cn"
+import { ErrorRetry } from "@/components/elements/ErrorRetry"
 import { Spinner } from "@/components/elements/Spinner"
 import { GmailLogo, GoogleCalendarLogo, GoogleMeetLogo } from "@/components/elements/AppLogos"
 import { PageTitle } from "@/components/elements/PageTitle"
@@ -101,12 +102,7 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
             {connections.isPending ? (
               <Skeleton className="h-36 w-full" />
             ) : connections.isError ? (
-              <div className="flex flex-col items-start gap-2">
-                <p className="text-[13px] text-muted-foreground">Could not check your apps. Please try again later.</p>
-                <Button variant="outline" size="sm" onClick={() => void connections.refetch()}>
-                  Try again
-                </Button>
-              </div>
+              <ErrorRetry small message="Could not check your apps. Please try again later." onRetry={() => void connections.refetch()} />
             ) : (
               <ul className="flex flex-col gap-2">
                 {APPS.map((a) => {

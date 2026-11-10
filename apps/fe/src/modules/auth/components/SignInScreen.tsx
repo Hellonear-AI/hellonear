@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { ArrowRightIcon, CircleXIcon, FlaskConicalIcon, GlobeIcon, KeyRoundIcon, WalletMinimalIcon } from "lucide-react"
 import { useEffect, useState, type ReactNode } from "react"
 import { cn } from "cn"
+import { ErrorRetry } from "@/components/elements/ErrorRetry"
 import { Spinner } from "@/components/elements/Spinner"
 import { MeteorLogo } from "@/components/elements/AppLogos"
 import { Logo } from "@/components/elements/Logo"
@@ -68,14 +69,7 @@ export function SignInScreen() {
   }
 
   if (user && minds.isError) {
-    return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-background p-6 text-center">
-        <p className="text-sm text-muted-foreground">Your Minds could not be loaded. Check your connection and try again.</p>
-        <Button variant="outline" onClick={() => void minds.refetch()}>
-          Try again
-        </Button>
-      </div>
-    )
+    return <ErrorRetry fullPage message="Your Minds could not be loaded. Check your connection and try again." onRetry={() => void minds.refetch()} />
   }
   if (session.isPending || (user && !emptyTryOut)) {
     return <div aria-busy="true" className="min-h-dvh bg-background" />

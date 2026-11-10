@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
-import { Button } from "@/components/ui/button"
+import { ErrorRetry } from "@/components/elements/ErrorRetry"
 import { mindHref } from "@/components/layout/nav"
 import { ApiError, isApiCode } from "@/lib/api"
 import { useLeaveTryOut, useSession, useSignOut } from "@/modules/auth/hooks/useSession"
@@ -58,14 +58,7 @@ export function NewMindFlow() {
   }, [setUp.stage])
 
   if (session.isError) {
-    return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-3 p-6 text-center">
-        <p className="text-sm text-muted-foreground">Could not reach HelloNear. Check your connection and try again.</p>
-        <Button variant="outline" onClick={() => void session.refetch()}>
-          Try again
-        </Button>
-      </div>
-    )
+    return <ErrorRetry fullPage message="Could not reach HelloNear. Check your connection and try again." onRetry={() => void session.refetch()} />
   }
   if (!session.data) return <div className="min-h-dvh bg-background" aria-busy="true" />
 

@@ -2,7 +2,7 @@
 
 import { notFound, useRouter } from "next/navigation"
 import { useEffect, useState, type ReactNode } from "react"
-import { Button } from "@/components/ui/button"
+import { ErrorRetry } from "@/components/elements/ErrorRetry"
 import { cameByHistory } from "@/lib/historyNav"
 import { leftMinds } from "@/modules/auth/data/leftMinds"
 import { useSession } from "@/modules/auth/hooks/useSession"
@@ -35,12 +35,11 @@ export function MindGate({ mindId, children }: { mindId: string; children: React
 
   if (session.isError || minds.isError) {
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-3 p-6 text-center">
-        <p className="text-sm text-muted-foreground">Could not reach HelloNear. Check your connection and try again.</p>
-        <Button variant="outline" onClick={() => void (session.isError ? session.refetch() : minds.refetch())}>
-          Try again
-        </Button>
-      </div>
+      <ErrorRetry
+        fullPage
+        message="Could not reach HelloNear. Check your connection and try again."
+        onRetry={() => void (session.isError ? session.refetch() : minds.refetch())}
+      />
     )
   }
 

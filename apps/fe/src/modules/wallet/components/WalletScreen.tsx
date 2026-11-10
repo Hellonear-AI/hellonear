@@ -3,6 +3,7 @@
 import { CheckIcon, CircleSlashIcon, CopyIcon, HourglassIcon, LockIcon, PlusIcon, SnowflakeIcon, WalletIcon, XIcon } from "lucide-react"
 import { useState, type ReactNode } from "react"
 import { cn } from "cn"
+import { ErrorRetry } from "@/components/elements/ErrorRetry"
 import { EmptyState } from "@/components/elements/EmptyState"
 import { PageTitle } from "@/components/elements/PageTitle"
 import { Badge } from "@/components/ui/badge"
@@ -78,11 +79,8 @@ export function WalletScreen({ mindId }: { mindId: string }) {
       {walletQuery.isPending ? (
         <Loading />
       ) : walletQuery.isError ? (
-        <Card className="items-start">
-          <p className="text-sm text-muted-foreground">Could not reach the wallet service. Please try again later.</p>
-          <Button variant="outline" onClick={() => void walletQuery.refetch()}>
-            Try again
-          </Button>
+        <Card>
+          <ErrorRetry message="Could not reach the wallet service. Please try again later." onRetry={() => void walletQuery.refetch()} />
         </Card>
       ) : wallet === null || wallet === undefined ? (
         <NoWallet name={name} onSetUp={() => act("limits")} />

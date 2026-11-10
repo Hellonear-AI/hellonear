@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { AtSignIcon, CalendarDaysIcon, ChartNoAxesColumnIcon, CheckIcon, ClipboardListIcon, PlugIcon, RepeatIcon, SearchIcon, SunriseIcon, WalletIcon, type LucideIcon } from "lucide-react"
 import { useState, type ComponentType } from "react"
+import { ErrorRetry } from "@/components/elements/ErrorRetry"
 import { GmailLogo } from "@/components/elements/AppLogos"
 import { cn } from "cn"
 import { PageTitle } from "@/components/elements/PageTitle"
@@ -115,12 +116,11 @@ export function SkillsScreen({ mindId }: { mindId: string }) {
           ))}
         </div>
       ) : catalog.isError ? (
-        <div className="flex flex-col items-start gap-3 rounded-lg border border-border bg-surface p-5">
-          <p className="text-sm text-muted-foreground">Could not load the skill list. {name} keeps the skills it already has; only the list is missing.</p>
-          <Button variant="outline" onClick={() => void catalog.refetch()}>
-            Try again
-          </Button>
-        </div>
+        <ErrorRetry
+          className="rounded-lg border border-border bg-surface p-5"
+          message={`Could not load the skill list. ${name} keeps the skills it already has; only the list is missing.`}
+          onRetry={() => void catalog.refetch()}
+        />
       ) : shown.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-lg border border-border bg-surface px-6 py-12 text-center">
           <p className="text-[15px] font-semibold text-foreground">{query.trim() ? `No skills match "${query.trim()}"` : "No skills found"}</p>
