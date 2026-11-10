@@ -3,7 +3,7 @@ import { createServer } from 'node:http'
 import { z } from 'zod'
 import { SESSION_COOKIE, createChallenge, login, loginSchema, logout, requireUser } from './auth.ts'
 import { config } from './config.ts'
-import { newId } from './crypto.ts'
+import { newId, sameSecret } from './crypto.ts'
 import { migrate, query } from './db.ts'
 import { engineFetch, engineJson, skills, templates } from './engine.ts'
 import { HttpError, assertSameOrigin, cors, logServerError, readBody, sendJson, setCookie, isLoopback } from './http.ts'
@@ -17,9 +17,11 @@ import { itemSchema, shop, txHashSchema } from './shop.ts'
 import { issueMailToken, issueWalletToken, verifyMailToken, verifyWalletToken } from './walletToken.ts'
 import { EMAIL_SKILL, ensureInbox, inboxOf, listMail, listSends, mailEnabled, messageIdSchema, ownerMailSchema, readMail, releaseInbox, sendMail, sendMailSchema, sendMailToOwner } from './mail.ts'
 import { listThreads, parseCursor, threadExists, threadMessages } from './threads.ts'
+import { connectTelegram, disconnectTelegram, startTelegramPolling, telegramStatus, telegramTokenSchema, telegramWebhook, type RunChat } from './telegram.ts'
 import { assertDemoRunAllowed, cleanupDemoUsers, createDemoUser, demoPaymentCap, denyDemo } from './demo.ts'
 import type { User } from './auth.ts'
-import { timingSafeEqual } from 'node:crypto'
+import { EventEmitter } from 'node:events'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import { readFileSync } from 'node:fs'
 import { autopilotSchema, deleteAllWorkflows, deleteAutopilot, putAutopilot, runWorkflowSchema, syncAutopilots, workflowIdSchema, workflowPath } from './workflows.ts'
 
@@ -83,7 +85,50 @@ async function withInbox(user: User, mind: Mind): Promise<{ mind: Mind; inboxErr
   }
 }
 
-const sameSecret = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b))
+
+// Telegram (#168): one message to a Mind, run like a chat from the app and stored the same way (relayRun into an
+// in-memory sink), then answered as text. Same owner, Mind config, secrets, tokens and try-out limits as the app.
+// No time zone: Telegram doesn't send one, so the run is in UTC.
+export const runTelegramChat: RunChat = async (mindId, threadId, text) => {
+  const thread = threadId ?? `thr_${newId('x').slice(2)}`
+  const [owner] = await query<{ id: string; near_account_id: string; is_demo: boolean }>('select u.id, u.near_account_id, u.is_demo from minds m join users u on u.id = m.user_id where m.id = $1', [mindId])
+  if (!owner) return { threadId: thread, text: '', needsApproval: false, error: 'mind_not_found' }
+  const user: User = { id: owner.id, nearAccountId: owner.near_account_id, demo: owner.is_demo }
+  const mind = await requireMind(user.id, mindId)
+  // Telegram runs have no client IP: key the try-out hourly window per user, so one busy bot can't use up everyone's
+  // (Lin1er's review on #171). The per-user run cap still applies.
+  const fakeReq = Object.assign(new EventEmitter(), { headers: { 'cf-connecting-ip': `telegram:${user.id}` }, socket: { remoteAddress: 'telegram' }, url: `/v1/telegram/${mindId}`, method: 'POST' }) as unknown as IncomingMessage
+  try {
+    await assertDemoRunAllowed(user, fakeReq)
+  } catch (e) {
+    return { threadId: thread, text: '', needsApproval: false, error: e instanceof HttpError ? e.message : 'error' }
+  }
+  const controller = new AbortController()
+  const engineRes = await engineFetch(`/v1/minds/${encodeURIComponent(mind.id)}/chat`, {
+    method: 'POST', signal: controller.signal,
+    body: { userId: user.id, threadId: thread, message: text, mind: mindConfig(mind), secrets: await secretsForRun(user.id), ...(await runExtras(user, mind.id)) },
+  })
+  let raw = ''
+  let status = 200
+  const sink = {
+    writeHead(code: number) { status = code; return sink },
+    write(t: string) { raw += t; return true },
+    end(t?: string) { if (t) raw += t; return sink },
+  }
+  await relayRun(fakeReq, sink as unknown as ServerResponse, engineRes, { mindId: mind.id, threadId: thread, userMessage: text, controller })
+  if (status !== 200) {
+    const err = (() => { try { return String(JSON.parse(raw).error ?? 'engine_error') } catch { return 'engine_error' } })()
+    return { threadId: thread, text: '', needsApproval: false, error: err }
+  }
+  const events = raw.split('\n').filter((l) => l.startsWith('data: ')).map((l) => { try { return JSON.parse(l.slice(6)) } catch { return null } }).filter(Boolean) as { type: string; text?: string }[]
+  const failed = events.find((e) => e.type === 'run.error')
+  return {
+    threadId: thread,
+    text: events.filter((e) => e.type === 'text.delta').map((e) => e.text ?? '').join(''),
+    needsApproval: events.some((e) => e.type === 'tool.approval_required'),
+    ...(failed ? { error: 'run_error' } : {}),
+  }
+}
 
 export const server = createServer(async (req, res) => {
   try {
@@ -173,6 +218,15 @@ export const server = createServer(async (req, res) => {
         return sendJson(res, 200, await readMail(mindId, id.data))
       }
       throw new HttpError(405, 'method_not_allowed')
+    }
+
+    // Telegram's webhook (#168): no session; the bot's secret token header is the check.
+    const tg = path.match(/^\/v1\/telegram\/([A-Za-z0-9_-]{1,64})\/webhook$/)
+    if (tg) {
+      if (req.method !== 'POST') throw new HttpError(405, 'method_not_allowed')
+      const update = await readBody(req, z.object({ update_id: z.number().int() }).passthrough())
+      await telegramWebhook(tg[1], req.headers['x-telegram-bot-api-secret-token'] as string | undefined, update, runTelegramChat)
+      return sendJson(res, 200, { ok: true })
     }
 
     // Everything below needs a session.
@@ -307,6 +361,8 @@ export const server = createServer(async (req, res) => {
         // until the owner has seen the balance (#161).
         if (url.searchParams.get('acknowledgeBalance') !== 'true') await assertWalletEmpty(mind.id)
         await deleteAllWorkflows(mind.id)
+        // The bot's webhook would keep pointing at a Mind that is gone, and the bot would go quiet (#171 review).
+        await disconnectTelegram(mind.id).catch(() => {})
         await releaseInbox(mind.id)
         await deleteMind(user.id, mind.id)
         return res.writeHead(204).end()
@@ -327,6 +383,10 @@ export const server = createServer(async (req, res) => {
         })
         return relayRun(req, res, engineRes, { mindId: mind.id, threadId, userMessage: body.message, controller })
       }
+      // Telegram (#168): the Mind's own bot, made by the owner with @BotFather.
+      if (sub === '/telegram' && req.method === 'GET') return sendJson(res, 200, { telegram: await telegramStatus(mind.id) })
+      if (sub === '/telegram' && req.method === 'PUT') return sendJson(res, 200, { telegram: await connectTelegram(mind.id, (await readBody(req, telegramTokenSchema)).token) })
+      if (sub === '/telegram' && req.method === 'DELETE') return (await disconnectTelegram(mind.id)) ? res.writeHead(204).end() : sendJson(res, 404, { error: 'not_connected' })
       if (sub === '/runs' && req.method === 'GET') {
         return sendJson(res, 200, { runs: await listRuns(mind.id, limitOf(url, 20, 100), url.searchParams.get('threadId') ?? undefined) })
       }
@@ -395,7 +455,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (applied.length) console.log('migrations applied', applied.join(', '))
   server.listen(config.port, () => console.log(`backend listening on :${config.port}`))
   // Judge try-out users are deleted after the retention: at start and once a day.
-  const sweep = () => cleanupDemoUsers(async (mindId) => { await deleteAllWorkflows(mindId) }).then((n) => { if (n) console.log('demo users removed', n) }, (e) => console.error('demo cleanup failed', e instanceof Error ? e.message : e))
+  const sweep = () => cleanupDemoUsers(async (mindId) => { await deleteAllWorkflows(mindId); await disconnectTelegram(mindId).catch(() => {}) }).then((n) => { if (n) console.log('demo users removed', n) }, (e) => console.error('demo cleanup failed', e instanceof Error ? e.message : e))
   void sweep()
   setInterval(sweep, 24 * 3600_000).unref()
+  // Local dev without a public URL (#168): poll Telegram instead of waiting for webhooks.
+  if (config.telegramPolling && !config.telegramWebhookBase) { startTelegramPolling(runTelegramChat); console.log('telegram polling on') }
 }
