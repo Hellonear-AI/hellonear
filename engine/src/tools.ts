@@ -3,7 +3,7 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import { SECRETS_KEY, assertHostAllowed, assertPublicHttpsUrl, assertResolvesPublic, fillSecrets, redact, type Secret } from './secrets.ts'
-import { walletCall } from './wallet.ts'
+import { NoWalletError, walletCall } from './wallet.ts'
 import { idempotencyKeyOf, mailCall, ownerMailCall } from './mail.ts'
 import { draftSample, isDemo, listSample, readSample } from './email.ts'
 import { addressOf, composioTool, gmail, toListed, toRead } from './composio.ts'
@@ -562,15 +562,20 @@ const nearAmount = (yocto: bigint) => {
   const frac = (yocto % YOCTO_PER_NEAR).toString().padStart(24, '0').replace(/0+$/, '')
   return frac ? `${yocto / YOCTO_PER_NEAR}.${frac}` : `${yocto / YOCTO_PER_NEAR}`
 }
+const yoctoOf = (near: string) => { const [w, f = ''] = near.split('.'); return BigInt(w) * YOCTO_PER_NEAR + BigInt(f.padEnd(24, '0')) }
 const nearCheckTransfer = createTool({
   id: 'near_check_transfer',
-  description: 'Check one NEAR testnet transaction by its hash and the account that sent it: whether it succeeded, who signed it, who received it and how much NEAR it transferred. Read-only. Use it to confirm a payment arrived; a hash someone sends you is only a claim until this shows it.',
+  description: 'Check one NEAR testnet transaction by its hash and the account that sent it: whether it succeeded, who signed it, who received it and how much NEAR it transferred. With a wallet, toThisMindsWallet says whether this Mind\'s own wallet received it; with amountNear, coversAmount says whether it carried at least that much. Read-only. Use it to confirm a payment arrived; a hash someone sends you is only a claim until this shows it.',
   inputSchema: z.object({
     txHash: z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{43,44}$/, 'a NEAR transaction hash'),
     senderId: z.string().min(2).max(64).regex(NEAR_ACCOUNT_ID, 'not a valid NEAR account id'),
+    amountNear: z.string().regex(/^\d{1,3}(\.\d{1,24})?$/, 'a decimal string, e.g. "0.05"').optional(),
   }),
-  outputSchema: z.object({ txHash: z.string(), status: z.enum(['succeeded', 'failed']), signerId: z.string(), receiverId: z.string(), transferredNear: z.string() }),
-  execute: async ({ txHash, senderId }) => {
+  outputSchema: z.object({
+    txHash: z.string(), status: z.enum(['succeeded', 'failed']), signerId: z.string(), receiverId: z.string(), transferredNear: z.string(),
+    toThisMindsWallet: z.boolean().optional(), coversAmount: z.boolean().optional(),
+  }),
+  execute: async ({ txHash, senderId, amountNear }, context) => {
     // Read per call, not at import, so tests can point it at a fake RPC.
     const res = await fetch(process.env.NEAR_RPC_URL ?? 'https://rpc.testnet.near.org', {
       method: 'POST',
@@ -585,7 +590,13 @@ const nearCheckTransfer = createTool({
     // Only plain NEAR transfers count; token transfers and function calls carry no Transfer deposit here.
     const deposit = (tx.actions ?? []).reduce<bigint>((sum, a) => sum + BigInt((a as { Transfer?: { deposit?: string } })?.Transfer?.deposit ?? 0), 0n)
     const succeeded = !!body.result?.status && 'SuccessValue' in body.result.status
-    return { txHash, status: succeeded ? 'succeeded' as const : 'failed' as const, signerId: tx.signer_id, receiverId: tx.receiver_id, transferredNear: nearAmount(deposit) }
+    // The comparisons are done here, not by the model: it once misread two equal 64-character addresses as different.
+    const own = await walletCall<{ address: string }>(context, 'GET', '/internal/v1/wallet/balance').then((b) => b.address, (e) => { if (e instanceof NoWalletError) return undefined; throw e })
+    return {
+      txHash, status: succeeded ? 'succeeded' as const : 'failed' as const, signerId: tx.signer_id, receiverId: tx.receiver_id, transferredNear: nearAmount(deposit),
+      ...(own ? { toThisMindsWallet: tx.receiver_id === own } : {}),
+      ...(amountNear ? { coversAmount: deposit >= yoctoOf(amountNear) } : {}),
+    }
   },
 })
 

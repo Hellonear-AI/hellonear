@@ -161,6 +161,10 @@ test('near_check_transfer (#180) reads one transaction from the RPC: signer, rec
     const ok = await run('near_check_transfer', { txHash: hash('9'), senderId: 'client.testnet' })
     assert.deepEqual(ok, { txHash: hash('9'), status: 'succeeded', signerId: 'client.testnet', receiverId: 'mind.testnet', transferredNear: '0.0025' })
     assert.deepEqual(calls.at(-1), { tx_hash: hash('9'), sender_account_id: 'client.testnet', wait_until: 'FINAL' })
+    // With a wallet, the tool compares the receiver with this Mind's own address (the fake backend's is abc123) and the amount.
+    const checked = await run('near_check_transfer', { txHash: hash('9'), senderId: 'client.testnet', amountNear: '0.0025' }, TOKEN)
+    assert.deepEqual([checked.toThisMindsWallet, checked.coversAmount], [false, true])
+    assert.equal((await run('near_check_transfer', { txHash: hash('9'), senderId: 'client.testnet', amountNear: '0.003' })).coversAmount, false)
     assert.equal((await run('near_check_transfer', { txHash: hash('2'), senderId: 'client.testnet' })).status, 'failed')
     await assert.rejects(run('near_check_transfer', { txHash: hash('1'), senderId: 'client.testnet' }), /UNKNOWN_TRANSACTION/)
   } finally {
