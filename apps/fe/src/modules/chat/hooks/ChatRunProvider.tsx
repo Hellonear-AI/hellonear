@@ -173,6 +173,11 @@ function ExternalLabel({ children }: { children: ReactNode }) {
   )
 }
 
+/** The run in progress, or null, also outside a Mind's layout (the sidebar uses it for its dot). */
+export function useActiveRun(): ActiveRun | null {
+  return useContext(ChatRunContext)?.active ?? null
+}
+
 export function useChatRun(): ChatRun {
   const ctx = useContext(ChatRunContext)
   if (!ctx) throw new Error("useChatRun needs a ChatRunProvider (the Mind layout)")
