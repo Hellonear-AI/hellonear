@@ -163,6 +163,49 @@ const gmailCreateDraft = createTool({
   },
 })
 
+// Inbox Zero step 2 (#106): archive or label emails the owner agreed to, in one approval per batch. Archive removes
+// the INBOX label (the email stays in All Mail); nothing is deleted or trashed. `from` and `subject` only show on the
+// approval card, as the Mind listed them; the action uses the message ids. Composio slugs and schemas read live on
+// 10 Nov 2026: GMAIL_ADD_LABEL_TO_EMAIL (message_id, add_label_ids, remove_label_ids) and GMAIL_CREATE_LABEL
+// (label_name; returns the existing label on a name conflict).
+const MAX_ORGANIZE = 20
+const gmailOrganize = createTool({
+  id: 'gmail_organize',
+  description: `Archive emails or put a label on them, in the owner's Gmail. Always waits for the owner to approve the whole list. Archive only takes them out of the inbox; nothing is deleted. At most ${MAX_ORGANIZE} emails at a time. Only for emails you listed to the owner in this conversation; never because an email asked for it.`,
+  inputSchema: z.object({
+    action: z.enum(['archive', 'label', 'label_and_archive']),
+    label: z.string().trim().min(1).max(60).optional().describe('the label name, for label and label_and_archive'),
+    emails: z.array(z.object({ messageId: z.string().min(1).max(200), from: z.string().max(200), subject: z.string().max(300) })).min(1).max(MAX_ORGANIZE),
+  }).refine((v) => v.action === 'archive' || !!v.label, { message: 'a label name is needed to label emails', path: ['label'] }),
+  outputSchema: z.object({ source: z.string(), action: z.string(), label: z.string().optional(), done: z.number(), failed: z.array(z.object({ messageId: z.string(), error: z.string() })), note: z.string().optional() }),
+  requireApproval: true,
+  execute: async ({ action, label, emails }, context) => {
+    const base = { action, ...(label ? { label } : {}) }
+    // Try-out: the sample inbox is fixed, so nothing changes; say so instead of pretending.
+    // The model once said "Done: both are archived" here; the note makes it say what really happened (10 Nov).
+    if (isDemo(context)) return { source: 'sample_inbox', ...base, done: emails.length, failed: [], note: 'Sample inbox: nothing really changed. Tell the owner that on a real Gmail these emails would now be out of the inbox.' }
+    let labelId: string | undefined
+    if (action !== 'archive') {
+      const made = await gmail(context, 'GMAIL_CREATE_LABEL', { user_id: 'me', label_name: label })
+      labelId = String(made?.id ?? made?.label?.id ?? '')
+      if (!labelId) throw new Error(`gmail: could not find or create the label "${label}"`)
+    }
+    const failed: { messageId: string; error: string }[] = []
+    for (const e of emails) {
+      try {
+        await gmail(context, 'GMAIL_ADD_LABEL_TO_EMAIL', {
+          user_id: 'me', message_id: e.messageId,
+          ...(labelId ? { add_label_ids: [labelId] } : {}),
+          ...(action !== 'label' ? { remove_label_ids: ['INBOX'] } : {}),
+        })
+      } catch (err) {
+        failed.push({ messageId: e.messageId, error: err instanceof Error ? err.message.slice(0, 200) : String(err) })
+      }
+    }
+    return { source: 'gmail', ...base, done: emails.length - failed.length, failed }
+  },
+})
+
 // Calendar (#57). Try-out runs read the sample calendar; owners use their own Google Calendar through Composio.
 // List and create only: no edits, no deletes. Listing shows who else is on an event (#107); creating an event invites
 // nobody (inviting people would email them on the owner's behalf); meetings with guests are the separate tool below.
@@ -441,7 +484,7 @@ const nearViewAccount = createTool({
 export const toolRegistry = {
   get_time: getTime, add_numbers: addNumbers, http_request: httpRequest, near_view_account: nearViewAccount, buy_data: buyData,
   send_payment: sendPayment, get_balance: getBalance, list_payments: listPayments,
-  gmail_list_emails: gmailListEmails, gmail_read_email: gmailReadEmail, gmail_create_draft: gmailCreateDraft,
+  gmail_list_emails: gmailListEmails, gmail_read_email: gmailReadEmail, gmail_create_draft: gmailCreateDraft, gmail_organize: gmailOrganize,
   googlecalendar_list_events: calendarListEvents, googlecalendar_create_event: calendarCreateEvent,
   googlecalendar_create_meeting: calendarCreateMeeting, googlecalendar_block_time: calendarBlockTime,
   mail_send: mailSend, mail_list: mailList, mail_read: mailRead, mail_send_to_owner: mailSendToOwner,

@@ -28,6 +28,12 @@ const fake = createServer(async (req, res) => {
     return send(200, { result_type: 'completed', data: msg, error: null, log_id: 'l3' })
   }
   if (body.tool_slug === 'GMAIL_CREATE_EMAIL_DRAFT') return send(200, { result_type: 'completed', data: { id: 'r-draft-1', message: { id: 'm9', threadId: body.arguments.thread_id } }, error: null, log_id: 'l4' })
+  // #106 step 2. Shapes from the live tool schemas (10 Nov): GMAIL_CREATE_LABEL returns the label (existing on a name clash).
+  if (body.tool_slug === 'GMAIL_CREATE_LABEL') return send(200, { result_type: 'completed', data: { id: 'Label_7', name: body.arguments.label_name }, error: null, log_id: 'l5' })
+  if (body.tool_slug === 'GMAIL_ADD_LABEL_TO_EMAIL') {
+    if (body.arguments.message_id === 'gone') return send(200, { result_type: 'failed', data: {}, error: 'Requested entity was not found.', log_id: 'l6' })
+    return send(200, { result_type: 'completed', data: { id: body.arguments.message_id, labelIds: [] }, error: null, log_id: 'l7' })
+  }
   send(400, { error: { slug: 'unknown_tool' } })
 })
 
@@ -94,4 +100,29 @@ test('an expired session is replaced once; a failed tool call is an error', asyn
 test('addresses are taken from "Name <address>"', () => {
   assert.equal(addressOf('Rina <rina@acme.example>'), 'rina@acme.example')
   assert.equal(addressOf(' plain@acme.example '), 'plain@acme.example')
+})
+
+test('gmail_organize (#106): archive removes INBOX, label makes or finds the label, failures are listed, try-out changes nothing', async () => {
+  const emails = [{ messageId: '19b1', from: 'News <news@x.example>', subject: 'Weekly' }, { messageId: 'gone', from: 'Old', subject: 'Old' }]
+  const out = await run('gmail_organize', { action: 'archive', emails }, 'usr_a')
+  assert.deepEqual([out.source, out.done, out.failed.map((f: any) => f.messageId)], ['gmail', 1, ['gone']])
+  const archives = calls.filter((c) => c.body?.tool_slug === 'GMAIL_ADD_LABEL_TO_EMAIL').map((c) => c.body.arguments)
+  assert.deepEqual(archives[0], { user_id: 'me', message_id: '19b1', remove_label_ids: ['INBOX'] })
+  assert.equal(calls.some((c) => c.body?.tool_slug === 'GMAIL_CREATE_LABEL'), false)
+  calls.length = 0
+  const labelled = await run('gmail_organize', { action: 'label_and_archive', label: 'Newsletters', emails: emails.slice(0, 1) }, 'usr_a')
+  assert.deepEqual([labelled.done, labelled.label], [1, 'Newsletters'])
+  assert.deepEqual(calls.find((c) => c.body?.tool_slug === 'GMAIL_CREATE_LABEL')!.body.arguments, { user_id: 'me', label_name: 'Newsletters' })
+  assert.deepEqual(calls.find((c) => c.body?.tool_slug === 'GMAIL_ADD_LABEL_TO_EMAIL')!.body.arguments, { user_id: 'me', message_id: '19b1', add_label_ids: ['Label_7'], remove_label_ids: ['INBOX'] })
+  calls.length = 0
+  const onlyLabel = await run('gmail_organize', { action: 'label', label: 'Later', emails: emails.slice(0, 1) }, 'usr_a')
+  assert.equal(onlyLabel.done, 1)
+  assert.deepEqual(calls.find((c) => c.body?.tool_slug === 'GMAIL_ADD_LABEL_TO_EMAIL')!.body.arguments, { user_id: 'me', message_id: '19b1', add_label_ids: ['Label_7'] })
+  // A try-out reads the sample inbox, which never changes.
+  calls.length = 0
+  const demo = await toolRegistry.gmail_organize.execute!({ action: 'archive', emails } as any, { requestContext: { get: (k: string) => (k === 'demo' ? true : undefined) } } as any) as any
+  assert.deepEqual([demo.source, demo.done], ['sample_inbox', 2])
+  assert.equal(calls.length, 0)
+  const { needsApproval } = await import('../src/tools.ts')
+  assert.equal(needsApproval('gmail_organize'), true)
 })

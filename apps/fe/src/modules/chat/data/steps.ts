@@ -17,6 +17,7 @@ const LABELS: Record<string, [doing: string, done: string]> = {
   gmail_list_emails: ["Reading your inbox", "Read your inbox"],
   gmail_read_email: ["Reading an email", "Read an email"],
   gmail_create_draft: ["Saving a draft in Gmail", "Saved a draft in Gmail"],
+  gmail_organize: ["Tidying your inbox", "Tidied your inbox"],
   googlecalendar_list_events: ["Checking your calendar", "Checked your calendar"],
   googlecalendar_create_event: ["Adding to your calendar", "Added to your calendar"],
   googlecalendar_create_meeting: ["Scheduling a meeting", "Scheduled a meeting"],
@@ -62,6 +63,7 @@ const ORB: Record<string, StepOrb> = {
   googlecalendar_create_event: "working",
   googlecalendar_create_meeting: "working",
   googlecalendar_block_time: "working",
+  gmail_organize: "working",
   // Working something out.
   get_time: "solving",
   add_numbers: "solving",
@@ -115,6 +117,14 @@ function summary(step: ToolStep): string | null {
       return count(r.emails, "email", "emails")
     case "gmail_read_email":
       return text(r.subject)
+    case "gmail_organize": {
+      // #106: "4 archived", "3 labelled Newsletters", or what failed. A try-out's sample inbox never changes.
+      if (r.source === "sample_inbox") return "sample inbox, nothing changed"
+      const done = typeof r.done === "number" ? r.done : 0
+      const verb = r.action === "label" ? `labelled ${text(r.label) ?? ""}`.trim() : r.action === "label_and_archive" ? `labelled ${text(r.label) ?? ""} and archived` : "archived"
+      const failed = Array.isArray(r.failed) && r.failed.length ? `, ${r.failed.length} failed` : ""
+      return `${done} ${verb}${failed}`
+    }
     case "gmail_create_draft":
       return text(r.to) ? `to ${r.to}` : null
     case "googlecalendar_list_events":

@@ -27,7 +27,7 @@ test('memory is keyed per persona version once the name or soul changed (#116)',
 test('a Mind knows its skills and what it could add, by the names people see (#114)', () => {
   const line = skillsLine(['payments', 'daily-planner'])
   assert.match(line, /Your skills: Payments \(.*\); Daily planner \(/)
-  assert.match(line, /can add on the Skills screen: .*Email helper \(reads the owner's Gmail and saves drafts, never sends\)/)
+  assert.match(line, /can add on the Skills screen: .*Email helper \(reads the owner's Gmail, saves drafts and tidies the inbox when you approve, never sends\)/)
   assert.match(line, /Email address \(gives this Mind its own email address and sends email/)
   assert.ok(!/HelloNear guide/.test(line), 'the built-in guide is not a skill to add')
   assert.ok(!/can add.*Payments/.test(line), 'equipped skills are not offered again')

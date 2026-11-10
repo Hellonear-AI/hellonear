@@ -14,6 +14,7 @@ const THING: Record<string, string> = {
   googlecalendar_create_meeting: "the meeting",
   mail_send: "the email",
   gmail_create_draft: "the draft",
+  gmail_organize: "the inbox clean-up",
 }
 
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)

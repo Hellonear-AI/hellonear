@@ -82,3 +82,19 @@ describe("answer toasts for things that aren't payments", () => {
     expect(answerOutcome(answer("decline"), run("declined"))).toMatchObject({ title: "Declined the meeting", detail: "No changes were made." })
   })
 })
+
+describe("Tidying the inbox (#106)", () => {
+  const emails = [{ messageId: "a", from: "The Weekly Byte <newsletter@weeklybyte.example>", subject: "Issue 42" }, { messageId: "b", from: "StreamBox", subject: "Your receipt" }]
+  it("lists every email on the approval card and says nothing is deleted", () => {
+    const d = approvalDetails(step("gmail_organize", { action: "archive", emails }))!
+    expect(d.title).toBe("Archive 2 emails")
+    expect(d.lines).toEqual([{ label: "1", value: "The Weekly Byte: Issue 42" }, { label: "2", value: "StreamBox: Your receipt" }])
+    expect(d.note).toMatch(/Nothing is deleted/)
+    expect(approvalDetails(step("gmail_organize", { action: "label", label: "Later", emails: emails.slice(0, 1) }))!.title).toBe('Label 1 email "Later"')
+  })
+  it("says what was done, and that a sample inbox never changes", () => {
+    expect(stepText(step("gmail_organize", {}, { source: "gmail", action: "archive", done: 2, failed: [] }, "ok")).detail).toBe("2 archived")
+    expect(stepText(step("gmail_organize", {}, { source: "gmail", action: "label_and_archive", label: "News", done: 1, failed: [{ messageId: "b" }] }, "ok")).detail).toBe("1 labelled News and archived, 1 failed")
+    expect(stepText(step("gmail_organize", {}, { source: "sample_inbox", action: "archive", done: 2, failed: [] }, "ok")).detail).toBe("sample inbox, nothing changed")
+  })
+})

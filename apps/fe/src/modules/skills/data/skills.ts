@@ -54,13 +54,13 @@ export const SKILLS: Record<string, SkillCopy> = {
   },
   "email-triage": {
     title: "Email helper",
-    blurb: "Reads, sorts and sums up your email, and writes draft replies for you to send.",
-    canUse: (c) => [c.tryOut ? "A sample inbox for the try-out: read mail and save drafts" : "Your Gmail: read mail and save drafts"],
+    blurb: "Reads, sorts and sums up your email, writes draft replies for you to send, and tidies the inbox when you approve.",
+    canUse: (c) => [c.tryOut ? "A sample inbox for the try-out: read mail and save drafts" : "Your Gmail: read mail, save drafts, archive and label after you approve"],
     cannot: ["Can't send email for you"],
     needs: "gmail",
     ask: {
       why: (c) => `${c.name} will read your Gmail when you ask, sum it up, and save draft replies for you to check and send.`,
-      does: () => ["Read and sort your email", "Write drafts for you to check and send"],
+      does: () => ["Read and sort your email", "Write drafts for you to check and send", "Archive or label emails, after you approve the list"],
       never: () => ["Send email for you", "Delete email"],
       note: "No signature needed. You can disconnect Gmail any time in Connections.",
     },

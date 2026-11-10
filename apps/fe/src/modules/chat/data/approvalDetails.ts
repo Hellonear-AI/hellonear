@@ -46,6 +46,23 @@ export function approvalDetails(step: ToolStep, timeZone?: string): ApprovalDeta
           : "Adds it to your Google Calendar.",
       }
     }
+    case "gmail_organize": {
+      // #106: the card lists every email, as the Mind listed them, so the owner approves exactly this batch.
+      const emails = Array.isArray(a.emails) ? (a.emails as Record<string, unknown>[]) : []
+      const what = a.action === "label" ? `Label ${emails.length} ${emails.length === 1 ? "email" : "emails"} "${str(a.label) ?? ""}"` : a.action === "label_and_archive" ? `Label ${emails.length} ${emails.length === 1 ? "email" : "emails"} "${str(a.label) ?? ""}" and archive them` : `Archive ${emails.length} ${emails.length === 1 ? "email" : "emails"}`
+      return {
+        title: what,
+        // Numbered rows, "Sender: subject", with the sender's name only: the card's label column is narrow, and two
+        // emails from one sender must not share a row key.
+        lines: emails.map((e, i) => {
+          const from = str(e.from)?.replace(/\s*<[^>]*>\s*$/, "").replace(/^"|"$/g, "") || str(e.from) || "Unknown sender"
+          return { label: `${i + 1}`, value: `${from}: ${str(e.subject) ?? "(no subject)"}` }
+        }),
+        note: a.action === "label"
+          ? `Adds the label in your Gmail; ${emails.length === 1 ? "it stays" : "they stay"} in your inbox.`
+          : `Takes ${emails.length === 1 ? "it" : "them"} out of your inbox; ${emails.length === 1 ? "it stays" : "they stay"} in All Mail. Nothing is deleted.`,
+      }
+    }
     case "mail_send": {
       const to = list(a.to)
       return {
