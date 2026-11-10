@@ -8,8 +8,8 @@ import { ApprovalScene, Icon, Point } from "./Sections";
 gsap.registerPlugin(ScrollTrigger);
 
 // "Every payment asks you first": when the section comes into view, the title slides up word by word
-// behind a mask (like the Minds heading), then the subtitle and points slide up one by one, and the
-// big scene frame swipes in from the right edge. It reverses when scrolling back above the section.
+// behind a mask (like the Minds heading), then the subtitle and points slide up one by one. The big scene frame
+// opens from the right edge with the scroll (scrubbed). The copy reverses when scrolling back above.
 // Reduced motion: no animation.
 
 const LINES = ["Every payment", "asks you first"];
@@ -37,18 +37,19 @@ export function ApprovalsScroll() {
     const mm = gsap.matchMedia();
 
     mm.add("(prefers-reduced-motion: no-preference)", () => {
+      // Copy: plays once the section is in view, reverses above it.
       const tl = gsap
         .timeline({ paused: true })
         .fromTo(q(".ap-word"), { yPercent: 105 }, { yPercent: 0, duration: 0.7, stagger: 0.07, ease: "power3.out" })
-        .fromTo(q(".ap-reveal"), { y: 30, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.5, stagger: 0.1, ease: "power2.out" }, 0.45)
-        .fromTo(q(".ap-visual"), { clipPath: "inset(0 0 0 100%)" }, { clipPath: "inset(0 0 0 0%)", duration: 1.1, ease: "power3.inOut" }, 0.2)
-        .fromTo(q(".ap-scene-bg"), { xPercent: 5 }, { xPercent: 0, duration: 1.3, ease: "power3.out" }, 0.2);
-      ScrollTrigger.create({
-        trigger: el,
-        start: "top 65%",
-        onEnter: () => tl.play(),
-        onLeaveBack: () => tl.reverse(),
-      });
+        .fromTo(q(".ap-reveal"), { y: 30, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.5, stagger: 0.1, ease: "power2.out" }, 0.45);
+      ScrollTrigger.create({ trigger: el, start: "top 65%", onEnter: () => tl.play(), onLeaveBack: () => tl.reverse() });
+
+      // Photo: opens with the scroll (scrubbed), so the next step (the move into "Tricked") can
+      // continue from it without a jump.
+      gsap
+        .timeline({ scrollTrigger: { trigger: el, start: "top 85%", end: "top 15%", scrub: 0.6 } })
+        .fromTo(q(".ap-visual"), { clipPath: "inset(0 0 0 100%)" }, { clipPath: "inset(0 0 0 0%)", ease: "power2.out" }, 0)
+        .fromTo(q(".ap-scene-bg"), { xPercent: 6, scale: 1.06 }, { xPercent: 0, scale: 1, ease: "power2.out" }, 0);
     });
 
     return () => mm.revert();
