@@ -18,94 +18,76 @@ import {
   PlusIcon,
   ScanIcon,
   SearchIcon,
-  SquareIcon,
-  Trash2Icon,
   XIcon,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { createContext, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { toast } from "sonner"
 import { cn } from "cn"
 import { Spinner } from "@/components/elements/Spinner"
 import { mindHref } from "@/components/layout/nav"
-import { ChoiceSelect } from "@/components/elements/ChoiceSelect"
-import { TimePicker } from "@/components/elements/TimePicker"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
-import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { toast } from "sonner"
+import { useMediaQuery } from "@/hooks/useMediaQuery"
 import { isApiCode } from "@/lib/api"
+import { MEDIA, matches } from "@/lib/media"
+import { readPref, writePref } from "@/lib/storage"
 import { browserTimeZone } from "@/lib/stream"
 import { autopilotApi } from "@/modules/autopilot/api"
-import { finishedWell, nodeSummary, wentWrong, withIf, type NodeRun, type TestState } from "@/modules/builder/data/testRun"
-import { newBlock, type Kind } from "@/modules/builder/data/blocks"
-import { OPS, ifTitle } from "@/modules/builder/data/conditions"
-import { engineIssues as engineIssuesOf } from "@/modules/builder/data/issues"
-import { mainEnd as mainEndOf, parseSlot, placeKey, samePath, slotPlace, type Place } from "@/modules/builder/data/places"
-import { TONE, type Tone } from "@/modules/builder/data/tone"
-import { PromptEditor, PromptPreview, type PromptEditorHandle } from "@/modules/builder/components/PromptText"
-import { useCanvasView } from "@/modules/builder/hooks/useCanvasView"
-import { useLeaveGuard } from "@/modules/builder/hooks/useLeaveGuard"
 import { scheduleText, zoneName } from "@/modules/autopilot/data/schedule"
 import { autopilotKeys, useWorkflow, useWorkflows } from "@/modules/autopilot/hooks/useAutopilot"
+import { BuilderContext } from "@/modules/builder/components/BuilderContext"
+import { BlockSettings } from "@/modules/builder/components/panels/BlockSettings"
+import { SettingsFrame } from "@/modules/builder/components/panels/SettingsFrame"
+import { PromptPreview } from "@/modules/builder/components/PromptText"
+import { newBlock, type Kind } from "@/modules/builder/data/blocks"
+import { ifTitle } from "@/modules/builder/data/conditions"
 import {
+  allBlocks,
+  canPlace,
+  closes,
   cronOf,
   draftProblems,
   emptyDraft,
-  fromCanvas,
-  NAME_MAX,
-  ref,
-  comparable,
-  INVERT,
-  tokenLabels,
-  allBlocks,
-  carriesOn,
-  closes,
-  canPlace,
   findBlock,
+  fromCanvas,
   insertBlock,
   isStep,
   lineAt,
   lineCloses,
   locate,
+  NAME_MAX,
+  promptParts,
   removeBlock,
+  resultsBefore,
   stepsAt,
-  stepsBefore,
+  toCanvas,
   updateBlock,
   withLine,
-  type Block,
-  type LinePath,
-  promptParts,
-  type Self,
-  notesBefore,
-  resultsBefore,
-  toCanvas,
   workflowIdFor,
-  type AskStep,
-  type Branch,
+  type Block,
   type Draft,
-  type Op,
-  type HttpStep,
-  type Repeat,
+  type LinePath,
+  type Result,
+  type Self,
   type Step,
 } from "@/modules/builder/data/draft"
-import { toolInfo, TOOLS } from "@/modules/builder/data/tools"
-import { useSecrets } from "@/modules/connections/hooks/useKeys"
+import { engineIssues as engineIssuesOf } from "@/modules/builder/data/issues"
+import { mainEnd as mainEndOf, parseSlot, placeKey, samePath, type Place } from "@/modules/builder/data/places"
+import { finishedWell, nodeSummary, wentWrong, withIf, type NodeRun, type TestState } from "@/modules/builder/data/testRun"
+import { TONE, type Tone } from "@/modules/builder/data/tone"
+import { toolInfo } from "@/modules/builder/data/tools"
+import { useCanvasView } from "@/modules/builder/hooks/useCanvasView"
+import { useLeaveGuard } from "@/modules/builder/hooks/useLeaveGuard"
 import { useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
-import { skillCopy } from "@/modules/skills/data/skills"
 import { useSetSkills, useSkillCatalog } from "@/modules/skills/hooks/useSkills"
 import { shortAddress } from "@/modules/wallet/data/address"
-import { useMediaQuery } from "@/hooks/useMediaQuery"
-import { MEDIA, matches } from "@/lib/media"
-import { readPref, writePref } from "@/lib/storage"
 
 const PALETTE_KEY = "hellonear.builder.palette"
 const ZONE = () => browserTimeZone() ?? "UTC"
-const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
-
 /**
  * Builder (design "7 · Automations" B1.0, B1.1, B1.6; #20). Stage 2 (9 Nov, with Ancung): Start,
  * then "Ask {Mind}" and tool steps in a line, then at most one If with a yes and a no ending, set
@@ -145,6 +127,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const address = useMindWallet(mindId).data?.address ?? ""
   // Names the Mind's own wallet in results ("Balance of Omaga") instead of its long address.
   const self = useMemo(() => ({ name, address }), [name, address])
+  const builder = useMemo(() => ({ mindId, name, address, self }), [mindId, name, address, self])
   const catalog = useSkillCatalog().data
   const setSkills = useSetSkills(mindId)
   const jobs = useWorkflows(mindId)
@@ -387,9 +370,6 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   }
 
   const picked = selected ? findBlock(draft.line, selected) : null
-  const step = picked && isStep(picked) ? picked : null
-  const pickedIf = picked?.kind === "if" ? picked : null
-  const pickedEnd = picked?.kind === "end" ? picked : null
   const slotRef = parseSlot(selected)
   const slotIf = slotRef ? findBlock(draft.line, slotRef.ifId) : null
   const slot = slotIf?.kind === "if" && slotRef ? { block: slotIf, h: slotRef.h } : null
@@ -602,6 +582,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   }, [])
 
   return (
+    <BuilderContext value={builder}>
     <div className="flex h-dvh min-w-0 flex-col overflow-hidden bg-background">
       <header className="flex items-center gap-3 border-b border-border px-4 py-3 md:px-6">
         <Button variant="ghost" size="icon" aria-label="Back to Autopilot" onClick={() => guard.leave(mindHref(mindId, "autopilot"))}>
@@ -815,60 +796,18 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
 
         {selected && (
         <SettingsFrame desktop={desktop} onClose={() => setSelected(null)}>
-          {step ? (
-            (() => {
-              const before = stepsBefore(draft.line, step.id)
-              const patch = (p: Partial<Step>) => setBlock(step.id, p)
-              const remove = () => removeStep(step.id)
-              return step.kind === "agent" ? (
-                <AskPanel name={name} title={`Ask ${name}`} step={step} results={resultsBefore(before, undefined, self)} onChange={(p) => patch({ prompt: p })} onDelete={remove} />
-              ) : step.kind === "http" ? (
-                <HttpPanel step={step} results={resultsBefore(before, undefined, self)} missingSkill={missingSkills.find((x) => catalog?.find((c) => c.skillId === x)?.tools.includes("http_request"))} name={name} onChange={patch} onDelete={remove} />
-              ) : (
-                <ToolPanel step={step} address={address} name={name} notes={notesBefore(before)} missingSkill={missingSkills.find((x) => catalog?.find((c) => c.skillId === x)?.tools.includes(step.tool))} onChange={patch} onDelete={remove} />
-              )
-            })()
-          ) : pickedIf ? (
-            <IfPanel branch={pickedIf} steps={stepsBefore(draft.line, pickedIf.id)} self={self} onChange={(p) => setBlock(pickedIf.id, p)} onDelete={() => removeStep(pickedIf.id)} />
-          ) : pickedEnd ? (
-            <>
-              <PanelHead tone="start" icon={<OctagonXIcon />} title="End" />
-              <p className="text-sm text-muted-foreground">The job stops here on this path. Nothing after it runs.</p>
-              <DeleteBlock onClick={() => removeStep(pickedEnd.id)} />
-            </>
-          ) : slot ? (
-            (() => {
-              const at = slotPlace(draft.line, slot.block, slot.h)
-              return (
-                <EndingPanel
-                  name={name}
-                  which={slot.h}
-                  more={slot.block[slot.h].length > 0}
-                  goesOn={carriesOn(draft.line, at.path)}
-                  canIf={canPlace(draft.line, at.path, at.index, "if", self)}
-                  canEnd={canPlace(draft.line, at.path, at.index, "end", self)}
-                  onPick={(kind) => addAt(kind, at)}
-                />
-              )
-            })()
-          ) : (
-            <StartPanel draft={draft} set={set} />
-          )}
-          {(() => {
-            const here = engineIssues.filter((i) => i.node === selected && !dirtySinceSave)
-            return here.length ? (
-              <ul className="flex flex-col gap-1 rounded-md bg-danger-soft p-3 text-xs text-foreground">
-                {here.map((i) => (
-                  <li key={i.text}>{i.text}</li>
-                ))}
-              </ul>
-            ) : null
-          })()}
-          {missingSkills.length > 0 && (
-            <p className="text-xs text-muted-foreground">
-              Saving adds {missingSkills.map((s) => skillCopy(s).title).join(" and ")} to {name}: a job can only use its Mind&apos;s skills.
-            </p>
-          )}
+          <BlockSettings
+            draft={draft}
+            picked={picked}
+            slot={slot}
+            issues={engineIssues.filter((i) => i.node === selected && !dirtySinceSave)}
+            missingSkills={missingSkills}
+            missingSkillFor={(tool) => missingSkills.find((x) => catalog?.find((c) => c.skillId === x)?.tools.includes(tool))}
+            set={set}
+            onPatch={setBlock}
+            onRemove={removeStep}
+            onAdd={addAt}
+          />
         </SettingsFrame>
         )}
       </div>
@@ -940,6 +879,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
         </DialogContent>
       </Dialog>
     </div>
+    </BuilderContext>
   )
 }
 
@@ -1193,349 +1133,6 @@ function PaletteItem({
   )
 }
 
-const field = "flex flex-col gap-1.5"
-const label = "text-[13px] font-medium text-foreground"
-/** "No key" in the key list (Base UI needs a non-empty value); saved as no header. */
-const NO_KEY = "__none__"
-
-function PanelHead({ icon, title, tone = "start" }: { icon: ReactNode; title: string; tone?: Tone }) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <span className={cn("flex size-8 items-center justify-center rounded-sm [&>svg]:size-4", TONE[tone])}>{icon}</span>
-      <h2 className="pr-8 text-[15px] font-semibold text-foreground">{title}</h2>
-    </div>
-  )
-}
-
-function DeleteBlock({ onClick, children = "Delete this block" }: { onClick: () => void; children?: ReactNode }) {
-  return (
-    <Button variant="outline" className="w-fit text-danger" onClick={onClick}>
-      <Trash2Icon />
-      {children}
-    </Button>
-  )
-}
-
-function StartPanel({ draft, set }: { draft: Draft; set: (p: Partial<Draft>) => void }) {
-  return (
-    <>
-      <PanelHead icon={<CalendarClockIcon />} title="Start" />
-      <label className={field}>
-        <span className={label}>Name</span>
-        <Input value={draft.name} maxLength={NAME_MAX} placeholder="Morning inbox summary" onChange={(e) => set({ name: e.target.value })} />
-      </label>
-      <div className={field}>
-        <span className={label}>Runs</span>
-        <ChoiceSelect<Repeat>
-          aria-label="Runs"
-          value={draft.repeat}
-          onChange={(repeat) => set({ repeat })}
-          options={[
-            { value: "daily", label: "Every day" },
-            { value: "weekdays", label: "Weekdays" },
-            { value: "weekly", label: "Once a week" },
-          ]}
-        />
-      </div>
-      {draft.repeat === "weekly" && (
-        <div className={field}>
-          <span className={label}>On</span>
-          <ChoiceSelect
-            aria-label="On"
-            value={String(draft.day)}
-            onChange={(d) => set({ day: Number(d) })}
-            options={DAYS.map((d, i) => ({ value: String(i), label: d }))}
-          />
-        </div>
-      )}
-      <div className={field}>
-        <span className={label}>At</span>
-        <TimePicker aria-label="At" value={draft.time} onChange={(time) => set({ time })} />
-      </div>
-      <div className={field}>
-        <span className={label}>Time zone</span>
-        <span className="text-sm text-muted-foreground">{zoneName(draft.timezone)}, from this device</span>
-      </div>
-      <p className="text-xs text-muted-foreground">Autopilot runs it at this time once you turn it on.</p>
-    </>
-  )
-}
-
-type Result = ReturnType<typeof resultsBefore>[number]
-
-function PromptField({
-  name,
-  value,
-  results,
-  onChange,
-  labelText,
-  placeholder = "Sum up the emails that need me today, in three lines.",
-  hint,
-}: {
-  name: string
-  value: string
-  results: Result[]
-  onChange: (p: string) => void
-  labelText?: string
-  placeholder?: string
-  /** Replaces the line under the field (an Ask step's says what the Mind can't do alone). */
-  hint?: ReactNode
-}) {
-  const labels = tokenLabels(results)
-  const editor = useRef<PromptEditorHandle>(null)
-  const labelId = useId()
-  return (
-    <div className={field}>
-      <span id={labelId} className={label}>
-        {labelText ?? `What should ${name} do?`}
-      </span>
-      <PromptEditor ref={editor} value={value} parts={promptParts(value, results)} onChange={onChange} placeholder={placeholder} labelledBy={labelId} />
-      {/* Results grouped by the step they come from, so two balances say whose they are (Ancung, 10 Nov). */}
-      {results.length > 0 && (
-        <div className="flex flex-col gap-2 rounded-md bg-muted/50 p-3">
-          <span className="text-xs font-medium text-muted-foreground">Put in a result</span>
-          {groupBySource(results).map((g) => (
-            <div key={g.stepId} className="flex flex-col gap-1.5">
-              <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-                <span className={cn("flex size-5 shrink-0 items-center justify-center rounded-[6px] [&>svg]:size-3", TONE[g.tone])}>{g.icon}</span>
-                <span className="truncate">{g.source}</span>
-              </span>
-              <span className="flex flex-wrap gap-1.5 pl-7">
-                {g.items.map((r) => (
-                  <button
-                    key={r.name}
-                    type="button"
-                    // Keep the caret in the field while the chip is clicked.
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => editor.current?.insert(ref(r.stepId, r.name), labels.get(`${r.stepId}.${r.name}`) ?? r.label, r.stepKind === "http" ? "http" : "tool")}
-                    title={`Puts ${labels.get(`${r.stepId}.${r.name}`)} in the text`}
-                    className="inline-flex h-7 items-center gap-1 rounded-full border border-border bg-surface px-2.5 text-xs text-foreground outline-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus"
-                  >
-                    <PlusIcon className="size-3 text-muted-foreground" />
-                    {r.label.replace(/ \(.*\)$/, "")}
-                  </button>
-                ))}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-      {hint ?? <span className="text-xs text-muted-foreground">{name} uses the skills it has. It can&apos;t pay, ask you to approve, or use keys while it runs alone.</span>}
-    </div>
-  )
-}
-
-/** Results in step order, one group per step, with that step's colour and icon. */
-function groupBySource(results: Result[]) {
-  const out: { stepId: string; source: string; tone: Tone; icon: ReactNode; items: Result[] }[] = []
-  for (const r of results) {
-    const g = out.find((x) => x.stepId === r.stepId)
-    if (g) g.items.push(r)
-    else out.push({ stepId: r.stepId, source: r.source, tone: r.stepKind === "http" ? "http" : "tool", icon: r.stepKind === "http" ? <GlobeIcon /> : <SearchIcon />, items: [r] })
-  }
-  return out
-}
-
-function AskPanel({ name, title, step, results, onChange, onDelete }: { name: string; title: string; step: AskStep; results: Result[]; onChange: (p: string) => void; onDelete: () => void }) {
-  return (
-    <>
-      <PanelHead tone="agent" icon={<BotIcon />} title={title} />
-      <PromptField name={name} value={step.prompt} results={results} onChange={onChange} />
-      <DeleteBlock onClick={onDelete} />
-    </>
-  )
-}
-
-function ToolPanel({
-  step,
-  address,
-  name,
-  notes,
-  missingSkill,
-  onChange,
-  onDelete,
-}: {
-  step: Extract<Step, { kind: "tool" }>
-  address: string
-  name: string
-  /** Notes from earlier Ask steps, the only results "Email me" may send (#146). */
-  notes: Result[]
-  missingSkill?: string
-  onChange: (patch: Partial<Step>) => void
-  onDelete: () => void
-}) {
-  const info = toolInfo(step.tool)
-  const setArg = (k: string, v: string) => onChange({ args: { ...step.args, [k]: v } })
-  return (
-    <>
-      <PanelHead tone="tool" icon={<SearchIcon />} title="Use a tool" />
-      <div className={field}>
-        <span className={label}>Tool</span>
-        <ChoiceSelect
-          aria-label="Tool"
-          value={step.tool}
-          onChange={(tool) => onChange({ tool, args: tool === "near_view_account" ? { accountId: address } : { ...(toolInfo(tool)?.defaults ?? {}) } })}
-          options={TOOLS.map((t) => ({ value: t.tool, label: t.title }))}
-        />
-        <span className="text-xs text-muted-foreground">{info?.line}</span>
-      </div>
-      {info?.args.map((a) =>
-        a.kind === "account" ? (
-          <label key={a.name} className={field}>
-            <span className={label}>{a.label}</span>
-            <Input
-              value={step.args[a.name] ?? ""}
-              placeholder="shop.testnet"
-              className="font-mono"
-              autoCapitalize="none"
-              spellCheck={false}
-              onChange={(e) => setArg(a.name, e.target.value.trim().toLowerCase())}
-            />
-            {address && step.args[a.name] !== address && (
-              <button type="button" className="w-fit text-xs font-medium text-foreground underline underline-offset-2" onClick={() => setArg(a.name, address)}>
-                Use {name}&apos;s own wallet
-              </button>
-            )}
-          </label>
-        ) : a.kind === "note" ? (
-          <div key={a.name} className="flex flex-col gap-2">
-            <PromptField
-              name={name}
-              labelText={a.label}
-              placeholder={a.placeholder}
-              value={step.args[a.name] ?? ""}
-              results={notes}
-              onChange={(v) => setArg(a.name, v)}
-              hint={<span className="text-xs text-muted-foreground">Sent from {name}&apos;s own address to the Gmail you connected, and nobody else.</span>}
-            />
-            {!notes.length && <p className="text-xs text-muted-foreground">Add an Ask step before this one: the email sends what {name} wrote, never an email or a web page as it came in.</p>}
-          </div>
-        ) : a.kind === "time" ? (
-          <div key={a.name} className={field}>
-            <span className={label}>{a.label}</span>
-            <TimePicker aria-label={a.label} value={step.args[a.name] || "09:00"} onChange={(v) => setArg(a.name, v)} />
-            <span className="text-xs text-muted-foreground">Today, in the job&apos;s time zone.</span>
-          </div>
-        ) : (
-          <label key={a.name} className={field}>
-            <span className={label}>{a.label}</span>
-            <Input
-              value={step.args[a.name] ?? ""}
-              placeholder={a.placeholder}
-              inputMode={a.kind === "minutes" ? "numeric" : undefined}
-              onChange={(e) => setArg(a.name, a.kind === "minutes" ? e.target.value.replace(/\D/g, "").slice(0, 3) : e.target.value)}
-            />
-          </label>
-        )
-      )}
-      {missingSkill && <p className="text-xs text-muted-foreground">This tool comes with {skillCopy(missingSkill).title}. Saving adds that skill to {name}.</p>}
-      <DeleteBlock onClick={onDelete} />
-    </>
-  )
-}
-
-function IfPanel({ branch, steps, self, onChange, onDelete }: { branch: Branch; steps: Step[]; self: Self; onChange: (p: Partial<Branch>) => void; onDelete: () => void }) {
-  const results = resultsBefore(steps, undefined, self).filter(comparable)
-  const current = results.find((r) => r.stepId === branch.stepId && r.name === branch.field)
-  const ops = OPS.filter((o) => current?.kind === "number" || !o.number)
-  return (
-    <>
-      <PanelHead tone="if" icon={<GitBranchIcon />} title="If or else" />
-      <div className={field}>
-        <span className={label}>Look at</span>
-        <ChoiceSelect
-          aria-label="Look at"
-          value={current ? `${current.stepId}|${current.name}` : ""}
-          placeholder="Pick a result"
-          onChange={(v) => {
-            const [stepId, f] = v.split("|")
-            const r = results.find((x) => x.stepId === stepId && x.name === f)
-            onChange({ stepId, field: f, op: r?.kind === "number" ? "lt" : "eq", right: "" })
-          }}
-          options={results.map((r) => ({ value: `${r.stepId}|${r.name}`, label: r.label, hint: r.source }))}
-        />
-        <span className="text-xs text-muted-foreground">Pick a result from an earlier block.</span>
-      </div>
-      <div className={field}>
-        <span className={label}>Is</span>
-        <ChoiceSelect<Op> aria-label="Is" value={branch.op} onChange={(op) => onChange({ op })} options={ops.map((o) => ({ value: o.op, label: o.label }))} />
-      </div>
-      <label className={field}>
-        <span className={label}>{current?.kind === "number" ? "This number" : "This text"}</span>
-        <Input
-          value={branch.right}
-          inputMode={current?.kind === "number" ? "decimal" : "text"}
-          placeholder={current?.kind === "number" ? "5" : current?.name === "weekday" ? "Friday" : ""}
-          onChange={(e) => onChange({ right: e.target.value })}
-        />
-      </label>
-      <p className="text-xs text-muted-foreground">Then pick what happens for yes and for no on the canvas. A way left empty stops the job there.</p>
-      <Button variant="outline" className="w-fit" onClick={() => onChange({ op: INVERT[branch.op], then: branch.else, else: branch.then })}>
-        Swap Yes and No
-      </Button>
-      <DeleteBlock onClick={onDelete} />
-    </>
-  )
-}
-
-function EndingPanel({
-  name,
-  which,
-  more = false,
-  goesOn = false,
-  canIf,
-  canEnd,
-  onPick,
-}: {
-  name: string
-  which: "then" | "else"
-  /** The way already has steps: this adds one more after them. */
-  more?: boolean
-  /** Blocks follow its If, so an empty way carries on to them instead of stopping. */
-  goesOn?: boolean
-  canIf: boolean
-  canEnd: boolean
-  onPick: (kind: Kind) => void
-}) {
-  const options: { kind: Kind; tone: Tone; icon: ReactNode; title: string; off?: string }[] = [
-    { kind: "agent", tone: "agent", icon: <BotIcon />, title: `Ask ${name}` },
-    { kind: "tool", tone: "tool", icon: <SearchIcon />, title: "Use a tool" },
-    { kind: "http", tone: "http", icon: <GlobeIcon />, title: "Call a website" },
-    { kind: "if", tone: "if", icon: <GitBranchIcon />, title: "If or else", off: canIf ? undefined : "Add a check or a website before it" },
-    { kind: "end", tone: "start", icon: <OctagonXIcon />, title: "End", off: canEnd ? undefined : "Only at the end of a path" },
-  ]
-  return (
-    <>
-      <PanelHead icon={<SquareIcon />} title={which === "then" ? "If yes" : "If no"} />
-      <p className="text-sm text-muted-foreground">
-        {more
-          ? "Add the next step on this way. It can use what came before it on this path."
-          : goesOn
-            ? "Nothing runs here yet, so this way carries on after the If. Add a block, or drag one onto it."
-            : "Nothing runs here yet, so the job stops on this way. Add a block, or drag one onto it."}
-      </p>
-      <div className="flex flex-col gap-2">
-        {options.map((o) => (
-          <button
-            key={o.kind}
-            type="button"
-            disabled={Boolean(o.off)}
-            onClick={() => onPick(o.kind)}
-            className="flex items-center gap-3 rounded-md bg-muted px-3 py-2.5 text-left outline-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-60"
-          >
-            <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-sm [&>svg]:size-4", TONE[o.tone])}>{o.icon}</span>
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="text-sm font-medium text-foreground">{o.title}</span>
-              {o.off && <span className="text-xs text-muted-foreground">{o.off}</span>}
-            </span>
-            {!o.off && <PlusIcon className="size-4 shrink-0 text-muted-foreground" />}
-          </button>
-        ))}
-      </div>
-    </>
-  )
-}
-
 /** An empty way of the If: tap to pick a block, or drop one on it. Empty, the path stops there. */
 function EndingSlot({
   id,
@@ -1597,64 +1194,6 @@ function EndingSlot({
   )
 }
 
-function HttpPanel({
-  step,
-  results,
-  missingSkill,
-  name,
-  onChange,
-  onDelete,
-}: {
-  step: HttpStep
-  results: Result[]
-  missingSkill?: string
-  name: string
-  onChange: (patch: Partial<Step>) => void
-  onDelete: () => void
-}) {
-  const keys = useSecrets().data ?? []
-  return (
-    <>
-      <PanelHead tone="http" icon={<GlobeIcon />} title="Call a website" />
-      <div className={field}>
-        <span className={label}>Do</span>
-        <ChoiceSelect<HttpStep["method"]>
-          aria-label="Do"
-          value={step.method}
-          onChange={(method) => onChange({ method })}
-          options={[
-            { value: "GET", label: "Read from it (GET)" },
-            { value: "POST", label: "Send to it (POST)" },
-          ]}
-        />
-      </div>
-      <label className={field}>
-        <span className={label}>Address</span>
-        <Input value={step.url} placeholder="https://example.com/status" autoCapitalize="none" spellCheck={false} onChange={(e) => onChange({ url: e.target.value })} />
-      </label>
-      <div className={field}>
-        <span className={label}>Key</span>
-        <ChoiceSelect
-          aria-label="Key"
-          value={step.key || NO_KEY}
-          onChange={(key) => onChange({ key: key === NO_KEY ? "" : key })}
-          options={[{ value: NO_KEY, label: "No key" }, ...keys.map((k) => ({ value: k.name, label: k.name }))]}
-        />
-        <span className="text-xs text-muted-foreground">
-          {step.key
-            ? "Sent as Authorization: Bearer, only to the sites the key allows. A job with a key runs with Run now, but can't run on a schedule yet."
-            : keys.length
-              ? "Pick a key saved in Connections if the site needs one."
-              : "Keys you save in Connections show up here."}
-        </span>
-      </div>
-      {step.method === "POST" && <PromptField name={name} value={step.body} results={results} onChange={(body) => onChange({ body })} labelText="What to send" placeholder="Balance is low: please top up." />}
-      {missingSkill && <p className="text-xs text-muted-foreground">Websites come with {skillCopy(missingSkill).title}. Saving adds that skill to {name}.</p>}
-      <DeleteBlock onClick={onDelete} />
-    </>
-  )
-}
-
 const SHORTCUTS: [string, string][] = [
   ["Scroll, or drag empty canvas", "Move around"],
   ["Shift + scroll", "Move sideways"],
@@ -1694,38 +1233,6 @@ function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
         </dl>
       </DialogContent>
     </Dialog>
-  )
-}
-
-/** Settings for the picked block: a side panel on desktop, a bottom sheet on phones (B1.5). */
-function SettingsFrame({ desktop, onClose, children }: { desktop: boolean; onClose: () => void; children: ReactNode }) {
-  if (desktop) {
-    return (
-      <aside className="relative flex shrink-0 flex-col gap-4 border-border p-4 lg:w-[340px] lg:overflow-y-auto lg:border-l">
-        <Button variant="ghost" size="icon-sm" className="absolute top-3 right-3" aria-label="Close the settings (Esc)" title="Close (Esc)" onClick={onClose}>
-          <XIcon />
-        </Button>
-        {children}
-      </aside>
-    )
-  }
-  return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="bottom" showCloseButton={false} className="max-h-[85dvh] gap-0 rounded-t-xl p-0">
-        <SheetTitle className="sr-only">Block settings</SheetTitle>
-        <div className="relative flex flex-col gap-4 overflow-y-auto p-4">
-          <Button variant="ghost" size="icon-sm" className="absolute top-3 right-3" aria-label="Close" onClick={onClose}>
-            <XIcon />
-          </Button>
-          {children}
-        </div>
-        <div className="border-t border-border p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <Button className="w-full" onClick={onClose}>
-            Done
-          </Button>
-        </div>
-      </SheetContent>
-    </Sheet>
   )
 }
 
