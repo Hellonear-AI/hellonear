@@ -1,10 +1,11 @@
 "use client"
 
-import { CheckIcon, ListChecksIcon, ChevronDownIcon, Loader2Icon, SquareIcon, XIcon } from "lucide-react"
+import { CheckIcon, ListChecksIcon, ChevronDownIcon, SquareIcon, XIcon } from "lucide-react"
+import { ThinkingOrb } from "thinking-orbs"
 import { useEffect, useId, useState, type ReactNode } from "react"
 import { cn } from "cn"
 import type { ToolStep } from "@/modules/chat/data/events"
-import { duration, stepDuration, stepText } from "@/modules/chat/data/steps"
+import { duration, stepDuration, stepOrb, stepText } from "@/modules/chat/data/steps"
 
 // The Mind's work inside its reply (Ancung, 9 Nov, instead of a separate live view): one quiet
 // row per tool and per stretch of reasoning. Running rows shimmer; finished rows open to show
@@ -16,7 +17,8 @@ export function StepRow({ step }: { step: ToolStep }) {
   const took = tone === "doing" ? null : stepDuration(step)
   const icon =
     tone === "doing" ? (
-      <Loader2Icon className="animate-spin motion-reduce:animate-[hn-fade-pulse_1.6s_ease_infinite]" />
+      // A thinking orb for the kind of work, in place of a spinner (Ancung, 10 Nov).
+      <ThinkingOrb state={stepOrb(step)} size={20} aria-hidden className="-m-0.5 shrink-0" />
     ) : tone === "done" ? (
       <CheckIcon className="text-success" />
     ) : tone === "stopped" ? (

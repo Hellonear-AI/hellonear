@@ -21,3 +21,15 @@ describe("Stop (#121)", () => {
     expect(view.tools[0].status).toBe("stopped")
   })
 })
+
+describe("Step orbs (10 Nov)", () => {
+  it("picks an orb by the kind of work", async () => {
+    const { stepOrb } = await import("@/modules/chat/data/steps")
+    expect(stepOrb({ tool: "gmail_list_emails", status: "running" })).toBe("searching")
+    expect(stepOrb({ tool: "http_request", status: "running" })).toBe("connecting")
+    expect(stepOrb({ tool: "mail_send", status: "running" })).toBe("composing")
+    expect(stepOrb({ tool: "send_payment", status: "awaiting_approval" })).toBe("listening")
+    expect(stepOrb({ tool: "updateWorkingMemory", status: "running" })).toBe("breathing")
+    expect(stepOrb({ tool: "something_new", status: "running" })).toBe("working")
+  })
+})
