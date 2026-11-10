@@ -287,7 +287,7 @@ function Result({
   balance: string | null
   onAnswer: (action: "approve" | "decline") => void
 }) {
-  const nothing = `${balance ? `Test wallet still ${balance}. ` : ""}Nothing was signed or sent.`
+  const foot = `Nothing was signed or sent.${balance ? ` The test wallet still has ${balance}.` : ""}`
   switch (outcome.kind) {
     case "running":
       return <Head icon={<Loader2Icon className="animate-spin motion-reduce:animate-none" />} title={`Running: ${copy.title.toLowerCase()}`} />
@@ -336,23 +336,30 @@ function Result({
     case "declined":
       return (
         <>
-          <Head icon={<ShieldCheckIcon />} tone="success" title="Declined. The money is safe." line={nothing} />
-          <Facts
-            what={outcome.payment ? `The Mind asked to send ${outcome.payment.amountNear} NEAR to ${outcome.payment.to}, after the attack told it to.` : "The Mind asked to pay, after the attack told it to."}
-            stoppedBy={["You declined it"]}
-            why="The Mind was fooled, but every payment asks you first. You declined, so the wallet never had to step in."
+          <Head
+            icon={<ShieldCheckIcon />}
+            tone="success"
+            title="Declined. No money moved."
+            line={outcome.payment ? `The Mind was fooled and asked to send ${outcome.payment.amountNear} NEAR to ${outcome.payment.to}. You said no.` : "The Mind was fooled and asked to pay. You said no."}
           />
+          <Layers stopper="you" />
+          <Foot why="Every payment waits for you, so the wallet never had to step in." foot={foot} />
         </>
       )
     case "blocked": {
       const reasons = outcome.frozen ? ["The wallet is frozen"] : wallet?.policy && outcome.payment ? refusalReasons(outcome.payment, wallet.policy) : []
       return (
         <>
-          <Head icon={<ShieldCheckIcon />} tone="success" title="Blocked. The money is safe." line={nothing} />
-          <Facts
-            what={outcome.payment ? `You approved anyway, so the Mind tried to send ${outcome.payment.amountNear} NEAR to ${outcome.payment.to}.` : "You approved anyway, so the Mind tried to pay."}
-            stoppedBy={reasons.length ? reasons : ["The wallet's limits"]}
-            why="The Mind was fooled. The wallet wasn't. Its limits are saved where the Mind can't change them, and the wallet checks them in a TEE before signing anything."
+          <Head
+            icon={<ShieldCheckIcon />}
+            tone="success"
+            title="Blocked by the wallet. No money moved."
+            line={reasons.length ? `${reasons.join(". ")}.` : "The payment broke the wallet's limits."}
+          />
+          <Layers stopper="wallet" />
+          <Foot
+            why="The Mind was fooled and you approved, but the wallet wasn't. Its limits are stored on-chain, where the Mind can't change them, and enforced in a TEE before anything is signed."
+            foot={foot}
           />
         </>
       )
@@ -360,23 +367,17 @@ function Result({
     case "refused":
       return (
         <>
-          <Head icon={<FlagIcon />} tone="success" title="Refused. The money is safe." line={nothing} />
-          <Facts
-            what="The Mind didn't ask to pay. It saw the request for what it was."
-            stoppedBy={["The Mind itself"]}
-            why="Even if it had asked, the payment would wait for you, and the wallet's limits would still check it before signing."
-          />
+          <Head icon={<FlagIcon />} tone="success" title="Refused. No money moved." line="The Mind saw it was a trick and did not ask to pay." />
+          <Layers stopper="mind" />
+          <Foot why="Had it asked, the payment would still wait for you, and the wallet would still check its limits." foot={foot} />
         </>
       )
     case "no_tool":
       return (
         <>
-          <Head icon={<ShieldCheckIcon />} tone="success" title="Could not pay. The money is safe." line={nothing} />
-          <Facts
-            what="The Mind's skills have no way to pay, so it could not send anything, whatever it was told."
-            stoppedBy={["Its skills"]}
-            why="A Mind can only use what its skills give it. Payments come with the Payments skill, and even then each one waits for you."
-          />
+          <Head icon={<ShieldCheckIcon />} tone="success" title="Could not pay. No money moved." line="This Mind has no skill that can pay, so the request went nowhere." />
+          <Layers stopper="skills" />
+          <Foot why="A Mind can only do what its skills allow. Even with Payments, every payment waits for you." foot={foot} />
         </>
       )
     case "sent":
@@ -417,28 +418,48 @@ function Head({ icon, title, line, tone }: { icon: ReactNode; title: string; lin
   )
 }
 
-function Facts({ what, stoppedBy, why }: { what: string; stoppedBy: string[]; why: string }) {
+/** The four things between an attack and the money, in the order a payment meets them. */
+const LAYERS = [
+  { id: "mind", label: "The Mind" },
+  { id: "skills", label: "Its skills" },
+  { id: "you", label: "Your approval" },
+  { id: "wallet", label: "Wallet limits" },
+] as const
+
+/**
+ * One row of the layers, the one that stopped the attack in green (Ancung, 10 Nov: the boxes in a
+ * card read as a report). Layers after it say "Not needed"; the ones before carry no claim, since
+ * a run doesn't always prove what they did.
+ */
+function Layers({ stopper }: { stopper: (typeof LAYERS)[number]["id"] }) {
+  const at = LAYERS.findIndex((l) => l.id === stopper)
   return (
-    <>
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="flex flex-col gap-1 rounded-md bg-muted p-3">
-          <span className="text-xs text-muted-foreground">What happened</span>
-          <p className="text-[13px] text-foreground">{what}</p>
-        </div>
-        <div className="flex flex-col gap-1.5 rounded-md bg-success-soft p-3">
-          <span className="text-xs text-muted-foreground">Stopped by</span>
-          <ul className="flex flex-col gap-1">
-            {stoppedBy.map((s) => (
-              <li key={s} className="flex items-center gap-2 text-[13px] text-foreground">
-                <CheckIcon className="size-3.5 shrink-0 text-success" />
-                {s}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
+    <ol aria-label="What stood between the attack and the money" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {LAYERS.map((l, i) => {
+        const stopped = i === at
+        return (
+          <li
+            key={l.id}
+            aria-current={stopped ? "step" : undefined}
+            className={cn("flex flex-col gap-0.5 rounded-md px-3 py-2", stopped ? "bg-success-soft" : "bg-muted/60")}
+          >
+            <span className={cn("flex items-center gap-1.5 text-[13px] font-medium", stopped ? "text-foreground" : "text-muted-foreground")}>
+              {stopped && <CheckIcon className="size-3.5 shrink-0 text-success" />}
+              {l.label}
+            </span>
+            <span className={cn("text-xs", stopped ? "text-success" : "text-tertiary-foreground")}>{stopped ? "Stopped it" : i > at ? "Not needed" : "\u00a0"}</span>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+function Foot({ why, foot }: { why: string; foot: string }) {
+  return (
+    <div className="flex flex-col gap-1">
       <p className="text-[13px] text-muted-foreground">{why}</p>
-      <p className="text-xs text-tertiary-foreground">No transaction link: none was made.</p>
-    </>
+      <p className="text-xs text-tertiary-foreground">{foot}</p>
+    </div>
   )
 }
