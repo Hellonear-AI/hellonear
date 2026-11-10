@@ -21,6 +21,7 @@ export const fake = {
   // Threads the backend asked the engine to forget (#207), and the status the next such call answers with.
   forgotten: [] as string[],
   forgetStatus: 204,
+  forgetBodies: [] as { userId: string }[],
 }
 
 export const templates = [
@@ -138,6 +139,8 @@ export const engine = createServer(async (req, res) => {
 
   const forget = url.pathname.match(/^\/v1\/minds\/([^/]+)\/threads\/([^/]+)$/)
   if (forget && req.method === 'DELETE') {
+    if (typeof (body as any)?.userId !== 'string') return send(res, 400, { error: 'invalid_body' })
+    fake.forgetBodies.push(body as { userId: string })
     if (fake.forgetStatus !== 204) return send(res, fake.forgetStatus, { error: 'engine_error' })
     fake.forgotten.push(forget[2])
     return send(res, 204)

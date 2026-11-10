@@ -84,11 +84,14 @@ export async function deleteThread(mindId: string, threadId: string): Promise<vo
   await forget(mindId, threadId)
 }
 
-// The engine's DELETE /v1/minds/{mindId}/threads/{threadId} (docs/api-contract.md §2). true once it answered 204.
+// The engine's DELETE /v1/minds/{mindId}/threads/{threadId} { userId } (docs/api-contract.md §2). true once it answered
+// 204. A 404 means the engine has no such thread for this owner and Mind: nothing to forget, so it is not asked again.
 async function forget(mindId: string, threadId: string): Promise<boolean> {
-  const status = await engineFetch(`/v1/minds/${encodeURIComponent(mindId)}/threads/${encodeURIComponent(threadId)}`, { method: 'DELETE' })
+  const [owner] = await query<{ user_id: string }>('select user_id from minds where id = $1', [mindId])
+  if (!owner) return false
+  const status = await engineFetch(`/v1/minds/${encodeURIComponent(mindId)}/threads/${encodeURIComponent(threadId)}`, { method: 'DELETE', body: { userId: owner.user_id } })
     .then((r) => r.status, () => 0)
-  if (status !== 204) return false
+  if (status !== 204 && status !== 404) return false
   await query('update thread_meta set forgotten_at = now(), updated_at = now() where mind_id = $1 and thread_id = $2', [mindId, threadId])
   return true
 }

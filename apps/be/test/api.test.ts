@@ -1509,6 +1509,15 @@ describe('chat threads (#54)', () => {
     assert.ok(fake.forgotten.includes(gone))
     assert.equal(fake.requests.findLast((r) => r.method === 'DELETE' && r.path.endsWith(`/threads/${gone}`))!.path, `/v1/minds/${mindId}/threads/${gone}`)
     assert.notEqual((await query<{ forgotten_at: Date | null }>('select forgotten_at from thread_meta where thread_id = $1', [gone]))[0].forgotten_at, null)
+    // The engine is told whose thread it is (the Mind owner's user id), as its route requires.
+    const owner = (await query<{ user_id: string }>('select user_id from minds where id = $1', [mindId]))[0].user_id
+    assert.deepEqual(fake.forgetBodies.at(-1), { userId: owner })
+    // A thread the engine has never seen (404) counts as forgotten, so the sweep does not ask forever.
+    const unknown = (await events(await a.call('POST', `/v1/minds/${mindId}/chat`, { message: 'never in the engine' }, origin)))[0].threadId
+    fake.forgetStatus = 404
+    assert.equal((await a.call('DELETE', `/v1/minds/${mindId}/threads/${unknown}`, undefined, origin)).status, 204)
+    fake.forgetStatus = 204
+    assert.notEqual((await query<{ forgotten_at: Date | null }>('select forgotten_at from thread_meta where thread_id = $1', [unknown]))[0].forgotten_at, null)
     await sweepDeletedThreads(new Date(Date.now() + 29 * 86_400_000))
     assert.equal((await query('select 1 from runs where thread_id = $1', [gone])).length, 2, 'not before 30 days')
     await sweepDeletedThreads(new Date(Date.now() + 31 * 86_400_000))
