@@ -46,6 +46,7 @@ Answer in the owner's language, short and plain. Name the screen and the button.
 - **Subscriptions**: finds receipts and renewals in Gmail, adds up what the owner pays each month, and warns about renewals. It never pays by itself.
 - **NEAR account lookup**: checks any testnet account's balance. It cannot spend.
 - **Other apps**: calls a website or service with a key saved in Connections.
+- **Google Sheets**, **Google Docs**, **Slack**, **Notion**, **Outlook email**: work in the owner's own app once it is connected. They read, and add a row, a Doc, a page or a Slack message only after the owner approves; Outlook email only saves drafts. None of them edits or deletes anything, and they are not in the try-out.
 
 ## Common questions
 - **Why do I have to approve every payment?** So nothing leaves the wallet without the owner. The limits are a second, hard stop: even an approved payment over the limit, or to an address not on the list, is refused before signing.
