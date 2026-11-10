@@ -98,3 +98,13 @@ describe("Tidying the inbox (#106)", () => {
     expect(stepText(step("gmail_organize", {}, { source: "sample_inbox", action: "archive", done: 2, failed: [] }, "ok")).detail).toBe("sample inbox, nothing changed")
   })
 })
+
+describe("approval cards for the track skills' apps (#211)", () => {
+  it("says what goes where for Slack, Sheets and a sale", async () => {
+    const { approvalDetails } = await import("@/modules/runs/data/approvalDetails")
+    const step = (tool: string, args: unknown) => ({ toolCallId: "t", tool, status: "awaiting_approval" as const, args, result: undefined })
+    expect(approvalDetails(step("slack_send_message", { channel: "finance", text: "Paid." }))).toMatchObject({ title: "Post to #finance", lines: [{ label: "Message", value: "Paid." }] })
+    expect(approvalDetails(step("googlesheets_append_row", { sheet: "Expenses", values: ["Hosting", 50000] }))?.lines[0].value).toBe("Hosting, 50000")
+    expect(approvalDetails(step("sell_offer", { title: "Weekly digest", priceNear: "0.5", item: "weekly-digest" }))?.title).toBe('Sell "Weekly digest" for 0.5 NEAR')
+  })
+})

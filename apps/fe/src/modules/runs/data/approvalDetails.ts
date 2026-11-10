@@ -71,6 +71,43 @@ export function approvalDetails(step: ToolStep, timeZone?: string): ApprovalDeta
         note: "It goes from your Mind's own email address.",
       }
     }
+    // The track skills' apps (#195 to #200, Axel's #211): what goes where, so the owner approves this exact change.
+    case "googledocs_create_document":
+      return {
+        title: `Write "${str(a.title) ?? "a new Doc"}"`,
+        lines: [{ label: "Length", value: `${(str(a.markdown) ?? "").length.toLocaleString("en")} characters` }],
+        note: "Creates a new Google Doc in your Drive. Nothing is shared.",
+      }
+    case "googlesheets_append_row": {
+      const values = Array.isArray(a.values) ? a.values.map((v) => (v === null || v === undefined ? "" : String(v))) : []
+      return {
+        title: `Add a row to "${str(a.sheet) ?? "a sheet"}"`,
+        lines: [{ label: "Row", value: values.length ? values.join(", ") : "Empty" }],
+        note: "Adds one row at the end of your Google Sheet. Nothing else changes.",
+      }
+    }
+    case "notion_create_page":
+      return { title: `Add the page "${str(a.title) ?? "Untitled"}" to Notion`, lines: [], note: "Creates a new page under the one you shared. Nothing else changes." }
+    case "notion_add_row": {
+      const props = Array.isArray(a.properties) ? (a.properties as Record<string, unknown>[]) : []
+      return {
+        title: "Add a row to a Notion database",
+        lines: props.slice(0, 8).map((p, i) => ({ label: str(p.name) ?? `${i + 1}`, value: str(p.value) ?? "Empty" })),
+        note: "Adds one row. Existing rows don't change.",
+      }
+    }
+    case "slack_send_message":
+      return {
+        title: `Post to ${str(a.channel)?.replace(/^#?/, "#") ?? "Slack"}`,
+        lines: [{ label: "Message", value: str(a.text) ?? "" }],
+        note: "Posted to Slack as you.",
+      }
+    case "sell_offer":
+      return {
+        title: `Sell "${str(a.title) ?? "an offer"}" for ${str(a.priceNear) ?? "?"} NEAR`,
+        lines: [{ label: "Item", value: str(a.item) ?? "" }],
+        note: "Other Minds can buy it; they pay into this Mind's own wallet.",
+      }
     default:
       return null
   }
