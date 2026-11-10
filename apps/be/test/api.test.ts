@@ -1951,7 +1951,9 @@ describe('Telegram (#168)', () => {
       await new Promise((r) => setTimeout(r, 1500))
       const reply = fakeTelegram.sent(TOKEN).at(-1)
       assert.equal(reply.chat_id, '555')
-      assert.match(reply.text, /^w0 w1 w2/)
+      // The reply may stream in (#222): the message ends up holding the whole text.
+      const replyId = fakeTelegram.calls.lastIndexOf(fakeTelegram.calls.findLast((c) => c.token === TOKEN && c.method === 'sendMessage')!) + 1
+      assert.match(fakeTelegram.messages.get(replyId)!.text, /^w0 w1 w2 .* w39$/)
       const [run] = await query('select thread_id, user_message from runs r where r.mind_id = $1 order by started_at desc limit 1', [mindId])
       assert.equal(run.user_message, 'hi there')
       const [row] = await query('select thread_id, last_update_id from mind_telegram where mind_id = $1', [mindId])
@@ -2012,7 +2014,9 @@ describe('Telegram (#168)', () => {
     }
     const sent = fakeTelegram.sent(OTHER)
     assert.match(sent[0].text, /^Linked\./)
-    assert.match(sent[1].text, /^w0 w1/)
+    assert.match(sent[1].text, /^w0/)
+    const replyId = fakeTelegram.calls.indexOf(fakeTelegram.calls.find((c) => c.body === sent[1])!) + 1
+    assert.match(fakeTelegram.messages.get(replyId)!.text, /^w0 w1 .* w39$/)
     assert.equal((await query('select last_update_id from mind_telegram where mind_id = $1', [mindId]))[0].last_update_id, '11')
     assert.deepEqual(fakeTelegram.of(OTHER, 'getUpdates').at(-1).allowed_updates, ['message', 'callback_query'])
   })
@@ -2295,6 +2299,106 @@ describe('Telegram approvals (#208)', () => {
     assert.equal(ask.text, '<b>Add "&lt;b&gt;Lunch&lt;/b&gt; &amp; [win](https://evil.test)" to your calendar</b>\n\nWhen: Thu 12 Nov, 12:00 (UTC)\n\nWaiting for you.')
     assert.doesNotMatch(ask.text, /<a /)
   })
+
+  // #222 measurement: a slow fake engine (a 300 ms tool, text over ~500 ms, verification 400 ms after run.finished).
+  // Logs the time from the owner's message to the first text the bot shows and to the full reply, next to the engine's
+  // own first text and run.finished, so before/after can be compared on the same script.
+  test('time to first visible text on Telegram with a slow engine (#222, logged)', async () => {
+    const m = await linkedMind()
+    const reply = 'Here is your answer, written slowly piece by piece so it streams.'
+    fake.scripts.set('measure', { text: reply, pieces: 10, delayMs: 50, toolMs: 300, verifyMs: 400 })
+    const from = fakeTelegram.calls.length
+    const t0 = Date.now()
+    await m.say('measure')
+    await until(async () => (await m.runOf())?.status === 'finished', 'the run')
+    await until(() => shown(m.token).text === reply, 'the full reply')
+    const mine = fakeTelegram.calls.slice(from).filter((c) => c.token === m.token && (c.method === 'sendMessage' || c.method === 'editMessageText'))
+    const full = mine.find((c) => c.body.text === reply)!
+    const engineT = [...fake.timings.values()].at(-1)!
+    await until(() => engineT.ended !== undefined, 'the end of the stream')
+    console.log('telegram latency', JSON.stringify({ firstVisibleMs: mine[0].at - t0, fullReplyMs: full.at - t0, engineFirstTextMs: engineT.firstText! - t0, engineFinishedMs: engineT.finished! - t0, engineEndedMs: engineT.ended! - t0 }))
+    // The first words show while the engine is still writing, and the full reply before verification ends the stream.
+    assert.ok(mine[0].at < engineT.finished!, 'first text after run.finished')
+    assert.ok(full.at < engineT.ended!, 'full reply only after run.verified')
+  })
+
+  // #222 with short timings, so the rhythm shows in a test: typing every 100 ms, edits at most every 200 ms.
+  const quick = async <T>(fn: () => Promise<T>) => {
+    const { telegramTiming } = await import('../src/telegram.ts')
+    const saved = { ...telegramTiming }
+    Object.assign(telegramTiming, { typingMs: 100, editMs: 200 })
+    try { return await fn() } finally { Object.assign(telegramTiming, saved) }
+  }
+  const replyCalls = (token: string, from: number) => fakeTelegram.calls.slice(from).filter((c) => c.token === token && ['sendMessage', 'editMessageText', 'sendChatAction', 'deleteMessage'].includes(c.method))
+
+  test('"typing…" repeats while a slow tool runs, until the first text shows (#222)', () => quick(async () => {
+    const m = await linkedMind()
+    fake.scripts.set('slow tool', { text: 'Found it.', toolMs: 700 })
+    const from = fakeTelegram.calls.length
+    await m.say('slow tool')
+    await until(() => shown(m.token).text === 'Found it.', 'the reply')
+    const calls = replyCalls(m.token, from)
+    const firstText = calls.findIndex((c) => c.method === 'sendMessage')
+    const typing = calls.slice(0, firstText).filter((c) => c.method === 'sendChatAction')
+    assert.ok(typing.length >= 5, `typing sent ${typing.length} times`)
+    assert.ok(typing.every((c) => c.body.action === 'typing'))
+    // Once the text shows and no tool runs, no more typing.
+    await new Promise((r) => setTimeout(r, 300))
+    assert.equal(replyCalls(m.token, from).slice(firstText).filter((c) => c.method === 'sendChatAction').length, 0)
+  }))
+
+  test('the reply streams: one send, then throttled edits of that message, the last one the full formatted text (#222)', () => quick(async () => {
+    const m = await linkedMind()
+    const reply = '**Plan** for today: ' + Array.from({ length: 30 }, (_, i) => `item${i}`).join(' ') + '. See [docs](https://docs.near.org).'
+    fake.scripts.set('stream it', { text: reply, pieces: 30, delayMs: 40, verifyMs: 300 })
+    const from = fakeTelegram.calls.length
+    await m.say('stream it')
+    await until(() => shown(m.token).text.endsWith('</a>.'), 'the full reply')
+    const calls = replyCalls(m.token, from).filter((c) => c.method !== 'sendChatAction')
+    assert.equal(calls[0].method, 'sendMessage')
+    const id = fakeTelegram.calls.indexOf(calls[0]) + 1
+    const edits = calls.slice(1)
+    assert.ok(edits.length >= 2, `only ${edits.length} edits`)
+    assert.ok(edits.every((c) => c.method === 'editMessageText' && c.body.message_id === id && c.body.parse_mode === 'HTML'))
+    // Throttled: ~1.2 s of text, edits at least ~200 ms apart (the final edit at run.finished may come sooner).
+    const mid = [calls[0], ...edits.slice(0, -1)]
+    for (let i = 1; i < mid.length; i++) assert.ok(mid[i].at - mid[i - 1].at >= 180, `edits ${mid[i].at - mid[i - 1].at} ms apart`)
+    assert.ok(edits.length <= 9, `${edits.length} edits`)
+    // Each mid-stream text is a prefix of the reply; the last is the reply, formatted.
+    assert.equal(edits.at(-1)!.body.text, '<b>Plan</b> for today: ' + Array.from({ length: 30 }, (_, i) => `item${i}`).join(' ') + '. See <a href="https://docs.near.org">docs</a>.')
+    assert.equal(calls.filter((c) => c.method === 'sendMessage').length, 1)
+  }))
+
+  test('a reply longer than 4096 characters continues in a new message (#222)', () => quick(async () => {
+    const m = await linkedMind()
+    const reply = Array.from({ length: 1300 }, (_, i) => `w${i}`).join(' ')
+    assert.ok(reply.length > 6000)
+    fake.scripts.set('long one', { text: reply, pieces: 8, delayMs: 60 })
+    const from = fakeTelegram.calls.length
+    await m.say('long one')
+    await until(async () => (await m.runOf())?.status === 'finished', 'the run')
+    await until(() => shown(m.token).text.endsWith('w1299') || fakeTelegram.sent(m.token).at(-1)?.text.endsWith('w1299'), 'the end of the reply')
+    const sends = replyCalls(m.token, from).filter((c) => c.method === 'sendMessage')
+    assert.equal(sends.length, 2)
+    const ids = sends.map((c) => fakeTelegram.calls.indexOf(c) + 1)
+    const finalText = ids.map((i) => fakeTelegram.messages.get(i)!.text)
+    assert.ok(finalText.every((t) => t.length <= 4096))
+    assert.equal(finalText.join(' ').replace(/\s+/g, ' '), reply)
+  }))
+
+  test('text before a pause stays, and the approval follows as its own message (#222 with #208)', () => quick(async () => {
+    const m = await linkedMind()
+    const from = fakeTelegram.calls.length
+    await m.say('pay 0.01 NEAR to shop.testnet')
+    const ask = await m.nextAsk(1)
+    const calls = replyCalls(m.token, from)
+    const text = calls.findIndex((c) => c.method === 'sendMessage' && c.body.text === 'Asking you first.')
+    const card = calls.findIndex((c) => c.method === 'sendMessage' && c.body.reply_markup)
+    assert.ok(text >= 0 && text < card, 'the text comes before the approval')
+    assert.equal(calls.filter((c) => c.method === 'deleteMessage').length, 0)
+    assert.match(ask.text, /^<b>Pay 0\.01 NEAR to shop\.testnet<\/b>/)
+    assert.equal(fakeTelegram.messages.get(fakeTelegram.calls.indexOf(calls[text]) + 1)!.text, 'Asking you first.')
+  }))
 
   test('at start, every bot gets its webhook again with button presses allowed, keeping its secret and pending updates', async () => {
     const m = await linkedMind()
