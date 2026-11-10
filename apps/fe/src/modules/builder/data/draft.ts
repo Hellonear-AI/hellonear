@@ -273,6 +273,12 @@ export function resultsBefore(steps: Step[], index = steps.length, self?: Self) 
   )
 }
 
+/** One earlier result a block can use. */
+export type Result = ReturnType<typeof resultsBefore>[number]
+
+/** Every result the given steps give, naming the Mind's own wallet. */
+export const resultsOf = (steps: Step[], self?: Self): Result[] => resultsBefore(steps, steps.length, self)
+
 /** The notes earlier Ask steps wrote, as results for "Email me" (it may only send what the Mind wrote, #146). */
 export function notesBefore(steps: Step[], index = steps.length) {
   return steps.slice(0, index).flatMap((s, i) =>
@@ -337,9 +343,31 @@ export function draftProblems(d: Draft): DraftProblem[] {
   return out
 }
 
+/**
+ * Visits every block, depth first in reading order (an If, then its Yes, then its No), with the
+ * path of its line and its index there. Stops as soon as `visit` returns true, and says so.
+ */
+export function walk(line: Block[], visit: (b: Block, path: LinePath, index: number) => boolean | void, path: LinePath = []): boolean {
+  for (let i = 0; i < line.length; i++) {
+    const b = line[i]
+    if (visit(b, path, i)) return true
+    if (b.kind === "if") {
+      for (const h of ["then", "else"] as const) if (walk(b[h], visit, [...path, { at: b.id, h }])) return true
+    }
+  }
+  return false
+}
+
+/** Rebuilds the tree from the bottom up: each If's ways first, then `fn` of the line that holds it. */
+export function mapTree(line: Block[], fn: (line: Block[]) => Block[]): Block[] {
+  return fn(line.map((b) => (b.kind === "if" ? { ...b, then: mapTree(b.then, fn), else: mapTree(b.else, fn) } : b)))
+}
+
 /** Every block, depth first, in reading order. */
 export function allBlocks(line: Block[]): Block[] {
-  return line.flatMap((b) => (b.kind === "if" ? [b, ...allBlocks(b.then), ...allBlocks(b.else)] : [b]))
+  const out: Block[] = []
+  walk(line, (b) => void out.push(b))
+  return out
 }
 
 /** A block that ends its path: End, or an If whose Yes and No both end. Nothing may follow it. */
@@ -384,17 +412,17 @@ export function withLine(line: Block[], path: LinePath, fn: (l: Block[]) => Bloc
 
 /** Where a block sits: its line's path and its index there. */
 export function locate(line: Block[], id: string, path: LinePath = []): { path: LinePath; index: number } | null {
-  for (let i = 0; i < line.length; i++) {
-    const b = line[i]
-    if (b.id === id) return { path, index: i }
-    if (b.kind === "if") {
-      for (const h of ["then", "else"] as const) {
-        const hit = locate(b[h], id, [...path, { at: b.id, h }])
-        if (hit) return hit
-      }
-    }
-  }
-  return null
+  let hit: { path: LinePath; index: number } | null = null
+  walk(
+    line,
+    (b, at, index) => {
+      if (b.id !== id) return false
+      hit = { path: at, index }
+      return true
+    },
+    path
+  )
+  return hit
 }
 
 export function findBlock(line: Block[], id: string): Block | null {
@@ -403,16 +431,13 @@ export function findBlock(line: Block[], id: string): Block | null {
 
 /** Change one block wherever it is. */
 export function updateBlock(line: Block[], id: string, patch: Partial<Block>): Block[] {
-  return line.map((b) =>
-    b.id === id ? ({ ...b, ...patch } as Block) : b.kind === "if" ? { ...b, then: updateBlock(b.then, id, patch), else: updateBlock(b.else, id, patch) } : b
-  )
+  // The ways are rebuilt before the patch, so a patch that brings its own Yes and No wins.
+  return mapTree(line, (l) => l.map((b) => (b.id === id ? ({ ...b, ...patch } as Block) : b)))
 }
 
 /** Take a block out (an If goes with its ways); an If that looked at it forgets what it looked at. */
 export function removeBlock(line: Block[], id: string): Block[] {
-  return line
-    .filter((b) => b.id !== id)
-    .map((b) => (b.kind === "if" ? { ...b, ...(b.stepId === id ? { stepId: "", field: "" } : {}), then: removeBlock(b.then, id), else: removeBlock(b.else, id) } : b))
+  return mapTree(line, (l) => l.filter((b) => b.id !== id).map((b) => (b.kind === "if" && b.stepId === id ? { ...b, stepId: "", field: "" } : b)))
 }
 
 /** Put a block at `index` of the line at `path`. */
@@ -427,15 +452,13 @@ export function insertBlock(line: Block[], path: LinePath, index: number, block:
  */
 export function stepsAt(line: Block[], path: LinePath, index: number): Step[] {
   const out: Step[] = []
-  let cur = line
-  for (const p of path) {
-    const at = cur.findIndex((b) => b.id === p.at)
-    out.push(...cur.slice(0, at).filter(isStep))
-    const b = cur[at]
-    if (!b || b.kind !== "if") return out
-    cur = b[p.h]
+  for (let k = 0; k < path.length; k++) {
+    const outer = lineAt(line, path.slice(0, k))
+    const at = outer.findIndex((b) => b.id === path[k].at)
+    out.push(...outer.slice(0, at).filter(isStep))
+    if (outer[at]?.kind !== "if") return out
   }
-  out.push(...cur.slice(0, index).filter(isStep))
+  out.push(...lineAt(line, path).slice(0, index).filter(isStep))
   return out
 }
 

@@ -371,6 +371,21 @@ describe("Ifs anywhere and End (#164)", () => {
     expect(insertBlock(out, [{ at: "low", h: "then" }], 0, note).find((b) => b.id === "low")).toMatchObject({ then: [note] })
   })
 
+  it("walks the tree in reading order and rebuilds it from the bottom up", async () => {
+    const { walk, mapTree, allBlocks, updateBlock, findBlock } = await import("@/modules/builder/data/draft")
+    const seen: string[] = []
+    walk(tree.line, (b, path) => void seen.push(`${path.map((p) => p.h).join("/")}:${b.id}`))
+    expect(seen).toEqual([":bal", ":low", "then:very", "then/then:urgent", "then/then:e1", "then/else:note", "else:time", ":after"])
+    // It stops at the first hit.
+    const stops: string[] = []
+    expect(walk(tree.line, (b) => (stops.push(b.id), b.id === "very"))).toBe(true)
+    expect(stops).toEqual(["bal", "low", "very"])
+    expect(allBlocks(mapTree(tree.line, (l) => l.filter((b) => b.kind !== "end"))).map((b) => b.id)).not.toContain("e1")
+    // A patch that brings its own ways wins over the rebuilt ones (Swap Yes and No).
+    const swapped = updateBlock(tree.line, "low", { then: low.else, else: low.then })
+    expect(findBlock(swapped, "low")).toMatchObject({ then: [time], else: low.then })
+  })
+
   it("Autopilot lists the tree: each If with its ways, then what follows", async () => {
     const { jobTree, flatSteps } = await import("@/modules/autopilot/data/steps")
     const t = jobTree(toCanvas(tree), "Omaga")
