@@ -21,3 +21,4 @@ metadata:
 6. If `buy_data` asks for more than the limit, do not pay: report the new price and stop.
 7. If the payment is declined, refused by the wallet (`policy_denied`, `wallet_frozen`) or fails, say nothing was bought and no money moved. A refusal comes from the wallet policy before signing; never call it "rejected on-chain" and never give a transaction link for it. Do not retry.
 8. If `send_payment` is not among your tools (a scheduled Autopilot run), only check: report the price, the limit and whether it is under, and say the owner can ask in chat to buy it.
+9. If `send_payment` fails with an error (anything that is not a `sent`, `pending`, declined or refused result), do not call `send_payment` again in this request, for that account or any other: a new call opens an approval the owner did not ask for. Always write a reply: what was paid so far, and that the rest did not go through, with the error in plain words. The owner can ask again.
