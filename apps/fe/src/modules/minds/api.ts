@@ -99,8 +99,14 @@ export const mindsApi = {
   /** Change a Mind's name, persona, model or skills; the backend re-sends it to every Autopilot job. */
   update: async (mindId: string, body: Partial<Pick<ApiMind, "name" | "soul" | "model" | "skills">>) =>
     (await api<{ mind: ApiMind }>(`/minds/${encodeURIComponent(mindId)}`, { method: "PATCH", body })).mind,
-  /** Delete a Mind, its chats, memory and Autopilot jobs (`204`). Its wallet and money stay on chain. */
-  remove: async (mindId: string) => api<void>(`/minds/${encodeURIComponent(mindId)}`, { method: "DELETE" }),
+  /**
+   * Delete a Mind, its chats, memory and Autopilot jobs (`204`). While its own wallet holds more
+   * than 0.001 NEAR the backend answers `409 wallet_not_empty` with `balanceNear` (#163): deleting
+   * removes the wallet's only key, so nobody could move that NEAR again. `acknowledgeBalance`
+   * confirms the owner saw that.
+   */
+  remove: async (mindId: string, acknowledgeBalance = false) =>
+    api<void>(`/minds/${encodeURIComponent(mindId)}${acknowledgeBalance ? "?acknowledgeBalance=true" : ""}`, { method: "DELETE" }),
   skills: async () => (await api<{ skills: ApiSkill[] }>("/skills")).skills,
   connections: async () => (await api<{ connections: ApiConnection[] }>("/connections")).connections,
   /** A Composio Connect Link to open in a new window (`409 already_connected` if it already is). */
