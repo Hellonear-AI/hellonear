@@ -11,7 +11,8 @@
 // sent back as X-Telegram-Bot-Api-Secret-Token; allowed_updates), deleteWebhook, getUpdates (local dev without a public
 // URL), sendMessage (at most 4096 characters; reply_markup inline_keyboard, callback_data 1-64 bytes), sendChatAction,
 // answerCallbackQuery ("clients will display a progress bar until you call answerCallbackQuery"), editMessageText,
-// editMessageReplyMarkup.
+// editMessageReplyMarkup, deleteMessage. Messages are Telegram HTML (#221, src/telegramFormat.ts); a reply streams in
+// as it is written (#222, LiveReply).
 import { z } from 'zod'
 import { config } from './config.ts'
 import { decrypt, encrypt, randomToken, sameSecret } from './crypto.ts'
@@ -32,7 +33,7 @@ export type RunOutcome = { threadId: string; text: string; asked: Asked[]; outco
 // How Telegram reaches the Mind (src/server.ts): `chat` runs one owner message like the app's chat; `answer` approves or
 // declines like the app's approve/decline route. Both relay into memory, so runs are stored exactly as from the app.
 export type MindRunner = {
-  chat: (mindId: string, threadId: string | undefined, text: string) => Promise<RunOutcome>
+  chat: (mindId: string, threadId: string | undefined, text: string, onEvent?: (e: Record<string, any>) => void) => Promise<RunOutcome>
   answer: (mindId: string, runId: string, toolCallId: string, action: 'approve' | 'decline') => Promise<RunOutcome>
 }
 
@@ -173,6 +174,86 @@ const notModified = (description: string | undefined) => /message is not modifie
 async function sendReply(r: Row, markdown: string) {
   for (const part of telegramChunks(markdown)) await deliver(r, 'sendMessage', { chat_id: r.owner_chat_id }, part)
 }
+// #222: Telegram clears "typing…" after 5 s or when the bot sends a message ("The status is set for 5 seconds or less"),
+// and limits how often a bot may edit, so typing is repeated every 4 s and edits come at most every 1.5 s. Tests shorten them.
+export const telegramTiming = { typingMs: 4000, editMs: 1500 }
+
+// A reply shown while it is written (#222). The first text goes out at once; later text edits that message, at most
+// once per `editMs`; past 4096 characters it continues in a new message. Every send and edit is the whole text so far
+// through the #221 converter: a half-written Markdown mark stays a literal character until its pair arrives (the
+// converter only pairs closed marks), so a mid-stream message is always valid HTML. On run.finished the last edit shows
+// the complete reply, without waiting for run.verified. "typing…" is repeated until the first text is shown, and again
+// while a tool runs.
+class LiveReply {
+  private text = ''
+  private msgs: { id: number; html: string }[] = []
+  private tools = 0
+  private chain: Promise<void> = Promise.resolve()
+  private timer: NodeJS.Timeout | undefined
+  private lastFlush = 0
+  private typing: NodeJS.Timeout
+  private finished: Promise<void> | undefined
+
+  constructor(private r: Row) {
+    const tick = () => { if (!this.finished && (!this.msgs.length || this.tools > 0)) void bot(tokenOf(r), 'sendChatAction', { chat_id: r.owner_chat_id, action: 'typing' }).catch(() => {}) }
+    tick()
+    this.typing = setInterval(tick, telegramTiming.typingMs)
+  }
+
+  // True once any of the reply is on the owner's screen.
+  get shown() { return this.msgs.length > 0 }
+
+  onEvent = (e: Record<string, any>) => {
+    if (this.finished) return
+    if (e.type === 'text.delta' && typeof e.text === 'string') { this.text += e.text; this.schedule() }
+    else if (e.type === 'tool.called') this.tools++
+    // A tool that waits for the owner's approval is not running: no typing while the run is paused.
+    else if ((e.type === 'tool.result' || e.type === 'tool.error' || e.type === 'tool.approval_required') && this.tools > 0) this.tools--
+    else if (e.type === 'run.finished' || e.type === 'run.error') void this.finish()
+  }
+
+  private schedule() {
+    if (this.timer || !this.text.trim()) return
+    const wait = this.lastFlush ? Math.max(0, this.lastFlush + telegramTiming.editMs - Date.now()) : 0
+    this.timer = setTimeout(() => {
+      this.timer = undefined
+      this.lastFlush = Date.now()
+      this.chain = this.chain.then(() => this.flush())
+    }, wait)
+  }
+
+  // Brings the owner's messages up to the text so far: changed parts are edited, new parts sent, and parts the text no
+  // longer needs (a final text that packs into fewer messages) deleted.
+  private async flush() {
+    const parts = telegramChunks(this.text.trim())
+    for (let i = 0; i < parts.length; i++) {
+      const m = this.msgs[i]
+      if (!m) {
+        const res = await deliver(this.r, 'sendMessage', { chat_id: this.r.owner_chat_id }, parts[i]).catch(() => null)
+        if (res?.ok && typeof res.result?.message_id === 'number') this.msgs[i] = { id: res.result.message_id, html: parts[i] }
+        else return
+      } else if (m.html !== parts[i]) {
+        const res = await deliver(this.r, 'editMessageText', { chat_id: this.r.owner_chat_id, message_id: m.id }, parts[i]).catch(() => null)
+        // "message is not modified" means it already shows this text.
+        if (res?.ok || notModified(res?.description)) m.html = parts[i]
+      }
+    }
+    for (const m of this.msgs.splice(parts.length)) await bot(tokenOf(this.r), 'deleteMessage', { chat_id: this.r.owner_chat_id, message_id: m.id }).catch(() => {})
+  }
+
+  // The last edit, with the complete text; safe to call more than once.
+  finish() {
+    this.finished ??= (async () => {
+      clearInterval(this.typing)
+      clearTimeout(this.timer)
+      this.timer = undefined
+      await this.chain
+      if (this.text.trim()) await this.flush()
+    })()
+    return this.finished
+  }
+}
+
 // Approval cards (#208): the title bold, every other line literal. Their words come from tool arguments (an email
 // subject, an event title someone else wrote), so they are escaped, never read as Markdown: a stranger's subject
 // cannot add a link or formatting to a message that asks the owner to approve.
@@ -315,13 +396,17 @@ export async function handleUpdate(mindId: string, update: Update, runner: MindR
   if (r.owner_chat_id !== chatId) return 'ignored'
   if (text === '/start') { await sendReply(r, 'Already linked. Just write to your Mind.'); return 'answered' }
 
-  await bot(tokenOf(r), 'sendChatAction', { chat_id: chatId, action: 'typing' }).catch(() => {})
-  const out = await runner.chat(mindId, r.thread_id ?? undefined, text)
+  // The reply streams in while the run goes on (#222), and is complete at run.finished, before verification.
+  const live = new LiveReply(r)
+  let out: RunOutcome
+  try {
+    out = await runner.chat(mindId, r.thread_id ?? undefined, text, live.onEvent)
+  } finally {
+    await live.finish()
+  }
   if (out.threadId !== r.thread_id) await query('update mind_telegram set thread_id = $2, updated_at = now() where mind_id = $1', [mindId, out.threadId])
-  const reply = out.error
-    ? `Your Mind couldn't answer that (${escapeMd(out.error)}). Try again in a moment.`
-    : out.text.trim() || (out.asked.length ? '' : 'Done.')
-  await sendReply(r, reply)
+  if (out.error) await sendReply(r, `Your Mind couldn't answer that (${escapeMd(out.error)}). Try again in a moment.`)
+  else if (!live.shown && !out.asked.length) await sendReply(r, out.text.trim() || 'Done.')
   // Each approval the run asks for gets its own message with buttons (a split bill's two payments get two).
   for (const a of out.asked) await askOwner(r, out.threadId, a)
   return 'answered'
