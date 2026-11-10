@@ -11,7 +11,6 @@ import {
   GitBranchIcon,
   GlobeIcon,
   KeyboardIcon,
-  Loader2Icon,
   MinusIcon,
   OctagonXIcon,
   PanelLeftCloseIcon,
@@ -27,6 +26,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { createContext, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react"
 import { cn } from "cn"
+import { Spinner } from "@/components/elements/Spinner"
 import { mindHref } from "@/components/layout/nav"
 import { ChoiceSelect } from "@/components/elements/ChoiceSelect"
 import { TimePicker } from "@/components/elements/TimePicker"
@@ -671,12 +671,12 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             disabled={Boolean(test?.running) || dirty || saving}
             title={dirty ? "Save your changes to test them" : "Runs the saved job once"}
           >
-            {test?.running ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <FlaskConicalIcon />}
+            {test?.running ? <Spinner /> : <FlaskConicalIcon />}
             {test?.running ? "Testing" : "Test run"}
           </Button>
         )}
         <Button className="hidden lg:inline-flex" onClick={() => void save()} disabled={saving || (Boolean(workflowId) && !dirty)}>
-          {saving && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+          {saving && <Spinner />}
           Save
         </Button>
       </header>
@@ -925,11 +925,11 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
         </Button>
         <div className="grid grid-cols-2 gap-2">
           <Button variant="outline" onClick={() => void runTest()} disabled={!workflowId || Boolean(test?.running) || dirty || saving}>
-            {test?.running ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <FlaskConicalIcon />}
+            {test?.running ? <Spinner /> : <FlaskConicalIcon />}
             {test?.running ? "Testing" : "Test run"}
           </Button>
           <Button onClick={() => void save()} disabled={saving || (Boolean(workflowId) && !dirty)}>
-            {saving ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <CheckIcon />}
+            {saving ? <Spinner /> : <CheckIcon />}
             Save
           </Button>
         </div>
@@ -975,7 +975,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                   void save()
                 }}
               >
-                {saving && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+                {saving && <Spinner />}
                 Save
               </Button>
             )}
@@ -1203,7 +1203,7 @@ function BlockCard({
             run.status === "error" ? "text-danger" : run.status === "ok" ? "text-success" : "text-info"
           )}
         >
-          {run.status === "running" ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : run.status === "ok" ? <CheckIcon /> : <XIcon />}
+          {run.status === "running" ? <Spinner /> : run.status === "ok" ? <CheckIcon /> : <XIcon />}
           <span className="min-w-0 break-words text-foreground">{run.status === "running" ? "Working..." : (run.note ?? "Done")}</span>
         </span>
       )}

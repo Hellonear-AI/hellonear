@@ -6,11 +6,11 @@ import {
   CheckIcon,
   CircleSlashIcon,
   InboxIcon,
-  Loader2Icon,
   SnowflakeIcon,
   XIcon,
 } from "lucide-react"
 import { useState } from "react"
+import { Spinner } from "@/components/elements/Spinner"
 import { CountBadge } from "@/components/elements/CountBadge"
 import { MindAvatar } from "@/components/elements/MindAvatar"
 import { PageTitle } from "@/components/elements/PageTitle"
@@ -203,7 +203,7 @@ function ApprovalCard({
         </Button>
         {next === "approve" || state === "sending" ? (
           <Button disabled={busy} onClick={onApprove}>
-            {state === "sending" ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <CheckIcon />}
+            {state === "sending" ? <Spinner /> : <CheckIcon />}
             {state === "sending" ? "Sending" : "Approve"}
           </Button>
         ) : next === "unfreeze" ? (

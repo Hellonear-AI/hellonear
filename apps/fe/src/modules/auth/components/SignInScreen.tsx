@@ -2,9 +2,10 @@
 
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { ArrowRightIcon, CircleXIcon, FlaskConicalIcon, GlobeIcon, KeyRoundIcon, Loader2Icon, WalletMinimalIcon } from "lucide-react"
+import { ArrowRightIcon, CircleXIcon, FlaskConicalIcon, GlobeIcon, KeyRoundIcon, WalletMinimalIcon } from "lucide-react"
 import { useEffect, useState, type ReactNode } from "react"
 import { cn } from "cn"
+import { Spinner } from "@/components/elements/Spinner"
 import { MeteorLogo } from "@/components/elements/AppLogos"
 import { Logo } from "@/components/elements/Logo"
 import { Button } from "@/components/ui/button"
@@ -126,7 +127,7 @@ export function SignInScreen() {
               onClick={() => withWallet("meteor")}
               disabled={busy}
               strong
-              icon={signIn.isPending && picked === "meteor" ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <MeteorLogo className="size-6" />}
+              icon={signIn.isPending && picked === "meteor" ? <Spinner /> : <MeteorLogo className="size-6" />}
               logoTile
               title={signIn.isPending && picked === "meteor" ? "Waiting for Meteor" : returning ? "Continue with Meteor" : "Meteor Wallet"}
               note={
@@ -139,7 +140,7 @@ export function SignInScreen() {
             <Option
               onClick={() => withWallet("other")}
               disabled={busy}
-              icon={signIn.isPending && picked === "other" ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <WalletMinimalIcon />}
+              icon={signIn.isPending && picked === "other" ? <Spinner /> : <WalletMinimalIcon />}
               title={signIn.isPending && picked === "other" ? "Waiting for your wallet" : "Other NEAR wallets"}
             />
 
@@ -152,7 +153,7 @@ export function SignInScreen() {
             <Option
               onClick={tryOut}
               disabled={busy}
-              icon={demo.isPending ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <FlaskConicalIcon />}
+              icon={demo.isPending ? <Spinner /> : <FlaskConicalIcon />}
               title={emptyTryOut ? "Continue your try-out" : "Try without a wallet"}
               note={emptyTryOut ? "Pick a Mind and start chatting." : "No sign-up. 20 messages and a shared test wallet. Deleted after 7 days."}
             />

@@ -1,10 +1,11 @@
 "use client"
 
 import { useQuery } from "@tanstack/react-query"
-import { ArrowUpRightIcon, CheckIcon, CopyIcon, Loader2Icon, SendIcon } from "lucide-react"
+import { ArrowUpRightIcon, CheckIcon, CopyIcon, SendIcon } from "lucide-react"
 import { useId, useState } from "react"
 import { toast } from "sonner"
 import { cn } from "cn"
+import { Spinner } from "@/components/elements/Spinner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { formatNear } from "@/lib/format"
@@ -175,7 +176,7 @@ export function AddFundsDialog({
             Cancel
           </Button>
           <Button type="submit" form="funds-form" disabled={sending || !valid || tooMuch}>
-            {sending ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <SendIcon />}
+            {sending ? <Spinner /> : <SendIcon />}
             {sending ? "Waiting for Meteor" : `Send ${valid ? value : ""} NEAR with Meteor`.replace("  ", " ")}
           </Button>
         </DialogFooter>

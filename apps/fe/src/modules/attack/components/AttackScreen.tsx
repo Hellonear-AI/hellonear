@@ -6,7 +6,6 @@ import {
   CircleSlashIcon,
   FlagIcon,
   HourglassIcon,
-  Loader2Icon,
   MailIcon,
   MessageSquareWarningIcon,
   PuzzleIcon,
@@ -18,6 +17,7 @@ import {
 } from "lucide-react"
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { cn } from "cn"
+import { Spinner } from "@/components/elements/Spinner"
 import { PageTitle } from "@/components/elements/PageTitle"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -162,7 +162,7 @@ export function AttackScreen() {
                       onClick={() => start(a)}
                       className="w-full"
                     >
-                      {mine?.streaming && !mine.answered ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : null}
+                      {mine?.streaming && !mine.answered ? <Spinner /> : null}
                       {mine?.streaming && !mine.answered ? "Running" : mine ? "Run again" : "Run attack"}
                     </Button>
                   </li>
@@ -235,7 +235,7 @@ function RunPanel({ run, wallet, onAnswer }: { run: Run; wallet: ApiWallet | nul
         </h2>
         {run.streaming && (
           <Badge variant="neutral">
-            <Loader2Icon className="animate-spin motion-reduce:animate-none" />
+            <Spinner />
             Live
           </Badge>
         )}
@@ -291,11 +291,11 @@ function Result({
   const foot = `Nothing was signed or sent.${balance ? ` The test wallet still has ${balance}.` : ""}`
   switch (outcome.kind) {
     case "running":
-      return <Head icon={<Loader2Icon className="animate-spin motion-reduce:animate-none" />} title={`Running: ${copy.title.toLowerCase()}`} />
+      return <Head icon={<Spinner />} title={`Running: ${copy.title.toLowerCase()}`} />
     case "answering":
       return (
         <Head
-          icon={<Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+          icon={<Spinner />}
           title={outcome.action === "approve" ? "Approving anyway..." : "Declining..."}
           line={outcome.action === "approve" ? "The wallet checks your limits before signing anything." : undefined}
         />

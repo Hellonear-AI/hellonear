@@ -1,9 +1,10 @@
 "use client"
 
-import { CheckIcon, Loader2Icon, XIcon } from "lucide-react"
+import { CheckIcon, XIcon } from "lucide-react"
 import { useId, useState, type ReactNode } from "react"
 import { toast } from "sonner"
 import { cn } from "cn"
+import { Spinner } from "@/components/elements/Spinner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -151,7 +152,7 @@ export function KeyDialog({
             Cancel
           </Button>
           <Button type="submit" form="key-form" disabled={!ready || busy}>
-            {busy && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+            {busy && <Spinner />}
             {existing ? "Save new key" : "Save key"}
           </Button>
         </DialogFooter>
@@ -216,7 +217,7 @@ export function DeleteKeyDialog({ mindName, secret, open, onOpenChange }: { mind
               })
             }
           >
-            {busy && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+            {busy && <Spinner />}
             Delete key
           </Button>
         </DialogFooter>
@@ -286,7 +287,7 @@ export function DisconnectDialog({
               })
             }
           >
-            {busy && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+            {busy && <Spinner />}
             Disconnect
           </Button>
         </DialogFooter>

@@ -6,7 +6,6 @@ import {
   CheckIcon,
   CircleXIcon,
   HourglassIcon,
-  Loader2Icon,
   PenLineIcon,
   PencilIcon,
   PlusIcon,
@@ -15,6 +14,7 @@ import {
   XIcon,
 } from "lucide-react"
 import { cn } from "cn"
+import { Spinner } from "@/components/elements/Spinner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { templateAvatar, templateLabel } from "@/modules/minds/data/minds"
@@ -190,7 +190,7 @@ export function SetLimitsStep({
                 </Button>
               )}
               <Button type="submit" disabled={busy || Boolean(check.blocker)} className="sm:flex-1 xl:flex-none" aria-live="polite">
-                {busy ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : notice ? <RotateCcwIcon /> : <PenLineIcon />}
+                {busy ? <Spinner /> : notice ? <RotateCcwIcon /> : <PenLineIcon />}
                 {stage === "creating"
                   ? `Creating ${name}`
                   : stage === "signing"

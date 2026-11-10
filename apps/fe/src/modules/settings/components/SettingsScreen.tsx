@@ -1,10 +1,11 @@
 "use client"
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2Icon, Trash2Icon, TriangleAlertIcon } from "lucide-react"
+import { Trash2Icon, TriangleAlertIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
+import { Spinner } from "@/components/elements/Spinner"
 import { ChoiceSelect } from "@/components/elements/ChoiceSelect"
 import { MindAvatar } from "@/components/elements/MindAvatar"
 import { PageTitle } from "@/components/elements/PageTitle"
@@ -188,7 +189,7 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
               Discard
             </Button>
             <Button onClick={() => save.mutate()} disabled={!nameOk || !form.identity.trim() || save.isPending}>
-              {save.isPending && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+              {save.isPending && <Spinner />}
               Save
             </Button>
           </div>
@@ -221,7 +222,7 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
                   Keep {name}
                 </Button>
                 <Button variant="destructive" onClick={() => remove.mutate(true)} disabled={remove.isPending}>
-                  {remove.isPending && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+                  {remove.isPending && <Spinner />}
                   Delete and lose it
                 </Button>
               </DialogFooter>
@@ -258,7 +259,7 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
               Keep {name}
             </Button>
             <Button variant="destructive" onClick={() => remove.mutate(false)} disabled={remove.isPending}>
-              {remove.isPending && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+              {remove.isPending && <Spinner />}
               Delete {name}
             </Button>
           </DialogFooter>

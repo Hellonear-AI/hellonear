@@ -9,7 +9,6 @@ import {
   OctagonXIcon,
   GlobeIcon,
   InfoIcon,
-  Loader2Icon,
   EllipsisIcon,
   PencilIcon,
   PlayIcon,
@@ -25,6 +24,7 @@ import { useRouter } from "next/navigation"
 import { useSearchParams } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { cn } from "cn"
+import { Spinner } from "@/components/elements/Spinner"
 import { PageTitle } from "@/components/elements/PageTitle"
 import { mindHref } from "@/components/layout/nav"
 import { Badge } from "@/components/ui/badge"
@@ -286,7 +286,7 @@ function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string;
             {/* One main action, the rest in a menu (Ancung, 10 Nov: three buttons were too many). */}
             <div className="flex shrink-0 items-center gap-2">
               <Button onClick={() => void runNow()} disabled={running}>
-                {running ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <PlayIcon />}
+                {running ? <Spinner /> : <PlayIcon />}
                 {running ? "Running" : "Run now"}
               </Button>
               <DropdownMenu>
@@ -356,7 +356,7 @@ function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string;
               disabled={remove.isPending}
               onClick={() => remove.mutate(workflowId, { onSuccess: () => setConfirmDelete(false) })}
             >
-              {remove.isPending && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+              {remove.isPending && <Spinner />}
               Delete job
             </Button>
           </DialogFooter>
@@ -450,7 +450,7 @@ function RunRow({
       </Badge>
     ) : status === "running" ? (
       <Badge variant="info">
-        <Loader2Icon className="animate-spin motion-reduce:animate-none" />
+        <Spinner />
         Running
       </Badge>
     ) : (
@@ -591,7 +591,7 @@ function IdeaCard({ mindId, name, demo, idea, onAdded, compact }: { mindId: stri
         <>
           {missingSkill && <span className="text-xs text-muted-foreground">Adds the {skillCopy(missingSkill).title} skill to {name}.</span>}
           <Button size="sm" variant="outline" className="w-fit" disabled={busy || wallet === undefined} onClick={() => void use()}>
-            {busy && <Loader2Icon className="animate-spin motion-reduce:animate-none" />}
+            {busy && <Spinner />}
             Use this
           </Button>
           {demo && <span className="text-xs text-muted-foreground">In a try-out it stays off; you can run it with Run now.</span>}

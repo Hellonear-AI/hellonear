@@ -1,7 +1,8 @@
 "use client"
 
-import { ArrowUpIcon, Loader2Icon, SquareIcon } from "lucide-react"
+import { ArrowUpIcon, SquareIcon } from "lucide-react"
 import { useEffect, useState, type KeyboardEvent } from "react"
+import { Spinner } from "@/components/elements/Spinner"
 import { Button } from "@/components/ui/button"
 import { readPref, writePref } from "@/lib/storage"
 
@@ -85,7 +86,7 @@ export function Composer({
         />
         {busy && onStop ? (
           <Button type="button" size="icon" onClick={onStop} disabled={stopping} aria-label={stopping ? "Stopping" : `Stop ${name}'s reply`} title={stopping ? "Stopping" : "Stop"}>
-            {stopping ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <SquareIcon className="fill-current" />}
+            {stopping ? <Spinner /> : <SquareIcon className="fill-current" />}
           </Button>
         ) : (
           <Button type="submit" size="icon" disabled={!canSend} aria-label="Send">

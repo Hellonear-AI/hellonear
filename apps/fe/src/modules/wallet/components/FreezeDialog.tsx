@@ -1,7 +1,8 @@
 "use client"
 
-import { CheckIcon, Loader2Icon, SnowflakeIcon, SunIcon, XIcon } from "lucide-react"
+import { CheckIcon, SnowflakeIcon, SunIcon, XIcon } from "lucide-react"
 import { useState } from "react"
+import { Spinner } from "@/components/elements/Spinner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { isApiCode } from "@/lib/api"
@@ -111,7 +112,7 @@ export function FreezeDialog({
                 disabled={signing}
                 onClick={() => mutation.mutate(freeze, { onSuccess: ({ at }) => setDoneAt(at) })}
               >
-                {signing ? <Loader2Icon className="animate-spin motion-reduce:animate-none" /> : <SnowflakeIcon />}
+                {signing ? <Spinner /> : <SnowflakeIcon />}
                 {signing ? "Waiting for Meteor" : mutation.error ? "Try again" : freeze ? "Freeze with Meteor" : "Unfreeze with Meteor"}
               </Button>
             </DialogFooter>

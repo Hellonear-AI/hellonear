@@ -1,8 +1,9 @@
 "use client"
 
-import { CheckIcon, ExternalLinkIcon, KeyRoundIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon, TriangleAlertIcon } from "lucide-react"
+import { CheckIcon, ExternalLinkIcon, KeyRoundIcon, PencilIcon, PlusIcon, Trash2Icon, TriangleAlertIcon } from "lucide-react"
 import { useState, type ReactNode } from "react"
 import { cn } from "cn"
+import { Spinner } from "@/components/elements/Spinner"
 import { GmailLogo, GoogleCalendarLogo, GoogleMeetLogo } from "@/components/elements/AppLogos"
 import { PageTitle } from "@/components/elements/PageTitle"
 import { Badge } from "@/components/ui/badge"
@@ -126,7 +127,7 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
                             </Badge>
                           ) : waiting ? (
                             <Badge variant="warning">
-                              <Loader2Icon className="animate-spin motion-reduce:animate-none" />
+                              <Spinner />
                               Waiting for Google
                             </Badge>
                           ) : status === "expired" ? (
