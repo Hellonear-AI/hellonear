@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { parseSkillMd, skillCatalog, skillCatalogSummaries, usableSkills } from '../src/skills.ts'
 
 test('every SKILL.md in engine/skills parses and only uses registered tools', () => {
-  assert.deepEqual([...skillCatalog.keys()], ['daily-planner', 'email-address', 'email-triage', 'freeze-advisor', 'hellonear-guide', 'http-request', 'meeting-prep', 'morning-briefing', 'near-account', 'paid-data', 'payments', 'recipient-guard', 'revenue-split', 'spending-audit', 'split-bill', 'subscriptions', 'treasury-report'])
+  assert.deepEqual([...skillCatalog.keys()], ['confidential-reader', 'daily-planner', 'email-address', 'email-triage', 'follow-ups', 'freeze-advisor', 'health-journal', 'hellonear-guide', 'http-request', 'meeting-prep', 'morning-briefing', 'near-account', 'paid-data', 'payments', 'phishing-detector', 'recipient-guard', 'redact-before-send', 'revenue-split', 'spending-audit', 'spending-tracker', 'split-bill', 'subscriptions', 'treasury-report'])
   assert.deepEqual(skillCatalog.get('daily-planner')?.tools, ['get_time', 'add_numbers', 'googlecalendar_list_events', 'googlecalendar_create_event', 'googlecalendar_create_meeting', 'googlecalendar_block_time'])
   assert.deepEqual(skillCatalog.get('daily-planner')?.connections, ['googlecalendar', 'googlemeet'])
   assert.equal(skillCatalog.get('payments')?.status, 'available')
@@ -78,4 +78,26 @@ test('invalid SKILL.md files are rejected', () => {
   assert.throws(() => parseSkillMd(md(good), 'other'), /must match its folder/)
   assert.throws(() => parseSkillMd(md(good.replace('[get_time]', '[rm_rf]')), 'demo'), /unknown tools rm_rf/)
   assert.throws(() => parseSkillMd(md(good.replace('available', 'live')), 'demo'))
+})
+
+test('mail skills grant only the tools their playbooks need (#183, #186, #187, #188, #191, #193)', () => {
+  const tools = (id: string) => skillCatalog.get(id)?.tools
+  assert.deepEqual(tools('phishing-detector'), ['gmail_list_emails', 'gmail_read_email', 'gmail_organize', 'mail_list', 'mail_read'])
+  assert.deepEqual(tools('confidential-reader'), ['gmail_list_emails', 'gmail_read_email', 'mail_list', 'mail_read'])
+  assert.deepEqual(tools('redact-before-send'), ['mail_send', 'http_request'])
+  assert.deepEqual(tools('health-journal'), ['get_time'])
+  assert.deepEqual(tools('spending-tracker'), ['get_time', 'gmail_list_emails', 'gmail_read_email', 'add_numbers'])
+  assert.deepEqual(tools('follow-ups'), ['get_time', 'gmail_list_emails', 'gmail_read_email', 'gmail_create_draft'])
+  // Bill due dates extend the subscription tracker instead of a second skill over the same emails (#193).
+  assert.deepEqual(tools('subscriptions'), ['get_time', 'gmail_list_emails', 'gmail_read_email', 'add_numbers', 'googlecalendar_create_event'])
+  assert.equal(skillCatalog.get('subscriptions')?.title, 'Subscriptions & bills')
+  // Reading and drafting skills never pay or send.
+  for (const id of ['phishing-detector', 'confidential-reader', 'health-journal', 'spending-tracker', 'follow-ups', 'subscriptions']) {
+    assert.ok(!tools(id)!.some((t) => ['send_payment', 'mail_send'].includes(t)), id)
+  }
+  for (const id of ['phishing-detector', 'confidential-reader', 'redact-before-send', 'health-journal', 'spending-tracker', 'follow-ups']) {
+    const s = skillCatalog.get(id)!
+    assert.equal(s.status, 'available', id)
+    assert.ok(s.title && s.blurb && s.note, id)
+  }
 })
