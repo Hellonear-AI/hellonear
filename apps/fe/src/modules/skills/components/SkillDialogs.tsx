@@ -7,7 +7,8 @@ import { Spinner } from "@/components/elements/Spinner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { skillCopy, TOOLKIT_NAME } from "@/modules/skills/data/skills"
-import { useConnect, useSetSkills } from "@/modules/skills/hooks/useSkills"
+import { useSetSkills } from "@/modules/skills/hooks/useSkills"
+import { useConnect } from "@/modules/connections/hooks/useConnections"
 
 type Ctx = { name: string; limit: string | null }
 

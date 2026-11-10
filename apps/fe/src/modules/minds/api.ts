@@ -80,8 +80,6 @@ export type ApiSkill = {
   tools: string[]
 }
 
-export type ApiConnection = { toolkit: "gmail" | "googlecalendar" | "googlemeet"; status: "connected" | "pending" | "expired" | "not_connected"; since?: string }
-
 export type ApiThread = {
   threadId: string
   /** First user message cut to ~60 characters, or null for old threads. */
@@ -108,10 +106,6 @@ export const mindsApi = {
   remove: async (mindId: string, acknowledgeBalance = false) =>
     api<void>(`/minds/${encodeURIComponent(mindId)}${acknowledgeBalance ? "?acknowledgeBalance=true" : ""}`, { method: "DELETE" }),
   skills: async () => (await api<{ skills: ApiSkill[] }>("/skills")).skills,
-  connections: async () => (await api<{ connections: ApiConnection[] }>("/connections")).connections,
-  /** A Composio Connect Link to open in a new window (`409 already_connected` if it already is). */
-  connect: async (toolkit: ApiConnection["toolkit"]) =>
-    (await api<{ redirectUrl: string }>(`/connections/${toolkit}`, { method: "POST", body: {} })).redirectUrl,
   /** The Mind's wallet, or `null` when it has none yet (404 `no_wallet`). */
   wallet: async (mindId: string) => {
     try {
