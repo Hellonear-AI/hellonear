@@ -14,7 +14,9 @@ export default function Home() {
         <PoweredBy />
         <MeetMinds />
         <ApprovalsScroll />
-        <Safety />
+        <div className="md:hidden">
+          <Safety />
+        </div>
         <SeeInside />
         <Demo />
         <Cta />

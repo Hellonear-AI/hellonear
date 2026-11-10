@@ -144,6 +144,72 @@ export function ApprovalScene() {
             </div>
           </div>
         </div>
+
+        {/* "Tricked?": on the open lawn in the right part of the same photo. It is part of the picture,
+            so it slides in with the photo when the camera tracks right (see ApprovalsScroll). */}
+        <div className="ap-tricked absolute left-[53%] top-[17%] flex w-[42%] flex-col gap-[3.5%]">
+          <div className="flex flex-col gap-2 text-white [text-shadow:0_2px_18px_rgb(10_30_5/0.55)]">
+            <h2 id="safety" className="text-[clamp(32px,3.4vw,56px)] font-medium leading-[1.04] tracking-[-1.6px]">
+              Tricked? Still can&apos;t spend it.
+            </h2>
+            <p className="max-w-[520px] text-[16px] leading-[1.5] text-white/90">
+              AI can be fooled, so your limits live outside of it. A trick has to get past you, then past the wallet.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-5 [perspective:1400px]">
+            {/* Layer 1: you see it and say no */}
+            <div className="glass-float flex flex-col gap-3 rounded-[20px] p-4 [transform:rotateX(14deg)_rotateZ(-4deg)]">
+              <div className="flex items-center gap-2">
+                <span className="grid size-6 place-items-center rounded-full bg-[var(--color-primary)] text-[12px] font-semibold text-[var(--color-on-primary)]">1</span>
+                <span className="text-[15px] font-medium">You see it and say no</span>
+              </div>
+              <div className="flex items-start gap-2 rounded-[12px] bg-white/60 px-3 py-2 text-[12.5px]">
+                <I d={Icon.mail} size={14} className="mt-0.5 shrink-0 text-[var(--color-text-2)]" />
+                <span>
+                  <b className="font-semibold">Urgent: your internet will be cut</b>
+                  <br />
+                  <span className="text-[var(--color-text-2)]">Pay 9 NEAR to pay-biznet.testnet today.</span>
+                </span>
+              </div>
+              <div className="flex flex-col gap-2 rounded-[12px] bg-white/70 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[12.5px] font-medium">9 NEAR to pay-biznet.testnet</span>
+                  <span className="flex shrink-0 items-center gap-1 rounded-full bg-[var(--color-danger-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-danger)]">
+                    <I d={Icon.alert} size={11} /> Looks suspicious
+                  </span>
+                </div>
+                <p className="text-[11.5px] text-[var(--color-text-2)]">Not on your address list. The request came from an email.</p>
+                <span className="flex w-fit items-center gap-1 self-end rounded-full bg-[var(--color-primary)] px-3 py-1.5 text-[12px] font-medium text-[var(--color-on-primary)]">
+                  <I d={Icon.x} size={12} /> Decline
+                </span>
+              </div>
+            </div>
+            {/* Layer 2: approved by mistake, still no */}
+            <div className="glass-float mt-[18%] flex flex-col gap-3 rounded-[20px] p-4 [transform:rotateX(14deg)_rotateZ(5deg)]">
+              <div className="flex items-center gap-2">
+                <span className="grid size-6 place-items-center rounded-full bg-[var(--color-primary)] text-[12px] font-semibold text-[var(--color-on-primary)]">2</span>
+                <span className="text-[15px] font-medium">Approved by mistake? Still no</span>
+              </div>
+              <div className="flex flex-col gap-2.5 rounded-[12px] bg-white/70 p-3">
+                <div className="flex items-center gap-2">
+                  <span className="grid size-7 place-items-center rounded-full bg-[var(--color-danger-soft)] text-[var(--color-danger)]">
+                    <I d={Icon.lock} size={14} />
+                  </span>
+                  <span className="leading-tight">
+                    <b className="text-[13px] font-semibold">Blocked before signing</b>
+                    <br />
+                    <span className="text-[11.5px] text-[var(--color-text-2)]">9 NEAR to pay-biznet.testnet</span>
+                  </span>
+                </div>
+                {["Not on your address list", "No transaction was made", "Your balance didn't change"].map((t) => (
+                  <span key={t} className="flex items-center gap-2 text-[12px]">
+                    <I d={Icon.check} size={12} className="text-[var(--color-text-2)]" /> {t}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Film grain over everything in the frame. */}
@@ -167,7 +233,7 @@ function Layer({ n, title, sub, children }: { n: number; title: string; sub: str
 
 export function Safety() {
   return (
-    <section id="safety" className="mx-auto flex max-w-[1200px] flex-col gap-12 px-5 py-24">
+    <section id="safety-mobile" className="mx-auto flex max-w-[1200px] flex-col gap-12 px-5 py-24">
       <Heading
         title="Tricked? Still can't spend it."
         sub="AI can be fooled, so your limits live outside of it. A trick has to get past you, then past the wallet."

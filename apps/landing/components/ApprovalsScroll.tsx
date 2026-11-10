@@ -52,15 +52,37 @@ export function ApprovalsScroll() {
         .fromTo(q(".ap-scene-bg"), { xPercent: 6, scale: 1.06 }, { xPercent: 0, scale: 1, ease: "power2.out" }, 0);
     });
 
+    // Desktop: into "Tricked". The section pins; the frame grows to fill the screen while the photo
+    // tracks left, so the camera moves past the Mind onto the open lawn, where the "Tricked?" title
+    // and its two glass cards already lie and slide in with it. The copy on the left slides away.
+    mm.add("(min-width: 768px) and (prefers-reduced-motion: no-preference)", () => {
+      const frame = q(".ap-visual")[0] as HTMLElement;
+      const photo = q(".ap-scene-bg")[0] as HTMLElement;
+      const vw = () => window.innerWidth;
+      const vh = () => window.innerHeight;
+      gsap
+        .timeline({
+          defaults: { ease: "power2.inOut" },
+          scrollTrigger: { trigger: el, start: "top top", end: "+=1600", pin: q(".ap-pin")[0], scrub: 0.8, invalidateOnRefresh: true },
+        })
+        .to(q(".ap-copy"), { x: -120, autoAlpha: 0, duration: 0.35 }, 0)
+        .to(frame, { left: 0, height: vh, maxHeight: vh, duration: 0.6 }, 0)
+        .to(q(".ap-scene"), { borderRadius: 0, duration: 0.6 }, 0)
+        // the photo is as tall as the frame (its width follows), so at the end its right edge meets
+        // the screen's right edge
+        .to(photo, { x: () => -(vh() * (4096 / 1759) - vw()), duration: 1 }, 0.1)
+        .to({}, { duration: 0.25 }); // a short hold on "Tricked?" before the page moves on
+    });
+
     return () => mm.revert();
   }, []);
 
   return (
     <section ref={root} id="how-it-works" className="relative">
-      <div className="relative flex min-h-[100svh] items-center overflow-hidden">
+      <div className="ap-pin relative flex min-h-[100svh] items-center overflow-hidden">
         {/* Copy: left column of the 1200 px container. */}
         <div className="relative z-10 mx-auto w-full max-w-[1200px] px-5 py-24">
-          <div className="flex w-full flex-col gap-5 md:w-[440px]">
+          <div className="ap-copy flex w-full flex-col gap-5 md:w-[440px]">
             <h2 className="text-[40px] font-medium leading-[1.04] tracking-[-1.6px] md:text-[60px]" aria-label={LINES.join(" ")}>
               {LINES.map((line) => (
                 <span key={line} className="block" aria-hidden="true">
