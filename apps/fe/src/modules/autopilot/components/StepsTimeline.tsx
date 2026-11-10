@@ -61,7 +61,7 @@ export function StepsTimeline({ steps, ran = EMPTY, nested = false }: { steps: J
             {!last && !branch && (
               <span
                 aria-hidden
-                className={cn("absolute bottom-0", nested ? "top-8 left-3.5" : "top-9 left-4", onPath ? "-ml-px w-0.5 bg-success" : "w-px bg-border-strong")}
+                className={cn("absolute bottom-0 -ml-px w-0.5", nested ? "top-8 left-3.5" : "top-9 left-4", onPath ? "bg-success" : "bg-border-strong")}
               />
             )}
             <div className="flex min-w-0 items-start gap-3">
@@ -91,11 +91,11 @@ export function StepsTimeline({ steps, ran = EMPTY, nested = false }: { steps: J
                     <div key={h} className="relative flex min-w-0 flex-col gap-2 pt-2 pl-5">
                       {/* Past Yes, the line carries on down to No: green when the run went to No. */}
                       {k === 0 && (
-                        <span aria-hidden className={cn("absolute inset-y-0 left-0", ways.else ? "z-[1] -ml-px w-0.5 bg-success" : "w-px bg-border-strong")} />
+                        <span aria-hidden className={cn("absolute inset-y-0 left-0 -ml-px w-0.5", ways.else ? "z-[1] bg-success" : "bg-border-strong")} />
                       )}
                       <span
                         aria-hidden
-                        className={cn("absolute top-0 left-0 h-4 w-3.5 rounded-bl-lg", took ? "z-[2] -ml-px border-b-2 border-l-2" : "border-b border-l", tone(took))}
+                        className={cn("absolute top-0 left-0 -ml-px h-4 w-3.5 rounded-bl-lg border-b-2 border-l-2", took && "z-[2]", tone(took))}
                       />
                       {/* Sentence case, no wide caps (UI rules). */}
                       <span className={cn("text-xs leading-4 font-medium", took ? "text-success" : "text-muted-foreground")}>{h === "then" ? "Yes" : "No"}</span>
