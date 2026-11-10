@@ -1,6 +1,8 @@
 // The landing sections under the hero, following "Landing v0.2" in design/landing.pen.
 // First pass so the layout can be judged in the browser; visuals marked "placeholder" come later.
 
+import { MindGraph } from "./MindGraph";
+
 export const Icon = {
   ban: "M4.9 4.9l14.2 14.2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
   list: "M3 6h.01M3 12h.01M3 18h.01M8 6h13M8 12h13M8 18h13",
@@ -283,68 +285,15 @@ export function Safety() {
   );
 }
 
-const STEPS = [
-  "Understood: pay the internet bill",
-  "Checked your limits: allowed",
-  "Asked you first: you approved",
-  "Paid 1.5 NEAR to Biznet",
-  "Asked you about the rent",
-];
-
-/** A static stand-in for the Mind Graph: the Mind in the middle, skills, tools, apps and the wallet around it. */
-function GraphSketch() {
-  const nodes = [
-    { x: 300, y: 200, r: 34, c: "#161614", label: "Penny" },
-    { x: 150, y: 110, r: 20, c: "var(--color-accent)", label: "Pay bills" },
-    { x: 460, y: 110, r: 20, c: "var(--color-node-tool)", label: "Read inbox" },
-    { x: 130, y: 300, r: 18, c: "var(--color-node-app)", label: "Gmail" },
-    { x: 470, y: 300, r: 22, c: "var(--color-node-wallet)", label: "Wallet" },
-    { x: 300, y: 350, r: 16, c: "var(--color-node-tool)", label: "Check limits" },
-  ];
-  return (
-    <svg viewBox="0 0 600 420" className="h-full w-full" aria-hidden="true">
-      {nodes.slice(1).map((n, k) => (
-        <line key={k} x1={300} y1={200} x2={n.x} y2={n.y} stroke={k === 3 || k === 4 ? "var(--color-accent-strong)" : "var(--color-border-strong)"} strokeWidth={k === 3 || k === 4 ? 3 : 2} />
-      ))}
-      {nodes.map((n) => (
-        <g key={n.label}>
-          <circle cx={n.x} cy={n.y} r={n.r} fill={n.c} />
-          <text x={n.x} y={n.y + n.r + 18} textAnchor="middle" fontSize="13" fill="var(--color-text-2)">
-            {n.label}
-          </text>
-        </g>
-      ))}
-    </svg>
-  );
-}
-
 export function SeeInside() {
   return (
     <section id="skills" className="mx-auto flex max-w-[1200px] flex-col gap-12 px-5 py-24">
       <Heading
         align="left"
         title="Watch your Mind think"
-        sub="Every skill it loads and every tool it uses lights up as it happens. If something looks off, you see it right away."
+        sub="Every skill, tool and app your Mind can use, in one map. What it touches lights up as it works, so if something looks off, you see it right away."
       />
-      <div className="grid gap-5 md:grid-cols-[1fr_380px]">
-        <div className="relative min-h-[420px] rounded-[24px] bg-[var(--color-surface)] p-6">
-          <GraphSketch />
-          <span className="absolute bottom-4 left-5 text-[12px] text-[var(--color-text-3)]">Placeholder: the animated Mind Graph goes here</span>
-        </div>
-        <div className="flex flex-col gap-4 rounded-[24px] bg-[var(--color-surface)] p-7">
-          <h3 className="text-[18px] font-medium">What Penny just did</h3>
-          <ol className="flex flex-col gap-3">
-            {STEPS.map((s, k) => (
-              <li key={s} className="flex items-center gap-3 text-[15px]">
-                <span className={`grid size-6 shrink-0 place-items-center rounded-full ${k === STEPS.length - 1 ? "bg-[var(--color-warning-soft)] text-[var(--color-warning)]" : "bg-[var(--color-success-soft)] text-[var(--color-success)]"}`}>
-                  <I d={k === STEPS.length - 1 ? Icon.hourglass : Icon.check} size={13} />
-                </span>
-                {s}
-              </li>
-            ))}
-          </ol>
-        </div>
-      </div>
+      <MindGraph />
     </section>
   );
 }

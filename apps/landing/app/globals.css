@@ -680,3 +680,12 @@ body {
     radial-gradient(120% 90% at 0% 0%, rgb(255 248 228 / 0.55), rgb(255 248 228 / 0.12) 38%, transparent 60%);
   mix-blend-mode: screen;
 }
+
+/* Dark frosted glass, for panels over the Mind Graph. */
+.glass-dark {
+  background: rgb(30 30 28 / 0.55);
+  border: 1px solid rgb(242 241 236 / 0.12);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  backdrop-filter: blur(12px) saturate(1.2);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 24px 48px -20px rgb(0 0 0 / 0.6);
+}
