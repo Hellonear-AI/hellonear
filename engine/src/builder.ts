@@ -5,7 +5,7 @@
 // condition whose `then` / `else` edges each lead to a single action node.
 // Facts this relies on are in spikes/02-dynamic-workflow/README.md (measured 3 Nov 2026).
 import { z } from 'zod'
-import { CANVAS_APPROVED, needsApproval, toolRegistry } from './tools.ts'
+import { needsApproval, toolRegistry } from './tools.ts'
 
 export const MAX_NODES = 20
 const nodeId = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/, 'letters, digits, - and _ only').refine((id) => id !== 'input', 'reserved id')
@@ -175,9 +175,9 @@ export function compileCanvas(mindId: string, workflowId: string, input: unknown
     }
     const tool = n.data.tool
     if (!(tool in toolRegistry)) fail(`${where}.tool`, `unknown tool ${tool}`)
-    // A workflow tool step runs without asking (spike 02), so approval tools are never allowed, except the few that only
-    // touch the owner's own things: placing them on the canvas is the owner's approval (#146).
-    else if (needsApproval(tool) && !CANVAS_APPROVED.has(tool)) fail(`${where}.tool`, `${tool} needs the owner's approval and cannot run in a workflow`)
+    // A workflow tool step runs without asking (spike 02), so approval tools are never allowed. The canvas-only tools
+    // (tools.ts CANVAS_ONLY, #146) need no approval: the owner placing them on the canvas is the approval.
+    else if (needsApproval(tool)) fail(`${where}.tool`, `${tool} needs the owner's approval and cannot run in a workflow`)
     // Email me sends only the Mind's own words, never raw tool output such as an email body or a web page (#146).
     if (tool === 'mail_send_to_owner') {
       for (const [k, v] of Object.entries(n.data.args)) {

@@ -3,7 +3,7 @@ import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer, type IncomingMessage } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { needsApproval, toolRegistry, toolsFor } from '../src/tools.ts'
+import { needsApproval, todayAt, toolRegistry, toolsFor } from '../src/tools.ts'
 import { MAIL_KEY, MIND_ID_KEY, idempotencyKeyOf, isMailRefusal, mailContext, mailTokenSchema } from '../src/mail.ts'
 import { DEMO_KEY } from '../src/email.ts'
 import { WALLET_KEY, walletContext } from '../src/wallet.ts'
@@ -133,4 +133,18 @@ test('Email me (#146): never offered to the model; posts the run\'s user and Min
   assert.deepEqual([sample.status, sample.sample], ['sent', true])
   assert.equal(seen.length, calls)
   assert.equal(isMailRefusal('mail_send_to_owner', { status: 'rejected' }), true)
+})
+
+test('Add to my calendar (#146): today at a time of day in the owner\'s zone; never offered to the model; a sample in a try-out', async () => {
+  assert.equal(needsApproval('googlecalendar_block_time'), false)
+  assert.deepEqual(Object.keys(toolsFor(['googlecalendar_list_events', 'googlecalendar_block_time'])), ['get_time', 'googlecalendar_list_events'])
+  const now = new Date('2026-11-10T23:30:00Z') // already 11 Nov in Jakarta
+  assert.deepEqual(todayAt(now, 'Asia/Jakarta', '09:00', 30), { start: '2026-11-11T09:00:00+07:00', end: '2026-11-11T09:30:00+07:00' })
+  assert.deepEqual(todayAt(now, 'America/New_York', '23:30', 60), { start: '2026-11-10T23:30:00-05:00', end: '2026-11-11T00:30:00-05:00' })
+  assert.deepEqual(todayAt(now, undefined, '08:00', 15), { start: '2026-11-10T08:00:00+00:00', end: '2026-11-10T08:15:00+00:00' })
+  const ctx = { requestContext: { get: (k: string) => ({ [DEMO_KEY]: true, timeZone: 'Asia/Jakarta' } as Record<string, unknown>)[k] } }
+  const out = await toolRegistry.googlecalendar_block_time.execute!({ title: 'Focus', at: '09:00', minutes: 45 } as any, ctx as any) as any
+  assert.deepEqual([out.source, out.status, out.title], ['sample_calendar', 'created', 'Focus'])
+  assert.match(out.start, /T09:00:00\+07:00$/)
+  assert.match(out.end, /T09:45:00\+07:00$/)
 })

@@ -214,6 +214,43 @@ const calendarCreateEvent = createTool({
   },
 })
 
+// Autopilot's "Add to my calendar" (#146): only as a step the owner put on a job's canvas (CANVAS_ONLY), never offered
+// to the model. A job repeats, so it takes a time of day, not a date: today in the owner's time zone. No guests and
+// send_updates 'none', like googlecalendar_create_event, so nobody else is emailed.
+export function todayAt(now: Date, timeZone: string | undefined, at: string, minutes: number) {
+  const { date, utcOffset } = localTime(now, timeZone)
+  const start = `${date}T${at}:00${utcOffset}`
+  const sign = utcOffset.startsWith('-') ? -1 : 1
+  const [oh, om] = utcOffset.slice(1).split(':').map(Number)
+  const shifted = new Date(Date.parse(start) + minutes * 60_000 + sign * (oh * 60 + om) * 60_000)
+  return { start, end: `${shifted.toISOString().slice(0, 19)}${utcOffset}` }
+}
+
+const calendarBlockTime = createTool({
+  id: 'googlecalendar_block_time',
+  description: 'Add an event to the owner\'s own calendar today at a time of day. No guests are invited and no Meet link is made.',
+  inputSchema: z.object({
+    title: z.string().trim().min(1).max(200),
+    at: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'a time like 09:00'),
+    minutes: z.coerce.number().int().min(5).max(480),
+    description: z.string().max(2000).optional(),
+  }),
+  outputSchema: z.object({ source: z.string(), eventId: z.string(), title: z.string(), start: z.string(), end: z.string(), link: z.string(), status: z.literal('created') }),
+  execute: async ({ title, at, minutes, description }, context) => {
+    const { start, end } = todayAt(new Date(), ownerZone(context), at, minutes)
+    if (isDemo(context)) return createSampleEvent({ title, start, end })
+    const data = await composioTool(context, 'googlecalendar', 'GOOGLECALENDAR_CREATE_EVENT', {
+      calendar_id: 'primary', summary: title, ...composioTiming(start, end),
+      ...(description ? { description } : {}), create_meeting_room: false, send_updates: 'none',
+    })
+    const e = data?.response_data ?? {}
+    return {
+      source: 'googlecalendar', eventId: String(e.id ?? ''), title: e.summary ?? title,
+      start: e.start?.dateTime ?? start, end: e.end?.dateTime ?? end, link: String(data?.display_url ?? e.htmlLink ?? ''), status: 'created' as const,
+    }
+  },
+})
+
 // A meeting with guests and, optionally, a Google Meet link (#97). A separate tool, not an option on
 // googlecalendar_create_event: this one emails other people in the owner's name, so its approval card always shows
 // `attendees` and `meet` (both required, no defaults: Mastra's approval `args` are the model's raw arguments).
@@ -372,7 +409,7 @@ export const toolRegistry = {
   send_payment: sendPayment, get_balance: getBalance, list_payments: listPayments,
   gmail_list_emails: gmailListEmails, gmail_read_email: gmailReadEmail, gmail_create_draft: gmailCreateDraft,
   googlecalendar_list_events: calendarListEvents, googlecalendar_create_event: calendarCreateEvent,
-  googlecalendar_create_meeting: calendarCreateMeeting,
+  googlecalendar_create_meeting: calendarCreateMeeting, googlecalendar_block_time: calendarBlockTime,
   mail_send: mailSend, mail_list: mailList, mail_read: mailRead, mail_send_to_owner: mailSendToOwner,
 } as const
 export type ToolKey = keyof typeof toolRegistry
@@ -380,12 +417,10 @@ export type ToolKey = keyof typeof toolRegistry
 // Tools that only run after the owner approves them in the chat (payments, calendar writes).
 export const needsApproval = (key: string) => (toolRegistry as Record<string, { requireApproval?: boolean }>)[key]?.requireApproval === true
 
-// The owner's canvas is the approval (#146): a tool step the owner put on a job's canvas may use these tools, though
-// they ask first in the chat. They only touch the owner's own things: an event on their own calendar (no guests,
-// nobody emailed) and an email to the owner. Agent steps in a workflow still never get approval tools.
-export const CANVAS_APPROVED: ReadonlySet<string> = new Set(['googlecalendar_create_event', 'mail_send_to_owner'])
-// Tools that exist only as canvas steps and are never offered to the model, in a chat or a workflow.
-export const CANVAS_ONLY: ReadonlySet<string> = new Set(['mail_send_to_owner'])
+// Tools that exist only as steps the owner puts on a job's canvas, and are never offered to the model, in a chat or a
+// workflow (#146): the owner's canvas is the approval. They only touch the owner's own things: an event on their own
+// calendar (no guests, nobody emailed) and an email to the owner.
+export const CANVAS_ONLY: ReadonlySet<string> = new Set(['mail_send_to_owner', 'googlecalendar_block_time'])
 
 // Tools every Mind has, plus the tools of its equipped skills. Unknown keys are ignored.
 // Unattended runs (workflows) never get approval tools: nobody is there to approve,

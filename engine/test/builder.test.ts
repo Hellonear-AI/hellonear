@@ -71,14 +71,13 @@ test('approval tools are refused: a workflow step would run them unapproved', ()
 })
 
 test('the owner\'s canvas is the approval for their own calendar and Email me, and for nothing else (#146)', () => {
-  const event = { title: 'Focus time', start: '2026-11-11T09:00:00+07:00', end: '2026-11-11T10:00:00+07:00' }
   const ok = compileCanvas('m', 'w', linear([
     { id: 'note', type: 'agent', data: { prompt: 'Write my morning brief.' } },
-    { id: 'cal', type: 'tool', data: { tool: 'googlecalendar_create_event', args: event } },
+    { id: 'cal', type: 'tool', data: { tool: 'googlecalendar_block_time', args: { title: 'Focus time', at: '09:00', minutes: 60 } } },
     { id: 'mail', type: 'tool', data: { tool: 'mail_send_to_owner', args: { subject: 'Your morning', text: 'Brief: {{steps.note.text}}' } } },
   ], [{ source: 't', target: 'note' }, { source: 'note', target: 'cal' }, { source: 'cal', target: 'mail' }]))
-  assert.deepEqual([...ok.tools].sort(), ['googlecalendar_create_event', 'mail_send_to_owner'])
-  for (const tool of ['send_payment', 'googlecalendar_create_meeting', 'mail_send']) {
+  assert.deepEqual([...ok.tools].sort(), ['googlecalendar_block_time', 'mail_send_to_owner'])
+  for (const tool of ['send_payment', 'googlecalendar_create_event', 'googlecalendar_create_meeting', 'mail_send']) {
     assert.match(issues(() => compileCanvas('m', 'w', linear([{ id: 'x', type: 'tool', data: { tool, args: {} } }], [{ source: 't', target: 'x' }]))), new RegExp(`${tool} needs the owner's approval`))
   }
   // Email me sends the Mind's words, never a tool's raw output (an email body, a web page).
