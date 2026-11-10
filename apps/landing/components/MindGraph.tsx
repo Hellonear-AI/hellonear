@@ -100,7 +100,7 @@ const STEP_MS = 1800;
 const SKILLS = ["Daily planner", "Email helper", "Payments", "Wallet watch", "Meeting prep", "Other apps", "Email address", "Research", "Reminders", "Invoices", "Travel", "Memory", "Notes", "Shopping"];
 const NAMES = ["Atlas", "Mira", "Juno", "Otto", "Kiko", "Sora", "Bima", "Lumi", "Nala", "Rio", "Vega", "Tala", "Iris", "Odin", "Rumi", "Ezra", "Kai", "Noa", "Dewi", "Arlo", "Maya", "Zane", "Pia", "Elio", "Sena", "Taro", "Wren", "Ayla", "Bodhi", "Cleo", "Dara", "Emre", "Fia", "Gita", "Hugo", "Ines"];
 
-function buildWorld() {
+function buildWorld(COUNT: number) {
   const nodes: N[] = [];
   const links: L[] = [];
   const r = rng(7);
@@ -127,7 +127,6 @@ function buildWorld() {
 
   // The other Minds, packed around Penny on a sunflower (gravity pulls them together into one
   // disc, like Obsidian's graph view); a few are big, most are small.
-  const COUNT = 64;
   for (let k = 1; k <= COUNT; k++) {
     const a = k * 2.39996 + 0.6;
     const d = 230 + 92 * Math.sqrt(k);
@@ -254,15 +253,20 @@ export function MindGraph() {
     if (!ctx) return;
     const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const font = getComputedStyle(document.body).fontFamily;
-    const { nodes, links, penny } = buildWorld();
-    let alpha = 1;
-    for (let i = 0; i < 360; i++) tick(nodes, links, Math.max(0.15, 1 - i / 360));
+    // Fewer Minds on phones and slower machines, so it stays smooth there.
+    const small = window.innerWidth < 768 || (navigator.hardwareConcurrency || 8) <= 4;
+    const { nodes, links, penny } = buildWorld(small ? 30 : 64);
+    let alpha = 0;
+    // The layout settles before it is seen, a few ticks per frame (never one long freeze): it starts
+    // once the section is within about a screen and a half (see `near` below).
+    const WARM = 360;
+    let warm = 0;
+    let near = false;
     const pics = AVATARS.map((src) => {
       const im = new Image();
       im.src = src;
       return im;
     });
-    alpha = 0;
 
     // neighbours, for hover and Penny's trail
     const nbr = nodes.map(() => [] as number[]);
@@ -303,6 +307,10 @@ export function MindGraph() {
     let visible = false;
     const io = new IntersectionObserver(([e]) => (visible = e.isIntersecting));
     io.observe(box);
+    const nearIo = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) near = true;
+    }, { rootMargin: "150% 0px" });
+    nearIo.observe(box);
 
     const zoomAt = (px: number, py: number, f: number) => {
       const k = Math.min(4, Math.max(0.12, view.k * f));
@@ -537,6 +545,13 @@ export function MindGraph() {
 
     let frame = 0;
     const loop = (now: number) => {
+      if (near && warm < WARM) {
+        const t0 = performance.now();
+        while (warm < WARM && performance.now() - t0 < 8) {
+          tick(nodes, links, Math.max(0.15, 1 - warm / WARM));
+          warm++;
+        }
+      }
       if (visible && !document.hidden) draw(now);
       frame = requestAnimationFrame(loop);
     };
@@ -651,6 +666,7 @@ export function MindGraph() {
       window.clearTimeout(timer);
       ro.disconnect();
       io.disconnect();
+      nearIo.disconnect();
       runIo.disconnect();
       cv.removeEventListener("pointerdown", down);
       cv.removeEventListener("pointermove", move);

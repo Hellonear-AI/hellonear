@@ -8,7 +8,7 @@
 const LOGOS = [
   { file: "near.svg", name: "NEAR", h: 30 },
   { file: "near-ai.svg", name: "NEAR AI", h: 30 },
-  { file: "outlayer.png", name: "OutLayer", h: 30 },
+  { file: "outlayer.webp", name: "OutLayer", h: 30 },
   { file: "meteor-wallet-mark.svg", name: "Meteor Wallet", h: 44 }, // the mark only: the official wordmark is white
   { file: "zai.svg", name: "Z.ai", h: 44 },
   { file: "qwen.svg", name: "Qwen", h: 36 },

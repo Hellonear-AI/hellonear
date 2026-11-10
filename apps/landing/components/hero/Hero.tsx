@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MindStage, type MindClip } from "./MindStage";
+import dynamic from "next/dynamic";
+import type { MindClip } from "./MindStage";
+// three.js is loaded on its own, only on screens wide enough for the 3D Mind (phones never fetch it).
+const MindStage = dynamic(() => import("./MindStage").then((m) => m.MindStage), { ssr: false });
 import { GrassSlope } from "./GrassSlope";
 
 // Layout: copy on the left over the sky, a big Mind peeking over the grass on the right.

@@ -64,6 +64,14 @@ Ready to meet your Mind? (`components/Cta.tsx`): no card, straight on the page, 
 
 Footer (`components/Footer.tsx`): a meadow with rolling hills and the Mind sitting in the middle, facing you (`public/scenes/footer-meadow.webp`, 3200 x 1074 with alpha, 470 KB; generated, upscaled 4x with Real-ESRGAN, then the sky cut out by growing the pale/blue sky region down from the top edge, so the hills rise straight from the page; master `design/hellonear-assets/sections/footer-meadow.png`). Desktop: a big logo (white, `.footer-logo`, 56 to 92 px tall), one line and three link columns (Product, Project, Built on) sit on the grass near the screen edges (4vw in from each side, not the 1200 px column) in white with a soft shadow (`.footer-on-grass`), over a shade on the grass (darker at the sides and the bottom, clear around the Mind and the hills) so the text reads; the copyright is at the bottom centre. Phones: the logo and links sit on the page above the meadow. No made-up social accounts.
 
+## Performance (10 Nov)
+
+Measured on the production build (`bun run build && bun x next start`), Chrome at 1512 x 805: the longest task at load went from 1.9 s to about 60 ms, the first load from 5.2 MB to 4.4 MB (desktop) and 2.1 MB on phones, no long tasks while scrolling. Keep it that way:
+- three.js and the 3D Mind load on their own (`next/dynamic` in `Hero.tsx`), only on screens wide enough for them; phones never fetch them.
+- The Mind Graph builds its world only when the section is within about 1.5 screens, and settles its layout a few ticks per frame (never one long freeze); 30 Minds instead of 64 on phones and machines with 4 cores or fewer.
+- Big images come in two sizes with `srcSet` (1x / 2x): the approval scene 2560 / 4096 px, the footer 1600 / 3200 px. Images below the first screen are `loading="lazy"`.
+- Logos stay small (OutLayer is a 64 px tall WebP, 12 KB).
+
 ## Copy guidelines
 
 - Problem: AI agents that hold money have no limits you can trust. Solution: a Mind whose wallet limits are stored on-chain and enforced in a TEE, with private, verifiable AI.

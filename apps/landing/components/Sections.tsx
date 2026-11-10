@@ -97,7 +97,7 @@ export function ApprovalScene() {
     <div className="ap-stage absolute left-0 top-0 h-[722px] w-[1680px] origin-top-left will-change-transform">
       <div className="absolute inset-0">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/scenes/approval-scene.webp" alt="The Payments Mind lying on a sunny lawn, glancing at the approval card" className="absolute inset-0 h-full w-full" />
+        <img src="/scenes/approval-scene-2560.webp" srcSet="/scenes/approval-scene-2560.webp 1x, /scenes/approval-scene.webp 2x" alt="The Payments Mind lying on a sunny lawn, glancing at the approval card" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full" />
 
         {/* No outer card: Penny's bubble and the approval card float on their own, close together,
             lying on the lawn in its perspective. Each is light frosted glass with its own shadow. */}

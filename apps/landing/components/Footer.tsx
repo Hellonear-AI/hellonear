@@ -25,7 +25,9 @@ export function Footer() {
       <div className="relative">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/scenes/footer-meadow.webp"
+          src="/scenes/footer-meadow-1600.webp"
+          srcSet="/scenes/footer-meadow-1600.webp 1x, /scenes/footer-meadow.webp 2x"
+          decoding="async"
           alt="The Mind sitting in a green meadow with rolling hills behind it"
           width={3200}
           height={1074}

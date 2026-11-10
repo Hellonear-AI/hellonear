@@ -82,6 +82,8 @@ function Card({ m, k, dealt }: { m: (typeof MINDS)[number]; k: number; dealt: bo
                 <img
                   key={v}
                   src={`/minds/${m.id}${v}.webp`}
+                  loading="lazy"
+                  decoding="async"
                   alt={v ? "" : `${m.name} character`}
                   aria-hidden={v ? true : undefined}
                   className="absolute inset-0 h-full w-full object-contain object-bottom transition-opacity duration-300 ease-out"
@@ -94,7 +96,7 @@ function Card({ m, k, dealt }: { m: (typeof MINDS)[number]; k: number; dealt: bo
             <div className="flex items-center gap-3">
               <span className="relative size-10 overflow-hidden rounded-full" style={{ backgroundColor: m.tint }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`/minds/${m.id}.webp`} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-contain p-0.5" />
+                <img src={`/minds/${m.id}.webp`} alt="" aria-hidden="true" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-contain p-0.5" />
               </span>
               <span className="flex flex-col">
                 <span className="text-[15px] font-medium">@{m.id.replace("-", "")}</span>
