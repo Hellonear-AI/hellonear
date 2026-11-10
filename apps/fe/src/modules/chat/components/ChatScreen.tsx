@@ -158,6 +158,16 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
       )}
 
       <div className="relative min-h-0 flex-1">
+        {/* Phones have no chat header, so the live view opens from here (Ancung, 10 Nov). */}
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label="Live view"
+          onClick={() => setLiveSheet(true)}
+          className="absolute top-2 right-3 z-10 bg-surface/90 shadow-xs backdrop-blur-sm md:hidden"
+        >
+          <NetworkIcon />
+        </Button>
         {/* The text fades out over 24 px under the header and 48 px above the composer instead of
             being cut at a hard line (Ancung, 9 Nov, like Gemini). A mask, so it works on any background;
             the content has the same room at both ends so nothing is faded at the start or the end. */}
@@ -268,7 +278,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
     </div>
       {liveOpen && <LiveView mindId={mindId} className="hidden w-[360px] shrink-0 border-l border-border p-5 xl:flex" />}
       <Sheet open={liveSheet} onOpenChange={setLiveSheet}>
-        <SheetContent side="right" className="w-full p-5 sm:max-w-[400px]!">
+        <SheetContent side="right" className="w-full max-w-none! p-5 pt-12 sm:max-w-[400px]!">
           <SheetTitle className="sr-only">Live view</SheetTitle>
           {liveSheet && <LiveView mindId={mindId} className="h-full" />}
         </SheetContent>
