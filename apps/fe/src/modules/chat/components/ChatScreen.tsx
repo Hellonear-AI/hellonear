@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { cn } from "cn"
 import { ArrowDownIcon, NetworkIcon, SnowflakeIcon } from "lucide-react"
-import { Fragment, useEffect, useRef, useState } from "react"
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { mindHref } from "@/components/layout/nav"
 import { isApiCode } from "@/lib/api"
@@ -114,6 +114,39 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
     return () => observer.disconnect()
   }, [])
 
+  // A new chat puts the composer in the middle, under the greeting, like Gemini (Ancung, 11 Nov);
+  // the first message sends it gliding down to its usual place. It stays one composer, so what
+  // was typed stays. `slotRef` is the gap FirstChat leaves for it; `lift` moves it there.
+  const centered = isNew && !notFound && !outOfMessages
+  const composerBox = useRef<HTMLDivElement>(null)
+  const slotRef = useRef<HTMLDivElement>(null)
+  const [slotHeight, setSlotHeight] = useState(0)
+  const [lift, setLift] = useState(0)
+  // No glide on the first placement, only when it moves after that.
+  const [glide, setGlide] = useState(false)
+  useLayoutEffect(() => {
+    const wrap = composerRef.current
+    const box = composerBox.current
+    const area = wrap?.parentElement
+    if (!centered || !wrap || !box || !area) return setLift(0)
+    const place = () => {
+      setSlotHeight(box.offsetHeight)
+      const slot = slotRef.current
+      if (!slot) return
+      const slotTop = slot.getBoundingClientRect().top - area.getBoundingClientRect().top
+      setLift(Math.max(0, wrap.offsetTop + box.offsetTop - slotTop))
+    }
+    place()
+    const observer = new ResizeObserver(place)
+    observer.observe(area)
+    observer.observe(box)
+    const frame = requestAnimationFrame(() => setGlide(true))
+    return () => {
+      observer.disconnect()
+      cancelAnimationFrame(frame)
+    }
+  }, [centered, slotHeight])
+
   return (
     <div className="flex h-[calc(100dvh-3.5rem)] min-h-0 md:h-dvh">
     <div className="flex min-w-0 flex-1 flex-col">
@@ -155,6 +188,15 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
       )}
 
       <div className="relative min-h-0 flex-1">
+        {/* A faint lime glow behind a new chat (Ancung, 11 Nov, like Gemini's), the one accent. */}
+        <div
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute inset-0 transition-opacity duration-500 ease-out motion-reduce:transition-none",
+            centered ? "opacity-100" : "opacity-0"
+          )}
+          style={{ background: "radial-gradient(ellipse 55% 45% at 50% 52%, color-mix(in oklab, var(--brand) 9%, transparent), transparent 70%)" }}
+        />
         {/* Phones have no chat header, so the live view opens from here (Ancung, 10 Nov). */}
         <Button
           variant="outline"
@@ -177,7 +219,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
         >
           <div
             className="mx-auto flex min-h-full w-full max-w-[804px] flex-col gap-5 px-4 pt-6 md:px-10"
-            style={{ paddingBottom: composerHeight + 32 }}
+            style={{ paddingBottom: centered ? 32 : composerHeight + 32 }}
           >
             {notFound ? (
               <Centered>
@@ -202,6 +244,8 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
                 limit={limit}
                 disabled={busy || !mind}
                 onPick={(text) => send(text, null)}
+                slotRef={slotRef}
+                slotHeight={slotHeight}
               />
             ) : (
               <>
@@ -260,11 +304,22 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
         {/* The composer, floating at the bottom over a fade into the page colour. */}
         <div
           ref={composerRef}
-          className="pointer-events-none absolute inset-x-0 bottom-0 pt-12"
+          className={cn(
+            "pointer-events-none absolute inset-x-0 bottom-0 pt-12",
+            glide && "transition-transform duration-500 ease-drawer motion-reduce:transition-none"
+          )}
+          style={centered && lift ? { transform: `translateY(-${lift}px)` } : undefined}
         >
-          {/* The fade stops short of the scrollbar; the composer itself stays centred. */}
-          <div aria-hidden className="absolute inset-y-0 right-4 left-0 bg-gradient-to-t from-background from-60% to-transparent" />
-          <div className="pointer-events-auto relative mx-auto w-full max-w-[804px] px-4 pb-4 md:px-10 md:pb-5">
+          {/* The fade stops short of the scrollbar; the composer itself stays centred. A new chat
+              has nothing under it to fade. */}
+          <div
+            aria-hidden
+            className={cn(
+              "absolute inset-y-0 right-4 left-0 bg-gradient-to-t from-background from-60% to-transparent transition-opacity duration-300",
+              centered && "opacity-0"
+            )}
+          />
+          <div ref={composerBox} className="pointer-events-auto relative mx-auto w-full max-w-[804px] px-4 pb-4 md:px-10 md:pb-5">
             {outOfMessages && (
               // T1.5: one clear way forward once the try-out's messages are used up.
               <div className="mb-3 flex flex-col items-start gap-2 rounded-lg border border-border bg-surface p-4">
