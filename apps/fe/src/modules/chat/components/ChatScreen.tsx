@@ -670,7 +670,10 @@ function useChatScroll(ready: boolean, pinKey: string | null) {
     placed.current = want
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
     if (pinKey && lastRef.current) {
-      el.scrollTo({ top: lastRef.current.offsetTop - 16, behavior: first || reduce ? "auto" : "smooth" })
+      // Room above the pinned message: past the top fade, and on phones past the round Live view
+      // button too (Ancung, 10 Nov: the bubble sat under both).
+      const gap = window.matchMedia("(min-width: 768px)").matches ? 24 : 60
+      el.scrollTo({ top: lastRef.current.offsetTop - gap, behavior: first || reduce ? "auto" : "smooth" })
     } else {
       el.scrollTop = el.scrollHeight
     }
