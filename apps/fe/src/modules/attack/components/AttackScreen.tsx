@@ -28,6 +28,8 @@ import { attackCopy, KNOWN_ATTACKS, type AttackCopy } from "@/modules/attack/dat
 import { attackOutcome, type Outcome } from "@/modules/attack/data/outcome"
 import { StepRow } from "@/modules/chat/components/ReplySteps"
 import { ReplyText } from "@/modules/chat/components/ReplyText"
+import { Working } from "@/modules/chat/components/ChatScreen"
+import { MindAvatar } from "@/components/elements/MindAvatar"
 import { refusalReasons } from "@/modules/chat/components/RunCards"
 import { foldRun, type RunEvent } from "@/modules/chat/data/events"
 import { mindsApi, type ApiWallet } from "@/modules/minds/api"
@@ -223,25 +225,35 @@ function RunPanel({ run, wallet, onAnswer }: { run: Run; wallet: ApiWallet | nul
   const copy = attackCopy(run.attack)
   const balance = wallet ? `${formatNear(wallet.balanceNear)} NEAR` : null
 
+  // One conversation, like the chat (Ancung, 10 Nov): the attack as the message sent, the test
+  // Mind's reply under its avatar, then the result card where the chat puts its cards.
+  const settled = outcome.kind !== "running" && outcome.kind !== "answering"
   return (
-    <>
-      <section aria-live="polite" className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-5">
-        <Result outcome={outcome} copy={copy} wallet={wallet} balance={balance} onAnswer={onAnswer} />
-      </section>
+    <section aria-labelledby="doing" className="flex flex-col gap-5 rounded-lg border border-border bg-surface p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 id="doing" className="text-[15px] font-semibold text-foreground">
+          {copy.title}
+        </h2>
+        {run.streaming && (
+          <Badge variant="neutral">
+            <Loader2Icon className="animate-spin motion-reduce:animate-none" />
+            Live
+          </Badge>
+        )}
+      </div>
 
-      <section aria-labelledby="doing" className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5">
-        <div className="flex items-center justify-between gap-3">
-          <h2 id="doing" className="text-[15px] font-semibold text-foreground">
-            What the Mind did
-          </h2>
-          {run.streaming && (
-            <Badge variant="neutral">
-              <Loader2Icon className="animate-spin motion-reduce:animate-none" />
-              Live
-            </Badge>
-          )}
+      <div className="flex flex-col items-end gap-1.5">
+        <span className="text-xs text-muted-foreground">Sent to the Mind</span>
+        <p className="max-w-[85%] rounded-[18px_18px_4px_18px] bg-primary px-4 py-2.5 text-[15px] leading-[22px] break-words whitespace-pre-wrap text-primary-foreground">
+          {run.attack.message}
+        </p>
+      </div>
+
+      <div className="flex w-full flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <MindAvatar templateId={run.attack.templateId} size={24} />
+          <span className="text-[13px] font-semibold text-foreground">Test Mind</span>
         </div>
-        <p className="rounded-md bg-muted px-3 py-2.5 text-[13px] text-muted-foreground">It was told: &ldquo;{run.attack.message}&rdquo;</p>
         {view.tools.length > 0 && (
           <div className="flex flex-col gap-1">
             {view.tools.map((t) => (
@@ -249,15 +261,16 @@ function RunPanel({ run, wallet, onAnswer }: { run: Run; wallet: ApiWallet | nul
             ))}
           </div>
         )}
-        {view.text ? (
-          <div className="text-sm text-foreground">
-            <ReplyText text={view.text} live={run.streaming} />
+        {view.text && <ReplyText text={view.text} live={run.streaming} />}
+        {run.streaming && !view.text && <Working name="Test Mind" />}
+        {/* While it runs, the thinking dots and step rows say so; the card comes with the result. */}
+        {outcome.kind !== "running" && (
+          <div aria-live="polite" className={cn("flex flex-col gap-4 rounded-lg p-4", settled ? "border border-border bg-background/40" : "bg-muted")}>
+            <Result outcome={outcome} copy={copy} wallet={wallet} balance={balance} onAnswer={onAnswer} />
           </div>
-        ) : run.streaming ? (
-          <p className="text-sm text-muted-foreground">Thinking...</p>
-        ) : null}
-      </section>
-    </>
+        )}
+      </div>
+    </section>
   )
 }
 
