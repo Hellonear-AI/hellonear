@@ -180,6 +180,22 @@ Object.assign(SKILLS, {
     added: (c: Ctx) => `${c.name} can prep you for meetings now. Ask "Prep me for my next meeting".`,
     removed: (c: Ctx) => `${c.name} won't prep meetings any more.`,
   },
+  // A 402 pattern on testnet NEAR (#150): the report is paid like any payment, after the owner approves.
+  "paid-data": {
+    title: "Paid data",
+    blurb: "Buys small live NEAR reports, like the network status or the gas price, and pays only after you approve.",
+    canUse: (c) => [`${c.name}'s wallet, ${limitText(c)}`, "Live NEAR testnet data"],
+    cannot: ["Pays only the quoted price, to the quoted account, once"],
+    needsWallet: true,
+    ask: {
+      why: (c) => `${c.name} will buy a small NEAR report when you ask, and ask you before paying for it.`,
+      does: () => ["Ask the price first and tell you who gets paid", "Pay after you approve, then show the report and the receipt"],
+      never: () => ["Pay more than the quoted price, or pay twice for one report", "Buy a report you didn't ask for"],
+      note: "No signature needed. Your wallet limits still apply to every payment.",
+    },
+    added: (c: Ctx) => `${c.name} can buy NEAR reports now. Ask "What's the gas price on NEAR testnet?".`,
+    removed: (c: Ctx) => `${c.name} won't buy reports any more. Past payments stay in Wallet.`,
+  },
 } satisfies Record<string, SkillCopy>)
 
 export function skillCopy(skillId: string): SkillCopy {

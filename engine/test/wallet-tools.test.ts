@@ -21,6 +21,14 @@ const backend = createServer(async (req, res) => {
   }
   if (req.url === '/internal/v1/wallet/balance') return send(200, { address: 'abc123', balanceNear: '0.98' })
   if (req.url?.startsWith('/internal/v1/wallet/payments')) return send(200, { payments: [{ paymentId: 'p1', status: 'sent', to: 'shop.testnet', amountNear: '0.01', txHash: 'TxHash111', at: '2026-11-05T00:00:00.000Z' }] })
+  if (req.url?.startsWith('/internal/v1/shop/')) {
+    const offer = { item: 'gas-price', title: 'Gas', priceNear: '0.001', payTo: 'shop.testnet' }
+    const tx = new URL(req.url, 'http://x').searchParams.get('tx')
+    if (!tx) return send(402, { status: 'payment_required', ...offer })
+    if (tx.startsWith('1111')) return send(402, { error: 'payment_not_found', ...offer })
+    if (tx.startsWith('2222')) return send(409, { error: 'payment_already_used' })
+    return send(200, { status: 'paid', item: 'gas-price', title: 'Gas', data: { gasPriceYocto: '100000000' }, receipt: { txHash: tx, paymentId: 'p1', amountNear: '0.001' } })
+  }
   send(404, { error: 'not_found' })
 })
 
@@ -75,4 +83,18 @@ test('bad amounts and accounts never reach the backend', async () => {
   for (const amountNear of ['0', '0.0', '-1', '1e3', '0.01 NEAR', '1000']) assert.ok((await validate({ to: 'shop.testnet', amountNear })).issues?.length, amountNear)
   assert.ok((await validate({ to: 'Bad..ID', amountNear: '0.01' })).issues?.length)
   assert.ok(!(await validate({ to: 'shop.testnet', amountNear: '0.01' })).issues)
+})
+
+test('buy_data (#150): 402 becomes payment_required, then paid with a receipt; unknown and reused hashes are answers', async () => {
+  const hash = (c: string) => c.repeat(4) + 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQ'
+  assert.deepEqual(await run('buy_data', { item: 'gas-price' }, TOKEN), { status: 'payment_required', item: 'gas-price', title: 'Gas', priceNear: '0.001', payTo: 'shop.testnet' })
+  assert.equal(seen.at(-1)!.url, '/internal/v1/shop/gas-price')
+  assert.equal(seen.at(-1)!.headers['x-wallet-token'], TOKEN)
+  const paid = await run('buy_data', { item: 'gas-price', paymentTxHash: hash('9') }, TOKEN)
+  assert.deepEqual([paid.status, paid.receipt.txHash, paid.data], ['paid', hash('9'), { gasPriceYocto: '100000000' }])
+  assert.equal(seen.at(-1)!.url, `/internal/v1/shop/gas-price?tx=${hash('9')}`)
+  const unknown = await run('buy_data', { item: 'gas-price', paymentTxHash: hash('1') }, TOKEN)
+  assert.deepEqual([unknown.status, unknown.reason], ['payment_required', 'no payment from this Mind with that hash in the last hour'])
+  assert.equal((await run('buy_data', { item: 'gas-price', paymentTxHash: hash('2') }, TOKEN)).status, 'refused')
+  await assert.rejects(run('buy_data', { item: 'gas-price' }), /no wallet yet/)
 })
