@@ -1,7 +1,6 @@
 "use client"
 
 import Link from "next/link"
-import { useQuery } from "@tanstack/react-query"
 import {
   CheckIcon,
   CircleSlashIcon,
@@ -10,7 +9,6 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import { EmptyState } from "@/components/elements/EmptyState"
-import { chatKeys } from "@/lib/queryKeys"
 import { CountBadge } from "@/components/elements/CountBadge"
 import { MindAvatar } from "@/components/elements/MindAvatar"
 import { PageTitle } from "@/components/elements/PageTitle"
@@ -21,14 +19,14 @@ import { mindHref } from "@/components/layout/nav"
 import { formatNear, shortWhen, timeAgo } from "@/lib/format"
 import { TryOutLockedDialog, useTryOutLock } from "@/modules/auth/components/TryOutLockedDialog"
 import { useIsTryOut } from "@/modules/auth/hooks/useSession"
-import { chatApi } from "@/modules/chat/api"
-import { paymentOf, pendingStep } from "@/modules/chat/data/events"
+import { paymentOf, pendingStep } from "@/modules/runs/data/events"
 import { ApprovalActions, ApprovalCheckList, PaymentAmount } from "@/modules/wallet/components/ApprovalParts"
-import { toolLabel } from "@/modules/chat/data/steps"
+import { toolLabel } from "@/modules/runs/data/steps"
 import { answerLost } from "@/modules/chat/data/answer"
 import { useChatRun } from "@/modules/chat/hooks/ChatRunProvider"
-import { ApprovalDetailLines } from "@/modules/chat/components/RunCards"
-import { approvalDetails } from "@/modules/chat/data/approvalDetails"
+import { useAskedFor } from "@/modules/chat/hooks/useThread"
+import { ApprovalDetailLines } from "@/modules/wallet/components/ApprovalParts"
+import { approvalDetails } from "@/modules/runs/data/approvalDetails"
 import type { ApiApproval, ApiPayment, ApiWallet } from "@/modules/wallet/api"
 import { useApprovals, useMind, useMindWallet, usePayments } from "@/modules/minds/hooks/useMinds"
 import { approvalChecks } from "@/modules/wallet/data/checks"
@@ -156,7 +154,7 @@ function ApprovalCard({
   const payment = paymentOf(step)
   const details = payment ? null : approvalDetails(step)
   const { checks, next } = payment ? approvalChecks(payment, wallet) : { checks: [], next: "approve" as const }
-  const asked = useAsked(mindId, approval)
+  const asked = useAskedFor(mindId, approval)
   const busy = state !== "idle"
 
   return (
@@ -200,18 +198,6 @@ function ApprovalCard({
   )
 }
 
-/** The user's own message that led to this request, as the reason (the payment tool carries none). */
-function useAsked(mindId: string, approval: ApiApproval): string | null {
-  const { data } = useQuery({
-    queryKey: chatKeys.asked(approval.runId),
-    queryFn: async () => {
-      const { messages } = await chatApi.messages(mindId, approval.threadId)
-      return messages.find((m) => m.runId === approval.runId && m.role === "user")?.text ?? null
-    },
-    staleTime: Infinity,
-  })
-  return data ?? null
-}
 
 /** A1.4: empty is good news. Says when things show up and keeps the limits close. */
 function NothingWaiting({ mindId, name }: { mindId: string; name: string }) {

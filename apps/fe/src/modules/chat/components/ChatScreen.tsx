@@ -1,7 +1,6 @@
 "use client"
 
 import Link from "next/link"
-import { ThinkingOrb } from "thinking-orbs"
 import { cn } from "cn"
 import { ArrowDownIcon, CircleXIcon, NetworkIcon, RotateCcwIcon, SnowflakeIcon } from "lucide-react"
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
@@ -13,17 +12,18 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { mindHref } from "@/components/layout/nav"
 import { ApiError, isApiCode } from "@/lib/api"
 import { clockTime, shortWhen } from "@/lib/format"
-import { paymentOf, type ReplyPart, type RunView, type ToolStep } from "@/modules/chat/data/events"
+import { paymentOf, type ReplyPart, type RunView, type ToolStep } from "@/modules/runs/data/events"
 import { composerNote, introFor } from "@/modules/chat/data/intro"
 import { useChatRun } from "@/modules/chat/hooks/ChatRunProvider"
 import { useThread } from "@/modules/chat/hooks/useThread"
 import { TRY_OUT_MESSAGES, useTryOutLeft } from "@/modules/chat/hooks/useTryOut"
 import { useLeaveTryOut, useSession } from "@/modules/auth/hooks/useSession"
 import { Composer } from "@/modules/chat/components/Composer"
-import { ReplyText } from "@/modules/chat/components/ReplyText"
+import { ReplyText } from "@/modules/runs/components/ReplyText"
 import { ApprovalCard, PaymentFailed, PaymentReceipt, PaymentRefused } from "@/modules/chat/components/RunCards"
-import { Elapsed, StepRow, StepsSummary, ThoughtRow } from "@/modules/chat/components/ReplySteps"
-import { summaryLabel } from "@/modules/chat/data/steps"
+import { StepRow, StepsSummary, ThoughtRow } from "@/modules/runs/components/ReplySteps"
+import { summaryLabel } from "@/modules/runs/data/steps"
+import { Working } from "@/modules/runs/components/Working"
 import type { ApiWallet } from "@/modules/wallet/api"
 import { templateLabel } from "@/modules/minds/data/minds"
 import { useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
@@ -500,25 +500,6 @@ function TurnView({
 
       {failed && !live && <FailedReply name={name} error={turn.failed ?? view.error} canRetry={Boolean(turn.message) && !busy} onRetry={onRetry} />}
     </>
-  )
-}
-
-/**
- * The Mind is at work and nothing else shows it yet (design C1.3): typing dots and "Thinking..."
- * from the moment the message is sent until the first text, thought or step (Ancung, 9 Nov: one
- * word for the whole wait; "Sending" read like money moving in a payments app).
- */
-export function Working({ name }: { name: string }) {
-  return (
-    <span role="status" aria-label={`${name} is thinking`} className="flex h-[22px] items-center gap-2">
-      {/* A thinking orb (thinking-orbs, Axel's pick, 10 Nov) instead of three dots. It follows the
-          dark class, freezes with reduced motion and pauses off screen by itself. */}
-      <ThinkingOrb state="solving" size={20} aria-hidden className="shrink-0" />
-      <span aria-hidden className="text-shimmer text-[13px]">
-        Thinking...
-      </span>
-      <Elapsed />
-    </span>
   )
 }
 

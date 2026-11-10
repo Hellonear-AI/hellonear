@@ -12,14 +12,13 @@ import {
 import { cn } from "cn"
 import { Badge } from "@/components/ui/badge"
 import { explorerTxUrl } from "@/lib/format"
-import { compareNear } from "@/lib/near"
-import { approvalDetails, type ApprovalDetails } from "@/modules/chat/data/approvalDetails"
-import { paymentOf, type Payment, type ToolStep } from "@/modules/chat/data/events"
-import { toolLabel } from "@/modules/chat/data/steps"
+import { approvalDetails } from "@/modules/runs/data/approvalDetails"
+import { paymentOf, type Payment, type ToolStep } from "@/modules/runs/data/events"
+import { toolLabel } from "@/modules/runs/data/steps"
 import type { ApiWallet } from "@/modules/wallet/api"
 import { FreezeDialog } from "@/modules/wallet/components/FreezeDialog"
-import { ApprovalActions, ApprovalCheckList } from "@/modules/wallet/components/ApprovalParts"
-import { approvalChecks } from "@/modules/wallet/data/checks"
+import { ApprovalActions, ApprovalCheckList, ApprovalDetailLines } from "@/modules/wallet/components/ApprovalParts"
+import { approvalChecks, NOT_LISTED, refusalReasons } from "@/modules/wallet/data/checks"
 
 // What a run did, in the chat (design C1.1, C1.3, C1.4, C1.7): a pill per tool, a receipt for a
 // payment, a red card when the wallet refused one, and an approval card while it waits.
@@ -165,22 +164,6 @@ export function ApprovalCard({
   )
 }
 
-/** The arguments the owner is approving, as plain "Label value" rows (no code font, per the UI rules). */
-export function ApprovalDetailLines({ details }: { details: ApprovalDetails }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <dl className="flex flex-col gap-1">
-        {details.lines.map((l) => (
-          <div key={l.label} className="flex min-w-0 gap-2 text-[13px]">
-            <dt className="w-14 shrink-0 text-muted-foreground">{l.label}</dt>
-            <dd className="min-w-0 break-words text-foreground">{l.value}</dd>
-          </div>
-        ))}
-      </dl>
-      {details.note && <p className="text-xs text-muted-foreground">{details.note}</p>}
-    </div>
-  )
-}
 
 function To({ account }: { account: string }) {
   return (
@@ -191,14 +174,4 @@ function To({ account }: { account: string }) {
   )
 }
 
-const NOT_LISTED = "Not on your list of addresses"
 
-/** Which of the owner's limits a refused payment broke, read against the wallet's stored policy. */
-export function refusalReasons(payment: Payment, policy: Policy): string[] {
-  const reasons: string[] = []
-  if (policy?.whitelist && !policy.whitelist.includes(payment.to.toLowerCase())) reasons.push(NOT_LISTED)
-  if (policy?.perTransactionNear && compareNear(payment.amountNear, policy.perTransactionNear) === 1) {
-    reasons.push(`Over ${policy.perTransactionNear} NEAR per payment`)
-  }
-  return reasons
-}

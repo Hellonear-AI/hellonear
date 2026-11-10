@@ -43,7 +43,7 @@ import { autopilotApi, type ApiWorkflow, type AutopilotIssue, type WorkflowRun }
 import { IDEAS, type Idea } from "@/modules/autopilot/data/ideas"
 import { runSummary, runText } from "@/modules/autopilot/data/runs"
 import { nodeSummary } from "@/modules/builder/data/testRun"
-import { ReplyText } from "@/modules/chat/components/ReplyText"
+import { ReplyText } from "@/modules/runs/components/ReplyText"
 import { scheduleText, whenNext, zoneName } from "@/modules/autopilot/data/schedule"
 import { flatSteps, jobTree, type JobStep } from "@/modules/autopilot/data/steps"
 import { fromCanvas } from "@/modules/builder/data/draft"

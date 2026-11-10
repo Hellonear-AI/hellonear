@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import type { RunEvent } from "@/modules/chat/data/events"
+import type { RunEvent } from "@/modules/runs/data/events"
 import { buildGraph, callsOf, liveStates, nodeIdFor } from "@/modules/graph/data/graph"
 import { stepSim, syncSim } from "@/modules/graph/data/sim"
 import type { ApiSkill } from "@/modules/skills/api"

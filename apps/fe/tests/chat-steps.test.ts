@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { foldRun, type RunEvent, type ToolStep } from "@/modules/chat/data/events"
-import { stepDuration, stepText, summaryLabel } from "@/modules/chat/data/steps"
-import { lines } from "@/modules/chat/components/ReplySteps"
-import { closeOpenMarks } from "@/modules/chat/components/ReplyText"
+import { foldRun, type RunEvent, type ToolStep } from "@/modules/runs/data/events"
+import { stepDuration, stepText, summaryLabel } from "@/modules/runs/data/steps"
+import { lines } from "@/modules/runs/components/ReplySteps"
+import { closeOpenMarks } from "@/modules/runs/components/ReplyText"
 
 const step = (tool: string, status: ToolStep["status"], result?: unknown, args?: unknown): ToolStep => ({ toolCallId: "c", tool, status, args, result })
 

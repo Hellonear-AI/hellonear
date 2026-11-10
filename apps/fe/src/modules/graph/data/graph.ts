@@ -3,10 +3,10 @@
 // follow docs/api-contract.md §4 (the engine's `nodeIdFor`, engine/src/graph.ts), so live events
 // light up the same nodes the history built.
 
-import type { RunEvent, ToolStatus, ToolStep } from "@/modules/chat/data/events"
+import type { RunEvent, ToolStatus, ToolStep } from "@/modules/runs/data/events"
 import type { ApiSkill } from "@/modules/skills/api"
 import { skillCopy } from "@/modules/skills/data/skills"
-import { TOOLS } from "@/modules/chat/data/tools"
+import { TOOLS } from "@/modules/runs/data/tools"
 
 export type NodeKind = "mind" | "skill" | "tool" | "app" | "wallet" | "memory" | "model" | "workflow"
 

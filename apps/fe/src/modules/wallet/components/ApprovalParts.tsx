@@ -6,6 +6,7 @@ import { cn } from "cn"
 import { Spinner } from "@/components/elements/Spinner"
 import { Button } from "@/components/ui/button"
 import { mindHref } from "@/components/layout/nav"
+import type { ApprovalDetails } from "@/modules/runs/data/approvalDetails"
 import type { Check, NextStep } from "@/modules/wallet/data/checks"
 
 // The pieces every approval card shares (the chat's card, Approvals, the Attack Playground), so
@@ -93,5 +94,22 @@ export function PaymentAmount({ amountNear, to, toClassName }: { amountNear: str
       </p>
       <span className={cn("max-w-full truncate rounded-sm px-3 font-mono text-[13px] text-foreground", toClassName)}>{to}</span>
     </>
+  )
+}
+
+/** The arguments the owner is approving, as plain "Label value" rows (no code font, per the UI rules). */
+export function ApprovalDetailLines({ details }: { details: ApprovalDetails }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <dl className="flex flex-col gap-1">
+        {details.lines.map((l) => (
+          <div key={l.label} className="flex min-w-0 gap-2 text-[13px]">
+            <dt className="w-14 shrink-0 text-muted-foreground">{l.label}</dt>
+            <dd className="min-w-0 break-words text-foreground">{l.value}</dd>
+          </div>
+        ))}
+      </dl>
+      {details.note && <p className="text-xs text-muted-foreground">{details.note}</p>}
+    </div>
   )
 }

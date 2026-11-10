@@ -1,9 +1,9 @@
 // What happened to an approve or decline (design A1.3), as the toast shows it.
 
 import { isApiCode } from "@/lib/api"
-import { paymentOf, pendingStep, type RunView } from "@/modules/chat/data/events"
-import { stepText } from "@/modules/chat/data/steps"
-import { TOOLS } from "@/modules/chat/data/tools"
+import { paymentOf, pendingStep, type RunView } from "@/modules/runs/data/events"
+import { stepText } from "@/modules/runs/data/steps"
+import { TOOLS } from "@/modules/runs/data/tools"
 
 export type Answer = { runId: string; toolCallId: string; action: "approve" | "decline"; tool: string; args: unknown }
 

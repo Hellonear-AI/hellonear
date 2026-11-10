@@ -8,7 +8,7 @@ import { OwnerActionError } from "@/modules/wallet/data/ownerAction"
 import { WrongAccountError } from "@/modules/wallet/hooks/useOwnerTransaction"
 import { answerOutcome } from "@/modules/chat/data/answer"
 import { ApiError } from "@/lib/api"
-import type { ToolStep } from "@/modules/chat/data/events"
+import type { ToolStep } from "@/modules/runs/data/events"
 
 afterEach(() => vi.unstubAllGlobals())
 

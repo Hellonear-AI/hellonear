@@ -1,10 +1,10 @@
 "use client"
 
-import { useInfiniteQuery, useQueries } from "@tanstack/react-query"
+import { useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query"
 import { useMemo } from "react"
 import { chatKeys } from "@/lib/queryKeys"
 import { chatApi, type ApiMessage } from "@/modules/chat/api"
-import { foldRun, type RunView } from "@/modules/chat/data/events"
+import { foldRun, type RunView } from "@/modules/runs/data/events"
 import { useSession } from "@/modules/auth/hooks/useSession"
 
 export { chatKeys } from "@/lib/queryKeys"
@@ -72,4 +72,20 @@ export function toTurns(messages: ApiMessage[], views: Map<string, RunView | nul
     }
   }
   return turns
+}
+
+/**
+ * The owner's own message that started a run, as the reason for a request it paused on
+ * (Approvals' "You asked"; the payment tool carries no reason of its own).
+ */
+export function useAskedFor(mindId: string, run: { runId: string; threadId: string }): string | null {
+  const { data } = useQuery({
+    queryKey: chatKeys.asked(run.runId),
+    queryFn: async () => {
+      const { messages } = await chatApi.messages(mindId, run.threadId)
+      return messages.find((m) => m.runId === run.runId && m.role === "user")?.text ?? null
+    },
+    staleTime: Infinity,
+  })
+  return data ?? null
 }

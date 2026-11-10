@@ -3,7 +3,7 @@
 // only tells "the Mind refused" from "the Mind had no way to pay". Never a tx link unless a
 // payment was really sent.
 
-import { foldRun, paymentOf, type Payment, type RunEvent, type RunView, type ToolStep } from "@/modules/chat/data/events"
+import { foldRun, paymentOf, type Payment, type RunEvent, type RunView, type ToolStep } from "@/modules/runs/data/events"
 
 export type StoppedBy = "model" | "no_tool" | "approval" | "policy" | "none"
 

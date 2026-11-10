@@ -4,8 +4,8 @@
 // No "·" separators: the result is set apart by its colour.
 
 import { formatNear } from "@/lib/format"
-import type { ToolStep } from "@/modules/chat/data/events"
-import { TOOLS, type StepOrb } from "@/modules/chat/data/tools"
+import type { ToolStep } from "@/modules/runs/data/events"
+import { TOOLS, type StepOrb } from "@/modules/runs/data/tools"
 import { skillCopy } from "@/modules/skills/data/skills"
 
 

@@ -45,3 +45,16 @@ export function approvalChecks(payment: { to: string; amountNear: string }, wall
 
   return { checks, next }
 }
+
+/** Which of the owner's limits a refused payment broke, read against the wallet's stored policy. */
+/** The reason a payment to an address off the list was refused (the receipt offers to add it). */
+export const NOT_LISTED = "Not on your list of addresses"
+
+export function refusalReasons(payment: { to: string; amountNear: string }, policy: ApiWallet["policy"]): string[] {
+  const reasons: string[] = []
+  if (policy?.whitelist && !policy.whitelist.includes(payment.to.toLowerCase())) reasons.push(NOT_LISTED)
+  if (policy?.perTransactionNear && compareNear(payment.amountNear, policy.perTransactionNear) === 1) {
+    reasons.push(`Over ${policy.perTransactionNear} NEAR per payment`)
+  }
+  return reasons
+}

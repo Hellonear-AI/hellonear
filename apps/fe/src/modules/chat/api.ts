@@ -1,6 +1,6 @@
 import { api } from "@/lib/api"
 import { ownerTimeZone, stream } from "@/lib/stream"
-import type { RunEvent } from "@/modules/chat/data/events"
+import type { RunEvent } from "@/modules/runs/data/events"
 
 // Chat, runs and approvals: docs/api-contract.md §7. Chat and approve/decline answer with an SSE
 // stream of §3 events (`stream` in src/lib/stream.ts).
