@@ -668,7 +668,7 @@ body {
     18px 45px 10px rgb(0 0 0 / 0.45);
 }
 /* Sunlight on the glass, from the upper left like the scene: a warm glare in the top-left corner
-   that fades out, and one soft diagonal reflection streak. Screen blend, so it only brightens. */
+   that fades out. Screen blend, so it only brightens. */
 .glass-float::after {
   content: "";
   position: absolute;
@@ -677,7 +677,6 @@ body {
   pointer-events: none;
   z-index: 1;
   background:
-    radial-gradient(120% 90% at 0% 0%, rgb(255 248 228 / 0.55), rgb(255 248 228 / 0.12) 38%, transparent 60%),
-    linear-gradient(118deg, transparent 46%, rgb(255 255 255 / 0.22) 50%, rgb(255 255 255 / 0.06) 55%, transparent 60%);
+    radial-gradient(120% 90% at 0% 0%, rgb(255 248 228 / 0.55), rgb(255 248 228 / 0.12) 38%, transparent 60%);
   mix-blend-mode: screen;
 }
