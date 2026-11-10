@@ -13,6 +13,7 @@ import { cancelRun, getRun, listRuns, mindEvents, pendingApprovals, relayRun, ru
 import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema, secretsForRun } from './secrets.ts'
 import { createWallet, freezeTransaction, getWallet, hasWallet, isDemoMind, policySchema, policyTransaction } from './wallets.ts'
 import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
+import { itemSchema, shop, txHashSchema } from './shop.ts'
 import { issueMailToken, issueWalletToken, verifyMailToken, verifyWalletToken } from './walletToken.ts'
 import { EMAIL_SKILL, ensureInbox, inboxOf, listMail, listSends, mailEnabled, messageIdSchema, ownerMailSchema, readMail, releaseInbox, sendMail, sendMailSchema, sendMailToOwner } from './mail.ts'
 import { listThreads, parseCursor, threadExists, threadMessages } from './threads.ts'
@@ -131,6 +132,20 @@ export const server = createServer(async (req, res) => {
       if (internal[1] === 'balance' && req.method === 'GET') return sendJson(res, 200, await walletBalance(mindId))
       if (internal[1] === 'payments' && req.method === 'GET') return sendJson(res, 200, { payments: await listPayments(mindId, limitOf(url, 20, 100)) })
       throw new HttpError(405, 'method_not_allowed')
+    }
+    // Paid data (#150): the engine's buy_data tool, with the run's wallet token (the Mind pays from its own wallet).
+    const shopPath = path.match(/^\/internal\/v1\/shop\/([^/]+)$/)
+    if (shopPath) {
+      if (!sameSecret(String(req.headers['x-engine-key'] ?? ''), config.engineApiKey)) throw new HttpError(401, 'unauthorized')
+      const { userId, mindId } = verifyWalletToken(req.headers['x-wallet-token'] as string | undefined)
+      await requireMind(userId, mindId)
+      if (req.method !== 'GET') throw new HttpError(405, 'method_not_allowed')
+      const item = itemSchema.safeParse(decodeURIComponent(shopPath[1]))
+      if (!item.success) throw new HttpError(404, 'unknown_item')
+      const tx = url.searchParams.get('tx')
+      if (tx !== null && !txHashSchema.safeParse(tx).success) throw new HttpError(400, 'invalid_tx_hash')
+      const out = await shop(mindId, item.data, tx ?? undefined)
+      return sendJson(res, out.httpStatus, out.body)
     }
     // Autopilot's "Email me" (#146): engine key only, since a scheduled run carries no run token; the recipient is
     // decided here (the owner's Gmail address), never by the engine.

@@ -8,6 +8,8 @@ export const fakeOutlayer = {
   requests: [] as { method: string; path: string; body: any; key?: string }[],
   wallets: [] as Wallet[],
   policyCost: '10690000000000000000000',
+  // Transfers the fake chain saw, by tx hash, for NEAR RPC's `tx` method (#150). Shapes from a live testnet answer (10 Nov).
+  txs: new Map<string, { signer: string; receiver: string; deposit: string; failed?: boolean }>(),
   failNext: 0,
   // A wallet created outside the backend (the shared demo wallet), funded with 1 NEAR, no policy.
   addWallet(): Wallet {
@@ -39,6 +41,15 @@ export const outlayerServer = createServer(async (req, res) => {
   fakeOutlayer.requests.push({ method: req.method!, path: url.pathname + url.search, body, key })
   if (fakeOutlayer.failNext > 0) { fakeOutlayer.failNext--; return send(res, 500, { error: 'internal' }) }
 
+  if (req.method === 'POST' && url.pathname === '/rpc' && body.method === 'tx') {
+    const t = fakeOutlayer.txs.get(body.params.tx_hash)
+    if (!t || t.signer !== body.params.sender_account_id) return send(res, 200, { jsonrpc: '2.0', id: 1, error: { name: 'HANDLER_ERROR', cause: { name: 'UNKNOWN_TRANSACTION' } } })
+    return send(res, 200, { jsonrpc: '2.0', id: 1, result: { final_execution_status: 'FINAL', status: t.failed ? { Failure: { ActionError: {} } } : { SuccessValue: '' }, transaction: { signer_id: t.signer, receiver_id: t.receiver, actions: [{ Transfer: { deposit: t.deposit } }] } } })
+  }
+  if (req.method === 'POST' && url.pathname === '/rpc' && body.method === 'status') {
+    return send(res, 200, { jsonrpc: '2.0', id: 1, result: { chain_id: 'testnet', protocol_version: 88, sync_info: { latest_block_height: 277049858, latest_block_time: '2026-11-10T09:36:17Z' }, validators: Array.from({ length: 20 }, (_, i) => ({ account_id: `v${i}.testnet` })) } })
+  }
+  if (req.method === 'POST' && url.pathname === '/rpc' && body.method === 'gas_price') return send(res, 200, { jsonrpc: '2.0', id: 1, result: { gas_price: '100000000' } })
   if (req.method === 'POST' && url.pathname === '/rpc') {
     const p = body.params
     if (p.account_id !== 'outlayer.testnet' || p.method_name !== 'estimate_wallet_policy_cost') return send(res, 200, { jsonrpc: '2.0', id: 1, error: { message: 'unknown view' } })
@@ -78,7 +89,11 @@ export const outlayerServer = createServer(async (req, res) => {
     if (list && !list.includes(body.to)) return send(res, 403, { error: 'policy_denied', message: `Address '${body.to}' is not in whitelist` })
     if (BigInt(w.balance) < amount) return send(res, 422, { error: 'chain_refused', message: `the account ${w.account} is not visible on the network` })
     w.balance = (BigInt(w.balance) - amount).toString()
-    return send(res, 200, { request_id: randomUUID(), status: 'success', tx_hash: randomBytes(24).toString('base64url') })
+    // Base58 like a real tx hash, 44 characters.
+    const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+    const txHash = [...randomBytes(44)].map((b) => B58[b % 58]).join('')
+    fakeOutlayer.txs.set(txHash, { signer: w.account, receiver: body.to, deposit: amount.toString() })
+    return send(res, 200, { request_id: randomUUID(), status: 'success', tx_hash: txHash })
   }
   send(res, 404, { error: 'not_found' })
 })
