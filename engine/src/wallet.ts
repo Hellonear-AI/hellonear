@@ -17,7 +17,7 @@ export class NoWalletError extends Error {
 
 // Calls one of the backend's internal wallet routes with the engine key and the run's wallet token.
 // `accept`: statuses that are answers, not errors (paid data's 402 and 409, #150); the JSON body comes back with `httpStatus`.
-export async function walletCall<T>(context: Ctx, method: 'GET' | 'POST', path: string, body?: unknown, accept: number[] = []): Promise<T> {
+export async function walletCall<T>(context: Ctx, method: 'GET' | 'POST' | 'PUT', path: string, body?: unknown, accept: number[] = []): Promise<T> {
   const token = (context?.requestContext?.get(WALLET_KEY) as Map<string, string> | undefined)?.get('token')
   if (!token) throw new NoWalletError()
   // Read per call, not at import: unit tests load the tools without the engine's config.

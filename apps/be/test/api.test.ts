@@ -776,7 +776,7 @@ describe('payment tools through the backend (#42, option B)', () => {
 
       let res = await engineCall('GET', '/internal/v1/shop/network-status', token)
       assert.equal(res.status, 402)
-      assert.deepEqual(await res.json(), { status: 'payment_required', item: 'network-status', title: 'NEAR testnet status: latest block, protocol version, validator count', priceNear: '0.001', payTo: 'shop.testnet' })
+      assert.deepEqual(await res.json(), { status: 'payment_required', item: 'network-status', title: 'NEAR testnet status: latest block, protocol version, validator count', priceNear: '0.001', payTo: 'shop.testnet', seller: 's1' })
       assert.equal((await engineCall('GET', '/internal/v1/shop/nope', token)).status, 404)
       assert.equal((await engineCall('GET', '/internal/v1/shop/network-status?tx=not-a-hash', token)).status, 400)
 
@@ -823,6 +823,128 @@ describe('payment tools through the backend (#42, option B)', () => {
       assert.deepEqual((await res.json()).data, { gasPriceYocto: '100000000', transferCostNear: '0.000045' })
     } finally {
       config.shopPayTo = saved
+    }
+  })
+
+  test('Best Price Buyer (#176): quotes cheapest first and marked by the wallet\'s list, a payment counts for the seller it went to', async () => {
+    const { config } = await import('../src/config.ts')
+    const { parseSellers } = await import('../src/shop.ts')
+    const saved = [config.shopPayTo, config.shopSellers] as const
+    try {
+      config.shopPayTo = 'shop.testnet'
+      config.shopSellers = 'shop.testnet:1,cheap.testnet:0.8,dear.testnet:1.3'
+      const a = await signIn()
+      const { mindId } = await walletMind(a, { policy: false })
+      // The owner lists two of the three sellers.
+      const { transaction } = await (await a.call('POST', `/v1/minds/${mindId}/wallet/policy`, { perTransactionNear: '0.05', whitelist: ['shop.testnet', 'cheap.testnet'] }, origin)).json()
+      fakeOutlayer.store(transaction.actions[0].params.args.encrypted_data)
+      const token = await tokenFromChat(a, mindId)
+      const get = async (q: string) => { const r = await engineCall('GET', `/internal/v1/shop/network-status${q}`, token); return [r.status, await r.json()] as const }
+
+      const sold = { item: 'network-status', title: 'NEAR testnet status: latest block, protocol version, validator count' }
+      assert.deepEqual(await get('?quotes=1'), [200, { status: 'quotes', ...sold, quotes: [
+        { seller: 's2', payTo: 'cheap.testnet', priceNear: '0.0008', onYourList: true },
+        { seller: 's1', payTo: 'shop.testnet', priceNear: '0.001', onYourList: true },
+        { seller: 's3', payTo: 'dear.testnet', priceNear: '0.0013', onYourList: false },
+      ] }])
+      // No seller named: the cheapest one's offer, as an old buy_data expects.
+      assert.deepEqual(await get(''), [402, { status: 'payment_required', ...sold, seller: 's2', priceNear: '0.0008', payTo: 'cheap.testnet' }])
+      assert.deepEqual(await get('?seller=s3'), [402, { status: 'payment_required', ...sold, seller: 's3', priceNear: '0.0013', payTo: 'dear.testnet' }])
+      assert.deepEqual((await get('?seller=s9'))[0], 404)
+      for (const q of ['?seller=cheap.testnet', '?quotes=yes', '?quotes=1&seller=s1', `?quotes=1&tx=${'1'.repeat(44)}`]) assert.equal((await get(q))[0], 400, q)
+
+      const pay = async (to: string, amountNear: string) => (await (await engineCall('POST', '/internal/v1/wallet/send_payment', token, { to, amountNear })).json())
+      // A seller off the wallet's list: OutLayer refuses the payment, so there is nothing to redeem.
+      assert.equal((await pay('dear.testnet', '0.0013')).status, 'policy_denied')
+
+      const cheap = (await pay('cheap.testnet', '0.0008')).txHash as string
+      // Paid to s2, so it is not a payment to s1, even though s1 is on the list too.
+      assert.deepEqual((await get(`?seller=s1&tx=${cheap}`))[1].error, 'payment_does_not_match')
+      // Enough for s2 is too little for s1.
+      const short = (await pay('shop.testnet', '0.0008')).txHash as string
+      assert.deepEqual((await get(`?tx=${short}`))[1].error, 'payment_does_not_match')
+      const [status, out] = await get(`?seller=s2&tx=${cheap}`)
+      assert.equal(status, 200, JSON.stringify(out))
+      assert.deepEqual([out.status, out.seller, out.receipt.payTo, out.receipt.amountNear], ['paid', 's2', 'cheap.testnet', '0.0008'])
+      assert.deepEqual((await get(`?tx=${cheap}`))[1].error, 'payment_already_used')
+      // Without a seller in the query, the payment row says which seller it was.
+      const full = (await pay('shop.testnet', '0.001')).txHash as string
+      assert.deepEqual((await get(`?tx=${full}`))[1].seller, 's1')
+
+      // A wallet without an address rule can pay any seller.
+      const open = await walletMind(a, { policy: false })
+      const openToken = await tokenFromChat(a, open.mindId)
+      const q = await (await engineCall('GET', '/internal/v1/shop/gas-price?quotes=1', openToken)).json()
+      assert.deepEqual(q.quotes.map((x: any) => [x.seller, x.onYourList]), [['s2', true], ['s1', true], ['s3', true]])
+
+      // A bad list stops the backend at start rather than at the first purchase.
+      for (const bad of ['a.testnet', 'a.testnet:0', 'a.testnet:1,a.testnet:2', 'NOT AN ACCOUNT:1', 'a.testnet:1.2345']) assert.throws(() => parseSellers(bad, ''), /SHOP_SELLERS/, bad)
+      assert.deepEqual(parseSellers('', 'shop.testnet'), [{ id: 's1', account: 'shop.testnet', multiplierMilli: 1000n }])
+      assert.deepEqual(parseSellers('', ''), [])
+    } finally {
+      ;[config.shopPayTo, config.shopSellers] = saved
+    }
+  })
+
+  test('Mind as Seller (#181): a Mind publishes an offer; another Mind pays the seller\'s own wallet and gets it, once', async () => {
+    const a = await signIn()
+    const seller = await walletMind(a)
+    const sellerToken = await tokenFromChat(a, seller.mindId)
+    const put = (item: string, body: unknown, token = sellerToken) => engineCall('PUT', `/internal/v1/offers/${item}`, token, body)
+    let res = await put('weekly-digest', { title: 'Weekly digest', priceNear: '0.002', content: 'Three things happened this week.' })
+    assert.equal(res.status, 200, await res.clone().text())
+    const published = await res.json()
+    assert.deepEqual(published, { sellerMindId: seller.mindId, item: 'weekly-digest', title: 'Weekly digest', priceNear: '0.002', payTo: seller.w.account })
+    for (const [item, body] of [['Bad Item', { title: 't', priceNear: '0.002', content: 'c' }], ['x', { title: 't', priceNear: '0', content: 'c' }], ['x', { title: 't', priceNear: '2', content: 'c' }], ['x', { title: 't', priceNear: '0.1', content: 'c', payTo: 'evil.testnet' }]] as const) {
+      assert.ok([400, 404].includes((await put(item, body)).status), JSON.stringify([item, body]))
+    }
+
+    // The buyer belongs to another owner. Its wallet has no address rule here, so OutLayer lets it pay the seller.
+    const b = await signIn()
+    const buyer = await walletMind(b, { policy: false })
+    const token = await tokenFromChat(b, buyer.mindId)
+    const get = async (q = '', mind = seller.mindId, item = 'weekly-digest', t = token) => { const r = await engineCall('GET', `/internal/v1/minds/${mind}/offers/${item}${q}`, t); return [r.status, await r.json()] as const }
+    const offer = { status: 'payment_required', sellerMindId: seller.mindId, item: 'weekly-digest', title: 'Weekly digest', priceNear: '0.002', payTo: seller.w.account }
+    assert.deepEqual(await get(), [402, offer])
+    assert.equal((await get('', seller.mindId, 'nothing-here'))[0], 404)
+    assert.equal((await get('', 'mnd_' + '0'.repeat(24)))[0], 404)
+    assert.equal((await get('?tx=not-a-hash'))[0], 400)
+    assert.deepEqual((await get('', seller.mindId, 'weekly-digest', sellerToken))[1].error, 'own_offer')
+
+    const pay = async (to: string, amountNear: string) => (await (await engineCall('POST', '/internal/v1/wallet/send_payment', token, { to, amountNear })).json())
+    assert.deepEqual((await get(`?tx=${'1'.repeat(44)}`))[1].error, 'payment_not_found')
+    const short = (await pay(seller.w.account, '0.001')).txHash as string
+    assert.deepEqual((await get(`?tx=${short}`))[1].error, 'payment_does_not_match')
+    const elsewhere = (await pay('shop.testnet', '0.002')).txHash as string
+    assert.deepEqual((await get(`?tx=${elsewhere}`))[1].error, 'payment_does_not_match')
+    const tx = (await pay(seller.w.account, '0.002')).txHash as string
+    fakeOutlayer.txs.get(tx)!.failed = true
+    assert.deepEqual((await get(`?tx=${tx}`))[1].error, 'payment_not_on_chain')
+    fakeOutlayer.txs.get(tx)!.failed = false
+    const [status, out] = await get(`?tx=${tx}`)
+    assert.equal(status, 200, JSON.stringify(out))
+    assert.deepEqual([out.status, out.content, out.receipt.payTo, out.receipt.amountNear], ['paid', 'Three things happened this week.', seller.w.account, '0.002'])
+    assert.equal((await get(`?tx=${tx}`))[0], 409, 'a payment buys the offer once')
+
+    // A buyer whose wallet does not list the seller's address: OutLayer refuses the payment before signing.
+    const listed = await walletMind(b)
+    const listedToken = await tokenFromChat(b, listed.mindId)
+    const refused = await (await engineCall('POST', '/internal/v1/wallet/send_payment', listedToken, { to: seller.w.account, amountNear: '0.002' })).json()
+    assert.equal(refused.status, 'policy_denied')
+    assert.equal(refused.txHash, undefined)
+
+    // A try-out Mind pays from the shared demo wallet, so it can neither sell nor be bought from.
+    const { config } = await import('../src/config.ts')
+    const { query } = await import('../src/db.ts')
+    const saved = config.demoWalletKey
+    try {
+      await query('update users u set is_demo = true from minds m where m.user_id = u.id and m.id = $1', [seller.mindId])
+      config.demoWalletKey = saved || 'wk_demo_for_offers_test'
+      assert.equal((await get())[0], 404)
+      assert.equal((await put('weekly-digest', { title: 't', priceNear: '0.002', content: 'c' })).status, 403)
+    } finally {
+      await query('update users u set is_demo = false from minds m where m.user_id = u.id and m.id = $1', [seller.mindId])
+      config.demoWalletKey = saved
     }
   })
 

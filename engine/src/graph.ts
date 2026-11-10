@@ -1,6 +1,7 @@
 // Mind Graph node ids (docs/api-contract.md §4). Pure functions, no config or network.
-// buy_data (#150) pays from the wallet, so it is drawn on the wallet node too.
-const WALLET_TOOLS = new Set(['send_payment', 'get_balance', 'list_payments', 'buy_data'])
+// buy_data (#150) and buy_from_mind (#181) pay from the wallet, get_quotes (#176) reads its policy and sell_offer (#181)
+// sells into it, so they are drawn on the wallet node.
+const WALLET_TOOLS = new Set(['send_payment', 'get_balance', 'list_payments', 'buy_data', 'get_quotes', 'sell_offer', 'buy_from_mind'])
 // mail_* is the Mind's own AgentMail address (#96): one `app:mail` node. The business apps (#194) follow the same rule.
 const APP_TOOL = /^(gmail|googlecalendar|mail|googlesheets|googledrive|googledocs|slack|notion|outlook)_/
 
