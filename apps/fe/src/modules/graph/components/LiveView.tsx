@@ -13,7 +13,7 @@ import type { RunEvent } from "@/modules/chat/data/events"
 import { stepText } from "@/modules/chat/data/steps"
 import { useChatRun } from "@/modules/chat/hooks/ChatRunProvider"
 import { MindGraph } from "@/modules/graph/components/MindGraph"
-import { buildGraph, type GraphNode } from "@/modules/graph/data/graph"
+import { buildGraph, liveStates, type GraphNode } from "@/modules/graph/data/graph"
 import { templateImage } from "@/modules/minds/data/minds"
 import { useApprovals, useMind } from "@/modules/minds/hooks/useMinds"
 import { useSkillCatalog } from "@/modules/skills/hooks/useSkills"
@@ -44,7 +44,8 @@ export function LiveView({ mindId, className }: { mindId: string; className?: st
   const mind = useMind(mindId).data
   const catalog = useSkillCatalog().data
   const history = useMindEvents(mindId)
-  const approvals = useApprovals(mindId).data ?? []
+  const approvalList = useApprovals(mindId).data
+  const approvals = useMemo(() => approvalList ?? [], [approvalList])
   const { active } = useChatRun()
   const [selected, setSelected] = useState<string | null>(null)
   const queryClient = useQueryClient()
@@ -57,17 +58,21 @@ export function LiveView({ mindId, className }: { mindId: string; className?: st
     wasStreaming.current = Boolean(active?.streaming)
   }, [active?.streaming, mindId, queryClient])
 
+  const activeEvents = active?.events
+  const streaming = Boolean(active?.streaming)
   const graph = useMemo(() => {
     const seen = new Set<string>()
-    const events = [...(history.data ?? []), ...(active?.events ?? [])].filter((e) => {
+    const events = [...(history.data ?? []), ...(activeEvents ?? [])].filter((e) => {
       const key = `${e.runId}:${e.seq}`
       if (seen.has(key)) return false
       seen.add(key)
       return true
     })
     events.sort((a, b) => (a.ts ?? "").localeCompare(b.ts ?? ""))
-    return buildGraph({ mindId, name, skills: mind?.skills ?? [], catalog: catalog ?? [], events })
-  }, [history.data, active?.events, mindId, name, mind?.skills, catalog])
+    const built = buildGraph({ mindId, name, skills: mind?.skills ?? [], catalog: catalog ?? [], events })
+    const streamingRun = streaming ? (activeEvents?.at(-1)?.runId ?? null) : null
+    return { ...built, nodes: liveStates(built.nodes, streamingRun, new Set(approvals.map((a) => a.toolCallId))) }
+  }, [history.data, activeEvents, streaming, mindId, name, mind?.skills, catalog, approvals])
 
   const picked = graph.nodes.find((n) => n.id === selected) ?? null
   const live = Boolean(active?.streaming)

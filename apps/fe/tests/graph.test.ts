@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { RunEvent } from "@/modules/chat/data/events"
-import { buildGraph, nodeIdFor } from "@/modules/graph/data/graph"
+import { buildGraph, liveStates, nodeIdFor } from "@/modules/graph/data/graph"
 import { stepSim, syncSim } from "@/modules/graph/data/sim"
 import type { ApiSkill } from "@/modules/minds/api"
 
@@ -68,5 +68,24 @@ describe("Mind Graph (#17)", () => {
     expect(bodies).toHaveLength(g.nodes.length)
     expect(bodies.every((b) => Number.isFinite(b.x) && Number.isFinite(b.y))).toBe(true)
     expect(sim.bodies.get("mind:m1")).toMatchObject({ x: 0, y: 0 })
+  })
+
+  it("keeps only states that mean something now", () => {
+    const events = [
+      ev("tool.called", { tool: "send_payment", toolCallId: "old", nodeId: "wallet:m1", runId: "r0" }),
+      ev("tool.approval_required", { toolCallId: "old", runId: "r0" }),
+      ev("tool.called", { tool: "get_time", toolCallId: "t", runId: "r9" }),
+      ev("tool.called", { tool: "updateWorkingMemory", toolCallId: "m", nodeId: "tool:updateWorkingMemory", runId: "r9" }),
+    ]
+    const g = buildGraph({ mindId: "m1", name: "Omaga", skills: ["payments", "daily-planner"], catalog, events })
+    expect(g.nodes.find((n) => n.id === "memory:m1")).toMatchObject({ kind: "memory", label: "Memory" })
+    // Nothing streaming, the approval no longer open: no pulse from history.
+    const idle = liveStates(g.nodes, null, new Set())
+    expect(idle.find((n) => n.id === "wallet:m1")?.state).toBeUndefined()
+    expect(idle.find((n) => n.id === "tool:get_time")?.state).toBeUndefined()
+    // The run on screen and an approval still open keep theirs.
+    const now = liveStates(g.nodes, "r9", new Set(["old"]))
+    expect(now.find((n) => n.id === "tool:get_time")?.state).toBe("running")
+    expect(now.find((n) => n.id === "wallet:m1")?.state).toBe("waiting")
   })
 })

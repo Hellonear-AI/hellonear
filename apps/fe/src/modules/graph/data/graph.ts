@@ -21,6 +21,9 @@ export type GraphNode = {
   state?: NodeState
   /** When `state` was last set (ms), to time its pulse. */
   at?: number
+  /** The run and tool call that set `state`, to tell a live state from an old one. */
+  run?: string
+  call?: string
   /** For app nodes: which logo to draw. */
   app?: "gmail" | "googlecalendar" | "googlemeet" | "mail"
 }
@@ -61,6 +64,7 @@ function labelOf(id: string, mindName: string): string {
   if (kind === "mind") return mindName
   if (kind === "skill") return skillCopy(rest).title
   if (kind === "wallet") return "Wallet"
+  if (kind === "memory") return "Memory"
   if (kind === "app") return rest === "mail" ? `${mindName}'s email` : (APP_LABEL[rest] ?? rest)
   if (kind === "tool") return TOOL_LABEL[rest] ?? rest.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())
   // workflow:{workflowId}: the id comes from the job's name ("wallet-watch" -> "Wallet watch").
@@ -139,13 +143,17 @@ export function buildGraph({
   for (const e of events) {
     const t = e.ts ? Date.parse(e.ts) : 0
     if (e.type === "tool.called" && e.tool) {
-      const id = e.nodeId ?? nodeIdFor(mindId, e.tool, e.args)
+      let id = e.nodeId ?? nodeIdFor(mindId, e.tool, e.args)
       if (id === "skill:hellonear-guide") continue
+      // Mastra's working memory tool is the Mind's memory (docs/api-contract.md §4, Memory).
+      if (id === "tool:updateWorkingMemory") id = `memory:${mindId}`
       const n = add(id)
       if (![...links.values()].some((l) => l.target === id)) link(mind, id)
       n.uses += 1
       n.state = "running"
       n.at = t
+      n.run = e.runId
+      n.call = e.toolCallId
       if (e.toolCallId) byCall.set(e.toolCallId, id)
       // A meeting with a Meet link also lights Google Meet (#97).
       if (e.tool === "googlecalendar_create_meeting" && (e.args as { meet?: unknown } | undefined)?.meet && nodes.has("app:googlemeet")) {
@@ -153,6 +161,8 @@ export function buildGraph({
         m.uses += 1
         m.state = "running"
         m.at = t
+        m.run = e.runId
+        m.call = e.toolCallId
       }
     } else if ((e.type === "tool.result" || e.type === "tool.error" || e.type === "tool.approval_required") && e.toolCallId) {
       const id = byCall.get(e.toolCallId) ?? (e.nodeId || null)
@@ -173,4 +183,18 @@ export function buildGraph({
     }
   }
   return { nodes: [...nodes.values()], links: [...links.values()] }
+}
+
+/**
+ * States that only mean something now: "running" belongs to the run on screen, "waiting" to an
+ * approval that is still open. Older ones (a run that ended, an approval declined, which never
+ * gets a result event) are dropped, so history sizes the bubbles without making them pulse
+ * (Ancung, 10 Nov: Meet and Wallet pulsed before anything was sent).
+ */
+export function liveStates(nodes: GraphNode[], streamingRun: string | null, openCalls: Set<string>): GraphNode[] {
+  return nodes.map((n) => {
+    if (n.state === "running" && !(streamingRun && n.run === streamingRun)) return { ...n, state: undefined }
+    if (n.state === "waiting" && !(n.call && openCalls.has(n.call))) return { ...n, state: undefined }
+    return n
+  })
 }
