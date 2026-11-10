@@ -15,6 +15,8 @@ export type View = { x: number; y: number; zoom: number }
 
 export const MIN_ZOOM = 0.25
 export const MAX_ZOOM = 2
+/** One press of +, - or the zoom buttons. */
+export const ZOOM_STEP = 1.2
 const clamp = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z))
 const TOP = 32
 /** How fast the view catches up each frame (0..1): high enough to feel direct, low enough to glide. */

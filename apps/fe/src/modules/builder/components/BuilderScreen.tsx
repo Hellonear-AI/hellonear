@@ -1,6 +1,5 @@
 "use client"
 
-import { useQueryClient } from "@tanstack/react-query"
 import {
   ArrowLeftIcon,
   BotIcon,
@@ -21,8 +20,7 @@ import {
   XIcon,
 } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { createContext, useContext, useMemo, useRef, useState, type ReactNode } from "react"
 import { toast } from "sonner"
 import { cn } from "cn"
 import { Spinner } from "@/components/elements/Spinner"
@@ -32,13 +30,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useMediaQuery } from "@/hooks/useMediaQuery"
-import { isApiCode } from "@/lib/api"
-import { MEDIA, matches } from "@/lib/media"
-import { readPref, writePref } from "@/lib/storage"
+import { MEDIA } from "@/lib/media"
 import { browserTimeZone } from "@/lib/stream"
-import { autopilotApi } from "@/modules/autopilot/api"
 import { scheduleText, zoneName } from "@/modules/autopilot/data/schedule"
-import { autopilotKeys, useWorkflow, useWorkflows } from "@/modules/autopilot/hooks/useAutopilot"
+import { useWorkflow } from "@/modules/autopilot/hooks/useAutopilot"
 import { BuilderContext } from "@/modules/builder/components/BuilderContext"
 import { BlockSettings } from "@/modules/builder/components/panels/BlockSettings"
 import { SettingsFrame } from "@/modules/builder/components/panels/SettingsFrame"
@@ -46,11 +41,9 @@ import { PromptPreview } from "@/modules/builder/components/PromptText"
 import { newBlock, type Kind } from "@/modules/builder/data/blocks"
 import { ifTitle } from "@/modules/builder/data/conditions"
 import {
-  allBlocks,
   canPlace,
   closes,
   cronOf,
-  draftProblems,
   emptyDraft,
   findBlock,
   fromCanvas,
@@ -58,16 +51,12 @@ import {
   isStep,
   lineAt,
   lineCloses,
-  locate,
   NAME_MAX,
   promptParts,
   removeBlock,
-  resultsBefore,
+  resultsOf,
   stepsAt,
-  toCanvas,
   updateBlock,
-  withLine,
-  workflowIdFor,
   type Block,
   type Draft,
   type LinePath,
@@ -75,18 +64,22 @@ import {
   type Self,
   type Step,
 } from "@/modules/builder/data/draft"
-import { engineIssues as engineIssuesOf } from "@/modules/builder/data/issues"
-import { mainEnd as mainEndOf, parseSlot, placeKey, samePath, type Place } from "@/modules/builder/data/places"
-import { finishedWell, nodeSummary, wentWrong, withIf, type NodeRun, type TestState } from "@/modules/builder/data/testRun"
+import { mainEnd as mainEndOf, placeKey, START, type Place } from "@/modules/builder/data/places"
+import { wentWrong, type NodeRun } from "@/modules/builder/data/testRun"
 import { TONE, type Tone } from "@/modules/builder/data/tone"
 import { toolInfo } from "@/modules/builder/data/tools"
-import { useCanvasView } from "@/modules/builder/hooks/useCanvasView"
+import { useCanvasView, ZOOM_STEP } from "@/modules/builder/hooks/useCanvasView"
+import { useDragDrop } from "@/modules/builder/hooks/useDragDrop"
+import { useEditorShortcuts } from "@/modules/builder/hooks/useEditorShortcuts"
+import { useHistory } from "@/modules/builder/hooks/useHistory"
 import { useLeaveGuard } from "@/modules/builder/hooks/useLeaveGuard"
+import { usePaletteFold } from "@/modules/builder/hooks/usePaletteFold"
+import { useSave } from "@/modules/builder/hooks/useSave"
+import { useSelection } from "@/modules/builder/hooks/useSelection"
+import { useTestRun } from "@/modules/builder/hooks/useTestRun"
 import { useMind, useMindWallet } from "@/modules/minds/hooks/useMinds"
-import { useSetSkills, useSkillCatalog } from "@/modules/skills/hooks/useSkills"
 import { shortAddress } from "@/modules/wallet/data/address"
 
-const PALETTE_KEY = "hellonear.builder.palette"
 const ZONE = () => browserTimeZone() ?? "UTC"
 /**
  * Builder (design "7 · Automations" B1.0, B1.1, B1.6; #20). Stage 2 (9 Nov, with Ancung): Start,
@@ -120,21 +113,13 @@ function Gone({ mindId, text }: { mindId: string; text: string }) {
 const TestRun = createContext<Record<string, NodeRun>>({})
 
 function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: string | null; initial: Draft }) {
-  const router = useRouter()
-  const queryClient = useQueryClient()
-  const mind = useMind(mindId).data
-  const name = mind?.name ?? "Your Mind"
+  const name = useMind(mindId).data?.name ?? "Your Mind"
   const address = useMindWallet(mindId).data?.address ?? ""
   // Names the Mind's own wallet in results ("Balance of Omaga") instead of its long address.
   const self = useMemo(() => ({ name, address }), [name, address])
   const builder = useMemo(() => ({ mindId, name, address, self }), [mindId, name, address, self])
-  const catalog = useSkillCatalog().data
-  const setSkills = useSetSkills(mindId)
-  const jobs = useWorkflows(mindId)
   const [draft, setDraft] = useState<Draft>(initial)
-  // The block whose settings show on the right; null closes that panel (n8n opens it on demand).
-  // Desktop opens on Start's settings; phones open on the canvas, since settings are a sheet there.
-  const [selected, setSelected] = useState<string | null>(() => (matches(MEDIA.lg) ? "start" : null))
+  const { selected, select, picked, slot, pickNext, toggle: toggleSettings } = useSelection(draft.line)
   const {
     frame: canvasFrame,
     content: canvasContent,
@@ -153,179 +138,24 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const [sheetAt, setSheetAt] = useState<Place | null>(null)
   // The fold only applies from lg (1024 px); below that the list sits on top, always open.
   const desktop = useMediaQuery(MEDIA.lg, true)
-  // The Blocks panel folds to icons; remembered on this device.
-  const [paletteOpen, setPaletteOpen] = useState(() => readPref(PALETTE_KEY) !== "closed")
-  const togglePalette = () =>
-    setPaletteOpen((open) => {
-      writePref(PALETTE_KEY, open ? "closed" : "open")
-      return !open
-    })
-
-  // Undo and redo (Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z): earlier drafts, up to 50. Typing within a second
-  // counts as one change.
-  const past = useRef<Draft[]>([])
-  const future = useRef<Draft[]>([])
-  const prevDraft = useRef(draft)
-  const fromHistory = useRef(false)
-  const lastChange = useRef(0)
-  useEffect(() => {
-    if (prevDraft.current === draft) return
-    if (fromHistory.current) {
-      fromHistory.current = false
-    } else {
-      const now = Date.now()
-      if (now - lastChange.current > 1000 || !past.current.length) {
-        past.current.push(prevDraft.current)
-        if (past.current.length > 50) past.current.shift()
-      }
-      lastChange.current = now
-      future.current = []
-    }
-    prevDraft.current = draft
-  }, [draft])
-  const undo = () => {
-    const back = past.current.pop()
-    if (!back) return
-    future.current.push(draft)
-    fromHistory.current = true
-    setDraft(back)
-  }
-  const redo = () => {
-    const ahead = future.current.pop()
-    if (!ahead) return
-    past.current.push(draft)
-    fromHistory.current = true
-    setDraft(ahead)
-  }
-  const [saving, setSaving] = useState(false)
-  const [engineIssues, setEngineIssues] = useState<{ node: string | null; text: string }[]>([])
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const dirty = JSON.stringify(draft) !== JSON.stringify(initial)
-  // What blocks Save, one click away (Ancung, 10 Nov: Save was off and the reason was hidden in a
-  // closed panel): the name goes to the name field in the header, anything else picks its block.
+  const fold = usePaletteFold()
+  const history = useHistory(draft, setDraft)
+  const { test, running, runTest, clear: clearTest, lit } = useTestRun(mindId, workflowId, draft.line)
   const nameField = useRef<HTMLInputElement>(null)
-  const fix = (where: string) => {
-    if (where === "name") {
-      nameField.current?.focus()
-      return
-    }
-    if (where === "start" || where === "steps") setSelected("start")
-    else setSelected(where)
-  }
+  const saver = useSave({ mindId, workflowId, draft, initial, focusName: () => nameField.current?.focus(), select })
+  const { save, saving, dirty, problems, flagged } = saver
   // Unsaved changes ask before you leave: the back arrow, the browser's Back, closing the tab.
   const guard = useLeaveGuard(dirty, mindHref(mindId, "autopilot"))
-  const [savedTry, setSavedTry] = useState<string | null>(null)
-  // Unfinished blocks turn amber only once Save was pressed; a new empty block isn't a mistake yet.
-  const [tried, setTried] = useState(false)
-  const dirtySinceSave = savedTry !== null && savedTry !== JSON.stringify(draft)
-  const [test, setTest] = useState<TestState | null>(null)
-  const abort = useRef<AbortController | null>(null)
-  useEffect(() => () => abort.current?.abort(), [])
-
-  // Test run (B1.2): the saved job runs once and each block lights up from node.started and
-  // node.finished. The API only runs a saved job, so changes must be saved first.
-  async function runTest() {
-    if (!workflowId) return
-    abort.current?.abort()
-    const controller = new AbortController()
-    abort.current = controller
-    setTest({ running: true, nodes: {}, status: null, failed: false })
-    const put = (node: string, run: NodeRun) => setTest((t) => (t ? { ...t, nodes: { ...t.nodes, [node]: run } } : t))
-    try {
-      await autopilotApi.runNow(
-        mindId,
-        workflowId,
-        (e) => {
-          const ev = e as unknown as { type: string; node?: string; status?: string; output?: unknown; error?: unknown }
-          if (ev.type === "node.started" && ev.node) put(ev.node, { status: "running" })
-          if (ev.type === "node.finished" && ev.node) {
-            put(ev.node, ev.status === "ok" ? { status: "ok", note: nodeSummary(ev.output) } : { status: "error", note: String(ev.error ?? "Failed").replace(/^\w*Error:\s*/, "") })
-          }
-          if (ev.type === "workflow.finished") setTest((t) => (t ? { ...t, status: ev.status ?? null } : t))
-        },
-        controller.signal
-      )
-      if (!controller.signal.aborted) setTest((t) => (t ? { ...t, running: false } : t))
-    } catch {
-      if (!controller.signal.aborted) setTest((t) => (t ? { ...t, running: false, failed: true } : t))
-    }
-    void queryClient.invalidateQueries({ queryKey: autopilotKeys.runs(mindId, workflowId) })
-  }
-  const problems = draftProblems(draft)
-  // Engine issues pinned to a block mark it too, until the draft changes again.
-  const flagged = (id: string) => (tried && problems.some((p) => p.where === id)) || (!dirtySinceSave && engineIssues.some((i) => i.node === id))
-
-  // A job may only use its Mind's tools: the skills it needs and doesn't have are added on Save.
-  const blocks = allBlocks(draft.line)
-  const usedTools = blocks.flatMap((s) => (s.kind === "tool" ? [s.tool] : s.kind === "http" ? ["http_request"] : []))
-  const missingSkills = [...new Set(usedTools.map((t) => catalog?.find((s) => s.tools.includes(t))?.skillId).filter((s): s is string => Boolean(s)))].filter(
-    (s) => mind && !mind.skills.includes(s)
-  )
 
   const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }))
   const setBlock = (id: string, patch: Partial<Block>) => setDraft((d) => ({ ...d, line: updateBlock(d.line, id, patch) }))
   const mainEnd = mainEndOf(draft.line)
 
-  // Drag and drop (B1.7): a block from the palette, or a block (an If with its ways) to a new place.
-  const [drag, setDrag] = useState<{ add: Kind } | { move: string } | null>(null)
-  const [over, setOver] = useState<string | null>(null)
-  // The drop spots show a frame after dragstart (a layout change during dragstart cancels the
-  // drag in Chrome), and not at all if the drag already ended by then.
-  const dragging = useRef(false)
-  const startDrag = (d: { add: Kind } | { move: string }) => {
-    dragging.current = true
-    requestAnimationFrame(() => {
-      if (dragging.current) setDrag(d)
-    })
-  }
-  const endDrag = () => {
-    dragging.current = false
-    setDrag(null)
-    setOver(null)
-  }
-  /** Move a block (an If with its ways) to a place; a place after it in its own line shifts back by one. */
-  function moveBlock(id: string, to: Place) {
-    setDraft((d) => {
-      const from = locate(d.line, id)
-      const blk = findBlock(d.line, id)
-      if (!from || !blk) return d
-      const without = withLine(d.line, from.path, (l) => l.filter((x) => x.id !== id))
-      const same = samePath(from.path, to.path)
-      return { ...d, line: insertBlock(without, to.path, same && from.index < to.index ? to.index - 1 : to.index, blk) }
-    })
-  }
-  function dropAt(at: Place) {
-    if (!drag) return
-    if ("move" in drag) moveBlock(drag.move, at)
-    else addAt(drag.add, at)
-    endDrag()
-  }
-  /** Where a dragged thing may land, by the engine's tree rules (#164). */
-  function accepts(at: Place): boolean {
-    if (!drag) return false
-    if ("move" in drag) {
-      const blk = findBlock(draft.line, drag.move)
-      const from = locate(draft.line, drag.move)
-      if (!blk || !from) return false
-      // Not into its own ways, and not onto its own place.
-      if (at.path.some((x) => x.at === drag.move)) return false
-      if (samePath(from.path, at.path) &&(at.index === from.index || at.index === from.index + 1)) return false
-      return canPlace(draft.line, at.path, at.index, blk.kind, self)
-    }
-    return canPlace(draft.line, at.path, at.index, drag.add, self)
-  }
-  const spot = (at: Place) =>
-    !desktop && !drag ? (
-      canPlace(draft.line, at.path, at.index, "agent", self) ? <TapSpot key={`tap-${placeKey(at)}`} onClick={() => setSheetAt(at)} /> : null
-    ) : accepts(at) ? (
-      <DropSpot key={`spot-${placeKey(at)}`} id={`spot-${placeKey(at)}`} over={over} setOver={setOver} onDrop={() => dropAt(at)} label="Drop here" />
-    ) : null
-
   /** A new block of `kind` at a place. */
   function addAt(kind: Kind, at: Place) {
     const blk = newBlock(kind, draft.line, at, self, address)
     setDraft((d) => ({ ...d, line: insertBlock(d.line, at.path, at.index, blk) }))
-    setSelected(blk.id)
+    select(blk.id)
   }
   /** A tap in the palette adds at the end of the main line. */
   function addStep(kind: Kind) {
@@ -335,44 +165,18 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const addIf = () => addStep("if")
   function removeStep(id: string) {
     setDraft((d) => ({ ...d, line: removeBlock(d.line, id) }))
-    setSelected("start")
+    select(START)
   }
 
-  async function save() {
-    // Checked when you press Save, not shown all along (Ancung, 10 Nov: the standing warnings were
-    // too much): jump to the first thing missing and say it once.
-    if (problems.length > 0) {
-      setTried(true)
-      fix(problems[0].where)
-      toast(problems[0].text)
-      return
-    }
-    setSaving(true)
-    setEngineIssues([])
-    setSavedTry(JSON.stringify(draft))
-    setSaveError(null)
-    const id = workflowId ?? workflowIdFor(draft.name, jobs.data?.map((j) => j.workflowId) ?? [])
-    try {
-      if (missingSkills.length && mind) await setSkills.mutateAsync([...mind.skills, ...missingSkills])
-      await autopilotApi.save(mindId, id, toCanvas(draft))
-      await queryClient.invalidateQueries({ queryKey: autopilotKeys.list(mindId) })
-      await queryClient.invalidateQueries({ queryKey: autopilotKeys.one(mindId, id) })
-      router.push(`${mindHref(mindId, "autopilot")}?job=${encodeURIComponent(id)}`)
-    } catch (err) {
-      setSaving(false)
-      if (isApiCode(err, "invalid_workflow")) {
-        const issues = (err.details.issues as { path?: string; message?: string }[] | undefined) ?? []
-        setEngineIssues(engineIssuesOf(issues, toCanvas(draft).nodes.map((n) => n.id)))
-      } else {
-        setSaveError("Could not save. No changes were made. Please try again later.")
-      }
-    }
-  }
+  const dnd = useDragDrop({ line: draft.line, setDraft, self, onAdd: addAt })
+  const { drag, over, setOver, startDrag, endDrag, dropAt, accepts } = dnd
+  const spot = (at: Place) =>
+    !desktop && !drag ? (
+      canPlace(draft.line, at.path, at.index, "agent", self) ? <TapSpot key={`tap-${placeKey(at)}`} onClick={() => setSheetAt(at)} /> : null
+    ) : accepts(at) ? (
+      <DropSpot key={`spot-${placeKey(at)}`} id={`spot-${placeKey(at)}`} over={over} setOver={setOver} onDrop={() => dropAt(at)} label="Drop here" />
+    ) : null
 
-  const picked = selected ? findBlock(draft.line, selected) : null
-  const slotRef = parseSlot(selected)
-  const slotIf = slotRef ? findBlock(draft.line, slotRef.ifId) : null
-  const slot = slotIf?.kind === "if" && slotRef ? { block: slotIf, h: slotRef.h } : null
   const canIf = canPlace(draft.line, mainEnd.path, mainEnd.index, "if", self)
   const canEnd = canPlace(draft.line, mainEnd.path, mainEnd.index, "end", self)
 
@@ -381,9 +185,6 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
    * side, each a line of its own (that may hold more Ifs) with a slot to add the next block. A way
    * without End carries on after its If, so the line goes on below, centred.
    */
-  // What each block shows after a Test run, Ifs included (they send no events of their own).
-  const lit = withIf(test?.nodes ?? {}, draft.line, finishedWell(test))
-
   const renderLine = (line: Block[], path: LinePath, goesOn = false): ReactNode =>
     line.map((blk, i) => {
       // When this If's ways run out the job goes on below it (a job saved with steps after an If).
@@ -406,11 +207,11 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
               className={cn(blk.kind !== "end" && "cursor-grab active:cursor-grabbing", drag && "move" in drag && drag.move === blk.id && "opacity-40")}
             >
               {isStep(blk) ? (
-                <StepCard step={blk} name={name} results={resultsBefore(before, undefined, self)} active={selected === blk.id} problem={flagged(blk.id)} onClick={() => setSelected(blk.id)} />
+                <StepCard step={blk} name={name} results={resultsOf(before, self)} active={selected === blk.id} problem={flagged(blk.id)} onClick={() => select(blk.id)} />
               ) : blk.kind === "if" ? (
-                <BlockCard tone="if" icon={<GitBranchIcon />} kind="If or else" nodeId={blk.id} title={ifTitle(blk, before)} active={selected === blk.id} warn={flagged(blk.id)} onClick={() => setSelected(blk.id)} />
+                <BlockCard tone="if" icon={<GitBranchIcon />} kind="If or else" nodeId={blk.id} title={ifTitle(blk, before)} active={selected === blk.id} warn={flagged(blk.id)} onClick={() => select(blk.id)} />
               ) : (
-                <BlockCard tone="start" icon={<OctagonXIcon />} kind="End" nodeId={blk.id} title="The job stops here" active={selected === blk.id} warn={flagged(blk.id)} onClick={() => setSelected(blk.id)} />
+                <BlockCard tone="start" icon={<OctagonXIcon />} kind="End" nodeId={blk.id} title="The job stops here" active={selected === blk.id} warn={flagged(blk.id)} onClick={() => select(blk.id)} />
               )}
             </div>
           </Linked>
@@ -445,7 +246,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                           over={over}
                           setOver={setOver}
                           accepts={accepts(end)}
-                          onPick={() => setSelected(`${blk.id}:${h}`)}
+                          onPick={() => select(`${blk.id}:${h}`)}
                           onDrop={() => dropAt(end)}
                         />
                       </>
@@ -526,60 +327,29 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
     </>
   )
 
-  // Keyboard shortcuts (n8n's, the simple ones; "?" lists them). Letters and arrows wait while you
-  // type in a field; Save and Test run work from anywhere.
-  const order = ["start", ...blocks.map((x) => x.id)]
-  const removeSelected = () => {
-    if (!selected || selected === "start") return
-    if (findBlock(draft.line, selected)) removeStep(selected)
-  }
-  const shortcuts = useRef<(e: KeyboardEvent) => void>(() => undefined)
-  useEffect(() => {
-    shortcuts.current = (e: KeyboardEvent) => {
-      const mod = e.ctrlKey || e.metaKey
-      const t = e.target as HTMLElement | null
-      const typing = Boolean(t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.closest("[role='listbox'], [role='option'], [role='dialog']")))
-      const k = e.key.toLowerCase()
-      if (mod && k === "s") {
-        e.preventDefault()
-        if (!saving && (!workflowId || dirty)) void save()
-        return
-      }
-      if (mod && e.key === "Enter") {
-        e.preventDefault()
-        if (workflowId && !dirty && !test?.running) void runTest()
-        return
-      }
-      if (typing) return
-      if (mod && k === "z") {
-        e.preventDefault()
-        if (e.shiftKey) redo()
-        else undo()
-        return
-      }
-      if (mod) return
-      if (e.key === "+" || e.key === "=") zoomBy(1.2)
-      else if (e.key === "-" || e.key === "_") zoomBy(1 / 1.2)
-      else if (e.key === "0") resetView()
-      else if (e.key === "1") fitView()
-      else if (e.key === "[") togglePalette()
-      else if (e.key === "]") setSelected((sel) => (sel ? null : "start"))
-      else if (e.key === "?") setHelpOpen(true)
-      else if (e.key === "Escape") setSelected(null)
-      else if (e.key === "Delete" || e.key === "Backspace") removeSelected()
-      else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        const i = selected ? order.indexOf(selected) : -1
-        const next = e.key === "ArrowDown" ? Math.min(order.length - 1, i + 1) : Math.max(0, i - 1)
-        setSelected(order[next] ?? "start")
-      } else return
-      e.preventDefault()
-    }
+  useEditorShortcuts({
+    save: () => {
+      if (saver.canSave) void save()
+    },
+    testRun: () => {
+      if (workflowId && !dirty && !running) void runTest()
+    },
+    undo: history.undo,
+    redo: history.redo,
+    zoomIn: () => zoomBy(ZOOM_STEP),
+    zoomOut: () => zoomBy(1 / ZOOM_STEP),
+    resetZoom: resetView,
+    fit: fitView,
+    togglePalette: fold.toggle,
+    toggleSettings,
+    help: () => setHelpOpen(true),
+    closeSettings: () => select(null),
+    deleteBlock: () => {
+      if (!selected || selected === START) return
+      if (findBlock(draft.line, selected)) removeStep(selected)
+    },
+    pick: pickNext,
   })
-  useEffect(() => {
-    const on = (e: KeyboardEvent) => shortcuts.current(e)
-    window.addEventListener("keydown", on)
-    return () => window.removeEventListener("keydown", on)
-  }, [])
 
   return (
     <BuilderContext value={builder}>
@@ -606,11 +376,11 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             variant="outline"
             className="hidden lg:inline-flex"
             onClick={() => void runTest()}
-            disabled={Boolean(test?.running) || dirty || saving}
+            disabled={running || dirty || saving}
             title={dirty ? "Save your changes to test them" : "Runs the saved job once"}
           >
-            {test?.running ? <Spinner /> : <FlaskConicalIcon />}
-            {test?.running ? "Testing" : "Test run"}
+            {running ? <Spinner /> : <FlaskConicalIcon />}
+            {running ? "Testing" : "Test run"}
           </Button>
         )}
         <Button className="hidden lg:inline-flex" onClick={() => void save()} disabled={saving || (Boolean(workflowId) && !dirty)}>
@@ -619,14 +389,14 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
         </Button>
       </header>
 
-      {(engineIssues.length > 0 || saveError) && (
+      {(saver.engineIssues.length > 0 || saver.saveError) && (
         <div role="alert" className="mx-4 mt-4 flex items-start gap-2.5 rounded-md bg-danger-soft px-3.5 py-3 text-sm text-foreground md:mx-6">
           <CircleXIcon className="mt-0.5 size-4 shrink-0 text-danger" />
           <div className="flex flex-col gap-1">
-            {saveError ?? "The job was not saved. Fix the following:"}
-            {engineIssues.length > 0 && (
+            {saver.saveError ?? "The job was not saved. Fix the following:"}
+            {saver.engineIssues.length > 0 && (
               <ul className="list-disc pl-4 text-[13px]">
-                {engineIssues.map((i) => (
+                {saver.engineIssues.map((i) => (
                   <li key={`${i.node}${i.text}`}>{i.text}</li>
                 ))}
               </ul>
@@ -651,7 +421,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                 ? "Test run finished with an error. The failed block is marked in red."
                 : "Test run finished. Each block shows what it did."}
           </span>
-          <button type="button" className="shrink-0 text-xs font-medium underline underline-offset-2" onClick={() => setTest(null)}>
+          <button type="button" className="shrink-0 text-xs font-medium underline underline-offset-2" onClick={clearTest}>
             Clear
           </button>
         </div>
@@ -666,14 +436,14 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
         <aside
           className={cn(
             "relative hidden shrink-0 border-border lg:block lg:overflow-hidden lg:border-r lg:transition-[width] lg:duration-200 lg:ease-in-out motion-reduce:transition-none",
-            paletteOpen ? "lg:w-60" : "lg:w-[72px]"
+            fold.open ? "lg:w-60" : "lg:w-[72px]"
           )}
         >
           <div
-            inert={desktop && !paletteOpen}
+            inert={desktop && !fold.open}
             className={cn(
               "flex flex-col gap-2 p-4 lg:absolute lg:inset-y-0 lg:left-0 lg:w-60 lg:overflow-x-hidden lg:overflow-y-auto lg:transition-opacity lg:duration-150 lg:ease-out motion-reduce:transition-none",
-              paletteOpen ? "lg:opacity-100 lg:delay-50" : "lg:opacity-0"
+              fold.open ? "lg:opacity-100 lg:delay-50" : "lg:opacity-0"
             )}
           >
             <div className="flex items-center justify-between gap-2">
@@ -684,7 +454,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                 className="hidden lg:inline-flex"
                 aria-label="Fold the Blocks panel ([)"
                 title="Fold ([)"
-                onClick={togglePalette}
+                onClick={fold.toggle}
               >
                 <PanelLeftCloseIcon />
               </Button>
@@ -693,13 +463,13 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             {palette(false)}
           </div>
           <div
-            inert={!desktop || paletteOpen}
+            inert={!desktop || fold.open}
             className={cn(
               "absolute inset-y-0 left-0 hidden w-[72px] flex-col items-center gap-2 overflow-x-hidden overflow-y-auto px-3 py-4 transition-opacity duration-150 ease-out motion-reduce:transition-none lg:flex",
-              paletteOpen ? "opacity-0" : "opacity-100 delay-50"
+              fold.open ? "opacity-0" : "opacity-100 delay-50"
             )}
           >
-            <Button variant="ghost" size="icon-sm" aria-label="Open the Blocks panel ([)" title="Open ([)" onClick={togglePalette}>
+            <Button variant="ghost" size="icon-sm" aria-label="Open the Blocks panel ([)" title="Open ([)" onClick={fold.toggle}>
               <PanelLeftOpenIcon />
             </Button>
             {palette(true)}
@@ -715,7 +485,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
           onPointerUp={(e) => {
             const moved = endPan(e)
             // A click on empty canvas closes the settings panel, as in n8n.
-            if (!moved && e.button === 0 && !spaceDown && e.target instanceof Element && !e.target.closest("button, a, input, textarea, [draggable='true']")) setSelected(null)
+            if (!moved && e.button === 0 && !spaceDown && e.target instanceof Element && !e.target.closest("button, a, input, textarea, [draggable='true']")) select(null)
           }}
           onPointerCancel={endPan}
           // Dots that fade a little when zoomed out (--dot-opacity, set with the grid in useCanvasView).
@@ -729,7 +499,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             ref={canvasContent}
             className={cn("absolute top-0 left-0 flex w-max min-w-[640px] origin-top-left flex-col items-center pb-24 will-change-transform", spaceDown && "pointer-events-none")}
           >
-          <BlockCard tone="start" icon={<CalendarClockIcon />} kind="Start" title={scheduleText(cronOf(draft))} line={`${zoneName(draft.timezone)} time`} active={selected === "start"} onClick={() => setSelected("start")} />
+          <BlockCard tone="start" icon={<CalendarClockIcon />} kind="Start" title={scheduleText(cronOf(draft))} line={`${zoneName(draft.timezone)} time`} active={selected === START} onClick={() => select(START)} />
           {renderLine(draft.line, [])}
           {/* The end of the main line is this card, unless the path already ends; it is also where a
               dragged block lands (Ancung, 9 Nov). */}
@@ -773,7 +543,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             <Button variant="ghost" size="icon-sm" className="lg:order-last" aria-label="Fit the job on screen (1)" title="Fit (1)" onClick={fitView}>
               <ScanIcon />
             </Button>
-            <Button variant="ghost" size="icon-sm" aria-label="Zoom out (-)" title="Zoom out (-)" onClick={() => zoomBy(1 / 1.2)}>
+            <Button variant="ghost" size="icon-sm" aria-label="Zoom out (-)" title="Zoom out (-)" onClick={() => zoomBy(1 / ZOOM_STEP)}>
               <MinusIcon />
             </Button>
             <button
@@ -784,7 +554,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
             >
               <span ref={zoomLabel}>100%</span>
             </button>
-            <Button variant="ghost" size="icon-sm" aria-label="Zoom in (+)" title="Zoom in (+)" onClick={() => zoomBy(1.2)}>
+            <Button variant="ghost" size="icon-sm" aria-label="Zoom in (+)" title="Zoom in (+)" onClick={() => zoomBy(ZOOM_STEP)}>
               <PlusIcon />
             </Button>
             <span aria-hidden className="mx-0.5 hidden h-4 w-px bg-border lg:order-last lg:block" />
@@ -795,14 +565,14 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
         </main>
 
         {selected && (
-        <SettingsFrame desktop={desktop} onClose={() => setSelected(null)}>
+        <SettingsFrame desktop={desktop} onClose={() => select(null)}>
           <BlockSettings
             draft={draft}
             picked={picked}
             slot={slot}
-            issues={engineIssues.filter((i) => i.node === selected && !dirtySinceSave)}
-            missingSkills={missingSkills}
-            missingSkillFor={(tool) => missingSkills.find((x) => catalog?.find((c) => c.skillId === x)?.tools.includes(tool))}
+            issues={saver.issuesAt(selected)}
+            missingSkills={saver.missingSkills}
+            missingSkillFor={saver.missingSkillFor}
             set={set}
             onPatch={setBlock}
             onRemove={removeStep}
@@ -820,9 +590,9 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
           Add a block
         </Button>
         <div className="grid grid-cols-2 gap-2">
-          <Button variant="outline" onClick={() => void runTest()} disabled={!workflowId || Boolean(test?.running) || dirty || saving}>
-            {test?.running ? <Spinner /> : <FlaskConicalIcon />}
-            {test?.running ? "Testing" : "Test run"}
+          <Button variant="outline" onClick={() => void runTest()} disabled={!workflowId || running || dirty || saving}>
+            {running ? <Spinner /> : <FlaskConicalIcon />}
+            {running ? "Testing" : "Test run"}
           </Button>
           <Button onClick={() => void save()} disabled={saving || (Boolean(workflowId) && !dirty)}>
             {saving ? <Spinner /> : <CheckIcon />}
