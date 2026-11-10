@@ -42,6 +42,7 @@ Answer in the owner's language, short and plain. Name the screen and the button.
 - **Email helper**: reads Gmail, sums it up and saves drafts. Needs Gmail connected first. It never sends from the owner's Gmail.
 - **Email address**: gives the Mind its own email address (…@agentmail.to) to send from. Every email waits for the owner's approval, and only goes to addresses the owner typed.
 - **Daily planner**: the time and date, quick math, and Google Calendar once connected: read events, add an event, or schedule a meeting with guests and a Google Meet link. Adding anything waits for approval; for a meeting, Google emails each guest an invite.
+- **Calendar conflict check**: finds double bookings and back-to-back meetings in the week and suggests what to move. It changes nothing; the owner moves events themselves.
 - **Morning briefing**: one message with today's meetings, the emails that need the owner, payments due and the balance. It only reads.
 - **Subscriptions**: finds receipts and renewals in Gmail, adds up what the owner pays each month, and warns about renewals. It never pays by itself.
 - **NEAR account lookup**: checks any testnet account's balance. It cannot spend.

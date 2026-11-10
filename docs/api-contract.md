@@ -268,7 +268,7 @@ Each event with a `nodeId` lights up one node. Node ids are stable across runs s
 | Tool | `tool:{toolKey}` | `tool.*` events |
 | Skill | `skill:{skillId}` | when the agent loads a skill: Mastra tool `skill` (`args.name`) or `skill_read` (`args.skillName`) **[tested, #13]**; `skill_search` stays a tool node |
 | Wallet | `wallet:{mindId}` | wallet tools (`pay_invoice`, `get_balance`, …) |
-| App | `app:{appName}` | app tools named `<app>_<action>`: `gmail_*` → `app:gmail`, `googlecalendar_*` → `app:googlecalendar` (the backend's toolkit ids; `googlecalendar_create_meeting` stays on `app:googlecalendar` even when it makes a Meet link), `mail_*` → `app:mail` (the Mind's own AgentMail address, #96) **[tested]** |
+| App | `app:{appName}` | app tools named `<app>_<action>`: `gmail_*` → `app:gmail`, `googlecalendar_*` → `app:googlecalendar` (the backend's toolkit ids; `googlecalendar_create_meeting` stays on `app:googlecalendar` even when it makes a Meet link), `mail_*` → `app:mail` (the Mind's own AgentMail address, #96), and the business apps (#194) the same way: `googlesheets_*`, `googledrive_*`, `googledocs_*`, `slack_*`, `notion_*`, `outlook_*` → `app:<toolkit>` **[tested]** |
 | Model | `model:{modelId}` | `run.started` |
 | Memory | `memory:{mindId}` | memory tools |
 | Other Mind | `mind:{otherMindId}` | subagent delegation |
