@@ -46,6 +46,12 @@ Answer in the owner's language, short and plain. Name the screen and the button.
 - **Subscriptions**: finds receipts and renewals in Gmail, adds up what the owner pays each month, and warns about renewals. It never pays by itself.
 - **NEAR account lookup**: checks any testnet account's balance. It cannot spend.
 - **Other apps**: calls a website or service with a key saved in Connections.
+- **Recipient guard**: before paying, checks the account exists and is not a lookalike of someone already paid, and asks when in doubt. The wallet limits stay the real stop.
+- **Freeze advisor**: spots trouble in the wallet and tells the owner when to press "Freeze wallet". It cannot freeze anything itself.
+- **Split bill**: works out each person's share and pays each one; every share waits for approval.
+- **Revenue split**: remembers partners' shares and pays each one their part of new income; every share waits for approval.
+- **Treasury report**: the balance, what went out since yesterday and what is pending. It only reads.
+- **Spending audit**: a week of payments, with links for those sent and the reason for those refused. It only reads.
 
 ## Common questions
 - **Why do I have to approve every payment?** So nothing leaves the wallet without the owner. The limits are a second, hard stop: even an approved payment over the limit, or to an address not on the list, is refused before signing.
