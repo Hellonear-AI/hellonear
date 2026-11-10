@@ -80,6 +80,8 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
   const focus = useRef<string | null>(null)
   const lastSelected = useRef<string | null>(null)
   const hover = useRef<string | null>(null)
+  // Where the cursor is, in graph space, for the torch on the lines.
+  const torch = useRef<{ x: number; y: number } | null>(null)
   const images = useRef(new Map<string, HTMLImageElement>())
   const select = useRef(onSelect)
   useEffect(() => {
@@ -273,20 +275,45 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         if (!a || !b || !t) continue
         const on = glowing(t)
         const path = trailLinks.has(`${l.source}>${l.target}`)
-        // Like Obsidian: the hovered node's own links light up in the accent, with a soft glow.
-        const hot = hover.current !== null && (l.source === hover.current || l.target === hover.current)
-        ctx.globalAlpha = lit && !(lit.has(l.source) && lit.has(l.target)) ? 0.12 : on || hot ? 0.95 : path ? (data.current.live ? 0.9 : 0.55) : 0.5
-        ctx.strokeStyle = on ? stateColor(t) : hot ? colors.glow : path ? colors.info : colors.line
-        ctx.lineWidth = (on || path || hot ? 2.2 : 1.1) / v.k
-        if (hot && !on) {
-          ctx.shadowColor = colors.glow
-          ctx.shadowBlur = 10 * dpr
-        }
+        ctx.globalAlpha = lit && !(lit.has(l.source) && lit.has(l.target)) ? 0.12 : on ? 0.95 : path ? (data.current.live ? 0.9 : 0.55) : 0.5
+        ctx.strokeStyle = on ? stateColor(t) : path ? colors.info : colors.line
+        ctx.lineWidth = (on || path ? 2.2 : 1.1) / v.k
         ctx.beginPath()
         ctx.moveTo(a.x, a.y)
         ctx.lineTo(b.x, b.y)
         ctx.stroke()
-        ctx.shadowBlur = 0
+      }
+
+      // A torch under the cursor (Ancung, 10 Nov): the parts of the lines near it catch a lime
+      // light that fades out with distance, as if the pointer shone on them.
+      const tp = torch.current
+      if (tp) {
+        const reach = 90 / v.k
+        const g = ctx.createRadialGradient(tp.x, tp.y, 0, tp.x, tp.y, reach)
+        g.addColorStop(0, colors.glow)
+        // Fade to the same lime at zero alpha, not "transparent" (black), so no grey band shows.
+        g.addColorStop(1, /^#[0-9a-f]{6}$/i.test(colors.glow) ? `${colors.glow}00` : "transparent")
+        ctx.save()
+        ctx.strokeStyle = g
+        ctx.lineWidth = 2.4 / v.k
+        ctx.shadowColor = colors.glow
+        ctx.shadowBlur = 8 * dpr
+        ctx.globalAlpha = 1
+        ctx.beginPath()
+        for (const l of data.current.links) {
+          const a = s.bodies.get(l.source)
+          const b = s.bodies.get(l.target)
+          if (!a || !b) continue
+          // Only lines that pass within reach of the cursor.
+          const ex = b.x - a.x
+          const ey = b.y - a.y
+          const t = Math.max(0, Math.min(1, ((tp.x - a.x) * ex + (tp.y - a.y) * ey) / (ex * ex + ey * ey || 1)))
+          if (Math.hypot(tp.x - (a.x + ex * t), tp.y - (a.y + ey * t)) > reach) continue
+          ctx.moveTo(a.x, a.y)
+          ctx.lineTo(b.x, b.y)
+        }
+        ctx.stroke()
+        ctx.restore()
       }
 
       // While the reply streams, slow dots keep flowing along its whole trail.
@@ -406,19 +433,6 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
           ctx.globalAlpha = dim ? 0.22 : 1
         }
 
-        if (hover.current === n.id) {
-          ctx.save()
-          ctx.shadowColor = colors.glow
-          ctx.shadowBlur = 22 * dpr
-          ctx.strokeStyle = colors.glow
-          ctx.lineWidth = 2 / v.k
-          ctx.globalAlpha = 0.9
-          ctx.beginPath()
-          ctx.arc(b.x, b.y, b.r + 2 / v.k, 0, Math.PI * 2)
-          ctx.stroke()
-          ctx.restore()
-        }
-
         if (n.id === data.current.selected) {
           ctx.strokeStyle = colors.fg
           ctx.lineWidth = 2 / v.k
@@ -440,15 +454,10 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         const b = s.bodies.get(n.id)
         if (!b) continue
         const dim = lit && !lit.has(n.id)
-        const strong = hover.current === n.id || n.id === data.current.selected || glowing(n) || onTrail.has(n.id) || Boolean(lit?.has(n.id))
-        // Like Obsidian, labels fade in as you zoom in (Ancung, 10 Nov): tools from 0.95x, the
-        // rest from 0.6x; the Mind, hovered, picked and working nodes always show theirs.
-        const from = n.kind === "tool" ? 0.95 : 0.6
-        const fade = n.kind === "mind" || strong ? 1 : Math.max(0, Math.min(1, (v.k - from) / 0.3))
-        if (fade <= 0.02) continue
+        const strong = hover.current === n.id || n.id === data.current.selected || glowing(n)
         const px = (n.kind === "mind" ? 13 : n.kind === "tool" ? 10.5 : 11.5) / Math.max(0.8, v.k)
         ctx.font = `${n.kind === "mind" || strong ? 600 : 500} ${px}px ${font}`
-        ctx.globalAlpha = (dim ? 0.18 : 1) * fade
+        ctx.globalAlpha = dim ? 0.18 : 1
         ctx.strokeStyle = colors.bg
         ctx.lineWidth = 4 / v.k
         const y = b.y + b.r + 5 / v.k
@@ -480,6 +489,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
     }
     const move = (e: PointerEvent) => {
       const p = local(e)
+      if (e.pointerType === "mouse") torch.current = toWorld(p.x, p.y)
       if (!drag) {
         const id = hit(p.x, p.y)
         if (id !== hover.current) hover.current = id
@@ -522,6 +532,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       cv.style.cursor = hover.current ? "pointer" : "grab"
     }
     const leave = () => {
+      torch.current = null
       if (!drag) hover.current = null
     }
     const wheel = (e: WheelEvent) => {
