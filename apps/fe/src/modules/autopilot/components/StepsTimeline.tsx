@@ -58,12 +58,15 @@ export function StepsTimeline({ steps, nested = false }: { steps: JobStep[]; nes
               </div>
             </div>
             {branch && (
-              // Each way hangs off a line that starts under the If's icon.
-              <div className={cn("mt-2 flex min-w-0 flex-col gap-3", nested ? "ml-3.5" : "ml-4")}>
-                {(["then", "else"] as const).map((h) => (
-                  <div key={h} className={cn("flex min-w-0 flex-col gap-2 border-l-2 pl-3 sm:pl-4", h === "then" ? "border-success/50" : "border-border-strong")}>
+              // A tree (Ancung, 11 Nov): a line down from the If's icon with a short branch across to
+              // each way, "├ Yes" and "└ No"; the line stops at the last way.
+              <div className={cn("flex min-w-0 flex-col", nested ? "ml-3.5" : "ml-4")}>
+                {(["then", "else"] as const).map((h, k) => (
+                  <div key={h} className="relative flex min-w-0 flex-col gap-2 pt-2 pl-5">
+                    <span aria-hidden className={cn("absolute left-0 w-px bg-border-strong", k === 0 ? "inset-y-0" : "top-0 h-4")} />
+                    <span aria-hidden className={cn("absolute top-4 left-0 h-px w-3.5", h === "then" ? "bg-success" : "bg-border-strong")} />
                     {/* Sentence case, no wide caps (UI rules). */}
-                    <span className={cn("text-xs font-medium", h === "then" ? "text-success" : "text-muted-foreground")}>{h === "then" ? "Yes" : "No"}</span>
+                    <span className={cn("text-xs leading-4 font-medium", h === "then" ? "text-success" : "text-muted-foreground")}>{h === "then" ? "Yes" : "No"}</span>
                     {x[h]?.length ? <StepsTimeline steps={x[h]!} nested /> : <span className="text-sm text-muted-foreground">Carries on</span>}
                   </div>
                 ))}
