@@ -10,7 +10,7 @@ test('every SKILL.md in engine/skills parses and only uses registered tools', ()
   assert.equal(skillCatalog.get('payments')?.status, 'available')
   assert.deepEqual(skillCatalog.get('payments')?.tools, ['send_payment', 'get_balance', 'list_payments', 'get_time', 'near_view_account'])
   assert.equal(skillCatalog.get('email-triage')?.status, 'available')
-  assert.deepEqual(skillCatalog.get('email-triage')?.tools, ['gmail_list_emails', 'gmail_read_email', 'gmail_create_draft', 'get_time'])
+  assert.deepEqual(skillCatalog.get('email-triage')?.tools, ['gmail_list_emails', 'gmail_read_email', 'gmail_create_draft', 'gmail_organize', 'get_time'])
   assert.equal(skillCatalog.get('daily-planner')?.skill.name, 'daily-planner')
 })
 
