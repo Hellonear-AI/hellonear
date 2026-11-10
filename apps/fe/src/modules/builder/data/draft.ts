@@ -6,6 +6,7 @@
 
 import type { Canvas, CanvasNode } from "@/modules/autopilot/api"
 import { HTTP_FIELDS, NEAR_ACCOUNT, toolInfo, type BuilderTool } from "@/modules/builder/data/tools"
+import { shortAddress } from "@/modules/wallet/data/address"
 
 export type Repeat = "daily" | "weekdays" | "weekly"
 export type Op = "eq" | "ne" | "lt" | "lte" | "gt" | "gte"
@@ -221,9 +222,46 @@ export function workflowIdFor(name: string, taken: string[]): string {
 export const comparable = (r: { kind: string }) => r.kind !== "list"
 
 /** The results an If (or a later prompt) can look at: each earlier tool step's fields. */
-export function resultsBefore(steps: Step[], index = steps.length) {
+/** The Mind whose wallet a "Check a NEAR account" step may look at, to name it instead of its address. */
+export type Self = { name: string; address: string }
+
+/** Whose account: the Mind's own name, else the account as typed (a long implicit one shortened). */
+export function accountWho(account: string, self?: Self): string {
+  const a = account.trim()
+  if (self?.address && a === self.address) return self.name
+  return /^[0-9a-f]{64}$/.test(a) ? shortAddress(a) : a
+}
+
+/**
+ * Where a step's results come from, in words (Ancung, 10 Nov: two "Balance (NEAR)" didn't say
+ * whose): "Omaga's wallet", "lin1er.testnet", a website's host, else the step's title.
+ */
+export function stepSource(s: Step, self?: Self): string {
+  if (s.kind === "tool" && s.tool === "near_view_account" && s.args.accountId?.trim()) {
+    const who = accountWho(s.args.accountId, self)
+    return self?.address && s.args.accountId.trim() === self.address ? `${who}'s wallet` : who
+  }
+  if (s.kind === "http") {
+    try {
+      return new URL(s.url.trim()).hostname || "Call a website"
+    } catch {
+      return "Call a website"
+    }
+  }
+  return stepTitle(s)
+}
+
+export function resultsBefore(steps: Step[], index = steps.length, self?: Self) {
   return steps.slice(0, index).flatMap((s) =>
-    stepFields(s).map((f) => ({ stepId: s.id, step: stepTitle(s), ...f }))
+    stepFields(s).map((f) => ({
+      stepId: s.id,
+      step: stepTitle(s),
+      stepKind: s.kind,
+      source: stepSource(s, self),
+      // A balance names its account in prompts: {Balance of Omaga}, {Balance of lin1er.testnet}.
+      who: s.kind === "tool" && s.tool === "near_view_account" && s.args.accountId?.trim() ? accountWho(s.args.accountId, self) : undefined,
+      ...f,
+    }))
   )
 }
 
@@ -273,11 +311,14 @@ export function draftProblems(d: Draft): DraftProblem[] {
 const REF = /\{\{\s*steps\.([\w-]+)\.(\w+)\s*\}\}/g
 
 /** "Balance (NEAR)" -> "Balance"; a second "Balance" from another step becomes "Balance 2". */
-export function tokenLabels(results: { stepId: string; name: string; label: string }[]): Map<string, string> {
+type Token = { stepId: string; name: string; label: string; who?: string }
+
+export function tokenLabels(results: Token[]): Map<string, string> {
   const out = new Map<string, string>()
   const used = new Map<string, number>()
   for (const r of results) {
-    const base = r.label.replace(/ \(.*\)$/, "")
+    const plain = r.label.replace(/ \(.*\)$/, "")
+    const base = r.who ? `${plain} of ${r.who}` : plain
     const n = (used.get(base) ?? 0) + 1
     used.set(base, n)
     out.set(`${r.stepId}.${r.name}`, n === 1 ? base : `${base} ${n}`)
@@ -286,7 +327,7 @@ export function tokenLabels(results: { stepId: string; name: string; label: stri
 }
 
 /** A prompt as people read and type it: each earlier result is a {Label} (Ancung, 10 Nov). */
-export function promptToDisplay(prompt: string, results: { stepId: string; name: string; label: string }[]): string {
+export function promptToDisplay(prompt: string, results: Token[]): string {
   const labels = tokenLabels(results)
   return prompt.replace(REF, (whole, id: string, field: string) => {
     const l = labels.get(`${id}.${field}`)
@@ -295,7 +336,7 @@ export function promptToDisplay(prompt: string, results: { stepId: string; name:
 }
 
 /** Back to what the engine reads: {Label} becomes {{steps.id.field}}; other braces stay as typed. */
-export function promptFromDisplay(text: string, results: { stepId: string; name: string; label: string }[]): string {
+export function promptFromDisplay(text: string, results: Token[]): string {
   const byLabel = new Map([...tokenLabels(results)].map(([key, l]) => [l, key]))
   return text.replace(/\{([^{}]+)\}/g, (whole, l: string) => {
     const key = byLabel.get(l.trim())

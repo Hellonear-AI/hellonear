@@ -222,10 +222,21 @@ describe("Builder If ways, as in n8n (10 Nov)", () => {
 
   it("shows earlier results as {Balance} and saves them as references", async () => {
     const { promptFromDisplay, promptToDisplay } = await import("@/modules/builder/data/draft")
-    const results = resultsBefore([tool, { ...tool, id: "t2" }])
+    const self = { name: "Omaga", address: "a".repeat(64) }
+    const own = { ...tool, args: { accountId: self.address } }
+    const other = { ...tool, id: "t2", args: { accountId: "lin1er.testnet" } }
+    const results = resultsBefore([own, other], undefined, self)
+    expect(results.map((r) => r.source)).toEqual(["Omaga's wallet", "lin1er.testnet"])
     const raw = "Wallet has {{steps.t.balanceNear}} and {{steps.t2.balanceNear}} NEAR {left}"
     const shown = promptToDisplay(raw, results)
-    expect(shown).toBe("Wallet has {Balance} and {Balance 2} NEAR {left}")
+    expect(shown).toBe("Wallet has {Balance of Omaga} and {Balance of lin1er.testnet} NEAR {left}")
     expect(promptFromDisplay(shown, results)).toBe(raw)
+  })
+})
+
+describe("Autopilot run text (10 Nov)", () => {
+  it("sums up a Markdown note as one plain line", async () => {
+    const { plainText } = await import("@/modules/autopilot/data/runs")
+    expect(plainText("Good morning!\n## 💰 Wallet **5.39 NEAR** [link](https://x.io)\n- one")).toBe("Good morning! 💰 Wallet 5.39 NEAR link one")
   })
 })

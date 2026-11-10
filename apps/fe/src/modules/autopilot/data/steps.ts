@@ -3,7 +3,7 @@
 
 import type { Canvas, CanvasNode } from "@/modules/autopilot/api"
 import { scheduleText, zoneName } from "@/modules/autopilot/data/schedule"
-import { promptToDisplay } from "@/modules/builder/data/draft"
+import { accountWho, promptToDisplay, type Self } from "@/modules/builder/data/draft"
 import { HTTP_FIELDS, toolInfo } from "@/modules/builder/data/tools"
 import { shortAddress } from "@/modules/wallet/data/address"
 
@@ -29,20 +29,25 @@ const TOOL: Record<string, (args: Record<string, unknown>) => string> = {
 }
 
 /** Each tool and website step's result fields, in canvas order, to read prompts as {Balance}. */
-function resultsOf(canvas: Canvas) {
+function resultsOf(canvas: Canvas, self?: Self) {
   return canvas.nodes.flatMap((n) => {
     const fields = n.type === "tool" ? (toolInfo(n.data.tool)?.fields ?? []) : n.type === "http" ? HTTP_FIELDS : []
-    return fields.map((f) => ({ stepId: n.id, name: f.name, label: f.label }))
+    const account = n.type === "tool" && n.data.tool === "near_view_account" && typeof n.data.args?.accountId === "string" ? n.data.args.accountId : null
+    return fields.map((f) => ({ stepId: n.id, name: f.name, label: f.label, who: account ? accountWho(account, self) : undefined }))
   })
 }
 
 type Results = ReturnType<typeof resultsOf>
 
-function stepOf(n: CanvasNode, mind: string, results: Results): JobStep {
+function stepOf(n: CanvasNode, mind: string, results: Results, self?: Self): JobStep {
   switch (n.type) {
     case "trigger":
       return { id: n.id, kind: n.type, title: scheduleText(n.data.schedule?.cron), note: `${zoneName(n.data.schedule?.timezone)} time` }
     case "tool":
+      if (n.data.tool === "near_view_account" && typeof n.data.args?.accountId === "string") {
+        const own = self?.address && n.data.args.accountId.trim() === self.address
+        return { id: n.id, kind: n.type, title: own ? `Check ${mind}'s wallet` : `Check ${accountWho(n.data.args.accountId, self)}` }
+      }
       return { id: n.id, kind: n.type, title: (TOOL[n.data.tool] ?? (() => "Use a tool"))(n.data.args ?? {}) }
     case "http": {
       let host = "a website"
@@ -66,21 +71,23 @@ function stepOf(n: CanvasNode, mind: string, results: Results): JobStep {
 }
 
 /** Steps in run order: the chain from the trigger, then the condition's yes and no endings. */
-export function jobSteps(canvas: Canvas, mind: string): JobStep[] {
+/** `address` is the Mind's own wallet, so a step on it reads "Check Omaga's wallet". */
+export function jobSteps(canvas: Canvas, mind: string, address?: string): JobStep[] {
+  const self = address ? { name: mind, address } : undefined
   const byId = new Map(canvas.nodes.map((n) => [n.id, n]))
-  const results = resultsOf(canvas)
+  const results = resultsOf(canvas, self)
   const out: JobStep[] = []
   let at: CanvasNode | undefined = canvas.nodes.find((n) => n.type === "trigger")
   const seen = new Set<string>()
   while (at && !seen.has(at.id)) {
     const here: CanvasNode = at
     seen.add(here.id)
-    out.push(stepOf(here, mind, results))
+    out.push(stepOf(here, mind, results, self))
     if (here.type === "condition") {
       for (const handle of ["then", "else"] as const) {
         const e = canvas.edges.find((x) => x.source === here.id && x.sourceHandle === handle)
         const t = e && byId.get(e.target)
-        if (t) out.push({ ...stepOf(t, mind, results), branch: handle })
+        if (t) out.push({ ...stepOf(t, mind, results, self), branch: handle })
       }
       break
     }

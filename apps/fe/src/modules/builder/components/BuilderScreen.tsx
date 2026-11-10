@@ -24,7 +24,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
 import { cn } from "cn"
 import { mindHref } from "@/components/layout/nav"
 import { ChoiceSelect } from "@/components/elements/ChoiceSelect"
@@ -58,6 +58,7 @@ import {
   tokenLabels,
   promptFromDisplay,
   promptToDisplay,
+  type Self,
   resultsBefore,
   stepFields,
   toCanvas,
@@ -128,6 +129,8 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const mind = useMind(mindId).data
   const name = mind?.name ?? "Your Mind"
   const address = useMindWallet(mindId).data?.address ?? ""
+  // Names the Mind's own wallet in results ("Balance of Omaga") instead of its long address.
+  const self = useMemo(() => ({ name, address }), [name, address])
   const catalog = useSkillCatalog().data
   const setSkills = useSetSkills(mindId)
   const jobs = useWorkflows(mindId)
@@ -318,7 +321,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       const from = draft.steps.findIndex((s) => s.id === drag.move)
       return at !== from && at !== from + 1
     }
-    if (drag.add === "if") return !draft.branch && resultsBefore(draft.steps).some(comparable) && at === draft.steps.length
+    if (drag.add === "if") return !draft.branch && resultsBefore(draft.steps, undefined, self).some(comparable) && at === draft.steps.length
     return true
   }
   const spot = (at: number) =>
@@ -360,7 +363,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
     setSelected(`${br.id}:${h}`)
   }
   function addIf() {
-    const first = resultsBefore(draft.steps).find(comparable)
+    const first = resultsBefore(draft.steps, undefined, self).find(comparable)
     const id = newId("check")
     setDraft((d) => ({
       ...d,
@@ -421,7 +424,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const b = draft.branch
   const step = draft.steps.find((s) => s.id === selected)
   const ending = b && (selected === `${b.id}:then` ? "then" : selected === `${b.id}:else` ? "else" : null)
-  const canIf = !b && resultsBefore(draft.steps).some(comparable)
+  const canIf = !b && resultsBefore(draft.steps, undefined, self).some(comparable)
 
   const palette = (compact: boolean) => (
     <>
@@ -698,7 +701,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                   onDragEnd={endDrag}
                   className={cn("cursor-grab active:cursor-grabbing", drag && "move" in drag && drag.move === s.id && "opacity-40")}
                 >
-                  <StepCard step={s} name={name} results={resultsBefore(draft.steps, i)} active={selected === s.id} problem={flagged(s.id)} onClick={() => setSelected(s.id)} />
+                  <StepCard step={s} name={name} results={resultsBefore(draft.steps, i, self)} active={selected === s.id} problem={flagged(s.id)} onClick={() => setSelected(s.id)} />
                 </div>
               </Linked>
               {(i + 1 < draft.steps.length || b) && spot(i + 1)}
@@ -767,7 +770,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                         <StepCard
                           step={b[h]!}
                           name={name}
-                          results={resultsBefore(draft.steps)}
+                          results={resultsBefore(draft.steps, undefined, self)}
                           active={selected === `${b.id}:${h}`}
                           problem={flagged(b[h]!.id)}
                           onClick={() => setSelected(`${b.id}:${h}`)}
@@ -825,11 +828,11 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
         {selected && (
         <SettingsFrame desktop={desktop} onClose={() => setSelected(null)}>
           {step?.kind === "agent" ? (
-            <AskPanel name={name} title={`Ask ${name}`} step={step} results={resultsBefore(draft.steps, draft.steps.indexOf(step))} onChange={(p) => setStep(step.id, { prompt: p })} onDelete={() => removeStep(step.id)} />
+            <AskPanel name={name} title={`Ask ${name}`} step={step} results={resultsBefore(draft.steps, draft.steps.indexOf(step), self)} onChange={(p) => setStep(step.id, { prompt: p })} onDelete={() => removeStep(step.id)} />
           ) : step?.kind === "http" ? (
             <HttpPanel
               step={step}
-              results={resultsBefore(draft.steps, draft.steps.indexOf(step))}
+              results={resultsBefore(draft.steps, draft.steps.indexOf(step), self)}
               missingSkill={missingSkills.find((s) => catalog?.find((c) => c.skillId === s)?.tools.includes("http_request"))}
               name={name}
               onChange={(patch) => setStep(step.id, patch)}
@@ -845,7 +848,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
               onDelete={() => removeStep(step.id)}
             />
           ) : b && selected === b.id ? (
-            <IfPanel branch={b} steps={draft.steps} onChange={setBranch} onDelete={() => (set({ branch: null }), setSelected("start"))} />
+            <IfPanel branch={b} steps={draft.steps} self={self} onChange={setBranch} onDelete={() => (set({ branch: null }), setSelected("start"))} />
           ) : b && ending && b[ending] ? (
             (() => {
               const e = b[ending]!
@@ -853,9 +856,9 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
               const patch = (p: Partial<Step>) => setBranch({ [ending]: { ...e, ...p } as Step } as Partial<Branch>)
               const remove = () => setBranch({ [ending]: null } as Partial<Branch>)
               return e.kind === "agent" ? (
-                <AskPanel name={name} title={`${label}: ask ${name}`} step={e} results={resultsBefore(draft.steps)} onChange={(p) => patch({ prompt: p })} onDelete={remove} />
+                <AskPanel name={name} title={`${label}: ask ${name}`} step={e} results={resultsBefore(draft.steps, undefined, self)} onChange={(p) => patch({ prompt: p })} onDelete={remove} />
               ) : e.kind === "http" ? (
-                <HttpPanel step={e} results={resultsBefore(draft.steps)} missingSkill={missingSkills.find((x) => catalog?.find((c) => c.skillId === x)?.tools.includes("http_request"))} name={name} onChange={patch} onDelete={remove} />
+                <HttpPanel step={e} results={resultsBefore(draft.steps, undefined, self)} missingSkill={missingSkills.find((x) => catalog?.find((c) => c.skillId === x)?.tools.includes("http_request"))} name={name} onChange={patch} onDelete={remove} />
               ) : (
                 <ToolPanel step={e} address={address} name={name} missingSkill={missingSkills.find((x) => catalog?.find((c) => c.skillId === x)?.tools.includes(e.tool))} onChange={patch} onDelete={remove} />
               )
@@ -1298,8 +1301,9 @@ function PromptField({
   labelText?: string
   placeholder?: string
 }) {
+  const labels = tokenLabels(results)
   return (
-    <label className={field}>
+    <div className={field}>
       <span className={label}>{labelText ?? `What should ${name} do?`}</span>
       {/* Earlier results read as {Balance} here; they are saved as the engine's {{steps.…}} references. */}
       <Textarea
@@ -1309,25 +1313,48 @@ function PromptField({
         placeholder={placeholder}
         onChange={(e) => onChange(promptFromDisplay(e.target.value, results))}
       />
+      {/* Results grouped by the step they come from, so two balances say whose they are (Ancung, 10 Nov). */}
       {results.length > 0 && (
-        <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-          Put in a result:
-          {results.map((r) => (
-            <button
-              key={`${r.stepId}.${r.name}`}
-              type="button"
-              onClick={() => onChange(`${value}${value && !value.endsWith(" ") ? " " : ""}${ref(r.stepId, r.name)}`)}
-              title={`Puts {${tokenLabels(results).get(`${r.stepId}.${r.name}`)}} in the text`}
-              className="rounded-full bg-muted px-2 py-0.5 text-foreground outline-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus"
-            >
-              {r.label}
-            </button>
+        <div className="flex flex-col gap-2 rounded-md bg-muted/50 p-3">
+          <span className="text-xs font-medium text-muted-foreground">Put in a result</span>
+          {groupBySource(results).map((g) => (
+            <div key={g.stepId} className="flex flex-col gap-1.5">
+              <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                <span className={cn("flex size-5 shrink-0 items-center justify-center rounded-[6px] [&>svg]:size-3", TONE[g.tone])}>{g.icon}</span>
+                <span className="truncate">{g.source}</span>
+              </span>
+              <span className="flex flex-wrap gap-1.5 pl-7">
+                {g.items.map((r) => (
+                  <button
+                    key={r.name}
+                    type="button"
+                    onClick={() => onChange(`${value}${value && !value.endsWith(" ") ? " " : ""}${ref(r.stepId, r.name)}`)}
+                    title={`Puts {${labels.get(`${r.stepId}.${r.name}`)}} in the text`}
+                    className="inline-flex h-7 items-center gap-1 rounded-full border border-border bg-surface px-2.5 text-xs text-foreground outline-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus"
+                  >
+                    <PlusIcon className="size-3 text-muted-foreground" />
+                    {r.label.replace(/ \(.*\)$/, "")}
+                  </button>
+                ))}
+              </span>
+            </div>
           ))}
-        </span>
+        </div>
       )}
       <span className="text-xs text-muted-foreground">{name} uses the skills it has. It can&apos;t pay, ask you to approve, or use keys while it runs alone.</span>
-    </label>
+    </div>
   )
+}
+
+/** Results in step order, one group per step, with that step's colour and icon. */
+function groupBySource(results: Result[]) {
+  const out: { stepId: string; source: string; tone: Tone; icon: ReactNode; items: Result[] }[] = []
+  for (const r of results) {
+    const g = out.find((x) => x.stepId === r.stepId)
+    if (g) g.items.push(r)
+    else out.push({ stepId: r.stepId, source: r.source, tone: r.stepKind === "http" ? "http" : "tool", icon: r.stepKind === "http" ? <GlobeIcon /> : <SearchIcon />, items: [r] })
+  }
+  return out
 }
 
 function AskPanel({ name, title, step, results, onChange, onDelete }: { name: string; title: string; step: AskStep; results: Result[]; onChange: (p: string) => void; onDelete: () => void }) {
@@ -1393,8 +1420,8 @@ function ToolPanel({
   )
 }
 
-function IfPanel({ branch, steps, onChange, onDelete }: { branch: Branch; steps: Step[]; onChange: (p: Partial<Branch>) => void; onDelete: () => void }) {
-  const results = resultsBefore(steps).filter(comparable)
+function IfPanel({ branch, steps, self, onChange, onDelete }: { branch: Branch; steps: Step[]; self: Self; onChange: (p: Partial<Branch>) => void; onDelete: () => void }) {
+  const results = resultsBefore(steps, undefined, self).filter(comparable)
   const current = results.find((r) => r.stepId === branch.stepId && r.name === branch.field)
   const ops = OPS.filter((o) => current?.kind === "number" || !o.number)
   return (
@@ -1411,7 +1438,7 @@ function IfPanel({ branch, steps, onChange, onDelete }: { branch: Branch; steps:
             const r = results.find((x) => x.stepId === stepId && x.name === f)
             onChange({ stepId, field: f, op: r?.kind === "number" ? "lt" : "eq", right: "" })
           }}
-          options={results.map((r) => ({ value: `${r.stepId}|${r.name}`, label: `${r.label}, from ${r.step}` }))}
+          options={results.map((r) => ({ value: `${r.stepId}|${r.name}`, label: r.label, hint: r.source }))}
         />
         <span className="text-xs text-muted-foreground">Pick a result from an earlier block.</span>
       </div>

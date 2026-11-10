@@ -5,7 +5,8 @@ import { cn } from "cn"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useCoarsePointer } from "@/hooks/useCoarsePointer"
 
-export type Choice<T extends string> = { value: T; label: string }
+/** `hint` is a second, quieter line in the list (where a value comes from); the field shows "label, hint". */
+export type Choice<T extends string> = { value: T; label: string; hint?: string }
 
 /**
  * A dropdown with the app's look (shadcn Select on Base UI) instead of the browser's own list
@@ -46,7 +47,7 @@ export function ChoiceSelect<T extends string>({
           )}
           {options.map((o) => (
             <option key={o.value} value={o.value}>
-              {o.label}
+              {o.hint ? `${o.label}, ${o.hint}` : o.label}
             </option>
           ))}
         </select>
@@ -57,7 +58,7 @@ export function ChoiceSelect<T extends string>({
 
   return (
     <Select
-      items={options}
+      items={options.map((o) => ({ value: o.value, label: o.hint ? `${o.label}, ${o.hint}` : o.label }))}
       value={value === "" ? null : value}
       onValueChange={(v) => {
         if (v !== null) onChange(v as T)
@@ -69,7 +70,14 @@ export function ChoiceSelect<T extends string>({
       <SelectContent alignItemWithTrigger={false}>
         {options.map((o) => (
           <SelectItem key={o.value} value={o.value}>
-            {o.label}
+            {o.hint ? (
+              <span className="flex min-w-0 flex-col">
+                <span>{o.label}</span>
+                <span className="text-xs text-muted-foreground">{o.hint}</span>
+              </span>
+            ) : (
+              o.label
+            )}
           </SelectItem>
         ))}
       </SelectContent>
