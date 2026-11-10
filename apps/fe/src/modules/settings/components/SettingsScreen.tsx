@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
-import { ApiError } from "@/lib/api"
+import { isApiCode } from "@/lib/api"
 import { formatNear } from "@/lib/format"
 import { rememberLeftMinds } from "@/modules/auth/data/leftMinds"
 import { mindsApi, type ApiMind } from "@/modules/minds/api"
@@ -74,7 +74,7 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
     },
     onError: (err) =>
       toast.error("Could not save the settings", {
-        description: err instanceof ApiError && err.code === "demo_not_allowed" ? "A try-out Mind can't be changed. Connect a wallet to make your own." : "Please try again later.",
+        description: isApiCode(err, "demo_not_allowed") ? "A try-out Mind can't be changed. Connect a wallet to make your own." : "Please try again later.",
       }),
     onSettled: () => queryClient.invalidateQueries({ queryKey: mindKeys.all }),
   })
@@ -90,15 +90,15 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
     },
     onError: (err) => {
       // Money left in its wallet: ask again, plainly, with the amount (Axel on #161).
-      if (err instanceof ApiError && err.code === "wallet_not_empty") {
+      if (isApiCode(err, "wallet_not_empty")) {
         setStuck(String(err.details.balanceNear ?? ""))
         return
       }
       toast.error(`Could not delete ${name}`, {
         description:
-          err instanceof ApiError && err.code === "demo_not_allowed"
+          isApiCode(err, "demo_not_allowed")
             ? "A try-out Mind can't be deleted."
-            : err instanceof ApiError && (err.code === "outlayer_unreachable" || err.code === "outlayer_error")
+            : isApiCode(err, "outlayer_unreachable", "outlayer_error")
               ? "Its wallet could not be checked. No changes were made. Please try again later."
               : "Please try again later.",
       })

@@ -33,7 +33,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
-import { ApiError } from "@/lib/api"
+import { isApiCode } from "@/lib/api"
 import { shortWhen, clockTime } from "@/lib/format"
 import { browserTimeZone } from "@/lib/stream"
 import { TryOutLockedDialog, useTryOutLock } from "@/modules/auth/components/TryOutLockedDialog"
@@ -166,7 +166,7 @@ function JobCard({
   const set = useSetAutopilot(mindId, job.workflowId)
   const autopilot = state.data ?? null
   const on = autopilot?.status === "active"
-  const refused = set.error instanceof ApiError && set.error.code === "cannot_autopilot" ? ((set.error.details.issues as AutopilotIssue[]) ?? []) : []
+  const refused = isApiCode(set.error, "cannot_autopilot") ? ((set.error.details.issues as AutopilotIssue[]) ?? []) : []
   const paused = autopilot?.status === "paused" && autopilot.pausedFor.length ? autopilot.pausedFor : []
   const problems = refused.length ? refused : paused
   const next = on ? whenNext(autopilot?.nextFireAt) : null
@@ -243,9 +243,9 @@ function JobDetail({ mindId, name, workflowId }: { mindId: string; name: string;
     } catch (err) {
       if (!controller.signal.aborted) {
         setRunError(
-          err instanceof ApiError && err.code === "missing_tools"
+          isApiCode(err, "missing_tools")
             ? `${name} doesn't have a skill this job uses. Add it in Skills first.`
-            : err instanceof ApiError && err.code === "demo_run_limit"
+            : isApiCode(err, "demo_run_limit")
               ? "That's all the messages this try-out has."
               : "The job did not start. Please try again later."
         )

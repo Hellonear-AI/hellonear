@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { mindHref } from "@/components/layout/nav"
-import { ApiError } from "@/lib/api"
+import { ApiError, isApiCode } from "@/lib/api"
 import { clockTime, shortWhen } from "@/lib/format"
 import { paymentOf, type ReplyPart, type RunView, type ToolStep } from "@/modules/chat/data/events"
 import { composerNote, introFor } from "@/modules/chat/data/intro"
@@ -55,7 +55,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   const tryOutLeft = useTryOutLeft()
   const leaveTryOut = useLeaveTryOut()
   const outOfMessages =
-    tryOut && (tryOutLeft === 0 || (active?.failed instanceof ApiError && active.failed.code === "demo_run_limit"))
+    tryOut && (tryOutLeft === 0 || isApiCode(active?.failed, "demo_run_limit"))
   const limit = wallet?.policy?.perTransactionNear ?? null
 
   // The live view (C2, #17): beside the chat from 1280 px, remembered per device; a sheet below that.
@@ -103,7 +103,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   }
 
   const isNew = !threadId && shown.length === 0
-  const notFound = thread.error instanceof ApiError && thread.error.code === "thread_not_found"
+  const notFound = isApiCode(thread.error, "thread_not_found")
 
   // A message sent here pins its turn to the top of the view while the reply grows below it.
   const last = shown.at(-1)

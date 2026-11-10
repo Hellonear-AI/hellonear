@@ -10,7 +10,7 @@ import { Logo } from "@/components/elements/Logo"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { mindHref } from "@/components/layout/nav"
-import { ApiError } from "@/lib/api"
+import { ApiError, isApiCode } from "@/lib/api"
 import { lastAccount, signInErrorMessage, useDemoSignIn, useSession, useSignIn } from "@/modules/auth/hooks/useSession"
 import { useMinds } from "@/modules/minds/hooks/useMinds"
 
@@ -269,7 +269,7 @@ export function walletError(err: unknown): string {
 
 /** T1.2 and a backend without try-out mode. */
 export function demoError(err: unknown): string {
-  if (err instanceof ApiError && err.code === "demo_rate_limited") return "Too many try-outs from this network. Please try again later or connect a wallet."
+  if (isApiCode(err, "demo_rate_limited")) return "Too many try-outs from this network. Please try again later or connect a wallet."
   if (err instanceof ApiError && err.status === 404) return "Try-out is not available at the moment. Please connect a wallet."
   return "Could not start a try-out. Please try again later."
 }

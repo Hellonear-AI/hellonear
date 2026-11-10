@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { ApiError } from "@/lib/api"
+import { isApiCode } from "@/lib/api"
 import type { ApiSecret } from "@/modules/connections/api"
 import { keyNameError, keyValueError, parseHosts } from "@/modules/connections/data/keys"
 import { useDeleteSecret, useDisconnect, useSaveSecret } from "@/modules/connections/hooks/useKeys"
@@ -139,7 +139,7 @@ export function KeyDialog({
             </Field>
             {save.error && (
               <p role="alert" className="text-[13px] text-danger">
-                {save.error instanceof ApiError && save.error.code === "demo_not_allowed"
+                {isApiCode(save.error, "demo_not_allowed")
                   ? "Connect a wallet to save keys. This try-out can't keep them."
                   : "Could not save the key. No changes were made. Please try again."}
               </p>

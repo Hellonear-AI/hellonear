@@ -37,7 +37,7 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } f
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
-import { ApiError } from "@/lib/api"
+import { isApiCode } from "@/lib/api"
 import { browserTimeZone } from "@/lib/stream"
 import { autopilotApi } from "@/modules/autopilot/api"
 import { nodeSummary, type NodeRun } from "@/modules/builder/data/testRun"
@@ -419,7 +419,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       router.push(`${mindHref(mindId, "autopilot")}?job=${encodeURIComponent(id)}`)
     } catch (err) {
       setSaving(false)
-      if (err instanceof ApiError && err.code === "invalid_workflow") {
+      if (isApiCode(err, "invalid_workflow")) {
         const issues = (err.details.issues as { path?: string; message?: string }[] | undefined) ?? []
         // The engine names blocks by their ids ("node ask-x", "nodes.2…"): pin each issue to its block (B1.3).
         const ids = toCanvas(draft).nodes.map((n) => n.id)

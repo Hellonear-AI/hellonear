@@ -1,4 +1,4 @@
-import { ApiError } from "@/lib/api"
+import { isApiCode } from "@/lib/api"
 import { WalletActionError } from "@/modules/wallet/hooks/useWalletActions"
 import { WrongAccountError } from "@/modules/wallet/hooks/useOwnerTransaction"
 
@@ -13,7 +13,7 @@ export function walletActionText(err: unknown, kind: "limits" | "funds"): string
     if (err.step === "check") {
       return kind === "limits" ? "The transaction was signed, but the new limits are not visible yet. Please check again shortly." : "The transfer was sent, but the new balance is not visible yet. Please check again shortly."
     }
-    if (err.cause instanceof ApiError && err.cause.code === "demo_not_allowed") return "Connect a wallet to do this."
+    if (isApiCode(err.cause, "demo_not_allowed")) return "Connect a wallet to do this."
   }
   return `Could not reach the wallet service, so ${what}. Please try again later.`
 }
