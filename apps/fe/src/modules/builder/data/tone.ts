@@ -15,8 +15,9 @@ export const TONE: Record<Tone, string> = {
 }
 
 /** The tone of a saved canvas node, by its type. */
-export const TONE_OF_NODE: Record<"trigger" | "agent" | "tool" | "http" | "condition", Tone> = {
+export const TONE_OF_NODE: Record<"trigger" | "agent" | "tool" | "http" | "condition" | "end", Tone> = {
   trigger: "start",
+  end: "start",
   agent: "agent",
   tool: "tool",
   http: "http",

@@ -13,6 +13,7 @@ import {
   KeyboardIcon,
   Loader2Icon,
   MinusIcon,
+  OctagonXIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   PlusIcon,
@@ -24,7 +25,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { createContext, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
+import { createContext, Fragment, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
 import { cn } from "cn"
 import { mindHref } from "@/components/layout/nav"
 import { ChoiceSelect } from "@/components/elements/ChoiceSelect"
@@ -58,6 +59,22 @@ import {
   INVERT,
   moveStepIn,
   tokenLabels,
+  allBlocks,
+  canPlace,
+  findBlock,
+  insertBlock,
+  isStep,
+  lineAt,
+  lineCloses,
+  locate,
+  removeBlock,
+  stepsAt,
+  stepsBefore,
+  updateBlock,
+  withLine,
+  type Block,
+  type IfBlock,
+  type LinePath,
   promptFromDisplay,
   promptParts,
   type Self,
@@ -124,6 +141,11 @@ function Gone({ mindId, text }: { mindId: string; text: string }) {
 const TestRun = createContext<Record<string, NodeRun>>({})
 
 let counter = 0
+/** A block the palette or a slot can add. */
+type Kind = "agent" | "tool" | "http" | "if" | "end"
+/** A place in the tree: the line's path and an index in it. */
+type Place = { path: LinePath; index: number }
+
 const newId = (kind: string) => `${kind}-${Date.now().toString(36)}${counter++}`
 
 function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: string | null; initial: Draft }) {
@@ -156,7 +178,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   } = useCanvasView()
   const [helpOpen, setHelpOpen] = useState(false)
   // Phones (B1.8): a + between blocks opens "Add a block" for that place.
-  const [addAt, setAddAt] = useState<number | null>(null)
+  const [sheetAt, setSheetAt] = useState<Place | null>(null)
   // The fold only applies from lg (1024 px); below that the list sits on top, always open.
   const desktop = useSyncExternalStore(
     (on) => {
@@ -233,10 +255,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       nameField.current?.focus()
       return
     }
-    const br = draft.branch
-    if (br && br.then?.id === where) setSelected(`${br.id}:then`)
-    else if (br && br.else?.id === where) setSelected(`${br.id}:else`)
-    else if (where === "start" || where === "steps") setSelected("start")
+    if (where === "start" || where === "steps") setSelected("start")
     else setSelected(where)
   }
   // Unsaved changes ask before you leave: the back arrow, the browser's Back, closing the tab.
@@ -283,22 +302,23 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
   const flagged = (id: string) => (tried && problems.some((p) => p.where === id)) || (!dirtySinceSave && engineIssues.some((i) => i.node === id))
 
   // A job may only use its Mind's tools: the skills it needs and doesn't have are added on Save.
-  const usedTools = [...draft.steps, draft.branch?.then, draft.branch?.else].flatMap((s) => (!s ? [] : s.kind === "tool" ? [s.tool] : s.kind === "http" ? ["http_request"] : []))
+  const blocks = allBlocks(draft.line)
+  const usedTools = blocks.flatMap((s) => (s.kind === "tool" ? [s.tool] : s.kind === "http" ? ["http_request"] : []))
   const missingSkills = [...new Set(usedTools.map((t) => catalog?.find((s) => s.tools.includes(t))?.skillId).filter((s): s is string => Boolean(s)))].filter(
     (s) => mind && !mind.skills.includes(s)
   )
 
   const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }))
-  const setStep = (id: string, patch: Partial<Step>) => setDraft((d) => ({ ...d, steps: d.steps.map((s) => (s.id === id ? ({ ...s, ...patch } as Step) : s)) }))
-  const setBranch = (patch: Partial<Branch>) => setDraft((d) => (d.branch ? { ...d, branch: { ...d.branch, ...patch } } : d))
+  const setBlock = (id: string, patch: Partial<Block>) => setDraft((d) => ({ ...d, line: updateBlock(d.line, id, patch) }))
+  const mainEnd: Place = { path: [], index: draft.line.length }
 
-  // Drag and drop (B1.7): a block from the palette, or a step to a new place. Taps still add at the end.
-  const [drag, setDrag] = useState<{ add: "agent" | "tool" | "http" | "if" } | { move: string } | null>(null)
+  // Drag and drop (B1.7): a block from the palette, or a block (an If with its ways) to a new place.
+  const [drag, setDrag] = useState<{ add: Kind } | { move: string } | null>(null)
   const [over, setOver] = useState<string | null>(null)
   // The drop spots show a frame after dragstart (a layout change during dragstart cancels the
   // drag in Chrome), and not at all if the drag already ended by then.
   const dragging = useRef(false)
-  const startDrag = (d: { add: "agent" | "tool" | "http" | "if" } | { move: string }) => {
+  const startDrag = (d: { add: Kind } | { move: string }) => {
     dragging.current = true
     requestAnimationFrame(() => {
       if (dragging.current) setDrag(d)
@@ -309,46 +329,45 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
     setDrag(null)
     setOver(null)
   }
-  const moveStep = (id: string, to: number) => setDraft((d) => ({ ...d, steps: moveStepIn(d.steps, id, to) }))
-  function dropAt(at: number) {
+  /** Move a block (an If with its ways) to a place; a place after it in its own line shifts back by one. */
+  function moveBlock(id: string, to: Place) {
+    setDraft((d) => {
+      const from = locate(d.line, id)
+      const blk = findBlock(d.line, id)
+      if (!from || !blk) return d
+      const without = withLine(d.line, from.path, (l) => l.filter((x) => x.id !== id))
+      const same = JSON.stringify(from.path) === JSON.stringify(to.path)
+      return { ...d, line: insertBlock(without, to.path, same && from.index < to.index ? to.index - 1 : to.index, blk) }
+    })
+  }
+  function dropAt(at: Place) {
     if (!drag) return
-    if ("move" in drag) moveStep(drag.move, at)
-    else if (drag.add === "if") addIf()
-    else addStep(drag.add, at)
+    if ("move" in drag) moveBlock(drag.move, at)
+    else addAt(drag.add, at)
     endDrag()
   }
-  /** Where a dragged thing may land: any place in the line; an If only at the end (one per job). */
-  function accepts(at: number): boolean {
+  /** Where a dragged thing may land, by the engine's tree rules (#164). */
+  function accepts(at: Place): boolean {
     if (!drag) return false
     if ("move" in drag) {
-      const from = draft.steps.findIndex((s) => s.id === drag.move)
-      return at !== from && at !== from + 1
+      const blk = findBlock(draft.line, drag.move)
+      const from = locate(draft.line, drag.move)
+      if (!blk || !from) return false
+      // Not into its own ways, and not onto its own place.
+      if (at.path.some((x) => x.at === drag.move)) return false
+      if (JSON.stringify(from.path) === JSON.stringify(at.path) && (at.index === from.index || at.index === from.index + 1)) return false
+      return canPlace(draft.line, at.path, at.index, blk.kind, self)
     }
-    if (drag.add === "if") return !draft.branch && resultsBefore(draft.steps, undefined, self).some(comparable) && at === draft.steps.length
-    return true
+    return canPlace(draft.line, at.path, at.index, drag.add, self)
   }
-  const spot = (at: number) =>
+  const placeKey = (at: Place) => `${at.path.map((x) => `${x.at}:${x.h}`).join("/")}#${at.index}`
+  const spot = (at: Place) =>
     !desktop && !drag ? (
-      <TapSpot key={`tap-${at}`} onClick={() => setAddAt(at)} />
+      canPlace(draft.line, at.path, at.index, "agent", self) ? <TapSpot key={`tap-${placeKey(at)}`} onClick={() => setSheetAt(at)} /> : null
     ) : accepts(at) ? (
-      <DropSpot key={`spot-${at}`} id={`spot-${at}`} over={over} setOver={setOver} onDrop={() => dropAt(at)} label="Drop here" />
+      <DropSpot key={`spot-${placeKey(at)}`} id={`spot-${placeKey(at)}`} over={over} setOver={setOver} onDrop={() => dropAt(at)} label="Drop here" />
     ) : null
 
-  function addStep(kind: "agent" | "tool" | "http", at?: number) {
-    const id = newId(kind === "agent" ? "ask" : kind)
-    const step: Step =
-      kind === "agent"
-        ? { id, kind, prompt: "" }
-        : kind === "http"
-          ? { id, kind, method: "GET", url: "https://", key: "", body: "" }
-          : { id, kind, tool: TOOLS[0].tool, args: { accountId: address } }
-    setDraft((d) => {
-      const steps = [...d.steps]
-      steps.splice(at ?? steps.length, 0, step)
-      return { ...d, steps }
-    })
-    setSelected(id)
-  }
   const newStep = (kind: "agent" | "tool" | "http"): Step => {
     const id = newId(kind === "agent" ? "ask" : kind)
     return kind === "agent"
@@ -357,29 +376,25 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
         ? { id, kind, method: "GET", url: "https://", key: "", body: "" }
         : { id, kind, tool: TOOLS[0].tool, args: { accountId: address } }
   }
-  /** Put a block on If yes or If no (B1: each way of an If takes one block; empty stops). */
-  function setEnding(h: "then" | "else", kind: "agent" | "tool" | "http") {
-    const br = draft.branch
-    if (!br) return
-    const step = newStep(kind)
-    setBranch({ [h]: step } as Partial<Branch>)
-    setSelected(`${br.id}:${h}`)
+  /** A new block of `kind` at a place; an If starts on the first value it can compare there. */
+  function addAt(kind: Kind, at: Place) {
+    let blk: Block
+    if (kind === "if") {
+      const first = resultsBefore(stepsAt(draft.line, at.path, at.index), undefined, self).find(comparable)
+      blk = { id: newId("check"), kind: "if", stepId: first?.stepId ?? "", field: first?.name ?? "", op: first?.kind === "number" ? "lt" : "eq", right: "", then: [], else: [] }
+    } else if (kind === "end") blk = { id: newId("end"), kind: "end" }
+    else blk = newStep(kind)
+    setDraft((d) => ({ ...d, line: insertBlock(d.line, at.path, at.index, blk) }))
+    setSelected(blk.id)
   }
-  function addIf() {
-    const first = resultsBefore(draft.steps, undefined, self).find(comparable)
-    const id = newId("check")
-    setDraft((d) => ({
-      ...d,
-      branch: { id, stepId: first?.stepId ?? "", field: first?.name ?? "", op: first?.kind === "number" ? "lt" : "eq", right: "", then: null, else: null },
-    }))
-    setSelected(id)
+  /** A tap in the palette adds at the end of the main line. */
+  function addStep(kind: Kind) {
+    if (canPlace(draft.line, mainEnd.path, mainEnd.index, kind, self)) addAt(kind, mainEnd)
+    else toast(kind === "if" ? "Add a check or a website before an If." : "The job's main line already ends. Drag the block to where it should go.")
   }
+  const addIf = () => addStep("if")
   function removeStep(id: string) {
-    setDraft((d) => ({
-      ...d,
-      steps: d.steps.filter((s) => s.id !== id),
-      branch: d.branch && d.branch.stepId === id ? { ...d.branch, stepId: "", field: "" } : d.branch,
-    }))
+    setDraft((d) => ({ ...d, line: removeBlock(d.line, id) }))
     setSelected("start")
   }
 
@@ -424,10 +439,95 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
     }
   }
 
-  const b = draft.branch
-  const step = draft.steps.find((s) => s.id === selected)
-  const ending = b && (selected === `${b.id}:then` ? "then" : selected === `${b.id}:else` ? "else" : null)
-  const canIf = !b && resultsBefore(draft.steps, undefined, self).some(comparable)
+  const picked = selected ? findBlock(draft.line, selected) : null
+  const step = picked && isStep(picked) ? picked : null
+  const pickedIf = picked?.kind === "if" ? picked : null
+  const pickedEnd = picked?.kind === "end" ? picked : null
+  // An empty or open way's slot is picked as "{ifId}:then" / "{ifId}:else".
+  const slotMatch = selected?.match(/^(.+):(then|else)$/)
+  const slotIf = slotMatch ? findBlock(draft.line, slotMatch[1]) : null
+  const slot = slotIf?.kind === "if" && slotMatch ? { block: slotIf, h: slotMatch[2] as "then" | "else" } : null
+  const slotPlace = (b: IfBlock, h: "then" | "else"): Place => {
+    const here = locate(draft.line, b.id)
+    return { path: [...(here?.path ?? []), { at: b.id, h }], index: b[h].length }
+  }
+  const canIf = canPlace(draft.line, mainEnd.path, mainEnd.index, "if", self)
+  const canEnd = canPlace(draft.line, mainEnd.path, mainEnd.index, "end", self)
+
+  /**
+   * A line of blocks (#164): a + between blocks, each block, and under an If its Yes and No side by
+   * side, each a line of its own (that may hold more Ifs) with a slot to add the next block. A way
+   * without End carries on after its If, so the line goes on below, centred.
+   */
+  const renderLine = (line: Block[], path: LinePath): ReactNode =>
+    line.map((blk, i) => {
+      const at = { path, index: i }
+      const before = stepsAt(draft.line, path, i)
+      return (
+        <div key={blk.id} className="flex flex-col items-center">
+          {spot(at)}
+          <Linked>
+            <div
+              draggable={blk.kind !== "end"}
+              onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = "move"
+                e.dataTransfer.setData("text/plain", blk.id)
+                startDrag({ move: blk.id })
+              }}
+              onDragEnd={endDrag}
+              className={cn(blk.kind !== "end" && "cursor-grab active:cursor-grabbing", drag && "move" in drag && drag.move === blk.id && "opacity-40")}
+            >
+              {isStep(blk) ? (
+                <StepCard step={blk} name={name} results={resultsBefore(before, undefined, self)} active={selected === blk.id} problem={flagged(blk.id)} onClick={() => setSelected(blk.id)} />
+              ) : blk.kind === "if" ? (
+                <BlockCard tone="if" icon={<GitBranchIcon />} kind="If or else" nodeId={blk.id} title={ifTitle(blk, before)} active={selected === blk.id} warn={flagged(blk.id)} onClick={() => setSelected(blk.id)} />
+              ) : (
+                <BlockCard tone="start" icon={<OctagonXIcon />} kind="End" nodeId={blk.id} title="The job stops here" active={selected === blk.id} warn={flagged(blk.id)} onClick={() => setSelected(blk.id)} />
+              )}
+            </div>
+          </Linked>
+          {blk.kind === "if" && (
+            // A flowchart fork (Ancung, 10 Nov: the ways looked unconnected): a stem down from the If,
+            // a bar across to the middle of each way, then a line down to Yes and to No. Each way
+            // draws its half of the bar, so it meets in the middle whatever the ways' widths.
+            <div className="flex flex-col items-center">
+              <span aria-hidden className="h-5 w-px bg-border-strong" />
+              <div className="flex items-start justify-center gap-6">
+              {(["then", "else"] as const).map((h) => {
+                const wayPath: LinePath = [...path, { at: blk.id, h }]
+                const way = blk[h]
+                const end = { path: wayPath, index: way.length }
+                return (
+                  <div key={h} className="relative flex min-w-[300px] flex-col items-center">
+                    <span aria-hidden className={cn("absolute top-0 h-px bg-border-strong", h === "then" ? "right-[-12px] left-1/2" : "right-1/2 left-[-12px]")} />
+                    <span aria-hidden className="h-6 w-px bg-border-strong" />
+                    <span className="pb-1.5 text-xs font-medium text-muted-foreground">{h === "then" ? "Yes" : "No"}</span>
+                    {renderLine(way, wayPath)}
+                    {/* The next block on this way; none after an If, which goes on in its own ways. */}
+                    {!lineCloses(way) && way.at(-1)?.kind !== "if" && (
+                      <>
+                        {way.length > 0 && <span aria-hidden className="h-3 w-px bg-border-strong" />}
+                        <EndingSlot
+                          id={`slot-${blk.id}-${h}`}
+                          more={way.length > 0}
+                          active={selected === `${blk.id}:${h}`}
+                          over={over}
+                          setOver={setOver}
+                          accepts={accepts(end)}
+                          onPick={() => setSelected(`${blk.id}:${h}`)}
+                          onDrop={() => dropAt(end)}
+                        />
+                      </>
+                    )}
+                  </div>
+                )
+              })}
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    })
 
   const palette = (compact: boolean) => (
     <>
@@ -457,9 +557,8 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
         tone="if"
         icon={<GitBranchIcon />}
         title="If or else"
-        line={b ? "A job can have only one" : canIf ? "Choose one of two ways" : "Add a check or a website first"}
+        line={canIf ? "Choose one of two ways" : "Add a check or a website first"}
         onClick={addIf}
-        disabled={!canIf}
         onDragStart={() => startDrag({ add: "if" })}
         onDragEnd={endDrag}
       />
@@ -473,26 +572,26 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
         onDragStart={() => startDrag({ add: "http" })}
         onDragEnd={endDrag}
       />
+      {/* End (#164): the path stops where you put it. */}
+      <PaletteItem
+        compact={compact}
+        tone="start"
+        icon={<OctagonXIcon />}
+        title="End"
+        line={canEnd ? "Stop the job here" : "Goes at the end of a path"}
+        onClick={() => addStep("end")}
+        onDragStart={() => startDrag({ add: "end" })}
+        onDragEnd={endDrag}
+      />
     </>
   )
 
   // Keyboard shortcuts (n8n's, the simple ones; "?" lists them). Letters and arrows wait while you
   // type in a field; Save and Test run work from anywhere.
-  const order = [
-    "start",
-    ...draft.steps.map((x) => x.id),
-    ...(b ? [b.id, `${b.id}:then`, `${b.id}:else`] : []),
-  ]
+  const order = ["start", ...blocks.map((x) => x.id)]
   const removeSelected = () => {
     if (!selected || selected === "start") return
-    if (b && selected === b.id) {
-      set({ branch: null })
-      setSelected("start")
-    } else if (b && (selected === `${b.id}:then` || selected === `${b.id}:else`)) {
-      setBranch({ [selected.endsWith(":then") ? "then" : "else"]: null } as Partial<Branch>)
-    } else if (draft.steps.some((x) => x.id === selected)) {
-      removeStep(selected)
-    }
+    if (findBlock(draft.line, selected)) removeStep(selected)
   }
   const shortcuts = useRef<(e: KeyboardEvent) => void>(() => undefined)
   useEffect(() => {
@@ -618,7 +717,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       )}
       {dirty && workflowId && <p className="mx-4 mt-3 text-xs text-muted-foreground md:mx-6">Save your changes to test them.</p>}
 
-      <TestRun.Provider value={withIf(test?.nodes ?? {}, draft.branch, Boolean(test && !test.running && !test.failed && test.status !== "failed"))}>
+      <TestRun.Provider value={withIf(test?.nodes ?? {}, draft.line, Boolean(test && !test.running && !test.failed && test.status !== "failed"))}>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row">
         {/* The Blocks panel folds like the app's sidebar (AppShell): the width slides 240 <-> 72
             (ease-in-out, 200 ms) and the full list crossfades with the icon rail. Phones and
@@ -687,40 +786,19 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
         >
           <div
             ref={canvasContent}
-            className={cn("absolute top-0 left-0 flex w-[640px] origin-top-left flex-col items-center pb-24 will-change-transform", spaceDown && "pointer-events-none")}
+            className={cn("absolute top-0 left-0 flex w-max min-w-[640px] origin-top-left flex-col items-center pb-24 will-change-transform", spaceDown && "pointer-events-none")}
           >
           <BlockCard tone="start" icon={<CalendarClockIcon />} kind="Start" title={scheduleText(cronOf(draft))} line={`${zoneName(draft.timezone)} time`} active={selected === "start"} onClick={() => setSelected("start")} />
-          {draft.steps.length > 0 && spot(0)}
-          {draft.steps.map((s, i) => (
-            <div key={s.id} className="flex flex-col items-center">
-              <Linked>
-                <div
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.effectAllowed = "move"
-                    e.dataTransfer.setData("text/plain", s.id)
-                    startDrag({ move: s.id })
-                  }}
-                  onDragEnd={endDrag}
-                  className={cn("cursor-grab active:cursor-grabbing", drag && "move" in drag && drag.move === s.id && "opacity-40")}
-                >
-                  <StepCard step={s} name={name} results={resultsBefore(draft.steps, i, self)} active={selected === s.id} problem={flagged(s.id)} onClick={() => setSelected(s.id)} />
-                </div>
-              </Linked>
-              {(i + 1 < draft.steps.length || b) && spot(i + 1)}
-            </div>
-          ))}
-          {/* With an If, new steps go in through the + between blocks; the Add card only ends a line
-              without one (Ancung, 10 Nov). */}
-          {!b && (
+          {renderLine(draft.line, [])}
+          {/* The end of the main line is this card, unless the path already ends; it is also where a
+              dragged block lands (Ancung, 9 Nov). */}
+          {!lineCloses(draft.line) && draft.line.at(-1)?.kind !== "if" && (
           <Linked>
-            {/* The end of the line is this card: it is also where a dragged block lands (Ancung, 9 Nov:
-                a second "Drop here" box under it was confusing). */}
             <button
               type="button"
-              onClick={() => (desktop ? addStep("agent") : setAddAt(draft.steps.length))}
+              onClick={() => (desktop ? addStep("agent") : setSheetAt(mainEnd))}
               onDragOver={(e) => {
-                if (!accepts(draft.steps.length)) return
+                if (!accepts(mainEnd)) return
                 e.preventDefault()
                 if (over !== "end") setOver("end")
               }}
@@ -728,77 +806,24 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                 if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(null)
               }}
               onDrop={(e) => {
-                if (!accepts(draft.steps.length)) return
+                if (!accepts(mainEnd)) return
                 e.preventDefault()
-                dropAt(draft.steps.length)
+                dropAt(mainEnd)
               }}
               className={cn(
                 "flex w-full max-w-[280px] flex-col items-center gap-1 rounded-lg border border-dashed px-4 py-3 text-center outline-none transition-colors duration-100 ease-out focus-visible:ring-2 focus-visible:ring-focus",
                 over === "end"
                   ? "border-solid border-foreground bg-surface-hover ring-4 ring-foreground/10"
-                  : drag && accepts(draft.steps.length)
+                  : drag && accepts(mainEnd)
                     ? "border-foreground/60 bg-surface"
                     : "border-border-strong bg-surface/60 hover:bg-surface"
               )}
             >
               <PlusIcon className={cn("size-4", over === "end" ? "text-foreground" : "text-muted-foreground")} />
-              <span className="text-sm font-medium text-foreground">
-                {drag && accepts(draft.steps.length) ? (drag && "add" in drag && drag.add === "if" ? "Drop to add the If here" : "Drop to add it here") : "Add the next step"}
-              </span>
+              <span className="text-sm font-medium text-foreground">{drag && accepts(mainEnd) ? "Drop to add it here" : "Add the next step"}</span>
               <span className="text-xs text-muted-foreground">{desktop ? `Ask ${name} to do something` : "Tap to pick a block"}</span>
             </button>
           </Linked>
-          )}
-          {b && (
-            <>
-              <Linked>
-                <BlockCard
-                  tone="if"
-                  icon={<GitBranchIcon />}
-                  kind="If or else"
-                  nodeId={b.id}
-                  title={ifTitle(b, draft.steps)}
-                  active={selected === b.id}
-                  warn={flagged(b.id)}
-                  onClick={() => setSelected(b.id)}
-                />
-              </Linked>
-              <div className="flex w-full max-w-[600px] items-start justify-center gap-3">
-                {(["then", "else"] as const).map((h) => (
-                  <div key={h} className="flex min-w-0 flex-1 flex-col items-center">
-                    <span aria-hidden className="h-6 w-px bg-border-strong" />
-                    <span className="pb-1.5 text-xs font-medium text-muted-foreground">{h === "then" ? "Yes" : "No"}</span>
-                    {b[h] ? (
-                      <>
-                        <StepCard
-                          step={b[h]!}
-                          name={name}
-                          results={resultsBefore(draft.steps, undefined, self)}
-                          active={selected === `${b.id}:${h}`}
-                          problem={flagged(b[h]!.id)}
-                          onClick={() => setSelected(`${b.id}:${h}`)}
-                        />
-                        <span aria-hidden className="h-3 w-px bg-border-strong" />
-                        <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">End</span>
-                      </>
-                    ) : (
-                      <EndingSlot
-                        id={`slot-${h}`}
-                        active={selected === `${b.id}:${h}`}
-                        over={over}
-                        setOver={setOver}
-                        accepts={Boolean(drag && "add" in drag && drag.add !== "if")}
-                        onPick={() => setSelected(`${b.id}:${h}`)}
-                        onDrop={() => {
-                          if (drag && "add" in drag && drag.add !== "if") setEnding(h, drag.add)
-                          endDrag()
-                        }}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </>
           )}
           </div>
 
@@ -830,45 +855,41 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
 
         {selected && (
         <SettingsFrame desktop={desktop} onClose={() => setSelected(null)}>
-          {step?.kind === "agent" ? (
-            <AskPanel name={name} title={`Ask ${name}`} step={step} results={resultsBefore(draft.steps, draft.steps.indexOf(step), self)} onChange={(p) => setStep(step.id, { prompt: p })} onDelete={() => removeStep(step.id)} />
-          ) : step?.kind === "http" ? (
-            <HttpPanel
-              step={step}
-              results={resultsBefore(draft.steps, draft.steps.indexOf(step), self)}
-              missingSkill={missingSkills.find((s) => catalog?.find((c) => c.skillId === s)?.tools.includes("http_request"))}
-              name={name}
-              onChange={(patch) => setStep(step.id, patch)}
-              onDelete={() => removeStep(step.id)}
-            />
-          ) : step?.kind === "tool" ? (
-            <ToolPanel
-              step={step}
-              address={address}
-              name={name}
-              notes={notesBefore(draft.steps, draft.steps.indexOf(step))}
-              missingSkill={missingSkills.find((s) => catalog?.find((c) => c.skillId === s)?.tools.includes(step.tool))}
-              onChange={(patch) => setStep(step.id, patch)}
-              onDelete={() => removeStep(step.id)}
-            />
-          ) : b && selected === b.id ? (
-            <IfPanel branch={b} steps={draft.steps} self={self} onChange={setBranch} onDelete={() => (set({ branch: null }), setSelected("start"))} />
-          ) : b && ending && b[ending] ? (
+          {step ? (
             (() => {
-              const e = b[ending]!
-              const label = ending === "then" ? "If yes" : "If no"
-              const patch = (p: Partial<Step>) => setBranch({ [ending]: { ...e, ...p } as Step } as Partial<Branch>)
-              const remove = () => setBranch({ [ending]: null } as Partial<Branch>)
-              return e.kind === "agent" ? (
-                <AskPanel name={name} title={`${label}: ask ${name}`} step={e} results={resultsBefore(draft.steps, undefined, self)} onChange={(p) => patch({ prompt: p })} onDelete={remove} />
-              ) : e.kind === "http" ? (
-                <HttpPanel step={e} results={resultsBefore(draft.steps, undefined, self)} missingSkill={missingSkills.find((x) => catalog?.find((c) => c.skillId === x)?.tools.includes("http_request"))} name={name} onChange={patch} onDelete={remove} />
+              const before = stepsBefore(draft.line, step.id)
+              const patch = (p: Partial<Step>) => setBlock(step.id, p)
+              const remove = () => removeStep(step.id)
+              return step.kind === "agent" ? (
+                <AskPanel name={name} title={`Ask ${name}`} step={step} results={resultsBefore(before, undefined, self)} onChange={(p) => patch({ prompt: p })} onDelete={remove} />
+              ) : step.kind === "http" ? (
+                <HttpPanel step={step} results={resultsBefore(before, undefined, self)} missingSkill={missingSkills.find((x) => catalog?.find((c) => c.skillId === x)?.tools.includes("http_request"))} name={name} onChange={patch} onDelete={remove} />
               ) : (
-                <ToolPanel step={e} address={address} name={name} notes={notesBefore(draft.steps)} missingSkill={missingSkills.find((x) => catalog?.find((c) => c.skillId === x)?.tools.includes(e.tool))} onChange={patch} onDelete={remove} />
+                <ToolPanel step={step} address={address} name={name} notes={notesBefore(before)} missingSkill={missingSkills.find((x) => catalog?.find((c) => c.skillId === x)?.tools.includes(step.tool))} onChange={patch} onDelete={remove} />
               )
             })()
-          ) : b && ending ? (
-            <EndingPanel name={name} which={ending} otherAsks={b[ending === "then" ? "else" : "then"]?.kind === "agent"} onPick={(kind) => setEnding(ending, kind)} />
+          ) : pickedIf ? (
+            <IfPanel branch={pickedIf} steps={stepsBefore(draft.line, pickedIf.id)} self={self} onChange={(p) => setBlock(pickedIf.id, p)} onDelete={() => removeStep(pickedIf.id)} />
+          ) : pickedEnd ? (
+            <>
+              <PanelHead tone="start" icon={<OctagonXIcon />} title="End" />
+              <p className="text-sm text-muted-foreground">The job stops here on this path. Nothing after it runs.</p>
+              <DeleteBlock onClick={() => removeStep(pickedEnd.id)} />
+            </>
+          ) : slot ? (
+            (() => {
+              const at = slotPlace(slot.block, slot.h)
+              return (
+                <EndingPanel
+                  name={name}
+                  which={slot.h}
+                  more={slot.block[slot.h].length > 0}
+                  canIf={canPlace(draft.line, at.path, at.index, "if", self)}
+                  canEnd={canPlace(draft.line, at.path, at.index, "end", self)}
+                  onPick={(kind) => addAt(kind, at)}
+                />
+              )
+            })()
           ) : (
             <StartPanel draft={draft} set={set} />
           )}
@@ -894,7 +915,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       {/* Phones (design B1 mobile): Add a block, always there (Ancung, 10 Nov: with an If the Add
           card is gone and the + between blocks was easy to miss), then Test run and Save. */}
       <div className="flex flex-col gap-2 border-t border-border bg-background px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
-        <Button variant="secondary" onClick={() => setAddAt(draft.steps.length)}>
+        <Button variant="secondary" disabled={lineCloses(draft.line) || draft.line.at(-1)?.kind === "if"} onClick={() => setSheetAt(mainEnd)}>
           <PlusIcon />
           Add a block
         </Button>
@@ -911,17 +932,15 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
       </div>
 
       <AddBlockSheet
-        at={addAt}
+        at={sheetAt}
         name={name}
-        steps={draft.steps}
-        hasIf={Boolean(b)}
-        canIf={canIf}
-        onClose={() => setAddAt(null)}
+        line={draft.line}
+        self={self}
+        onClose={() => setSheetAt(null)}
         onPick={(kind) => {
-          const at = addAt ?? draft.steps.length
-          setAddAt(null)
-          if (kind === "if") addIf()
-          else addStep(kind, at)
+          const at = sheetAt ?? mainEnd
+          setSheetAt(null)
+          addAt(kind, at)
         }}
       />
       </TestRun.Provider>
@@ -967,12 +986,15 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
  * Conditions send no events (§3): the If lights up from the ending that ran, or, once a run ended
  * well with its checked step done and no ending run, from the "stop" it took.
  */
-function withIf(nodes: Record<string, NodeRun>, b: Branch | null, finished: boolean): Record<string, NodeRun> {
-  if (!b) return nodes
-  const took = [b.then, b.else].find((x) => x && nodes[x.id])
-  if (took) return { ...nodes, [b.id]: { status: "ok", note: took === b.then ? "Yes" : "No" } }
-  if (finished && nodes[b.stepId]?.status === "ok") return { ...nodes, [b.id]: { status: "ok", note: b.then ? "No, so it stopped" : "Yes, so it stopped" } }
-  return nodes
+function withIf(nodes: Record<string, NodeRun>, line: Block[], finished: boolean): Record<string, NodeRun> {
+  const out = { ...nodes }
+  for (const b of allBlocks(line)) {
+    if (b.kind !== "if") continue
+    const took = (["then", "else"] as const).find((h) => allBlocks(b[h]).some((x) => nodes[x.id]))
+    if (took) out[b.id] = { status: "ok", note: took === "then" ? "Yes" : "No" }
+    else if (finished && nodes[b.stepId]?.status === "ok") out[b.id] = { status: "ok", note: "Carried on" }
+  }
+  return out
 }
 
 function ifTitle(b: Branch, steps: Step[]): string {
@@ -1514,24 +1536,34 @@ function IfPanel({ branch, steps, self, onChange, onDelete }: { branch: Branch; 
 function EndingPanel({
   name,
   which,
-  otherAsks,
+  more = false,
+  canIf,
+  canEnd,
   onPick,
 }: {
   name: string
   which: "then" | "else"
-  /** The other way already asks the Mind, which the engine allows only once. */
-  otherAsks: boolean
-  onPick: (kind: "agent" | "tool" | "http") => void
+  /** The way already has steps: this adds one more after them. */
+  more?: boolean
+  canIf: boolean
+  canEnd: boolean
+  onPick: (kind: Kind) => void
 }) {
-  const options: { kind: "agent" | "tool" | "http"; tone: Tone; icon: ReactNode; title: string; off?: string }[] = [
-    { kind: "agent", tone: "agent", icon: <BotIcon />, title: `Ask ${name}`, off: otherAsks ? `Only one way can ask ${name}` : undefined },
+  const options: { kind: Kind; tone: Tone; icon: ReactNode; title: string; off?: string }[] = [
+    { kind: "agent", tone: "agent", icon: <BotIcon />, title: `Ask ${name}` },
     { kind: "tool", tone: "tool", icon: <SearchIcon />, title: "Use a tool" },
     { kind: "http", tone: "http", icon: <GlobeIcon />, title: "Call a website" },
+    { kind: "if", tone: "if", icon: <GitBranchIcon />, title: "If or else", off: canIf ? undefined : "Add a check or a website before it" },
+    { kind: "end", tone: "start", icon: <OctagonXIcon />, title: "End", off: canEnd ? undefined : "Only at the end of a path" },
   ]
   return (
     <>
       <PanelHead icon={<SquareIcon />} title={which === "then" ? "If yes" : "If no"} />
-      <p className="text-sm text-muted-foreground">Nothing runs here yet, so the job stops. Add a block, or drag one onto this way.</p>
+      <p className="text-sm text-muted-foreground">
+        {more
+          ? "Add the next step on this way. It can use what came before it on this path."
+          : "Nothing runs here yet, so the job stops on this way. Add a block, or drag one onto it."}
+      </p>
       <div className="flex flex-col gap-2">
         {options.map((o) => (
           <button
@@ -1554,9 +1586,10 @@ function EndingPanel({
   )
 }
 
-/** An empty way of the If: tap to pick a block, or drop one on it. Empty means the job stops. */
+/** An empty way of the If: tap to pick a block, or drop one on it. Empty, the path stops there. */
 function EndingSlot({
   id,
+  more = false,
   active,
   over,
   setOver,
@@ -1565,6 +1598,8 @@ function EndingSlot({
   onDrop,
 }: {
   id: string
+  /** The way already has steps: a smaller slot that adds one more. */
+  more?: boolean
   active: boolean
   over: string | null
   setOver: (id: string | null) => void
@@ -1603,8 +1638,8 @@ function EndingSlot({
       )}
     >
       <PlusIcon className="size-4 text-muted-foreground" />
-      <span className="text-sm font-medium text-foreground">{accepts ? "Drop to add it here" : "Add a step"}</span>
-      <span className="text-xs text-muted-foreground">Empty: the job stops here</span>
+      <span className="text-sm font-medium text-foreground">{accepts ? "Drop to add it here" : more ? "Add the next step" : "Add a step"}</span>
+      {!more && <span className="text-xs text-muted-foreground">Empty: the job stops here</span>}
     </button>
   )
 }
@@ -1762,29 +1797,29 @@ function TapSpot({ onClick }: { onClick: () => void }) {
 function AddBlockSheet({
   at,
   name,
-  steps,
-  hasIf,
-  canIf,
+  line,
+  self,
   onClose,
   onPick,
 }: {
-  at: number | null
+  at: Place | null
   name: string
-  steps: Step[]
-  hasIf: boolean
-  canIf: boolean
+  line: Block[]
+  self: Self
   onClose: () => void
-  onPick: (kind: "agent" | "tool" | "http" | "if") => void
+  onPick: (kind: Kind) => void
 }) {
-  const place = at ?? steps.length
-  const label = (x: Step) => (x.kind === "agent" ? `Ask ${name}` : x.kind === "tool" ? (toolInfo(x.tool)?.title ?? "a tool") : "Call a website")
-  const where = `${place === 0 ? "After Start" : `After ${label(steps[place - 1])}`}${place < steps.length ? `, before ${label(steps[place])}` : hasIf ? ", before the If" : ""}`
-  const ifReason = hasIf ? "A job can have only one, and this one already does" : place < steps.length ? "Only at the end of the job" : !canIf ? "Add a check or a website first" : null
-  const options: { kind: "agent" | "tool" | "http" | "if"; tone: Tone; icon: ReactNode; title: string; line: string; off?: string | null }[] = [
-    { kind: "agent", tone: "agent", icon: <BotIcon />, title: `Ask ${name}`, line: `${name} writes or decides something` },
-    { kind: "tool", tone: "tool", icon: <SearchIcon />, title: "Use a tool", line: "An account, the time, the calendar, the inbox" },
-    { kind: "http", tone: "http", icon: <GlobeIcon />, title: "Call a website", line: "Send something to your own service" },
-    { kind: "if", tone: "if", icon: <GitBranchIcon />, title: "If or else", line: "Choose one of two ways", off: ifReason },
+  const place = at ?? { path: [], index: line.length }
+  const here = lineAt(line, place.path)
+  const label = (x: Block) => (x.kind === "agent" ? `Ask ${name}` : x.kind === "tool" ? (toolInfo(x.tool)?.title ?? "a tool") : x.kind === "http" ? "Call a website" : x.kind === "if" ? "the If" : "End")
+  const where = `${place.index === 0 ? (place.path.length ? "At the start of this way" : "After Start") : `After ${label(here[place.index - 1])}`}${place.index < here.length ? `, before ${label(here[place.index])}` : ""}`
+  const off = (kind: Kind, why: string) => (canPlace(line, place.path, place.index, kind, self) ? null : why)
+  const options: { kind: Kind; tone: Tone; icon: ReactNode; title: string; line: string; off?: string | null }[] = [
+    { kind: "agent", tone: "agent", icon: <BotIcon />, title: `Ask ${name}`, line: `${name} writes or decides something`, off: off("agent", "The path already ends above") },
+    { kind: "tool", tone: "tool", icon: <SearchIcon />, title: "Use a tool", line: "An account, the time, the calendar, the inbox", off: off("tool", "The path already ends above") },
+    { kind: "http", tone: "http", icon: <GlobeIcon />, title: "Call a website", line: "Send something to your own service", off: off("http", "The path already ends above") },
+    { kind: "if", tone: "if", icon: <GitBranchIcon />, title: "If or else", line: "Choose one of two ways", off: off("if", "Add a check or a website before it") },
+    { kind: "end", tone: "start", icon: <OctagonXIcon />, title: "End", line: "Stop the job on this path", off: off("end", "Only at the end of a path") },
   ]
   return (
     // A drawer from the bottom you can swipe away, like the live view on phones (Ancung, 10 Nov).
