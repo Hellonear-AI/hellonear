@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { IDEAS } from "@/modules/autopilot/data/ideas"
 import {
+  carriesOn,
   cronOf,
   draftProblems,
   emptyDraft,
@@ -395,5 +396,25 @@ describe("Ifs anywhere and End (#164)", () => {
     expect(lowStep.then?.[0].then?.map((s) => s.id)).toEqual(["urgent", "e1"])
     expect(lowStep.else?.map((s) => s.id)).toEqual(["time"])
     expect(flatSteps(t).find((s) => s.id === "e1")?.title).toBe("End")
+  })
+})
+
+describe("ways that carry on after their If (a job saved through the API, #165)", () => {
+  const inner: IfBlock = { id: "low", kind: "if", stepId: "bal", field: "balanceNear", op: "lt", right: "2", then: [], else: [] }
+  const outer: IfBlock = { id: "check", kind: "if", stepId: "bal", field: "balanceNear", op: "lt", right: "10", then: [inner], else: [] }
+  const bal: Block = { id: "bal", kind: "tool", tool: "near_view_account", args: { accountId: "a.testnet" } }
+  const note: Block = { id: "note", kind: "agent", prompt: "Write a note" }
+
+  it("says a way stops when nothing follows any If around it (the Builder's own jobs)", () => {
+    const line = [bal, outer]
+    expect(carriesOn(line, [{ at: "check", h: "else" }])).toBe(false)
+    expect(carriesOn(line, [{ at: "check", h: "then" }, { at: "low", h: "then" }])).toBe(false)
+  })
+
+  it("says a way goes on when steps follow its If, or an If around it", () => {
+    const line = [bal, outer, note]
+    expect(carriesOn(line, [{ at: "check", h: "else" }])).toBe(true)
+    expect(carriesOn(line, [{ at: "check", h: "then" }, { at: "low", h: "else" }])).toBe(true)
+    expect(carriesOn(line, [])).toBe(false)
   })
 })

@@ -360,6 +360,20 @@ export function closes(b: Block | undefined): boolean {
 }
 export const lineCloses = (line: Block[]) => closes(line[line.length - 1])
 
+/**
+ * Whether a way at `path` goes on when it runs out: some If around it has blocks after it. The
+ * Builder never adds those (like n8n), but the engine accepts them (#165), so a job saved through
+ * the API can have them.
+ */
+export function carriesOn(line: Block[], path: LinePath): boolean {
+  for (let k = path.length - 1; k >= 0; k--) {
+    const outer = lineAt(line, path.slice(0, k))
+    const i = outer.findIndex((x) => x.id === path[k].at)
+    if (i >= 0 && i < outer.length - 1) return true
+  }
+  return false
+}
+
 /** The line at `path`. */
 export function lineAt(line: Block[], path: LinePath): Block[] {
   let cur = line
