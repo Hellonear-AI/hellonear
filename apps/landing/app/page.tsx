@@ -1,6 +1,7 @@
 import { Nav } from "@/components/Nav";
 import { Hero } from "@/components/hero/Hero";
-import { Footer, Safety, SeeInside } from "@/components/Sections";
+import { Safety, SeeInside } from "@/components/Sections";
+import { Footer } from "@/components/Footer";
 import { Cta } from "@/components/Cta";
 import { Demo } from "@/components/Demo";
 import { ApprovalsScroll } from "@/components/ApprovalsScroll";

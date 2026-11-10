@@ -725,3 +725,9 @@ body {
 @media (min-width: 768px) {
   .graph-section { background: linear-gradient(transparent calc(50vh - 130px), var(--night) calc(50vh - 130px)); }
 }
+
+/* Footer text on the grass: white, with a soft shadow so it reads on light and dark grass. */
+.footer-on-grass { text-shadow: 0 1px 10px rgb(20 40 10 / 0.45), 0 0 2px rgb(20 40 10 / 0.35); }
+.footer-logo .logo-head { fill: #fff; }
+.footer-logo .logo-eye { fill: #161614; }
+.footer-logo svg { filter: drop-shadow(0 1px 6px rgb(20 40 10 / 0.45)); }

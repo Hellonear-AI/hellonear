@@ -306,31 +306,3 @@ export function SeeInside() {
 
 
 
-export function Footer() {
-  return (
-    <footer className="border-t border-[var(--color-border)]">
-      <div className="mx-auto flex max-w-[1200px] flex-col gap-10 px-5 py-14 md:flex-row md:justify-between">
-        <div className="flex max-w-[320px] flex-col gap-3">
-          <span className="text-[18px] font-semibold">HelloNEAR</span>
-          <p className="text-[14px] text-[var(--color-text-2)]">AI helpers with limits they can&apos;t break.</p>
-        </div>
-        <div className="grid grid-cols-3 gap-12 text-[14px]">
-          {[
-            ["Product", [["Minds", "#minds"], ["Safety", "#safety"], ["Skills", "#skills"]]],
-            ["Project", [["GitHub", "https://github.com/Hellonear-AI/hellonear"], ["Demo video", "#demo"], ["How it works", "#how-it-works"]]],
-            ["Follow", [["X", "#"], ["NEAR", "https://near.org"]]],
-          ].map(([head, links]) => (
-            <div key={head as string} className="flex flex-col gap-2.5">
-              <span className="font-medium">{head as string}</span>
-              {(links as string[][]).map(([l, h]) => (
-                <a key={l} href={h} className="text-[var(--color-text-2)] hover:text-[var(--color-text)]">
-                  {l}
-                </a>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-    </footer>
-  );
-}
