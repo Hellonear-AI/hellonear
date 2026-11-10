@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { RunEvent } from "@/modules/chat/data/events"
-import { buildGraph, liveStates, nodeIdFor } from "@/modules/graph/data/graph"
+import { buildGraph, callsOf, liveStates, nodeIdFor } from "@/modules/graph/data/graph"
 import { stepSim, syncSim } from "@/modules/graph/data/sim"
 import type { ApiSkill } from "@/modules/minds/api"
 
@@ -127,5 +127,21 @@ describe("Mind Graph (#17)", () => {
       }
     }
     expect(onLine).toBe(0)
+  })
+
+  it("lists a picked node's latest calls with what went in and came back", () => {
+    const events = [
+      ev("tool.called", { tool: "get_balance", toolCallId: "a", nodeId: "wallet:m1", args: {} }),
+      ev("tool.result", { toolCallId: "a", status: "ok", result: { balanceNear: "5.39" } }),
+      ev("tool.called", { tool: "send_payment", toolCallId: "b", nodeId: "wallet:m1", args: { to: "x.testnet", amountNear: "9" } }),
+      ev("tool.error", { toolCallId: "b", status: "policy_denied", result: { status: "policy_denied" } }),
+      ev("tool.called", { tool: "get_time", toolCallId: "c" }),
+    ]
+    const calls = callsOf(new Set(["wallet:m1"]), events, "m1")
+    expect(calls.map((c) => [c.toolCallId, c.status])).toEqual([
+      ["b", "policy_denied"],
+      ["a", "ok"],
+    ])
+    expect(calls[1].result).toEqual({ balanceNear: "5.39" })
   })
 })

@@ -74,6 +74,9 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
   // (Ancung, 10 Nov: a 1 s calendar call never lit up).
   const seen = useRef(new Map<string, { key: string; at: number }>())
   const view = useRef({ x: 0, y: 0, k: 1, auto: true })
+  // The node the camera is gliding to after a click (Axel, via Ancung, 10 Nov: zoom to it).
+  const focus = useRef<string | null>(null)
+  const lastSelected = useRef<string | null>(null)
   const hover = useRef<string | null>(null)
   const images = useRef(new Map<string, HTMLImageElement>())
   const select = useRef(onSelect)
@@ -85,6 +88,11 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
   // New data: keep the bodies that stay, warm the layout up a little.
   useEffect(() => {
     data.current = { nodes, links, selected, trail, live }
+    if (selected && selected !== lastSelected.current) {
+      focus.current = selected
+      view.current.auto = false
+    }
+    lastSelected.current = selected
     sim.current = syncSim(sim.current, nodes, links, mind)
     const now = performance.now()
     for (const n of nodes) {
@@ -221,6 +229,19 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       const kinds = new Map(data.current.nodes.map((n) => [n.id, n.kind]))
       const moving = stepSim(s, kinds)
       if (view.current.auto && (moving || now < 1500)) fit()
+      // Glide to the picked node and zoom in a little; a jump with reduced motion.
+      const f = focus.current ? s.bodies.get(focus.current) : null
+      if (f) {
+        const v0 = view.current
+        const k = Math.max(v0.k, 1.6)
+        const tx = -f.x * k
+        const ty = -f.y * k
+        const e = still.matches ? 1 : 0.14
+        v0.k += (k - v0.k) * e
+        v0.x += (tx - v0.x) * e
+        v0.y += (ty - v0.y) * e
+        if (Math.abs(tx - v0.x) < 0.5 && Math.abs(ty - v0.y) < 0.5 && Math.abs(k - v0.k) < 0.005) focus.current = null
+      }
       const { w, h, dpr } = size
       const v = view.current
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -454,6 +475,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         }
       } else {
         view.current.auto = false
+        focus.current = null
         view.current.x = drag.vx + (p.x - drag.x)
         view.current.y = drag.vy + (p.y - drag.y)
       }
@@ -484,6 +506,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       v.x = p.x - size.w / 2 - wx * k
       v.y = p.y - size.h / 2 - wy * k
       v.auto = false
+      focus.current = null
     }
     cv.addEventListener("pointerdown", down)
     cv.addEventListener("pointermove", move)
@@ -525,6 +548,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       <button
         type="button"
         onClick={() => {
+          focus.current = null
           view.current.auto = true
         }}
         className="absolute right-2 bottom-2 rounded-full bg-surface/90 px-2.5 py-1 text-xs text-muted-foreground shadow-xs outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus"

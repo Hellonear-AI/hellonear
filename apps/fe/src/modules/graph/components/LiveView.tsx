@@ -13,7 +13,9 @@ import type { RunEvent } from "@/modules/chat/data/events"
 import { stepText } from "@/modules/chat/data/steps"
 import { useChatRun } from "@/modules/chat/hooks/ChatRunProvider"
 import { MindGraph } from "@/modules/graph/components/MindGraph"
-import { buildGraph, liveStates, nodeIdFor, type GraphNode } from "@/modules/graph/data/graph"
+import { buildGraph, callNode, callsOf, liveStates, type GraphNode } from "@/modules/graph/data/graph"
+import { skillCopy } from "@/modules/skills/data/skills"
+import { XIcon } from "lucide-react"
 import { templateImage } from "@/modules/minds/data/minds"
 import { useApprovals, useMind } from "@/modules/minds/hooks/useMinds"
 import { useSkillCatalog } from "@/modules/skills/hooks/useSkills"
@@ -25,6 +27,50 @@ function useMindEvents(mindId: string) {
     queryFn: async () => (await api<{ events: RunEvent[] }>(`/minds/${encodeURIComponent(mindId)}/events?limit=2000`)).events,
     staleTime: 60_000,
   })
+}
+
+const KIND_WORD: Record<GraphNode["kind"], string> = {
+  mind: "Mind",
+  skill: "Skill",
+  tool: "Tool",
+  app: "App",
+  wallet: "Wallet",
+  memory: "Memory",
+  model: "Model",
+  workflow: "Autopilot job",
+}
+
+const TOOL_WORDS: Record<string, string> = {
+  near_view_account: "Looks up NEAR testnet accounts. It can only read.",
+  http_request: "Calls the websites you allowed, with your saved keys kept out of sight.",
+  get_time: "Tells the date and time on your clock.",
+  skill_search: "Finds the right skill for a task.",
+  add_numbers: "Adds numbers exactly instead of guessing.",
+}
+
+/** One plain line on what a node is. */
+function describe(n: GraphNode, mind: string): string {
+  const rest = n.id.split(/:(.*)/)[1] ?? ""
+  switch (n.kind) {
+    case "mind":
+      return `${mind} in the middle, with every skill it has. Pick anything to see its latest calls.`
+    case "skill":
+      return skillCopy(rest).blurb
+    case "wallet":
+      return `${mind}'s NEAR wallet. Every payment waits for you, and your limits are enforced in a TEE before anything is signed.`
+    case "memory":
+      return `What ${mind} remembers between chats.`
+    case "workflow":
+      return `A job ${mind} runs on its own from Autopilot.`
+    case "app":
+      return n.app === "mail"
+        ? `${mind}'s own email address.`
+        : n.app === "googlemeet"
+          ? "Meet links for the meetings Daily planner schedules."
+          : `Your ${n.label}, through the connection you made in Connections.`
+    default:
+      return TOOL_WORDS[rest] ?? `A tool ${mind} can use.`
+  }
 }
 
 const STATE_WORDS: Record<NonNullable<GraphNode["state"]>, string> = {
@@ -60,32 +106,50 @@ export function LiveView({ mindId, className }: { mindId: string; className?: st
 
   const activeEvents = active?.events
   const streaming = Boolean(active?.streaming)
-  const graph = useMemo(() => {
+  const events = useMemo(() => {
     const seen = new Set<string>()
-    const events = [...(history.data ?? []), ...(activeEvents ?? [])].filter((e) => {
+    const all = [...(history.data ?? []), ...(activeEvents ?? [])].filter((e) => {
       const key = `${e.runId}:${e.seq}`
       if (seen.has(key)) return false
       seen.add(key)
       return true
     })
-    events.sort((a, b) => (a.ts ?? "").localeCompare(b.ts ?? ""))
+    return all.sort((a, b) => (a.ts ?? "").localeCompare(b.ts ?? ""))
+  }, [history.data, activeEvents])
+  const graph = useMemo(() => {
     const built = buildGraph({ mindId, name, skills: mind?.skills ?? [], catalog: catalog ?? [], events })
     const streamingRun = streaming ? (activeEvents?.at(-1)?.runId ?? null) : null
     return { ...built, nodes: liveStates(built.nodes, streamingRun, new Set(approvals.map((a) => a.toolCallId))) }
-  }, [history.data, activeEvents, streaming, mindId, name, mind?.skills, catalog, approvals])
+  }, [events, activeEvents, streaming, mindId, name, mind?.skills, catalog, approvals])
 
   // What the reply on screen (or the last one) used, for its trail on the graph.
   const trail = useMemo(() => {
     const ids = new Set<string>()
     for (const e of activeEvents ?? []) {
       if (e.type !== "tool.called" || !e.tool) continue
-      const id = e.nodeId === "tool:updateWorkingMemory" ? `memory:${mindId}` : (e.nodeId ?? nodeIdFor(mindId, e.tool, e.args))
-      if (id !== "skill:hellonear-guide") ids.add(id)
+      const id = callNode(mindId, e)
+      if (id) ids.add(id)
     }
     return [...ids]
   }, [activeEvents, mindId])
 
   const picked = graph.nodes.find((n) => n.id === selected) ?? null
+  // A skill shows the calls of every tool under it; the Mind shows them all.
+  const pickedCalls = useMemo(() => {
+    if (!picked) return []
+    const ids = new Set([picked.id])
+    if (picked.kind === "mind") for (const n of graph.nodes) ids.add(n.id)
+    for (const l of graph.links) if (l.source === picked.id) ids.add(l.target)
+    return callsOf(ids, events, mindId)
+  }, [picked, graph, events, mindId])
+
+  // Esc lets go of the picked node.
+  useEffect(() => {
+    if (!selected) return
+    const key = (e: KeyboardEvent) => e.key === "Escape" && setSelected(null)
+    window.addEventListener("keydown", key)
+    return () => window.removeEventListener("keydown", key)
+  }, [selected])
   const live = Boolean(active?.streaming)
   const steps = active?.view.tools ?? []
 
@@ -121,15 +185,39 @@ export function LiveView({ mindId, className }: { mindId: string; className?: st
       />
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-        {picked && picked.kind !== "mind" && (
-          <div className="flex flex-col gap-0.5 rounded-md bg-muted/50 px-3 py-2.5">
-            <span className="text-sm font-medium text-foreground">{picked.label}</span>
-            <span className="text-xs text-muted-foreground">
-              {picked.uses ? `Used ${picked.uses} ${picked.uses === 1 ? "time" : "times"} in the last 7 days` : "Not used in the last 7 days"}
-              {picked.state ? `. ${STATE_WORDS[picked.state]}` : ""}
-              {picked.at ? `, ${shortWhen(new Date(picked.at).toISOString())} ${clockTime(new Date(picked.at).toISOString())}` : ""}.
-            </span>
-          </div>
+        {picked && (
+          <section aria-label={`About ${picked.label}`} className="flex flex-col gap-3 rounded-md bg-muted/50 p-3">
+            <div className="flex items-start gap-2">
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-xs text-muted-foreground">{KIND_WORD[picked.kind]}</span>
+                <span className="text-sm font-semibold text-foreground">{picked.label}</span>
+              </div>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => setSelected(null)}
+                className="flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground outline-none hover:bg-surface-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus"
+              >
+                <XIcon className="size-4" />
+              </button>
+            </div>
+            <p className="text-[13px] text-muted-foreground">{describe(picked, name)}</p>
+            <p className="text-xs text-muted-foreground">
+              {picked.kind === "mind"
+                ? `${graph.nodes.length - 1} skills, apps and tools on the map.`
+                : picked.uses
+                  ? `Used ${picked.uses} ${picked.uses === 1 ? "time" : "times"} in the last 7 days${picked.state ? `. ${STATE_WORDS[picked.state]}` : ""}${picked.at ? `, ${shortWhen(new Date(picked.at).toISOString())} ${clockTime(new Date(picked.at).toISOString())}` : ""}.`
+                  : "Not used in the last 7 days."}
+            </p>
+            {pickedCalls.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-muted-foreground">Recent calls</span>
+                {pickedCalls.map((t) => (
+                  <StepRow key={t.toolCallId} step={t} />
+                ))}
+              </div>
+            )}
+          </section>
         )}
 
         <div className="flex flex-col gap-1.5">

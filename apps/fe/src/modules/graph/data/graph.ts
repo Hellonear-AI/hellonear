@@ -3,7 +3,7 @@
 // follow docs/api-contract.md §4 (the engine's `nodeIdFor`, engine/src/graph.ts), so live events
 // light up the same nodes the history built.
 
-import type { RunEvent } from "@/modules/chat/data/events"
+import type { RunEvent, ToolStatus, ToolStep } from "@/modules/chat/data/events"
 import type { ApiSkill } from "@/modules/minds/api"
 import { skillCopy } from "@/modules/skills/data/skills"
 
@@ -200,4 +200,41 @@ export function liveStates(nodes: GraphNode[], streamingRun: string | null, open
     if (n.state === "waiting" && !(n.call && openCalls.has(n.call))) return { ...n, state: undefined }
     return n
   })
+}
+
+/** The graph node a tool call lights, with the FE's own mappings (Memory, no built-in guide). */
+export function callNode(mindId: string, e: RunEvent): string | null {
+  if (!e.tool) return null
+  const id = e.nodeId ?? nodeIdFor(mindId, e.tool, e.args)
+  if (id === "skill:hellonear-guide") return null
+  return id === "tool:updateWorkingMemory" ? `memory:${mindId}` : id
+}
+
+/**
+ * The latest calls that reached any of `ids`, newest first, as the chat's tool steps, so a picked
+ * node can show what went in and came back (Axel, via Ancung, 10 Nov).
+ */
+export function callsOf(ids: Set<string>, events: RunEvent[], mindId: string, max = 5): ToolStep[] {
+  const steps = new Map<string, ToolStep>()
+  for (const e of events) {
+    if (!e.toolCallId) continue
+    if (e.type === "tool.called") {
+      const id = callNode(mindId, e)
+      if (!id || !ids.has(id)) continue
+      steps.set(e.toolCallId, { toolCallId: e.toolCallId, tool: e.tool!, nodeId: id, status: "running", args: e.args, result: null, startedAt: e.ts })
+      continue
+    }
+    const step = steps.get(e.toolCallId)
+    if (!step) continue
+    if (e.type === "tool.approval_required") step.status = "awaiting_approval"
+    else if (e.type === "tool.result" || e.type === "tool.error") {
+      const own = (e.result as { status?: unknown } | null)?.status
+      const status = (typeof e.status === "string" ? e.status : typeof own === "string" ? own : e.type === "tool.error" ? "error" : "ok") as ToolStatus
+      step.status = (["ok", "error", "policy_denied", "wallet_frozen", "declined"] as string[]).includes(status) ? status : e.type === "tool.error" ? "error" : "ok"
+      step.result = e.result ?? null
+      if (typeof e.error === "string") step.error = e.error
+      step.endedAt = e.ts
+    }
+  }
+  return [...steps.values()].sort((a, b) => (b.startedAt ?? "").localeCompare(a.startedAt ?? "")).slice(0, max)
 }
