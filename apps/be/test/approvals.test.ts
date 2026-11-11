@@ -1,7 +1,7 @@
 // Offline unit tests for the approval checks Telegram shows (#208), ported from the app's card.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { addNear, approvalChecks, fixFirstLabel, refusalReasons, subNear, type WalletView } from '../src/approvals.ts'
+import { addNear, approvalChecks, approvalDetails, clip, fixFirstLabel, refusalReasons, subNear, type WalletView } from '../src/approvals.ts'
 
 const wallet = (over: Partial<WalletView> = {}): WalletView => ({ balanceNear: '1', frozen: false, policy: { perTransactionNear: '0.05', whitelist: ['shop.testnet'] }, ...over })
 const pay = (amountNear: string, to = 'shop.testnet') => ({ to, amountNear })
@@ -74,4 +74,31 @@ test('addNear and subNear are exact to the yoctoNEAR', () => {
   assert.equal(subNear('0.6', '0.4'), '0.2')
   assert.equal(subNear('0.4', '0.6'), '0')
   assert.equal(subNear('2', '2'), '0')
+})
+
+test('every approval tool the app details also has details on Telegram, in the same words', () => {
+  assert.deepEqual(approvalDetails('slack_send_message', { channel: 'general', text: 'Standup moved to 10:00' }), {
+    title: 'Post to #general', lines: [{ label: 'Message', value: 'Standup moved to 10:00' }], note: 'Posted to Slack as you.',
+  })
+  assert.equal(approvalDetails('slack_send_message', { channel: '#ops', text: 'x' })!.title, 'Post to #ops')
+  assert.deepEqual(approvalDetails('googlesheets_append_row', { sheet: 'Expenses', values: ['2026-11-11', 12.5, null, 'Hosting'] })!.lines, [{ label: 'Row', value: '2026-11-11, 12.5, , Hosting' }])
+  assert.equal(approvalDetails('googledocs_create_document', { title: 'Treasury', markdown: 'a'.repeat(1234) })!.lines[0].value, '1,234 characters')
+  assert.equal(approvalDetails('notion_create_page', { title: 'Notes' })!.lines[0].value, 'Empty page')
+  const row = approvalDetails('notion_add_row', { databaseId: 'db', properties: Array.from({ length: 10 }, (_, i) => ({ name: `P${i}`, type: 'rich_text', value: `v${i}` })) })!
+  assert.equal(row.lines.length, 8)
+  assert.deepEqual(row.lines[0], { label: 'P0', value: 'v0' })
+  assert.equal(approvalDetails('mail_send_to_owner', { subject: 'Today', text: 'hello' })!.title, 'Email you "Today"')
+  assert.deepEqual(approvalDetails('sell_offer', { title: 'Weather data', priceNear: '0.01', item: 'Forecast for Jakarta' }), {
+    title: 'Sell "Weather data" for 0.01 NEAR', lines: [{ label: 'Item', value: 'Forecast for Jakarta' }], note: "Other Minds can buy it; they pay into this Mind's own wallet.",
+  })
+  assert.equal(approvalDetails('unknown_tool', {}), null)
+})
+
+test('long values are cut so a card stays under Telegram\'s 4096 characters', () => {
+  assert.equal(clip('short'), 'short')
+  const long = approvalDetails('slack_send_message', { channel: 'general', text: 'y'.repeat(4000) })!.lines[0].value
+  assert.ok(long.length < 1600)
+  assert.match(long, /… \(4,000 characters, the rest in the app\)$/)
+  const notion = approvalDetails('notion_add_row', { properties: Array.from({ length: 8 }, (_, i) => ({ name: `P${i}`, value: 'z'.repeat(2000) })) })!
+  assert.ok(notion.lines.reduce((n, l) => n + l.label.length + l.value.length + 2, 0) < 3600)
 })
