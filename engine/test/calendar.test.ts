@@ -8,10 +8,29 @@ import type { AddressInfo } from 'node:net'
 import { TIME_ZONE_KEY, needsApproval, toolRegistry, toolsFor } from '../src/tools.ts'
 import { USER_KEY, resetComposioSessions } from '../src/composio.ts'
 import { DEMO_KEY } from '../src/email.ts'
-import { ISO_WITH_OFFSET, SAMPLE_CALENDAR, checkAttendees, listSampleCalendar, localTimes, rangeOf } from '../src/calendar.ts'
+import { ISO_WITH_OFFSET, SAMPLE_CALENDAR, checkAttendees, freeSlots, listSampleCalendar, localTimes, rangeOf, zonedInstant } from '../src/calendar.ts'
+import { ruleFor } from '../src/autoApprove.ts'
 import { nodeIdFor } from '../src/graph.ts'
 
 const calls: { url: string; body: any }[] = []
+// One busy hour on Thu 12 Nov, 10:00 to 11:00 in Jakarta (03:00Z to 04:00Z).
+const FREE_BUSY = [{ start: '2026-11-12T03:00:00Z', end: '2026-11-12T04:00:00Z' }]
+// Google's Event resource as GOOGLECALENDAR_EVENTS_GET answers it.
+const mover = () => ({
+  id: 'mv1', summary: 'Client call', status: 'confirmed', htmlLink: 'https://calendar.example/mv1',
+  start: { dateTime: '2026-11-12T15:00:00+07:00', timeZone: 'Asia/Jakarta' }, end: { dateTime: '2026-11-12T16:00:00+07:00', timeZone: 'Asia/Jakarta' },
+  organizer: { email: 'me@example.com', self: true }, attendees: [{ email: 'me@example.com', self: true }, { email: 'rina@acme.example' }],
+})
+const EVENTS: Record<string, any> = {}
+const resetEvents = () => {
+  for (const k of Object.keys(EVENTS)) delete EVENTS[k]
+  Object.assign(EVENTS, {
+    mv1: mover(),
+    guest1: { ...mover(), id: 'guest1', organizer: { email: 'boss@acme.example' } , summary: 'Board meeting' },
+    allday1: { id: 'allday1', summary: 'Holiday', status: 'confirmed', start: { date: '2026-11-12' }, end: { date: '2026-11-13' }, organizer: { self: true } },
+  })
+}
+resetEvents()
 const fake = createServer(async (req, res) => {
   let raw = ''
   for await (const c of req) raw += c
@@ -46,6 +65,20 @@ const fake = createServer(async (req, res) => {
     const end = a.end_datetime ? Date.parse(a.end_datetime) : start + ((a.event_duration_hour ?? 0) * 60 + (a.event_duration_minutes ?? 30)) * 60_000
     const iso = (t: number) => new Date(t).toISOString().replace('.000Z', 'Z')
     return send(200, { result_type: 'completed', error: null, data: { display_url: 'https://calendar.example/new', response_data: { id: 'new1', summary: a.summary, start: { dateTime: iso(start), timeZone: 'UTC' }, end: { dateTime: iso(end), timeZone: 'UTC' } } } })
+  }
+  // Free time and moving events (#247), shaped like the latest output schemas (20261110_00, read 11 Nov 2026).
+  if (body.tool_slug === 'GOOGLECALENDAR_FIND_FREE_SLOTS') {
+    if (exec[1].startsWith('trs_usr_unreliable')) return send(200, { result_type: 'completed', error: null, data: { kind: 'calendar#freeBusy', timeMin: body.arguments.time_min, timeMax: body.arguments.time_max, calendars: { primary: { busy: [], free: [], is_reliable: false } } } })
+    return send(200, { result_type: 'completed', error: null, data: { kind: 'calendar#freeBusy', timeMin: body.arguments.time_min, timeMax: body.arguments.time_max, calendars: { primary: { busy: FREE_BUSY, free: [] } } } })
+  }
+  if (body.tool_slug === 'GOOGLECALENDAR_EVENTS_GET') {
+    const e = EVENTS[body.arguments.event_id]
+    return e ? send(200, { result_type: 'completed', error: null, data: e }) : send(200, { result_type: 'error', error: 'Not Found', data: null })
+  }
+  if (body.tool_slug === 'GOOGLECALENDAR_PATCH_EVENT') {
+    const a = body.arguments
+    const e = EVENTS[a.event_id]
+    return send(200, { result_type: 'completed', error: null, data: { ...e, start: { dateTime: a.start_time }, end: { dateTime: a.end_time }, display_url: e?.htmlLink } })
   }
   send(400, { error: { slug: 'unknown_tool' } })
 })
@@ -311,4 +344,134 @@ test('every calendar tool returns local times in the run\'s time zone (#214)', a
   assert.deepEqual([made.start, made.startLocal, made.endLocal, made.timeZone], ['2026-11-09T08:00:00Z', 'Mon 9 Nov 15:00', 'Mon 9 Nov 16:00', 'Asia/Jakarta'])
   const met = await run('googlecalendar_create_meeting', { ...meeting, attendees: [], meet: false }, zoned('Asia/Jakarta', true))
   assert.deepEqual([met.startLocal, met.endLocal], ['Tue 10 Nov 15:00', 'Tue 10 Nov 15:30'])
+})
+
+// Free time and moving events (#247 item 3).
+const exec = (slug: string) => calls.filter((c) => c.body?.tool_slug === slug).map((c) => c.body.arguments)
+const day12 = { from: '2026-11-12T00:00:00+07:00', to: '2026-11-13T00:00:00+07:00' }
+
+test('free time: Google\'s busy periods, gaps inside the owner\'s hours on the owner\'s clock, read only', async () => {
+  const out = await run('googlecalendar_find_free_time', { ...day12 }, zoned('Asia/Jakarta'))
+  assert.deepEqual(exec('GOOGLECALENDAR_FIND_FREE_SLOTS'), [{ items: ['primary'], time_min: '2026-11-11T17:00:00.000Z', time_max: '2026-11-12T17:00:00.000Z', timezone: 'UTC' }])
+  assert.equal(out.source, 'googlecalendar')
+  assert.deepEqual(out.slots.map((s: any) => [s.startLocal, s.endLocal, s.minutes]), [['Thu 12 Nov 09:00', 'Thu 12 Nov 10:00', 60], ['Thu 12 Nov 11:00', 'Thu 12 Nov 18:00', 420]])
+  assert.equal(out.slots[0].start, '2026-11-12T02:00:00.000Z')
+  // Longer than the morning gap: only the afternoon. Other hours: the owner asked for the evening.
+  const long = await run('googlecalendar_find_free_time', { ...day12, minutes: 90 }, zoned('Asia/Jakarta'))
+  assert.deepEqual(long.slots.map((s: any) => s.startLocal), ['Thu 12 Nov 11:00'])
+  const evening = await run('googlecalendar_find_free_time', { ...day12, dayStart: '19:00', dayEnd: '22:00' }, zoned('Asia/Jakarta'))
+  assert.deepEqual(evening.slots.map((s: any) => [s.startLocal, s.endLocal]), [['Thu 12 Nov 19:00', 'Thu 12 Nov 22:00']])
+  await assert.rejects(run('googlecalendar_find_free_time', { ...day12, dayStart: '18:00', dayEnd: '09:00' }, zoned('Asia/Jakarta')), /dayEnd must be after dayStart/)
+  assert.equal(needsApproval('googlecalendar_find_free_time'), false)
+  assert.equal(nodeIdFor('m1', 'googlecalendar_find_free_time'), 'app:googlecalendar')
+  assert.equal(nodeIdFor('m1', 'googlecalendar_move_event'), 'app:googlecalendar')
+})
+
+test('free time: a calendar Google could not read is an error, never "all free"; no connection says so', async () => {
+  const c = { requestContext: { get: (k: string) => (k === USER_KEY ? 'usr_unreliable' : undefined) } }
+  await assert.rejects(run('googlecalendar_find_free_time', { ...day12 }, c), /could not read/)
+  await assert.rejects(run('googlecalendar_find_free_time', { ...day12 }, ctx('usr_nocal')), /Google Calendar is not connected/)
+})
+
+test('free time: the owner\'s hours follow a clock change, and overlapping busy periods merge', () => {
+  // New York leaves summer time on Sun 1 Nov 2026: 09:00 is 13:00Z before, 14:00Z after.
+  assert.equal(new Date(zonedInstant('2026-10-30', '09:00', 'America/New_York')).toISOString(), '2026-10-30T13:00:00.000Z')
+  assert.equal(new Date(zonedInstant('2026-11-02', '09:00', 'America/New_York')).toISOString(), '2026-11-02T14:00:00.000Z')
+  const week = freeSlots([], { timeMin: '2026-11-09T00:00:00Z', timeMax: '2026-11-16T00:00:00Z', minutes: 60, dayStart: '09:00', dayEnd: '17:00', timeZone: 'UTC' })
+  assert.equal(week.length, 7)
+  // A busy period across the whole window leaves nothing; overlapping busy periods are merged.
+  assert.deepEqual(freeSlots([{ start: '2026-11-09T08:00:00Z', end: '2026-11-09T18:00:00Z' }], { timeMin: '2026-11-09T00:00:00Z', timeMax: '2026-11-10T00:00:00Z', minutes: 15, dayStart: '09:00', dayEnd: '17:00', timeZone: 'UTC' }), [])
+  assert.deepEqual(freeSlots([{ start: '2026-11-09T10:00:00Z', end: '2026-11-09T12:00:00Z' }, { start: '2026-11-09T11:00:00Z', end: '2026-11-09T11:30:00Z' }], { timeMin: '2026-11-09T00:00:00Z', timeMax: '2026-11-10T00:00:00Z', minutes: 30, dayStart: '09:00', dayEnd: '17:00', timeZone: 'UTC' }).map((s) => [s.start, s.end]),
+    [['2026-11-09T09:00:00.000Z', '2026-11-09T10:00:00.000Z'], ['2026-11-09T12:00:00.000Z', '2026-11-09T17:00:00.000Z']])
+})
+
+test('free time in a try-out: from the sample calendar, never Composio; no slot overlaps a sample event', async () => {
+  const out = await run('googlecalendar_find_free_time', { minutes: 30, maxResults: 30 }, zoned('UTC', true))
+  assert.equal(out.source, 'sample_calendar')
+  assert.equal(calls.length, 0)
+  assert.ok(out.slots.length > 0)
+  const events = listSampleCalendar({}).events
+  for (const s of out.slots) for (const e of events) assert.ok(!(s.start < e.end && e.start < s.end), `${s.start} overlaps ${e.title}`)
+})
+
+const move = { eventId: 'mv1', title: 'Client call', oldStart: '2026-11-12T15:00:00+07:00', oldEnd: '2026-11-12T16:00:00+07:00', newStart: '2026-11-12T16:00:00+07:00', newEnd: '2026-11-12T17:00:00+07:00' }
+const tool = () => (toolRegistry as any).googlecalendar_move_event
+// beforeApproval gets a plain object view of the request context.
+const view = (userId = 'usr_a', demo = false) => ({ requestContext: { [USER_KEY]: userId, [DEMO_KEY]: demo, [TIME_ZONE_KEY]: 'Asia/Jakarta' } })
+
+test('move: read the event, then patch only its start and end; no attendees sent, nobody emailed; it needs approval', async () => {
+  resetEvents()
+  assert.equal(needsApproval('googlecalendar_move_event'), true)
+  assert.equal(await tool().beforeApproval(move, view()), undefined, 'the event is at the old time: the card is shown')
+  calls.length = 0
+  const out = await run('googlecalendar_move_event', move, zoned('Asia/Jakarta'))
+  assert.deepEqual(calls.filter((c) => c.body?.tool_slug).map((c) => c.body.tool_slug), ['GOOGLECALENDAR_EVENTS_GET', 'GOOGLECALENDAR_PATCH_EVENT'], 'read again just before writing')
+  assert.deepEqual(exec('GOOGLECALENDAR_EVENTS_GET'), [{ calendar_id: 'primary', event_id: 'mv1' }])
+  assert.deepEqual(exec('GOOGLECALENDAR_PATCH_EVENT'), [{ calendar_id: 'primary', event_id: 'mv1', start_time: '2026-11-12T16:00:00+07:00', end_time: '2026-11-12T17:00:00+07:00', send_updates: 'none' }])
+  assert.deepEqual([out.status, out.title, out.startLocal, out.endLocal, out.guests, out.guestsEmailed, out.link], ['moved', 'Client call', 'Thu 12 Nov 16:00', 'Thu 12 Nov 17:00', 1, false, 'https://calendar.example/mv1'])
+  // The same instant written in UTC is the same old time.
+  calls.length = 0
+  const utc = await run('googlecalendar_move_event', { ...move, oldStart: '2026-11-12T08:00:00Z', oldEnd: '2026-11-12T09:00:00.000Z' }, zoned('Asia/Jakarta'))
+  assert.equal(utc.status, 'moved')
+})
+
+test('move: an event no longer at the old time is refused before the card and again before writing; nothing is patched', async () => {
+  resetEvents()
+  const stale = { ...move, oldStart: '2026-11-12T14:00:00+07:00', oldEnd: '2026-11-12T15:00:00+07:00' }
+  const before = await tool().beforeApproval(stale, view())
+  assert.equal(before.proceed, false)
+  assert.equal(before.output.status, 'refused')
+  assert.match(before.output.message, /no longer at the time shown/)
+  // Moved in Google Calendar after the card was shown: execute reads again and refuses.
+  assert.equal(await tool().beforeApproval(move, view()), undefined)
+  EVENTS.mv1.start.dateTime = '2026-11-12T13:00:00+07:00'
+  calls.length = 0
+  const out = await run('googlecalendar_move_event', move, zoned('Asia/Jakarta'))
+  assert.equal(out.status, 'refused')
+  assert.deepEqual(exec('GOOGLECALENDAR_PATCH_EVENT'), [])
+  resetEvents()
+})
+
+test('move: refused for an event the owner is only a guest on, an all-day event, a missing event, or the same time', async () => {
+  resetEvents()
+  const guest = await tool().beforeApproval({ ...move, eventId: 'guest1' }, view())
+  assert.match(guest.output.message, /guest on this event/)
+  assert.match((await run('googlecalendar_move_event', { ...move, eventId: 'guest1' }, zoned('Asia/Jakarta'))).message, /guest on this event/)
+  assert.match((await tool().beforeApproval({ ...move, eventId: 'allday1' }, view())).output.message, /all-day/)
+  assert.match((await tool().beforeApproval({ ...move, eventId: 'nope' }, view())).output.message, /Not Found/)
+  calls.length = 0
+  const same = await tool().beforeApproval({ ...move, newStart: move.oldStart, newEnd: move.oldEnd }, view())
+  assert.match(same.output.message, /same as the old one/)
+  assert.equal(calls.length, 0)
+  assert.deepEqual(exec('GOOGLECALENDAR_PATCH_EVENT'), [])
+})
+
+test('move: new times carry the owner\'s offset, end after start, at most 24 hours; old times are ISO with an offset', async () => {
+  resetEvents()
+  await assert.rejects(run('googlecalendar_move_event', { ...move, newStart: '2026-11-12T16:00:00+00:00', newEnd: '2026-11-12T17:00:00+00:00' }, zoned('Asia/Jakarta')), /not in the owner's time zone/)
+  await assert.rejects(run('googlecalendar_move_event', { ...move, newEnd: '2026-11-12T15:30:00+07:00' }, zoned('Asia/Jakarta')), /end after it starts/)
+  const schema = tool().inputSchema
+  assert.equal(schema.safeParse({ ...move, oldStart: '2026-11-12' }).success, false, 'an all-day date is not a time')
+  assert.equal(schema.safeParse({ ...move, oldStart: 'tomorrow 3pm' }).success, false)
+  assert.equal(schema.safeParse(move).success, true)
+  assert.deepEqual(exec('GOOGLECALENDAR_PATCH_EVENT'), [])
+})
+
+test('move in a try-out: the sample event at its sample time moves on paper only; never Composio', async () => {
+  const focus = listSampleCalendar({ query: 'Focus time' }).events[0]
+  const later = (t: string) => new Date(Date.parse(t) + 4 * 3600_000).toISOString()
+  const input = { eventId: focus.id, title: focus.title, oldStart: focus.start, oldEnd: focus.end, newStart: later(focus.start), newEnd: later(focus.end) }
+  const c = { requestContext: { get: (k: string) => (k === USER_KEY ? 'usr_demo' : k === DEMO_KEY ? true : undefined) } }
+  assert.equal(await tool().beforeApproval(input, { requestContext: { [USER_KEY]: 'usr_demo', [DEMO_KEY]: true } }), undefined)
+  const out = await run('googlecalendar_move_event', input, c)
+  assert.deepEqual([out.source, out.status, out.start, out.guestsEmailed], ['sample_calendar', 'moved', input.newStart, false])
+  const wrong = await run('googlecalendar_move_event', { ...input, oldStart: later(focus.start), oldEnd: later(focus.end), newStart: later(later(focus.start)), newEnd: later(later(focus.end)) }, c)
+  assert.equal(wrong.status, 'refused')
+  assert.equal(calls.length, 0)
+})
+
+test('move is a #167 switch: a rule can cover it; try-outs always ask', () => {
+  assert.equal(ruleFor('googlecalendar_move_event', move, { autoApprove: { tools: ['googlecalendar_move_event'] } }), 'tool')
+  assert.equal(ruleFor('googlecalendar_move_event', move, { autoApprove: { tools: ['googlecalendar_move_event'] }, demo: true }), null)
+  assert.equal(ruleFor('googlecalendar_find_free_time', {}, { autoApprove: { tools: ['googlecalendar_move_event'] } }), null)
 })

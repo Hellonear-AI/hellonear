@@ -3,7 +3,7 @@
 // sells into it, so they are drawn on the wallet node.
 const WALLET_TOOLS = new Set(['send_payment', 'get_balance', 'list_payments', 'buy_data', 'get_quotes', 'sell_offer', 'buy_from_mind'])
 // mail_* is the Mind's own AgentMail address (#96): one `app:mail` node. The business apps (#194) follow the same rule.
-const APP_TOOL = /^(gmail|googlecalendar|mail|googlesheets|googledrive|googledocs|slack|notion|outlook)_/
+const APP_TOOL = /^(gmail|googlecalendar|mail|googlesheets|googledrive|googledocs|slack|notion|outlook|zoom)_/
 
 // Mastra's built-in skill tools take the skill name in different arguments.
 const SKILL_NAME_ARG: Record<string, string> = { skill: 'name', skill_read: 'skillName' }

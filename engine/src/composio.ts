@@ -28,8 +28,9 @@ async function call(method: string, path: string, body?: unknown): Promise<{ sta
 // Composio toolkit slugs, the same as the backend's `TOOLKITS`. googlemeet (#97) makes Meet links through the Meet
 // REST API, which works without a paid Workspace account (Calendar's own create_meeting_room does not). The business
 // apps (#194, `src/apps.ts`) all have Composio-managed OAuth (GET /api/v3/toolkits/<slug>, read 11 Nov 2026). discord
-// and hubspot are enabled to match the backend, but no engine tool uses them yet.
-export const TOOLKITS: App[] = ['gmail', 'googlecalendar', 'googlemeet', 'googlesheets', 'googledrive', 'googledocs', 'slack', 'discord', 'notion', 'outlook', 'hubspot']
+// and hubspot are enabled to match the backend, but no engine tool uses them yet. zoom (#246, `src/zoom.ts`) has
+// Composio-managed OAuth2 too (read 11 Nov 2026).
+export const TOOLKITS: App[] = ['gmail', 'googlecalendar', 'googlemeet', 'googlesheets', 'googledrive', 'googledocs', 'slack', 'discord', 'notion', 'outlook', 'hubspot', 'zoom']
 
 // One session per user, reused for a while instead of one per tool call.
 const SESSION_TTL_MS = 30 * 60 * 1000

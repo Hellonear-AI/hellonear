@@ -178,6 +178,13 @@ export function approvalDetails(tool: string, args: unknown, timeZone?: string):
           : 'Adds it to your Google Calendar.',
       }
     }
+    // Moving an event (#247): the time it has now, as the Mind listed it, and the new one, in the app's words.
+    case 'googlecalendar_move_event':
+      return {
+        title: `Move "${str(a.title) ?? 'an event'}"`,
+        lines: [{ label: 'From', value: whenText(a.oldStart, a.oldEnd, timeZone) ?? 'Not read' }, { label: 'To', value: whenText(a.newStart, a.newEnd, timeZone) ?? 'Not given' }],
+        note: 'Only the time changes, in your Google Calendar. Nobody is emailed, so tell any guests yourself. If the event has moved since the Mind read it, nothing is changed.',
+      }
     case 'gmail_organize': {
       const emails = Array.isArray(a.emails) ? (a.emails as Record<string, unknown>[]) : []
       const n = emails.length
@@ -212,6 +219,15 @@ export function approvalDetails(tool: string, args: unknown, timeZone?: string):
         lines: [{ label: 'Length', value: `${(str(a.markdown) ?? '').length.toLocaleString('en')} characters` }],
         note: 'Creates a new Google Doc in your Drive. Nothing is shared.',
       }
+    // Adding to an existing Doc (#247): which Doc (its title as the Mind read it), where, and the text itself.
+    case 'googledocs_append_text': {
+      const text = str(a.text) ?? ''
+      return {
+        title: `Add to "${str(a.title) ?? 'a Google Doc'}"`,
+        lines: [{ label: 'Where', value: 'At the end' }, { label: 'Length', value: `${text.length.toLocaleString('en')} characters` }, { label: 'Text', value: clip(text) || 'Empty' }],
+        note: 'Adds this text at the end of your Google Doc. Nothing already in it changes. If the Doc has another title when you approve, nothing is added.',
+      }
+    }
     // Changing cells (#245): the cells now, as the Mind read them, and what replaces them, in the app's words.
     case 'googlesheets_update_cells': {
       const flat = (v: unknown) => (Array.isArray(v) ? v.flat().map((x) => (x === null || x === undefined || x === '' ? '(empty)' : String(x))).join(', ') : '')
@@ -245,12 +261,36 @@ export function approvalDetails(tool: string, args: unknown, timeZone?: string):
         note: "Adds one row. Existing rows don't change.",
       }
     }
+    // Changing a Notion row (#247): each property as the Mind read it and what replaces it, in the app's words.
+    case 'notion_update_row': {
+      const props = Array.isArray(a.properties) ? (a.properties as Record<string, unknown>[]) : []
+      return {
+        title: `Change "${str(a.rowTitle) ?? 'a row'}" in Notion`,
+        lines: props.slice(0, 8).map((p, i) => ({ label: str(p.name) ?? `${i + 1}`, value: `${clip(str(p.oldValue) ?? '(empty)', 300)} → ${clip(str(p.newValue) ?? '(empty)', 300)}` })),
+        note: 'Changes only these properties of this row. The old value is what the Mind read; if the row holds something else when you approve, nothing is changed.',
+      }
+    }
     case 'slack_send_message':
       return {
         title: `Post to ${str(a.channel)?.replace(/^#?/, '#') ?? 'Slack'}`,
         lines: [{ label: 'Message', value: clip(str(a.text) ?? '') }],
         note: 'Posted to Slack as you.',
       }
+    // Zoom (#246): a meeting with a join link in the owner's Zoom; nobody is invited.
+    case 'zoom_create_meeting': {
+      const minutes = typeof a.minutes === 'number' && a.minutes > 0 ? a.minutes : null
+      const start = str(a.start) ? Date.parse(a.start as string) : NaN
+      const when = whenText(a.start, minutes && !Number.isNaN(start) ? new Date(start + minutes * 60_000).toISOString() : null, timeZone)
+      const lines: ApprovalDetails['lines'] = []
+      if (when) lines.push({ label: 'When', value: when })
+      if (minutes) lines.push({ label: 'Length', value: `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}` })
+      lines.push({ label: 'Guests', value: 'Nobody is invited' })
+      return {
+        title: `Schedule the Zoom meeting "${str(a.topic) ?? 'a meeting'}"`,
+        lines,
+        note: 'Creates the meeting in your Zoom with a join link. Nobody is emailed; share the link yourself.',
+      }
+    }
     case 'sell_offer':
       return {
         title: `Sell "${str(a.title) ?? 'an offer'}" for ${str(a.priceNear) ?? '?'} NEAR`,

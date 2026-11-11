@@ -10,9 +10,11 @@ import { ruleFor } from './autoApprove.ts'
 import type { Mind } from './mind.ts'
 import { addressOf, composioTool, gmail, toListed, toRead } from './composio.ts'
 import { appTools } from './apps.ts'
+import { zoomTools } from './zoom.ts'
 import {
   ISO_WITH_OFFSET, MAX_ATTENDEES, MAX_RANGE_DAYS, checkAttendees, composioTiming, createSampleEvent, createSampleMeeting, listSampleCalendar, listedEvents, withLocalTimes, type CalendarEvent,
   meetLinkOf, rangeOf, withMeetLink,
+  busyOf, checkNewEvent, freeSlots, moveSampleEvent, sameInstant, sampleBusy,
 } from './calendar.ts'
 
 // The weekday and the owner's local time are computed here, never left to the model: it once called Monday 9 Nov
@@ -261,7 +263,7 @@ const gmailOrganize = createTool({
 })
 
 // Calendar (#57). Try-out runs read the sample calendar; owners use their own Google Calendar through Composio.
-// List and create only: no edits, no deletes. Listing shows who else is on an event (#107); creating an event invites
+// List, create and move (#247): no other edits, no deletes. Listing shows who else is on an event (#107); creating an event invites
 // nobody (inviting people would email them on the owner's behalf); meetings with guests are the separate tool below.
 const isoTime = z.string().regex(ISO_WITH_OFFSET, 'date and time with an offset, e.g. "2026-11-08T10:00:00+07:00"')
 // Each event also carries its start and end in the owner's zone (#214): the model shows those as given.
@@ -394,6 +396,126 @@ const calendarCreateMeeting = createTool({
     return withLocalTimes({
       source: 'googlecalendar', eventId: String(e.id ?? ''), title: e.summary ?? title, start: e.start?.dateTime ?? start, end: e.end?.dateTime ?? end,
       link: String(data?.display_url ?? e.htmlLink ?? ''), meetLink, attendees: guests, invitesSent: guests.length > 0, status: 'created' as const,
+    }, zoneOf(context))
+  },
+})
+
+// Free time (#247 item 3): gaps of at least `minutes` inside the owner's hours (default 09:00 to 18:00 on the owner's
+// clock), from Google's busy periods (GOOGLECALENDAR_FIND_FREE_SLOTS, `src/calendar.ts`) or the sample calendar's in a
+// try-out. Read only. Events the owner marked "free" in Google do not count as busy.
+const HHMM = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'a time of day like 09:00')
+const QUARTER_MS = 15 * 60_000
+const calendarFindFreeTime = createTool({
+  id: 'googlecalendar_find_free_time',
+  description: `Find free time in the owner's calendar: gaps of at least \`minutes\` (default 60) between events, only between dayStart and dayEnd on the owner's clock (default 09:00 to 18:00), from "from" to "to" (default: from now, the next 7 days, at most ${MAX_RANGE_DAYS} days), soonest first. Each slot has startLocal and endLocal in the owner's time zone: show those, never convert start or end yourself. A slot is free time, not an event.`,
+  inputSchema: z.object({
+    from: isoTime.optional(), to: isoTime.optional(),
+    minutes: z.number().int().min(15).max(480).optional(),
+    dayStart: HHMM.optional(), dayEnd: HHMM.optional(),
+    maxResults: z.number().int().min(1).max(30).optional(),
+  }),
+  outputSchema: z.object({
+    source: z.string(), timeZone: z.string(), minutes: z.number(), dayStart: z.string(), dayEnd: z.string(),
+    slots: z.array(z.object({ start: z.string(), end: z.string(), minutes: z.number(), ...localSchema })), truncated: z.boolean(),
+  }),
+  execute: async ({ from, to, minutes = 60, dayStart = '09:00', dayEnd = '18:00', maxResults = 10 }, context) => {
+    // From now by default, rounded up to the next quarter hour so a slot does not start at 14:37.
+    const { timeMin, timeMax } = rangeOf(from ?? new Date(Math.ceil(Date.now() / QUARTER_MS) * QUARTER_MS).toISOString(), to)
+    const demo = isDemo(context)
+    const busy = demo ? sampleBusy() : busyOf(await composioTool(context, 'googlecalendar', 'GOOGLECALENDAR_FIND_FREE_SLOTS', {
+      items: ['primary'], time_min: timeMin, time_max: timeMax, timezone: 'UTC',
+    }))
+    const timeZone = zoneOf(context)
+    const slots = freeSlots(busy, { timeMin, timeMax, minutes, dayStart, dayEnd, timeZone })
+    return {
+      source: demo ? 'sample_calendar' : 'googlecalendar', timeZone, minutes, dayStart, dayEnd,
+      slots: slots.slice(0, maxResults).map((s) => withLocalTimes(s, timeZone)), truncated: slots.length > maxResults,
+    }
+  },
+})
+
+// Moving an event (#247 item 3), with the owner's approval. GOOGLECALENDAR_PATCH_EVENT, not GOOGLECALENDAR_UPDATE_EVENT
+// (both read live 11 Nov 2026, version 20261110_00): UPDATE replaces the whole event ("omitted fields can be cleared",
+// and its create_meeting_room defaults to true, which adds a Meet link), while PATCH changes only the fields sent. We send
+// only `start_time` / `end_time` (RFC3339 with offset), never `attendees`, and always `send_updates: "none"`: nobody is
+// emailed in the owner's name, guests or not. The card shows the old and the new time: the playbook lists the event first
+// and passes its times as oldStart/oldEnd (an approval card only shows the call's arguments). Before the card and again
+// just before writing, the event is read (GOOGLECALENDAR_EVENTS_GET: Google's Event resource) and the move is refused if
+// it is not at the old time any more, is all-day or cancelled, or the owner is only a guest on it (Google leaves
+// `organizer.self` out unless it is true).
+type MoveInput = { eventId: string; oldStart: string; oldEnd: string; newStart: string; newEnd: string }
+type Moved = { source: string; eventId: string; title: string; start: string; end: string; link: string; guests: number; guestsEmailed: false; status: 'moved' | 'refused'; message?: string }
+const refusedMove = (i: MoveInput, source: string, message: string, title = ''): Moved =>
+  ({ source, eventId: i.eventId, title, start: i.oldStart, end: i.oldEnd, link: '', guests: 0, guestsEmailed: false, status: 'refused', message })
+// The event as it is now, or why it can't be moved. Throws only when Google Calendar can't be reached.
+async function movable(context: any, i: MoveInput): Promise<{ ok: true; title: string; guests: number } | { ok: false; out: Moved }> {
+  if (isDemo(context)) {
+    const r = moveSampleEvent(i)
+    return r.status === 'refused' ? { ok: false, out: refusedMove(i, 'sample_calendar', r.message!, r.title) } : { ok: true, title: r.title, guests: 0 }
+  }
+  const data = await composioTool(context, 'googlecalendar', 'GOOGLECALENDAR_EVENTS_GET', { calendar_id: 'primary', event_id: i.eventId })
+  const e = data?.response_data ?? data ?? {}
+  const title = String(e.summary ?? '')
+  const start = e.start?.dateTime as string | undefined
+  const end = e.end?.dateTime as string | undefined
+  if (e.status === 'cancelled') return { ok: false, out: refusedMove(i, 'googlecalendar', 'not moved: that event was cancelled.', title) }
+  if (!start || !end) return { ok: false, out: refusedMove(i, 'googlecalendar', 'not moved: all-day events cannot be moved here; the owner can move it in Google Calendar.', title) }
+  if (e.organizer && e.organizer.self !== true) return { ok: false, out: refusedMove(i, 'googlecalendar', 'not moved: the owner is a guest on this event, so only its organizer can move it. Suggest asking them.', title) }
+  if (!sameInstant(start, i.oldStart) || !sameInstant(end, i.oldEnd)) {
+    return { ok: false, out: refusedMove(i, 'googlecalendar', `not moved: the event is no longer at the time shown for approval (now ${start} to ${end}). List the events again and ask the owner once more.`, title) }
+  }
+  const guests = ((e.attendees ?? []) as { email?: string; self?: boolean; resource?: boolean }[]).filter((a) => a.email && !a.self && !a.resource).length
+  return { ok: true, title, guests }
+}
+// beforeApproval gets a plain object view of the request context; the helpers read it through `get`.
+const asContext = (view?: Record<string, unknown>) => ({ requestContext: { get: (k: string) => view?.[k] } })
+
+const calendarMoveEvent = createTool({
+  id: 'googlecalendar_move_event',
+  description: 'Move an existing event in the owner\'s calendar to a new time (same event, same guests). Waits for the owner to approve, unless one of the owner\'s rules covers it. First list the event with googlecalendar_list_events and pass its id, its title, and its start and end exactly as listed as oldStart and oldEnd, so the owner sees the old and the new time. newStart and newEnd carry the owner\'s offset. Nobody is emailed about the change. It cannot change guests, the title or anything else, and cannot move all-day events or events the owner is only a guest on.',
+  inputSchema: z.object({
+    eventId: z.string().min(1).max(1024).describe('the event id from googlecalendar_list_events'),
+    title: z.string().max(200).describe('the event title as listed, for the owner\'s card'),
+    oldStart: isoTime.describe('the event\'s start exactly as googlecalendar_list_events returned it'),
+    oldEnd: isoTime.describe('the event\'s end exactly as googlecalendar_list_events returned it'),
+    newStart: isoTime.describe('the new start, with the owner\'s offset'),
+    newEnd: isoTime.describe('the new end, with the owner\'s offset'),
+  }),
+  outputSchema: z.object({
+    source: z.string(), eventId: z.string(), title: z.string(), start: z.string(), end: z.string(), link: z.string(),
+    guests: z.number(), guestsEmailed: z.literal(false), status: z.enum(['moved', 'refused']), message: z.string().optional(), ...localSchema,
+  }),
+  requireApproval: true,
+  // No card for a move that can't happen: the same time, or an event that is not at the old time (or not the owner's to move).
+  beforeApproval: async (input, { requestContext }) => {
+    const context = asContext(requestContext as Record<string, unknown> | undefined)
+    const source = isDemo(context) ? 'sample_calendar' : 'googlecalendar'
+    const refuse = (out: Moved) => ({ proceed: false as const, output: withLocalTimes(out, zoneOf(context)) })
+    if (sameInstant(input.oldStart, input.newStart) && sameInstant(input.oldEnd, input.newEnd)) return refuse(refusedMove(input, source, 'not moved: the new time is the same as the old one.', input.title))
+    try {
+      const now = await movable(context, input)
+      return now.ok ? undefined : refuse(now.out)
+    } catch (err) {
+      return refuse(refusedMove(input, source, `not moved: ${err instanceof Error ? err.message : String(err)}`, input.title))
+    }
+  },
+  execute: async (input, context) => {
+    const { eventId, newStart, newEnd } = input
+    checkOwnerOffset([newStart, newEnd], ownerZone(context))
+    checkNewEvent(newStart, newEnd)
+    // Read again just before writing: the card was shown a while ago, and a rule may have skipped it.
+    const now = await movable(context, input)
+    if (!now.ok) return withLocalTimes(now.out, zoneOf(context))
+    if (isDemo(context)) {
+      return withLocalTimes({ source: 'sample_calendar', eventId, title: now.title, start: newStart, end: newEnd, link: '', guests: 0, guestsEmailed: false as const, status: 'moved' as const }, zoneOf(context))
+    }
+    const data = await composioTool(context, 'googlecalendar', 'GOOGLECALENDAR_PATCH_EVENT', {
+      calendar_id: 'primary', event_id: eventId, start_time: newStart, end_time: newEnd, send_updates: 'none',
+    })
+    const e = data?.response_data ?? data ?? {}
+    return withLocalTimes({
+      source: 'googlecalendar', eventId: String(e.id ?? eventId), title: String(e.summary ?? now.title), start: e.start?.dateTime ?? newStart, end: e.end?.dateTime ?? newEnd,
+      link: String(e.htmlLink ?? data?.display_url ?? ''), guests: now.guests, guestsEmailed: false as const, status: 'moved' as const,
     }, zoneOf(context))
   },
 })
@@ -674,8 +796,10 @@ export const toolRegistry = {
   gmail_list_emails: gmailListEmails, gmail_read_email: gmailReadEmail, gmail_create_draft: gmailCreateDraft, gmail_organize: gmailOrganize,
   googlecalendar_list_events: calendarListEvents, googlecalendar_create_event: calendarCreateEvent,
   googlecalendar_create_meeting: calendarCreateMeeting, googlecalendar_block_time: calendarBlockTime,
+  googlecalendar_find_free_time: calendarFindFreeTime, googlecalendar_move_event: calendarMoveEvent,
   mail_send: mailSend, mail_list: mailList, mail_read: mailRead, mail_send_to_owner: mailSendToOwner,
   ...appTools,
+  ...zoomTools,
 } as const
 export type ToolKey = keyof typeof toolRegistry
 
