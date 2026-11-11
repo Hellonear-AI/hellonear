@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 import type { AddressInfo } from 'node:net'
 import { createHash, randomBytes } from 'node:crypto'
 import { KeyPair, KeyPairSigner } from 'near-api-js'
-import { ENGINE_KEY, engine, fake } from './fake-engine.ts'
+import { ENGINE_KEY, engine, fake, fakeProof } from './fake-engine.ts'
 import { fakeOutlayer, outlayerServer } from './fake-outlayer.ts'
 import { COMPOSIO_KEY, composioServer, fakeComposio } from './fake-composio.ts'
 import { fakeTelegram, telegramServer } from './fake-telegram.ts'
@@ -389,6 +389,40 @@ describe('secrets (#18)', () => {
 })
 
 describe('chat and runs (#14, #17)', () => {
+  test('the proof behind the badge (#254) is stored, kept out of the stream and run history, and served to the owner alone', async () => {
+    const alice = await signIn()
+    const { mind } = await (await alice.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Pia' })).json()
+    const res = await alice.call('POST', `/v1/minds/${mind.id}/chat`, { message: 'what time is it?' })
+    const evs = await events(res)
+    const runId = evs[0].runId
+    // Streamed: the badge's fields, no proof.
+    assert.deepEqual(evs.at(-1).verification, { status: 'verified', level: 'gateway_tee', completionIds: ['c'] })
+    // Stored whole.
+    const [row] = await query(`select payload from run_events where run_id = $1 and type = 'run.verified'`, [runId])
+    assert.deepEqual(row.payload.verification.proof, fakeProof)
+    // Not in the run's history or the Mind Graph's.
+    const { events: stored } = await (await alice.call('GET', `/v1/runs/${runId}`)).json()
+    assert.deepEqual(stored, evs)
+    const graph = await (await alice.call('GET', `/v1/minds/${mind.id}/events?since=2000-01-01T00:00:00Z`)).json()
+    assert.ok(graph.events.some((e: any) => e.type === 'run.verified'))
+    assert.ok(!JSON.stringify(graph.events).includes('intelQuote'))
+    // Served alone, to the owner.
+    const proofRes = await alice.call('GET', `/v1/runs/${runId}/proof`)
+    assert.equal(proofRes.status, 200)
+    assert.deepEqual(await proofRes.json(), { runId, proofs: [{ seq: evs.at(-1).seq, model: evs.at(-1).model, level: 'gateway_tee', proof: fakeProof }] })
+    const bob = await signIn()
+    assert.equal((await bob.call('GET', `/v1/runs/${runId}/proof`)).status, 404)
+    // A POST to /proof is not an approve or decline.
+    assert.equal((await alice.call('POST', `/v1/runs/${runId}/proof`, {})).status, 405)
+    // No proof (Incognito, failed, a run from before #256, or one still paused): 404 no_proof.
+    const plain = await events(await alice.call('POST', `/v1/minds/${mind.id}/chat`, { message: 'no proof' }))
+    const none = await alice.call('GET', `/v1/runs/${plain[0].runId}/proof`)
+    assert.equal(none.status, 404)
+    assert.equal((await none.json()).error, 'no_proof')
+    const paused = await events(await alice.call('POST', `/v1/minds/${mind.id}/chat`, { message: 'please pay' }))
+    assert.equal((await alice.call('GET', `/v1/runs/${paused[0].runId}/proof`)).status, 404)
+  })
+
   test('events are relayed in order and stored; the run is summarised; threads continue', async () => {
     const alice = await signIn()
     const { mind } = await (await alice.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Gina' })).json()
