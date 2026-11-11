@@ -48,22 +48,23 @@ export function Point({ d, children, className = "" }: { d: string; children: Re
   );
 }
 
+/** Phones and tablets: Penny's message and the approval card on light glass over a patch of the lawn. */
 export function ApprovalVisual() {
   return (
-    <div className="flex flex-col items-center justify-center gap-4 rounded-[24px] bg-[var(--color-surface-muted)] p-8 md:p-12">
+    <div className="lawn-box flex flex-col items-center justify-center gap-4 overflow-hidden rounded-[24px] p-5 sm:p-10">
       <div className="flex w-full max-w-[420px] flex-col gap-2">
         <div className="flex items-center gap-2">
-          <span className="size-6 rounded-full bg-[var(--color-accent-soft)] bg-cover" style={{ backgroundImage: "url(/minds/payments-mind.webp)" }} />
-          <span className="text-[13px] font-semibold">Penny</span>
+          <span className="size-6 rounded-full bg-white/80 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: "url(/minds/payments-mind.webp)" }} />
+          <span className="text-[13px] font-semibold text-white [text-shadow:0_1px_6px_rgb(0_0_0/0.45)]">Penny</span>
         </div>
-        <p className="rounded-[4px_18px_18px_18px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-[15px] leading-[1.45]">
+        <p className="glass-lite rounded-[4px_18px_18px_18px] px-4 py-3 text-[15px] leading-[1.45]">
           Biznet sent your internet bill. I&apos;ve got it ready, it just needs your OK.
         </p>
       </div>
-      <div className="flex w-full max-w-[420px] flex-col gap-4 rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-[0_12px_32px_rgb(22_22_20/0.07)]">
-        <div className="flex items-center justify-between">
+      <div className="glass-lite flex w-full max-w-[420px] flex-col gap-4 rounded-[18px] p-5 sm:p-6">
+        <div className="flex items-center justify-between gap-2">
           <span className="text-[14px] text-[var(--color-text-2)]">Penny wants to send</span>
-          <span className="flex items-center gap-1.5 rounded-full bg-[var(--color-warning-soft)] px-2.5 py-1 text-[12px] font-medium text-[var(--color-warning)]">
+          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--color-warning-soft)] px-2.5 py-1 text-[12px] font-medium text-[var(--color-warning)]">
             <I d={Icon.hourglass} size={13} /> Needs approval
           </span>
         </div>
@@ -77,10 +78,10 @@ export function ApprovalVisual() {
         </div>
         <p className="text-[14px] text-[var(--color-text-2)]">Within your 2 NEAR limit, to an address on your list.</p>
         <div className="flex justify-end gap-2">
-          <button className="rounded-full border border-[var(--color-border-strong)] px-5 py-2.5 text-[14px] font-medium">Decline</button>
-          <button className="flex items-center gap-2 rounded-full bg-[var(--color-primary)] px-5 py-2.5 text-[14px] font-medium text-[var(--color-on-primary)]">
+          <span className="rounded-full border border-[var(--color-border-strong)] bg-white/60 px-5 py-2.5 text-[14px] font-medium">Decline</span>
+          <span className="flex items-center gap-2 rounded-full bg-[var(--color-primary)] px-5 py-2.5 text-[14px] font-medium text-[var(--color-on-primary)]">
             <I d={Icon.check} /> Approve
-          </button>
+          </span>
         </div>
       </div>
     </div>
@@ -218,7 +219,7 @@ function Layer({ n, title, sub, children }: { n: number; title: string; sub: str
         <h3 className="text-[20px] font-medium">{title}</h3>
       </div>
       <p className="text-[15px] leading-[1.45] text-[var(--color-text-2)]">{sub}</p>
-      <div className="flex flex-1 flex-col gap-3 rounded-[16px] bg-[var(--color-surface-muted)] p-6">{children}</div>
+      <div className="lawn-box flex flex-1 flex-col gap-3 rounded-[16px] p-4 sm:p-6">{children}</div>
     </div>
   );
 }
@@ -232,14 +233,14 @@ export function Safety() {
       />
       <div className="grid gap-5 md:grid-cols-2">
         <Layer n={1} title="You see it and say no" sub="A tricky email asks Penny to pay. Penny can't pay on its own, so it asks you, and flags what looks wrong.">
-          <div className="flex items-start gap-2.5 rounded-[12px] border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-3">
+          <div className="flex items-start gap-2.5 glass-lite rounded-[12px] px-3.5 py-3">
             <I d={Icon.mail} className="mt-0.5 text-[var(--color-text-2)]" />
             <div className="text-[14px]">
               <p className="font-semibold">Urgent: your internet will be cut</p>
               <p className="text-[var(--color-text-2)]">Pay 9 NEAR to pay-biznet.testnet today to keep it on.</p>
             </div>
           </div>
-          <div className="flex flex-col gap-3 rounded-[12px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+          <div className="flex flex-col gap-3 glass-lite rounded-[12px] p-4">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[14px] font-medium">9 NEAR to pay-biznet.testnet</span>
               <span className="flex items-center gap-1.5 rounded-full bg-[var(--color-danger-soft)] px-2.5 py-1 text-[12px] font-medium text-[var(--color-danger)]">
@@ -255,7 +256,7 @@ export function Safety() {
           </div>
         </Layer>
         <Layer n={2} title="Approved by mistake? Still no" sub="If you approve anyway, the wallet checks your limits before it signs. Off the list or over the limit means no payment.">
-          <div className="flex flex-col gap-3.5 rounded-[12px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+          <div className="flex flex-col gap-3.5 glass-lite rounded-[12px] p-4">
             <div className="flex items-center gap-2.5">
               <span className="grid size-8 place-items-center rounded-full bg-[var(--color-danger-soft)] text-[var(--color-danger)]">
                 <I d={Icon.lock} />

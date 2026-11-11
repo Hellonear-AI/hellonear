@@ -59,10 +59,18 @@ export function Demo() {
     };
     document.addEventListener("fullscreenchange", onChange);
     v.addEventListener("webkitendfullscreen", onChange);
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) v.pause();
+    // Plays only while on screen (phones especially): paused once scrolled past.
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const io = new IntersectionObserver(([e]) => {
+      if (document.fullscreenElement === v) return;
+      if (e.isIntersecting && !reduced) void v.play().catch(() => {});
+      else v.pause();
+    }, { threshold: 0.2 });
+    io.observe(v);
     return () => {
       document.removeEventListener("fullscreenchange", onChange);
       v.removeEventListener("webkitendfullscreen", onChange);
+      io.disconnect();
     };
   }, []);
 
@@ -110,11 +118,10 @@ export function Demo() {
           <video
             ref={video}
             src={DEMO_SRC}
-            autoPlay
             muted
             loop
             playsInline
-            preload="metadata"
+            preload="none"
             onError={() => setMissing(true)}
             className="absolute inset-0 h-full w-full object-cover"
           />

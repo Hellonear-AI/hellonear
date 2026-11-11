@@ -240,6 +240,13 @@ export function MindGraph() {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const api = useRef<{ zoom: (f: number) => void; reset: () => void } | null>(null);
+  // Phones: the graph is a picture you scroll past until you tap "Explore"; then one finger drags a
+  // bubble or moves the view and two fingers zoom, until "Done" (or the section leaves the screen).
+  const [explore, setExplore] = useState(false);
+  const exploreRef = useRef(false);
+  useEffect(() => {
+    exploreRef.current = explore;
+  }, [explore]);
   const [picked, setPicked] = useState<Picked | null>(null);
   const card = useRef<HTMLDivElement>(null);
   const pickRef = useRef<(i: number) => void>(() => {});
@@ -255,7 +262,8 @@ export function MindGraph() {
     const font = getComputedStyle(document.body).fontFamily;
     // Fewer Minds on phones and slower machines, so it stays smooth there.
     const small = window.innerWidth < 1024 || (navigator.hardwareConcurrency || 8) <= 4;
-    const { nodes, links, penny } = buildWorld(small ? 30 : 64);
+    const phone = window.innerWidth < 768;
+    const { nodes, links, penny } = buildWorld(phone ? 18 : small ? 30 : 64);
     let alpha = 0;
     // The layout settles before it is seen, a few ticks per frame (never one long freeze): it starts
     // once the section is within about a screen and a half (see `near` below).
@@ -286,7 +294,8 @@ export function MindGraph() {
     // ---- the view -----
     let size = { w: 0, h: 0, dpr: 1 };
     const view = { x: 0, y: 0, k: 1 };
-    const homeK = () => Math.max(0.35, Math.min(0.8, (size.w / 1500) * 0.75));
+    // phones start closer in on Penny, so its labels have room
+    const homeK = () => (phone ? 0.55 : Math.max(0.35, Math.min(0.8, (size.w / 1500) * 0.75)));
     const reset = () => {
       view.k = homeK();
       view.x = 0;
@@ -294,7 +303,7 @@ export function MindGraph() {
     };
     const resize = () => {
       const r = box.getBoundingClientRect();
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const dpr = Math.min(phone ? 1.5 : 2, window.devicePixelRatio || 1);
       size = { w: r.width, h: r.height, dpr };
       cv.width = Math.round(r.width * dpr);
       cv.height = Math.round(r.height * dpr);
@@ -305,7 +314,10 @@ export function MindGraph() {
     const ro = new ResizeObserver(resize);
     ro.observe(box);
     let visible = false;
-    const io = new IntersectionObserver(([e]) => (visible = e.isIntersecting));
+    const io = new IntersectionObserver(([e]) => {
+      visible = e.isIntersecting;
+      if (!visible && exploreRef.current) setExplore(false);
+    });
     io.observe(box);
     const nearIo = new IntersectionObserver(([e]) => {
       if (e.isIntersecting) near = true;
@@ -552,7 +564,8 @@ export function MindGraph() {
           warm++;
         }
       }
-      if (visible && !document.hidden) draw(now);
+      // phones draw every other frame unless someone is touching the graph
+      if (visible && !document.hidden && (!phone || drag || pts.size || (frame & 1) === 0)) draw(now);
       frame = requestAnimationFrame(loop);
     };
     frame = requestAnimationFrame(loop);
@@ -595,14 +608,37 @@ export function MindGraph() {
     else runIo.observe(box);
 
     // ---- pointer: drag a bubble or the background; pinch / Ctrl+scroll to zoom -----
+    // Touch: without Explore a tap opens a card and anything else scrolls the page (touch-action
+    // pan-y); with Explore one finger drags a bubble or the view and two fingers zoom.
     let drag: { id: number; x: number; y: number; vx: number; vy: number; moved: boolean } | null = null;
+    const pts = new Map<number, { x: number; y: number }>();
+    let pinch: { d: number; k: number } | null = null;
+    let tap: { x: number; y: number } | null = null;
     const local = (e: PointerEvent | WheelEvent) => {
       const r = cv.getBoundingClientRect();
       return { x: e.clientX - r.left, y: e.clientY - r.top };
     };
+    const twoFinger = () => {
+      const [a, b] = [...pts.values()];
+      return { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+    };
     const down = (e: PointerEvent) => {
-      if (e.pointerType !== "mouse" && e.pointerType !== "pen") return; // touch scrolls the page
       const p = local(e);
+      if (e.pointerType === "touch" && !exploreRef.current) {
+        tap = p;
+        return;
+      }
+      if (e.pointerType === "touch") {
+        pts.set(e.pointerId, p);
+        if (pts.size === 2) {
+          // a second finger: stop dragging, start zooming
+          if (drag && drag.id >= 0) nodes[drag.id].pinned = false;
+          drag = null;
+          pinch = { d: twoFinger().d, k: view.k };
+          return;
+        }
+        if (pts.size > 2) return;
+      }
       const id = hit(p.x, p.y);
       drag = { id, x: p.x, y: p.y, vx: view.x, vy: view.y, moved: false };
       if (id >= 0) nodes[id].pinned = true;
@@ -611,6 +647,16 @@ export function MindGraph() {
     };
     const move = (e: PointerEvent) => {
       const p = local(e);
+      if (e.pointerType === "touch") {
+        if (tap && Math.hypot(p.x - tap.x, p.y - tap.y) > 8) tap = null;
+        if (!exploreRef.current) return;
+        if (pts.has(e.pointerId)) pts.set(e.pointerId, p);
+        if (pinch && pts.size >= 2) {
+          const t = twoFinger();
+          zoomAt(t.mx, t.my, (pinch.k * (t.d / pinch.d)) / view.k);
+          return;
+        }
+      }
       if (!drag) {
         hover = hit(p.x, p.y);
         cv.style.cursor = hover >= 0 ? "grab" : "default";
@@ -629,14 +675,26 @@ export function MindGraph() {
         view.y = drag.vy + (p.y - drag.y);
       }
     };
-    const up = () => {
+    const up = (e: PointerEvent) => {
+      if (e.pointerType === "touch") {
+        pts.delete(e.pointerId);
+        if (pts.size < 2) pinch = null;
+        if (!exploreRef.current) {
+          if (tap && e.type === "pointerup") {
+            const id = hit(tap.x, tap.y);
+            pickRef.current(id >= 0 && id !== selected ? id : -1);
+          }
+          tap = null;
+          return;
+        }
+      }
       if (!drag) return;
       if (drag.id >= 0) {
         nodes[drag.id].pinned = false;
         alpha = Math.max(alpha, 0.5);
       }
       // a click (no drag) opens the bubble's card, or closes it on the background / the same bubble
-      if (!drag.moved) pickRef.current(drag.id >= 0 && drag.id !== selected ? drag.id : -1);
+      if (!drag.moved && e.type === "pointerup") pickRef.current(drag.id >= 0 && drag.id !== selected ? drag.id : -1);
       drag = null;
       cv.style.cursor = hover >= 0 ? "grab" : "default";
     };
@@ -685,7 +743,7 @@ export function MindGraph() {
         ref={canvas}
         role="img"
         aria-label="Penny's Mind Graph among dozens of other Minds, each with its skills, tools and memories. Penny's nodes light up as it pays a bill."
-        className="graph-fade absolute inset-0 size-full touch-pan-y"
+        className={`graph-fade absolute inset-0 size-full ${explore ? "touch-none" : "touch-pan-y"}`}
       />
       {/* A small card for the picked bubble; it follows the bubble. */}
       <div ref={card} className="pointer-events-none absolute left-0 top-0" aria-live="polite">
@@ -704,6 +762,14 @@ export function MindGraph() {
       </div>
       <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-3 text-[12.5px] text-[#F2F1EC]/55">
         <span className="hidden md:inline">Drag to move · pinch or ⌘/Ctrl + scroll to zoom</span>
+        {/* touch screens: explore mode on and off */}
+        <button
+          type="button"
+          onClick={() => setExplore((x) => !x)}
+          className={`glass-dark h-10 whitespace-nowrap rounded-full px-4 text-[13px] font-medium text-[#F2F1EC] [@media(pointer:fine)]:hidden ${explore ? "!bg-[#D8F04A] !text-[#161614]" : ""}`}
+        >
+          {explore ? "Done" : "Explore"}
+        </button>
         <div className="glass-dark flex items-center gap-0.5 rounded-full p-1 text-[#F2F1EC]">
           {[
             ["−", "Zoom out", () => api.current?.zoom(1 / 1.35)],

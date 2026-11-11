@@ -175,9 +175,9 @@ function HeroCopy() {
               An AI helper with its own wallet. You set the limits, it can&apos;t change them.
             </p>
             {/* Buttons and the app row share one width, so both edges line up. */}
-          <div className="mt-1 flex w-full flex-col gap-4 min-[400px]:w-fit">
-            {/* side by side, the same width; stacked on very narrow phones */}
-            <div className="grid grid-cols-1 gap-2.5 min-[400px]:grid-cols-2">
+          <div className="mt-1 flex w-full flex-col gap-4 lg:w-fit">
+            {/* side by side, the same width, on every screen */}
+            <div className="grid grid-cols-2 gap-2.5">
               <a href="#minds" className="hero-btn hero-btn-primary hero-btn-lg justify-between">
                 Meet your Mind
                 <span className="hero-btn-dot" aria-hidden="true">
@@ -228,14 +228,14 @@ function HeroMobile() {
       <div className="absolute top-0 h-full w-[1440px]" style={{ left: "max(-80px, calc(50% - 720px))" }}>
         <Sky />
       </div>
-      <div className="relative z-10 flex flex-col items-start gap-4 px-5 pt-[104px] [&_.hero-btn]:h-11 [&_.hero-btn]:px-4 [&_.hero-btn]:text-[14px] [&_.hero-btn]:whitespace-nowrap [&_h1]:text-[34px] [&_ul]:flex-wrap [&_ul]:gap-x-2 [&_ul]:gap-y-1">
+      <div className="relative z-10 flex flex-col items-start gap-4 px-5 pt-[104px] [&_.hero-btn]:h-12 [&_.hero-btn]:gap-1.5 [&_.hero-btn]:px-3 [&_.hero-btn]:text-[13.5px] [&_.hero-btn_svg]:shrink-0 [&_.hero-btn-dot]:shrink-0 [&_.hero-btn]:whitespace-nowrap [&_.hero-btn-primary]:pr-2 [&_h1]:text-[34px] [&_ul]:flex-nowrap [&_ul]:gap-2 [&_ul]:text-[11px] [&_ul_img]:h-3">
         <HeroCopy />
       </div>
       <div className="relative mt-4 h-[420px]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/hero/mobile-back.webp" alt="" aria-hidden="true" className="absolute max-w-none" style={mind} />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/hero/slope.webp" alt="" aria-hidden="true" className="absolute max-w-none" style={{ width: 1500, left: "calc(50% - 1170px)", top: M_CREST - 16 }} />
+        <img src="/hero/slope-m.webp" alt="" aria-hidden="true" className="absolute max-w-none" style={{ width: 1500, left: "calc(50% - 1170px)", top: M_CREST - 16 }} />
         <div className="absolute inset-x-0 bottom-0 bg-[#406708]" style={{ top: M_CREST + 270 }} />
         {/* Hands: the same relit 2D grips as on desktop. The head fills ~99% of the image width;
             each grip is 25% of the head wide, its centre 23% of the head from the middle. */}

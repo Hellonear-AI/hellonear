@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { ApprovalScene, Icon, Point } from "./Sections";
+import { ApprovalScene, ApprovalVisual, Icon, Point } from "./Sections";
 import { GRAPH_SUB } from "./Sections";
 import { NIGHT_BG } from "./night";
 
@@ -195,9 +195,13 @@ export function ApprovalsScroll() {
               <Point className="ap-reveal" d={Icon.snow}>Freeze the wallet in one tap, any time.</Point>
             </ul>
           </div>
+          {/* Phones and tablets: the approval on light glass over the lawn (the photo track is desktop only) */}
+          <div className="ap-reveal mt-10 lg:hidden">
+            <ApprovalVisual />
+          </div>
         </div>
         {/* The scene window: covers the whole pinned screen on desktop, shown through a clip-path. */}
-        <div className="ap-visual relative mt-8 h-[520px] w-full overflow-hidden bg-[#4f7a2a] sm:h-[620px] lg:absolute lg:inset-0 lg:mt-0 lg:h-auto lg:[clip-path:inset(0_0_0_100%)]">
+        <div className="ap-visual relative hidden w-full overflow-hidden bg-[#4f7a2a] lg:absolute lg:block lg:inset-0 lg:mt-0 lg:h-auto lg:[clip-path:inset(0_0_0_100%)]">
           <ApprovalScene />
           {/* Into the clouds (desktop only): the night behind, then the fog and blurred clouds in front. */}
           <div className="ap-sky invisible absolute inset-0 hidden opacity-0 lg:block" style={{ background: NIGHT_BG }} aria-hidden="true">
