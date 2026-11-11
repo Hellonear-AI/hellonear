@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useApprovals, useRecentChats } from "@/modules/minds/hooks/useMinds"
 import { useActiveRun } from "@/modules/chat/hooks/ChatRunProvider"
+import { ChatRow } from "@/components/layout/ChatRow"
 
 export function useActiveSegment(mindId: string) {
   const pathname = usePathname()
@@ -118,33 +119,34 @@ export function RecentChats({ mindId, onNavigate }: { mindId: string; onNavigate
         {listed.map((chat) => {
           const href = `${mindHref(mindId, "chat")}/${chat.threadId}`
           const isOpen = pathname === href
+          const replyingHere = replying === chat.threadId
           return (
-            <Link
+            <ChatRow
               key={chat.threadId}
+              mindId={mindId}
+              chat={chat}
               href={href}
-              onClick={onNavigate}
-              aria-current={isOpen ? "page" : undefined}
-              className={cn(
-                "flex items-center gap-2.5 rounded-md px-3 py-2 transition-colors",
-                isOpen ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-surface-hover"
-              )}
-            >
-              {/* While the Mind answers this chat, its title shimmers and the chat's thinking orb
-                  takes the time's place (Ancung, 10 Nov: like "Thinking...", not a green dot). */}
-              <span className={cn("min-w-0 flex-1 truncate text-[13px]", replying === chat.threadId && "text-shimmer")}>{chat.title}</span>
-              {replying === chat.threadId ? (
-                <span role="status" aria-label="Replying" title="Replying" className="flex shrink-0">
-                  <ThinkingOrb state="solving" size={20} aria-hidden className="-my-1" />
-                </span>
-              ) : waitingIn.has(chat.threadId) ? (
-                <span role="status" title="Waiting for your approval" className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium text-warning">
-                  <span aria-hidden className="size-1.5 rounded-full bg-warning" />
-                  Waiting
-                </span>
-              ) : (
-                <span className="shrink-0 text-[11px] text-tertiary-foreground">{chat.when}</span>
-              )}
-            </Link>
+              isOpen={isOpen}
+              busy={replyingHere || waitingIn.has(chat.threadId)}
+              shimmer={replyingHere}
+              onNavigate={onNavigate}
+              status={
+                // While the Mind answers this chat, its title shimmers and the chat's thinking orb
+                // takes the time's place (Ancung, 10 Nov: like "Thinking...", not a green dot).
+                replyingHere ? (
+                  <span role="status" aria-label="Replying" title="Replying" className="flex shrink-0">
+                    <ThinkingOrb state="solving" size={20} aria-hidden className="-my-1" />
+                  </span>
+                ) : waitingIn.has(chat.threadId) ? (
+                  <span role="status" title="Waiting for your approval" className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium text-warning">
+                    <span aria-hidden className="size-1.5 rounded-full bg-warning" />
+                    Waiting
+                  </span>
+                ) : (
+                  <span className="shrink-0 text-[11px] text-tertiary-foreground">{chat.when}</span>
+                )
+              }
+            />
           )
         })}
       </div>
