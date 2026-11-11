@@ -52,16 +52,17 @@ export function Welcome({ mindId }: { mindId: string }) {
     <ResponsiveDialog
       open
       onOpenChange={(open) => !open && close()}
-      title={slide.title}
-      description={slide.text}
+      // Bigger on phones, where the drawer has the whole width (Ancung, 11 Nov: it read too small).
+      title={<span className="block text-xl md:text-lg">{slide.title}</span>}
+      description={<span className="block text-[15px] leading-6 md:text-sm md:leading-5">{slide.text}</span>}
       top={
-        <div key={at} className="flex h-44 items-center justify-center overflow-hidden rounded-lg bg-muted animate-in fade-in-0 zoom-in-95 duration-300 ease-out motion-reduce:animate-none">
-          {slide.art}
+        <div key={at} className="mb-4 flex h-60 items-center justify-center overflow-hidden rounded-lg bg-muted md:mb-0 md:h-44 animate-in fade-in-0 zoom-in-95 duration-300 ease-out motion-reduce:animate-none">
+          <div className="scale-125 md:scale-100">{slide.art}</div>
         </div>
       }
       footer={
-        <div className="flex w-full items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5" role="tablist" aria-label="Slides">
+        <div className="flex w-full flex-col gap-8 pt-3 md:flex-row md:items-center md:justify-between md:gap-3 md:pt-0">
+          <div className="flex items-center justify-center gap-1.5 md:justify-start" role="tablist" aria-label="Slides">
             {slides.map((s, i) => (
               <button
                 key={s.title}
@@ -74,7 +75,8 @@ export function Welcome({ mindId }: { mindId: string }) {
               />
             ))}
           </div>
-          <div className="flex gap-2">
+          {/* Phones: the main button on top, full width; desktop: side by side. */}
+          <div className="flex flex-col-reverse gap-4 md:flex-row md:gap-2 [&>*]:w-full md:[&>*]:w-auto">
             {at > 0 ? (
               <Button variant="ghost" onClick={() => setAt(at - 1)}>
                 Back

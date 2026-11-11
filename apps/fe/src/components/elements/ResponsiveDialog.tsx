@@ -55,14 +55,15 @@ export function ResponsiveDialog({
   }
   return (
     <Drawer open={open} onOpenChange={change} showSwipeHandle>
-      <DrawerContent className="gap-4 px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      {/* Roomy on phones (Ancung, 11 Nov: the drawers felt cramped), the same spacing as Welcome. */}
+      <DrawerContent className="gap-5 px-5 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         {top}
-        <DrawerHeader className="p-0 text-left">
+        <DrawerHeader className="gap-2 p-0 text-left">
           <DrawerTitle>{title}</DrawerTitle>
           {description && <DrawerDescription>{description}</DrawerDescription>}
         </DrawerHeader>
         {children}
-        {footer && <div className={cn("flex flex-col-reverse gap-2 [&>*]:w-full")}>{footer}</div>}
+        {footer && <div className={cn("flex flex-col-reverse gap-3 pt-2 [&>*]:w-full")}>{footer}</div>}
       </DrawerContent>
     </Drawer>
   )

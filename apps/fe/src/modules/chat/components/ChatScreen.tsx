@@ -378,7 +378,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
       <Drawer open={liveDrawer} onOpenChange={setLiveDrawer} showSwipeHandle>
         <DrawerContent style={{ ["--drawer-height" as string]: "85dvh" }} className="md:hidden">
           <DrawerTitle className="sr-only">Live view</DrawerTitle>
-          {liveDrawer && <LiveView mindId={mindId} active={activeHere ?? null} className="min-h-0 flex-1 px-4 pt-2 pb-4" />}
+          {liveDrawer && <LiveView mindId={mindId} active={activeHere ?? null} className="min-h-0 flex-1 px-4 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]" />}
         </DrawerContent>
       </Drawer>
       <Sheet open={liveSheet} onOpenChange={setLiveSheet}>

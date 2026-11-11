@@ -21,13 +21,13 @@ export function SettingsFrame({ desktop, onClose, children }: { desktop: boolean
     <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="bottom" showCloseButton={false} className="max-h-[85dvh] gap-0 rounded-t-xl p-0">
         <SheetTitle className="sr-only">Block settings</SheetTitle>
-        <div className="relative flex flex-col gap-4 overflow-y-auto p-4">
+        <div className="relative flex flex-col gap-5 overflow-y-auto p-5">
           <Button variant="ghost" size="icon-sm" className="absolute top-3 right-3" aria-label="Close" onClick={onClose}>
             <XIcon />
           </Button>
           {children}
         </div>
-        <div className="border-t border-border p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="border-t border-border px-5 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           <Button className="w-full" onClick={onClose}>
             Done
           </Button>
