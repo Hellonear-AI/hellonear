@@ -6,7 +6,7 @@ import { setFlag } from "@/modules/onboarding/data/progress"
 import { wheelPan, wheelPixels, wheelZoomFactor } from "@/modules/builder/hooks/useCanvasView"
 import { APPS } from "@/modules/connections/data/apps"
 import type { GraphLink, GraphNode } from "@/modules/graph/data/graph"
-import { settle, stepSim, syncSim, type Sim } from "@/modules/graph/data/sim"
+import { stepSim, syncSim, type Sim } from "@/modules/graph/data/sim"
 import { MEDIA } from "@/lib/media"
 import { clampZoom, framing, toWorld as worldAt, zoomAround } from "@/modules/graph/data/camera"
 import { readColors, FILL } from "@/modules/graph/data/colors"
@@ -42,6 +42,8 @@ const AFTERGLOW = { ok: 1600, error: 4000, denied: 4000 } as const
 // The live view's entrance: from 1.35 times the frame's zoom out to it, over 700 ms, ease-out.
 const ENTER_ZOOM = 1.35
 const ENTER_MS = 700
+/** How long a frame may spend settling a new layout, so the page never freezes for it. */
+const SETTLE_BUDGET_MS = 6
 // The magnet: bubbles within 120 screen px of the cursor move toward it, up to a third of the
 // way when right under it, fading to nothing at the edge, at most 8 units.
 const MAGNET_REACH = 120
@@ -71,13 +73,17 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
   const lastSelected = useRef<string | null>(null)
   // Frame the layout at once on the next draw, instead of easing toward it. A page that finds a
   // kept layout frames it at once too, without a glide.
-  const snap = useRef(KEPT.has(mindId))
+  const snap = useRef(false)
   // Fit was pressed: glide to the frame until there.
   const fitting = useRef(false)
   // How many bubbles the camera last framed, so a change reframes it.
   const framedCount = useRef(0)
+  // A layout to settle before it is drawn, a slice each frame (see SETTLE_BUDGET_MS).
+  const pendingSettle = useRef(false)
   // The entrance zoom out: null when none, -1 waiting for the first frame, else when it started.
-  const entering = useRef<number | null>(null)
+  // Every chat page plays it over the kept layout (Ancung, 11 Nov: like stepping into the chat);
+  // the layout itself stays put, so nothing jiggles.
+  const entering = useRef<number | null>(KEPT.has(mindId) ? -1 : null)
   // No layout kept for this Mind yet: its first real frame on this page gets the entrance, even if
   // the very first graph held only the Mind.
   const fresh = useRef(!KEPT.has(mindId))
@@ -111,7 +117,10 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
     // and bounced into place (Ancung, 11 Nov: "too much jiggle"). One or two new ones only nudge it.
     const grew = sim.current.bodies.size - before
     if ((first && nodes.length > 1) || grew >= 3) {
-      settle(sim.current, new Map(nodes.map((n) => [n.id, n.kind])))
+      // Settled in slices by the draw loop (SETTLE_BUDGET_MS a frame), not here at once: 35
+      // bubbles took 23 to 58 ms on a laptop, so a phone would freeze for a few hundred. A graph
+      // that isn't on screen doesn't draw, so it doesn't settle either.
+      pendingSettle.current = true
       // Frame it at once only while the graph is opening (nothing but the Mind before). Later, the
       // camera glides to the new frame, and only if the owner hasn't moved it: snapping during a
       // reply read as the graph zooming by itself (Ancung, 11 Nov).
@@ -120,7 +129,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       if (fresh.current) {
         fresh.current = false
         entering.current = -1
-      } else if (before <= 1) snap.current = true
+      } else if (before <= 1 && entering.current === null) snap.current = true
       else fitting.current = true
     }
     const now = performance.now()
@@ -276,6 +285,18 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       const s = sim.current
       if (!s) return
       const kinds = new Map(data.current.nodes.map((n) => [n.id, n.kind]))
+      if (pendingSettle.current) {
+        const until = now + SETTLE_BUDGET_MS
+        let warm = true
+        while (warm && performance.now() < until) warm = stepSim(s, kinds)
+        // Not still yet: nothing drawn this frame, the rest next frame. Then it appears settled.
+        if (warm) {
+          ctx.setTransform(1, 0, 0, 1, 0, 0)
+          ctx.clearRect(0, 0, cv.width, cv.height)
+          return
+        }
+        pendingSettle.current = false
+      }
       const moving = stepSim(s, kinds)
       // While the camera is automatic, a change in how many bubbles there are reframes it (gliding),
       // so bubbles that come back one or two at a time are never left outside it.

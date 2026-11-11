@@ -25,6 +25,7 @@ import { dayLabel } from "@/modules/chat/data/thread"
 import { Shown, TurnView } from "@/modules/chat/components/TurnView"
 import { FirstChat, Centered, ThreadSkeleton } from "@/modules/chat/components/ChatStates"
 import { onLiveDrawer } from "@/modules/graph/data/liveDrawer"
+import { useMediaQuery } from "@/hooks/useMediaQuery"
 
 /**
  * Chat (design 4 · Chat, C1): the thread, what each run did, and the composer. `threadId` null
@@ -51,6 +52,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
 
   // The live view (C2, #17): beside the chat from 1280 px, remembered per device; a sheet below that.
   const liveOpen = useLiveOpen()
+  const wide = useMediaQuery(MEDIA.xl, false)
   const [liveSheet, setLiveSheet] = useState(false)
   // Phones get it as a drawer from the bottom (Ancung, 10 Nov), tablets as a sheet from the right.
   const [liveDrawer, setLiveDrawer] = useState(false)
@@ -371,7 +373,11 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
             liveOpen ? "opacity-100 delay-50" : "opacity-0"
           )}
         >
-          <LiveView mindId={mindId} active={activeHere ?? null} className="w-full p-5" />
+          {/* Only made on screens wide enough to show it (1280 px): below that the panel is hidden,
+              and it still fetched the history, laid out the graph and readied its entrance on
+              every chat page (Ancung, 11 Nov: no animating what a phone doesn't show). Phones and
+              tablets make it only when the drawer or sheet opens. */}
+          {wide && <LiveView mindId={mindId} active={activeHere ?? null} className="w-full p-5" />}
         </div>
       </aside>
       <Drawer open={liveDrawer} onOpenChange={setLiveDrawer} showSwipeHandle>
