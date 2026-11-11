@@ -129,3 +129,14 @@ describe("Docs append card (#247)", () => {
     expect(d?.note).toMatch(/Nothing already in it changes/)
   })
 })
+
+describe("Notion row change card (#247)", () => {
+  it("shows each property old and new, in the same words as Telegram", async () => {
+    const { approvalDetails } = await import("@/modules/runs/data/approvalDetails")
+    const args = { rowId: "r1", rowTitle: "Send invoice", properties: [{ name: "Status", type: "status", oldValue: "In progress", newValue: "Done" }, { name: "Notes", type: "rich_text", oldValue: "", newValue: "sent" }] }
+    const d = approvalDetails({ toolCallId: "c", tool: "notion_update_row", status: "awaiting_approval", args, result: undefined })
+    expect(d?.title).toBe('Change "Send invoice" in Notion')
+    expect(d?.lines).toEqual([{ label: "Status", value: "In progress → Done" }, { label: "Notes", value: "(empty) → sent" }])
+    expect(d?.note).toBe("Changes only these properties of this row. The old value is what the Mind read; if the row holds something else when you approve, nothing is changed.")
+  })
+})

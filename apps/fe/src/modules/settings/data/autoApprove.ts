@@ -19,6 +19,7 @@ export const ACTION_RULES: ActionRule[] = [
   { tool: "googledocs_append_text", label: "Add text to the end of a Google Doc" },
   { tool: "notion_create_page", label: "Add a Notion page" },
   { tool: "notion_add_row", label: "Add a row to a Notion database" },
+  { tool: "notion_update_row", label: "Change a row in a Notion database", warning: "The old value is replaced." },
   { tool: "slack_send_message", label: "Post a Slack message", warning: "Everyone in the channel sees it at once." },
   { tool: "zoom_create_meeting", label: "Schedule a Zoom meeting" },
   { tool: "sell_offer", label: "Publish something for sale" },
