@@ -11,8 +11,15 @@ export type ApiSkill = {
   connections: string[]
   note?: string
   tools: string[]
+  /** The name and one line from the SKILL.md (#220), for a skill the FE has no words for yet. */
+  title?: string
+  blurb?: string
 }
+
+/** One skill with its SKILL.md body, the text the Mind reads (`GET /skills/{skillId}`, #220). */
+export type ApiSkillDetail = Pick<ApiSkill, "skillId" | "status" | "connections" | "tools" | "title" | "blurb"> & { markdown: string }
 
 export const skillsApi = {
   skills: async () => (await api<{ skills: ApiSkill[] }>("/skills")).skills,
+  skill: async (skillId: string) => (await api<{ skill: ApiSkillDetail }>(`/skills/${encodeURIComponent(skillId)}`)).skill,
 }

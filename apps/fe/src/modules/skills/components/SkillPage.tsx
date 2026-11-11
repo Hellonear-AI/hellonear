@@ -14,6 +14,7 @@ import { useConnections } from "@/modules/connections/hooks/useConnections"
 import { useSession } from "@/modules/auth/hooks/useSession"
 import { RemoveSkillDialog } from "@/modules/skills/components/SkillDialogs"
 import { SKILL_ICON } from "@/modules/skills/data/icons"
+import { SkillInstructions } from "@/modules/skills/components/SkillInstructions"
 
 /**
  * One skill's settings (S3.1): what it does and the rules it follows, then Remove at the bottom.
@@ -83,6 +84,8 @@ export function SkillPage({ mindId, skillId }: { mindId: string; skillId: string
           )}
         </section>
       )}
+
+      <SkillInstructions skillId={skillId} name={name} />
 
       {added ? (
         <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5 md:flex-row md:items-center md:justify-between">
