@@ -93,7 +93,10 @@ export function stepSim(sim: Sim, kinds: Map<string, NodeKind>): boolean {
       const d = Math.sqrt(d2)
       // Labels sit under the bubbles, so keep more room than the bubbles need.
       const min = p.r + q.r + 46
-      const f = ((5200 / d2) + (d < min ? (min - d) * 0.6 : 0)) * a
+      // The 1/d² push is capped as if they were 20 apart: two new bubbles placed on nearly the same spot (skills
+      // start 40 from the Mind at angles that can coincide) once got 5200/0.1 and flew ~1,000 out before the layout
+      // cooled, out of the live view's reach (11 Nov). The overlap term below still separates close bubbles.
+      const f = ((5200 / Math.max(d2, 400)) + (d < min ? (min - d) * 0.6 : 0)) * a
       const fx = (dx / d) * f
       const fy = (dy / d) * f
       p.vx -= fx

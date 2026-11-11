@@ -70,6 +70,21 @@ describe("Mind Graph (#17)", () => {
     expect(sim.bodies.get("mind:m1")).toMatchObject({ x: 0, y: 0 })
   })
 
+  it("two bubbles starting almost on the same spot don't fly out of the view (11 Nov)", () => {
+    const g = buildGraph({ mindId: "m1", name: "Omaga", skills: ["payments", "daily-planner"], catalog, events: [] })
+    const sim = syncSim(null, g.nodes, g.links, "mind:m1")
+    // Skills start 40 from the Mind at angles that can nearly coincide: put two 0.3 apart.
+    const a = sim.bodies.get("skill:payments")!
+    const b = sim.bodies.get("skill:daily-planner")!
+    b.x = a.x + 0.3
+    b.y = a.y
+    stepSim(sim, new Map(g.nodes.map((n) => [n.id, n.kind])))
+    // Before the cap the 1/d² push gave them ~5,000 a tick, and a Payments Mind's two busiest skills ended ~1,000
+    // away, beyond what Fit can show at its 35% floor.
+    expect(Math.hypot(b.vx, b.vy)).toBeLessThan(100)
+    expect(Math.hypot(b.x, b.y)).toBeLessThan(200)
+  })
+
   it("keeps only states that mean something now", () => {
     const events = [
       ev("tool.called", { tool: "send_payment", toolCallId: "old", nodeId: "wallet:m1", runId: "r0" }),
