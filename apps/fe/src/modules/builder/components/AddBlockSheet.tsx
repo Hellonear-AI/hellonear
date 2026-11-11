@@ -5,7 +5,7 @@ import { cn } from "cn"
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
 import { useBuilder } from "@/modules/builder/components/BuilderContext"
 import { ADD_KINDS, KIND_META, WHY_NOT, type Kind } from "@/modules/builder/data/blocks"
-import { canPlace, lineAt, type Block } from "@/modules/builder/data/draft"
+import { canPlace, ifLockedWhy, lineAt, type Block } from "@/modules/builder/data/draft"
 import type { Place } from "@/modules/builder/data/places"
 import { TONE } from "@/modules/builder/data/tone"
 import { toolInfo } from "@/modules/builder/data/tools"
@@ -17,7 +17,7 @@ export function AddBlockSheet({ at, line, onClose, onPick }: { at: Place | null;
   const here = lineAt(line, place.path)
   const label = (x: Block) => (x.kind === "agent" ? `Ask ${name}` : x.kind === "tool" ? (toolInfo(x.tool)?.title ?? "a tool") : x.kind === "http" ? "Call a website" : x.kind === "if" ? "the If" : "End")
   const where = `${place.index === 0 ? (place.path.length ? "At the start of this way" : "After Start") : `After ${label(here[place.index - 1])}`}${place.index < here.length ? `, before ${label(here[place.index])}` : ""}`
-  const off = (kind: Kind) => (canPlace(line, place.path, place.index, kind, self) ? null : WHY_NOT[kind])
+  const off = (kind: Kind) => (canPlace(line, place.path, place.index, kind, self) ? null : kind === "if" ? ifLockedWhy(line, place.path, place.index, self) : WHY_NOT[kind])
   return (
     // A drawer from the bottom you can swipe away, like the live view on phones (Ancung, 10 Nov).
     <Drawer open={at !== null} onOpenChange={(open) => !open && onClose()} showSwipeHandle>

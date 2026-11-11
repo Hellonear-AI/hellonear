@@ -13,6 +13,7 @@ export function EndingPanel({
   more = false,
   goesOn = false,
   canIf,
+  ifWhy,
   canEnd,
   onPick,
 }: {
@@ -22,11 +23,13 @@ export function EndingPanel({
   /** Blocks follow its If, so an empty way carries on to them instead of stopping. */
   goesOn?: boolean
   canIf: boolean
+  /** Why the If can't go on this way, when it can't. */
+  ifWhy: string
   canEnd: boolean
   onPick: (kind: Kind) => void
 }) {
   const { name } = useBuilder()
-  const off = (kind: Kind) => (kind === "if" && !canIf) || (kind === "end" && !canEnd) ? WHY_NOT[kind] : undefined
+  const off = (kind: Kind) => (kind === "if" && !canIf ? ifWhy : kind === "end" && !canEnd ? WHY_NOT[kind] : undefined)
   return (
     <>
       <PanelHead icon={<SquareIcon />} title={which === "then" ? "If yes" : "If no"} />

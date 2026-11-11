@@ -9,7 +9,7 @@ import { IfPanel } from "@/modules/builder/components/panels/IfPanel"
 import { StartPanel } from "@/modules/builder/components/panels/StartPanel"
 import { ToolPanel } from "@/modules/builder/components/panels/ToolPanel"
 import type { Kind } from "@/modules/builder/data/blocks"
-import { canPlace, carriesOn, isStep, notesBefore, resultsOf, stepsBefore, type Block, type Draft, type IfBlock } from "@/modules/builder/data/draft"
+import { canPlace, carriesOn, ifLockedWhy, isStep, notesBefore, resultsOf, stepsBefore, type Block, type Draft, type IfBlock } from "@/modules/builder/data/draft"
 import type { EngineIssue } from "@/modules/builder/data/issues"
 import { slotPlace, type Place } from "@/modules/builder/data/places"
 import { skillCopy } from "@/modules/skills/data/skills"
@@ -71,6 +71,7 @@ function PickedPanel({ draft, picked: b, slot, missingSkillFor, set, onPatch, on
         more={slot.block[slot.h].length > 0}
         goesOn={carriesOn(line, at.path)}
         canIf={canPlace(line, at.path, at.index, "if", self)}
+        ifWhy={ifLockedWhy(line, at.path, at.index, self)}
         canEnd={canPlace(line, at.path, at.index, "end", self)}
         onPick={(kind) => onAdd(kind, at)}
       />

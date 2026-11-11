@@ -19,6 +19,7 @@ export function BlocksPanel({
   onToggle,
   desktop,
   canIf,
+  ifWhy,
   canEnd,
   onAdd,
 }: {
@@ -28,11 +29,13 @@ export function BlocksPanel({
   desktop: boolean
   /** Whether an If or End fits at the end of the main line, where a tap adds. */
   canIf: boolean
+  /** Why the If can't go there, when it can't. */
+  ifWhy: string
   canEnd: boolean
   /** A tap adds the block at the end of the main line. */
   onAdd: (kind: Kind) => void
 }) {
-  const list = (compact: boolean) => <PaletteList compact={compact} canIf={canIf} canEnd={canEnd} onAdd={onAdd} />
+  const list = (compact: boolean) => <PaletteList compact={compact} canIf={canIf} ifWhy={ifWhy} canEnd={canEnd} onAdd={onAdd} />
   return (
     <aside
       className={cn(
@@ -73,7 +76,7 @@ export function BlocksPanel({
 }
 
 /** Start (every job has one), then each block to tap or drag onto the canvas. */
-function PaletteList({ compact, canIf, canEnd, onAdd }: { compact: boolean; canIf: boolean; canEnd: boolean; onAdd: (kind: Kind) => void }) {
+function PaletteList({ compact, canIf, ifWhy, canEnd, onAdd }: { compact: boolean; canIf: boolean; ifWhy: string; canEnd: boolean; onAdd: (kind: Kind) => void }) {
   const { name } = useBuilder()
   const { startDrag, endDrag } = useDrag()
   const fits: Partial<Record<Kind, boolean>> = { if: canIf, end: canEnd }
@@ -87,7 +90,7 @@ function PaletteList({ compact, canIf, canEnd, onAdd }: { compact: boolean; canI
         tone={tone}
         icon={<Icon />}
         title={title(name)}
-        line={fits[kind] === false ? (PALETTE_WHY_NOT[kind] ?? line(name)) : line(name)}
+        line={fits[kind] === false ? (kind === "if" ? ifWhy : (PALETTE_WHY_NOT[kind] ?? line(name))) : line(name)}
         onClick={() => onAdd(kind)}
         onDragStart={() => startDrag({ add: kind })}
         onDragEnd={endDrag}

@@ -473,6 +473,20 @@ export function stepsBefore(line: Block[], id: string): Step[] {
 }
 
 /** Whether a new block of this kind may go at `index` of the line at `path` (#164 rules). */
+/**
+ * Why an If can't go at a place, in the owner's words (Ancung, 11 Nov: "Add a check or a website
+ * first" read like a bug after "Read the calendar"). An If compares a number or a text; a list
+ * (events, emails) can't be compared yet (#264).
+ */
+export function ifLockedWhy(line: Block[], path: LinePath, index: number, self?: Self, short = false): string {
+  const steps = stepsAt(line, path, index)
+  // Something comparable came before, so it's the path that ends above.
+  if (resultsBefore(steps, steps.length, self).some(comparable)) return "The path already ends above"
+  const list = [...steps].reverse().find((s) => stepFields(s).some((f) => f.kind === "list"))
+  if (list) return short ? `${stepTitle(list)} gives a list, which an If can't compare yet` : `${stepTitle(list)} gives a list, which an If can't compare yet. It needs a number or a text, like the time or a website's answer.`
+  return short ? "Add a step that gives a number or text first" : "Add a step before it that gives a number or a text, like Check the time or Call a website."
+}
+
 export function canPlace(line: Block[], path: LinePath, index: number, kind: Block["kind"], self?: Self): boolean {
   const here = lineAt(line, path)
   // Nothing after a block that ends the path, and End only last.

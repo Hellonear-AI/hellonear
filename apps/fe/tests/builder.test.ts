@@ -495,3 +495,16 @@ describe("read steps for #252's tools", () => {
     expect(toolInfo("zoom_list_meetings")?.fields[0].kind).toBe("list")
   })
 })
+
+describe("why an If is locked (#264)", () => {
+  it("names the step whose result is a list, or asks for one that gives a number or text", async () => {
+    const { ifLockedWhy } = await import("@/modules/builder/data/draft")
+    const calendar = { id: "c", kind: "tool" as const, tool: "googlecalendar_list_events", args: {} }
+    const time = { id: "t", kind: "tool" as const, tool: "get_time", args: {} }
+    expect(ifLockedWhy([calendar], [], 1, undefined, true)).toBe("Read the calendar gives a list, which an If can't compare yet")
+    expect(ifLockedWhy([], [], 0, undefined, true)).toBe("Add a step that gives a number or text first")
+    expect(ifLockedWhy([calendar], [], 1)).toMatch(/It needs a number or a text/)
+    // With something comparable before it, the If is locked for another reason.
+    expect(ifLockedWhy([time, calendar], [], 2, undefined, true)).toBe("The path already ends above")
+  })
+})

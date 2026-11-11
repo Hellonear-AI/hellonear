@@ -24,7 +24,7 @@ import { PhoneBar } from "@/modules/builder/components/PhoneBar"
 import { ShortcutsDialog } from "@/modules/builder/components/ShortcutsDialog"
 import { SaveProblems, TestRunResult } from "@/modules/builder/components/StatusBanners"
 import { newBlock, type Kind } from "@/modules/builder/data/blocks"
-import { canPlace, emptyDraft, findBlock, fromCanvas, insertBlock, removeBlock, updateBlock, type Block, type Draft } from "@/modules/builder/data/draft"
+import { canPlace, emptyDraft, ifLockedWhy, findBlock, fromCanvas, insertBlock, removeBlock, updateBlock, type Block, type Draft } from "@/modules/builder/data/draft"
 import { mainEnd as mainEndOf, START, takesMore, type Place } from "@/modules/builder/data/places"
 import { useCanvasView, ZOOM_STEP } from "@/modules/builder/hooks/useCanvasView"
 import { DragContext, useDragDrop } from "@/modules/builder/hooks/useDragDrop"
@@ -168,6 +168,7 @@ function Editor({ mindId, workflowId, initial }: { mindId: string; workflowId: s
                 onToggle={fold.toggle}
                 desktop={desktop}
                 canIf={canPlace(draft.line, mainEnd.path, mainEnd.index, "if", self)}
+                ifWhy={ifLockedWhy(draft.line, mainEnd.path, mainEnd.index, self, true)}
                 canEnd={canPlace(draft.line, mainEnd.path, mainEnd.index, "end", self)}
                 onAdd={addStep}
               />
