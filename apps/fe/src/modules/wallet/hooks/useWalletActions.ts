@@ -2,9 +2,9 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { compareNear, toYocto } from "@/lib/near"
-import { walletApi, type ApiWallet } from "@/modules/wallet/api"
+import { walletApi, type ApiWallet, type OwnerTransaction } from "@/modules/wallet/api"
 import { mindKeys } from "@/modules/minds/hooks/useMinds"
-import { OwnerActionError, ownerStep, readWalletUntil } from "@/modules/wallet/data/ownerAction"
+import { OwnerActionError, ownerStep, readWalletUntil, tooLateForPopup, type Prepared } from "@/modules/wallet/data/ownerAction"
 import { useOwnerTransaction } from "@/modules/wallet/hooks/useOwnerTransaction"
 
 export type Limits = { perTransactionNear: string; dailyNear: string | null; whitelist: string[] }
@@ -28,13 +28,28 @@ export function useSaveLimits(mindId: string) {
   const queryClient = useQueryClient()
   const sign = useOwnerTransaction()
   return useMutation({
-    mutationFn: async ({ limits, createWallet }: { limits: Limits; createWallet: boolean }) => {
-      const transaction = await ownerStep("build", async () => {
-        if (createWallet) await walletApi.createWallet(mindId)
-        return walletApi.policyTransaction(mindId, limits)
-      })
+    mutationFn: async ({
+      limits,
+      createWallet,
+      startedAt,
+      prepared,
+    }: {
+      limits: Limits
+      createWallet: boolean
+      /** When the owner clicked: past POPUP_SAFE_MS, a fresh build stops and asks for a click (#260). */
+      startedAt: number
+      /** A transaction built on an earlier click, signed straight away on this one. */
+      prepared?: OwnerTransaction
+    }): Promise<Prepared<OwnerTransaction> | { status: "saved"; wallet: ApiWallet }> => {
+      const transaction =
+        prepared ??
+        (await ownerStep("build", async () => {
+          if (createWallet) await walletApi.createWallet(mindId)
+          return walletApi.policyTransaction(mindId, limits)
+        }))
+      if (!prepared && tooLateForPopup(startedAt)) return { status: "needs_click", transaction }
       await ownerStep("sign", () => sign(transaction))
-      return readWalletUntil(mindId, (w) => sameLimits(w.policy, limits))
+      return { status: "saved", wallet: await readWalletUntil(mindId, (w) => sameLimits(w.policy, limits)) }
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: mindKeys.wallet(mindId) }),
   })

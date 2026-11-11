@@ -45,3 +45,20 @@ export function wrongAccountText(err: unknown): string | null {
   if (!(cause instanceof WrongAccountError)) return null
   return `Your wallet is signed in as ${cause.actual.join(", ") || "another account"}. Switch it to ${cause.expected}, then try again.`
 }
+
+/**
+ * A browser lets a click open a window only for a few seconds after it (Chrome: about 5 s of
+ * "transient user activation"). Building an owner action can take longer (#260: about 4.5 s on
+ * the hosted backend, mostly a slow testnet RPC), and then Meteor's window is blocked and NEAR
+ * Connect 0.12.0 never says so. Past this much time since the click, an owner action stops once
+ * its transaction is ready and asks for one more click, which opens Meteor at once.
+ */
+export const POPUP_SAFE_MS = 3000
+export const tooLateForPopup = (startedAt: number) => Date.now() - startedAt > POPUP_SAFE_MS
+
+/** An owner action built in time is signed and done; one built too late waits for a click to sign. */
+export type Prepared<T> = { status: "needs_click"; transaction: T }
+
+/** After this long waiting for Meteor with no answer, say its window may have been blocked. */
+export const BLOCKED_HINT_MS = 10_000
+export const BLOCKED_HINT = "No Meteor window? Your browser may have blocked it. Allow pop-ups for this site, then try again."

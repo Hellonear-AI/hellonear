@@ -11,7 +11,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { compareNear } from "@/lib/near"
 import { addressError, dailyError, DEFAULT_PER_PAYMENT, MAX_ADDRESSES, normalizeAccount, perPaymentError } from "@/modules/minds/data/limits"
-import type { ApiWallet } from "@/modules/wallet/api"
+import type { ApiWallet, OwnerTransaction } from "@/modules/wallet/api"
+import { BLOCKED_HINT } from "@/modules/wallet/data/ownerAction"
+import { useBlockedHint } from "@/modules/wallet/hooks/useBlockedHint"
 import { walletActionText } from "@/modules/wallet/data/errors"
 import { utcMidnightLocal } from "@/modules/wallet/data/activity"
 import { useSaveLimits } from "@/modules/wallet/hooks/useWalletActions"
@@ -51,6 +53,11 @@ export function LimitsDialog({
   const perPaymentId = useId()
   const draftId = useId()
   const signing = save.isPending
+  const blocked = useBlockedHint(signing)
+  // Built too slowly for the browser to allow Meteor's window from the first click (#260): kept
+  // with the limits it was built for, so one more click signs it at once. A change to the limits
+  // makes it stale and the next Save builds again.
+  const [prepared, setPrepared] = useState<{ key: string; transaction: OwnerTransaction } | null>(null)
 
   const limitError = perPaymentError(perPayment)
   const draftError = draft.trim() ? addressError(draft, addresses) : null
@@ -60,6 +67,9 @@ export function LimitsDialog({
   const changedDaily = !setUp && !capError && (wasDaily === null ? dailyNear !== null : dailyNear === null || compareNear(dailyNear, wasDaily) !== 0)
   const count = addresses.length
   const blocker = limitError ? "Fix the per payment limit first" : capError ? "Fix the daily limit first" : count === 0 ? "Add at least one address first" : null
+
+  // The prepared transaction still matches what the form says.
+  const preparedNow = Boolean(prepared && prepared.key === JSON.stringify({ perTransactionNear: perPayment.trim(), dailyNear, whitelist: addresses }))
 
   function addDraft() {
     if (!draft.trim() || draftError || count >= MAX_ADDRESSES) return
@@ -75,10 +85,14 @@ export function LimitsDialog({
   function submit() {
     if (blocker || signing) return
     const limits = { perTransactionNear: perPayment.trim(), dailyNear, whitelist: addresses }
+    const key = JSON.stringify(limits)
+    const ready = prepared?.key === key ? prepared.transaction : undefined
     save.mutate(
-      { limits, createWallet: !wallet },
+      { limits, createWallet: !wallet && !prepared, startedAt: Date.now(), prepared: ready },
       {
-        onSuccess: () => {
+        onSuccess: (r) => {
+          if (r.status === "needs_click") return setPrepared({ key, transaction: r.transaction })
+          setPrepared(null)
           onOpenChange(false)
           toast.success("Limits saved", {
             description: `Up to ${limits.perTransactionNear} NEAR per payment${limits.dailyNear ? `, ${limits.dailyNear} NEAR a day` : ""}.`,
@@ -233,10 +247,16 @@ export function LimitsDialog({
                 }.`}
             </p>
 
-            {save.error && (
+            {blocked ? (
+              <p role="status" className="text-[13px] text-warning">
+                {BLOCKED_HINT}
+              </p>
+            ) : save.error ? (
               <p role="alert" className="text-[13px] text-danger">
                 {walletActionText(save.error, "limits")}
               </p>
+            ) : (
+              preparedNow && <p className="text-[13px] text-muted-foreground">Ready to sign. Meteor opens when you press the button.</p>
             )}
           </fieldset>
         </form>
@@ -247,7 +267,7 @@ export function LimitsDialog({
           </Button>
           <Button type="submit" form="limits-form" disabled={signing || Boolean(blocker)}>
             {signing ? <Spinner /> : <PenLineIcon />}
-            {signing ? "Waiting for Meteor" : save.error ? "Try again" : "Save and sign"}
+            {signing ? "Waiting for Meteor" : preparedNow ? "Sign in Meteor" : save.error ? "Try again" : "Save and sign"}
           </Button>
         </DialogFooter>
       </DialogContent>

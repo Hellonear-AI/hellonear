@@ -115,10 +115,12 @@ export function NewMindFlow({ template }: { template?: string } = {}) {
         onSubmit={() => {
           setNotice(null)
           setUp.mutate(
-            { templateId, name: trimmedName, perTransactionNear: perPayment.trim(), whitelist: check.whitelist },
+            { templateId, name: trimmedName, perTransactionNear: perPayment.trim(), whitelist: check.whitelist, startedAt: Date.now() },
             {
-              onSuccess: ({ mindId, wallet }) =>
-                setReady({ mindId, perTransactionNear: wallet.policy?.perTransactionNear ?? perPayment.trim() }),
+              // Built too late to open Meteor from this click: the button now says "Sign in Meteor" (#260).
+              onSuccess: (r) => {
+                if (r.status === "done") setReady({ mindId: r.mindId, perTransactionNear: r.wallet.policy?.perTransactionNear ?? perPayment.trim() })
+              },
               onError: (err) => setNotice(setUpNotice(err, trimmedName)),
             }
           )

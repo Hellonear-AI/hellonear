@@ -86,3 +86,15 @@ describe("owner actions (one error, one read-back)", () => {
     expect(wrongAccountText(new OwnerActionError("sign", new Error("rejected")))).toBeNull()
   })
 })
+
+describe("Meteor's window and the browser's popup limit (#260)", () => {
+  it("signs straight from the click only within POPUP_SAFE_MS of it", async () => {
+    const { POPUP_SAFE_MS, tooLateForPopup } = await import("@/modules/wallet/data/ownerAction")
+    const now = Date.now()
+    expect(tooLateForPopup(now)).toBe(false)
+    expect(tooLateForPopup(now - (POPUP_SAFE_MS - 500))).toBe(false)
+    expect(tooLateForPopup(now - (POPUP_SAFE_MS + 500))).toBe(true)
+    // It leaves room under Chrome's ~5 s of transient activation for Meteor's own calls.
+    expect(POPUP_SAFE_MS).toBeLessThanOrEqual(3500)
+  })
+})

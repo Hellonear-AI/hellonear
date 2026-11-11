@@ -21,6 +21,8 @@ import { templateAvatar, templateLabel } from "@/modules/minds/data/minds"
 import { MAX_ADDRESSES, MAX_PER_PAYMENT_NEAR, type LimitsCheck } from "@/modules/minds/data/limits"
 import type { SetUpStage } from "@/modules/minds/hooks/useSetUpMind"
 import { StepHeader } from "@/modules/minds/components/StepHeader"
+import { BLOCKED_HINT } from "@/modules/wallet/data/ownerAction"
+import { useBlockedHint } from "@/modules/wallet/hooks/useBlockedHint"
 
 // L3 Set limits (design/hellonear.pen, "3 · Start"): the per-payment limit and who the Mind may
 // pay, a live summary, then "Create {name} and sign". States: suggested limits (L3.1), limit too
@@ -53,7 +55,9 @@ export function SetLimitsStep({
   onBack?: () => void
   onSubmit: () => void
 }) {
-  const busy = stage !== "idle"
+  // "ready" waits for the click that opens Meteor, so the button stays pressable (#260).
+  const busy = stage !== "idle" && stage !== "ready"
+  const blocked = useBlockedHint(stage === "signing")
   const perPaymentId = useId()
   const perPaymentHelpId = useId()
   const count = check.whitelist.length
@@ -182,6 +186,11 @@ export function SetLimitsStep({
               {check.blocker ?? "Meteor will ask you to sign once. It uses a little testnet NEAR."}
             </p>
 
+            {(blocked || stage === "ready") && (
+              <p role="status" className={blocked ? "text-[13px] text-warning" : "text-[13px] text-muted-foreground"}>
+                {blocked ? BLOCKED_HINT : `${name} is created. Meteor opens when you press the button.`}
+              </p>
+            )}
             <div className="flex flex-col-reverse gap-2.5 sm:flex-row">
               {onBack && !busy && (
                 <Button type="button" variant="secondary" onClick={onBack}>
@@ -193,6 +202,8 @@ export function SetLimitsStep({
                 {busy ? <Spinner /> : notice ? <RotateCcwIcon /> : <PenLineIcon />}
                 {stage === "creating"
                   ? `Creating ${name}`
+                  : stage === "ready"
+                    ? "Sign in Meteor"
                   : stage === "signing"
                     ? "Waiting for Meteor"
                     : stage === "checking"
