@@ -79,6 +79,7 @@ export const TOOLS: Record<string, ToolWords> = {
   googlesheets_read_range: { doing: "Reading a spreadsheet", done: "Read a spreadsheet", orb: "searching", node: "Read a sheet" },
   notion_search: { doing: "Searching your Notion", done: "Searched your Notion", orb: "searching", node: "Notion search" },
   notion_read_page: { doing: "Reading a Notion page", done: "Read a Notion page", orb: "searching", node: "Read a page" },
+  notion_query_database: { doing: "Reading a Notion database", done: "Read a Notion database", orb: "searching", node: "Notion rows" },
   outlook_list_emails: { doing: "Reading your Outlook inbox", done: "Read your Outlook inbox", orb: "searching", node: "Outlook inbox" },
   outlook_read_email: { doing: "Reading an email", done: "Read an email", orb: "searching", node: "Read an email" },
   slack_list_channels: { doing: "Looking at your Slack channels", done: "Looked at your Slack channels", orb: "searching", node: "Slack channels" },
@@ -91,6 +92,7 @@ export const TOOLS: Record<string, ToolWords> = {
   googlesheets_update_cells: { doing: "Changing cells in a spreadsheet", done: "Changed cells in a spreadsheet", orb: "working", node: "Sheets cells", thing: "the cell change" },
   googlesheets_append_row: { doing: "Adding a row to a spreadsheet", done: "Added a row to a spreadsheet", orb: "working", node: "Sheets row", thing: "the new row" },
   notion_add_row: { doing: "Adding a row in Notion", done: "Added a row in Notion", orb: "working", node: "Notion row", thing: "the new Notion row" },
+  notion_update_row: { doing: "Changing a row in Notion", done: "Changed a row in Notion", orb: "working", node: "Notion row change", thing: "the Notion row change" },
   sell_offer: { doing: "Setting what it sells", done: "Set what it sells", orb: "working", node: "Offers", thing: "the offer" },
   buy_from_mind: { doing: "Buying from another Mind", done: "Bought from another Mind", orb: "working", node: "Buy from a Mind" },
   // Working something out.
