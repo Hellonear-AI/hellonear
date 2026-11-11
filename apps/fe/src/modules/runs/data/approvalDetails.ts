@@ -71,6 +71,13 @@ export function approvalDetails(step: ToolStep, timeZone?: string): ApprovalDeta
         note: "It goes from your Mind's own email address.",
       }
     }
+    // "Email me" in chat (#225): only ever to the owner's own Gmail.
+    case "mail_send_to_owner":
+      return {
+        title: `Email you "${str(a.subject) ?? "a note"}"`,
+        lines: [{ label: "Length", value: `${(str(a.text) ?? "").length.toLocaleString("en")} characters` }],
+        note: "It goes from your Mind's own email address to the Gmail you connected, and nobody else.",
+      }
     // The track skills' apps (#195 to #200, Axel's #211): what goes where, so the owner approves this exact change.
     case "googledocs_create_document":
       return {

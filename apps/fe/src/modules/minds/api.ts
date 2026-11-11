@@ -63,4 +63,10 @@ export const mindsApi = {
     (await api<{ runs: { runId: string }[] }>(`/minds/${encodeURIComponent(mindId)}/runs?limit=${limit}`)).runs,
   threads: async (mindId: string, limit = 20) =>
     (await api<{ threads: ApiThread[] }>(`/minds/${encodeURIComponent(mindId)}/threads?limit=${limit}`)).threads,
+  /** The owner's title wins over the first message and the Mind's own title (#207). 1 to 60 characters. */
+  renameThread: async (mindId: string, threadId: string, title: string) =>
+    (await api<{ thread: ApiThread }>(`/minds/${encodeURIComponent(mindId)}/threads/${encodeURIComponent(threadId)}`, { method: "PATCH", body: { title } })).thread,
+  /** Gone at once, no undo; `409 thread_busy` while it replies or waits for an approval (#207). */
+  deleteThread: (mindId: string, threadId: string) =>
+    api<void>(`/minds/${encodeURIComponent(mindId)}/threads/${encodeURIComponent(threadId)}`, { method: "DELETE" }),
 }

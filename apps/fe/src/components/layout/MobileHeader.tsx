@@ -3,6 +3,7 @@
 import { MenuIcon } from "lucide-react"
 import { useState } from "react"
 import { AccountMenu } from "@/components/layout/AccountMenu"
+import { GettingStarted } from "@/modules/onboarding/components/GettingStarted"
 import { Logo } from "@/components/elements/Logo"
 import { MindSwitcher } from "@/components/layout/MindSwitcher"
 import { NavList, RecentChats, SidebarScroll, useActiveSegment } from "@/components/layout/SidebarParts"
@@ -42,6 +43,7 @@ export function MobileHeader({ mindId }: { mindId: string }) {
             <NavList mindId={mindId} onNavigate={close} />
             <RecentChats mindId={mindId} onNavigate={close} />
           </SidebarScroll>
+          <GettingStarted mindId={mindId} onNavigate={close} />
             </SheetContent>
       </Sheet>
 

@@ -32,7 +32,7 @@ export const autopilotKeys = {
   runs: (mindId: string, id: string) => ["minds", mindId, "workflows", id, "runs"] as const,
 }
 
-export const skillKeys = { catalog: ["skills"] as const }
+export const skillKeys = { catalog: ["skills"] as const, detail: (skillId: string) => ["skills", skillId] as const }
 
 /** The account's app connections (Gmail, Google Calendar, Google Meet). */
 export const connectionKeys = { all: ["connections"] as const }

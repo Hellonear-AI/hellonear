@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeftIcon, ArrowUpRightIcon, CheckIcon, PlugIcon } from "lucide-react"
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
@@ -14,6 +14,7 @@ import { useConnections } from "@/modules/connections/hooks/useConnections"
 import { useSession } from "@/modules/auth/hooks/useSession"
 import { RemoveSkillDialog } from "@/modules/skills/components/SkillDialogs"
 import { SKILL_ICON } from "@/modules/skills/data/icons"
+import { SkillInstructions } from "@/modules/skills/components/SkillInstructions"
 
 /**
  * One skill's settings (S3.1): what it does and the rules it follows, then Remove at the bottom.
@@ -38,7 +39,9 @@ export function SkillPage({ mindId, skillId }: { mindId: string; skillId: string
   const copy = skillCopy(skillId)
   const Icon = SKILL_ICON[skillId] ?? PlugIcon
   const added = Boolean(mind?.skills.includes(skillId))
-  const skillsHref = mindHref(mindId, "skills")
+  // Back to the tab and page the owner came from (`?back=tab=apps&page=2`).
+  const back = useSearchParams().get("back")
+  const skillsHref = `${mindHref(mindId, "skills")}${back && /^[\w=&-]+$/.test(back) ? `?${back}` : ""}`
   const rules: SkillLine[] =
     skillId === "payments"
       ? [
@@ -83,6 +86,8 @@ export function SkillPage({ mindId, skillId }: { mindId: string; skillId: string
           )}
         </section>
       )}
+
+      <SkillInstructions skillId={skillId} name={name} />
 
       {added ? (
         <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5 md:flex-row md:items-center md:justify-between">

@@ -33,6 +33,10 @@ describe("dayLabel", () => {
     expect(dayLabel("2026-11-08T10:00:00", null, now)).toBe("Yesterday")
     expect(dayLabel("2026-11-09T09:00:00", "2026-11-08T10:00:00", now)).toBe("Today")
   })
+  it("spells out older days, with the year only when it isn't this one (Ancung, 11 Nov: \"Mon\" read like a code)", () => {
+    expect(dayLabel("2026-11-02T10:00:00", null, now)).toBe("Monday, 2 Nov")
+    expect(dayLabel("2025-12-30T10:00:00", null, now)).toBe("Tuesday, 30 Dec 2025")
+  })
 })
 
 describe("no reply", () => {

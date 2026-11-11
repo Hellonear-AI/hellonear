@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronsUpDownIcon, LogOutIcon, MonitorIcon, MoonIcon, SettingsIcon, SunIcon } from "lucide-react"
+import { ChevronsUpDownIcon, ListChecksIcon, LogOutIcon, MonitorIcon, MoonIcon, SettingsIcon, SunIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
 import { cn } from "cn"
@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useSession, useSignOut } from "@/modules/auth/hooks/useSession"
+import { setFlag, useFlag } from "@/modules/onboarding/data/progress"
 
 const THEMES = [
   { value: "system", label: "System", icon: MonitorIcon },
@@ -34,6 +35,7 @@ export function AccountMenu({ variant }: { variant: "row" | "avatar" | "icon" })
   const { theme = "system", setTheme } = useTheme()
   const router = useRouter()
   const signedAccountId = user?.nearAccountId
+  const hiddenGuide = useFlag("done")
   const account = signedAccountId ?? "Not signed in"
 
   function handleSignOut() {
@@ -93,6 +95,15 @@ export function AccountMenu({ variant }: { variant: "row" | "avatar" | "icon" })
             ))}
           </DropdownMenuRadioGroup>
         </DropdownMenuGroup>
+        {hiddenGuide && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="p-2" onClick={() => setFlag("done", false)}>
+              <ListChecksIcon />
+              Show Getting started
+            </DropdownMenuItem>
+          </>
+        )}
         {signedAccountId && (
           <>
             <DropdownMenuSeparator />
