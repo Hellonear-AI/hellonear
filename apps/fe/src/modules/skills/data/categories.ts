@@ -31,7 +31,7 @@ export const CATEGORIES: { id: CategoryId; label: string; skills: string[] }[] =
       "spending-tracker",
     ],
   },
-  { id: "apps", label: "Apps & tools", skills: ["docs", "sheets", "notion", "slack", "near-account", "http-request"] },
+  { id: "apps", label: "Apps & tools", skills: ["docs", "sheets", "notion", "slack", "zoom", "near-account", "http-request"] },
 ]
 
 /** A skill's group; one the FE doesn't place yet goes with Apps & tools. */

@@ -1,6 +1,6 @@
 import { AtSignIcon, BadgePercentIcon, CalendarX2Icon, ChartPieIcon, ClipboardCheckIcon, EyeOffIcon, FileLockIcon, HeartPulseIcon, LandmarkIcon, MailWarningIcon, ReceiptIcon, ReceiptTextIcon, ReplyIcon, ShieldCheckIcon, SnowflakeIcon, SplitIcon, StoreIcon, TagIcon, CalendarDaysIcon, ChartNoAxesColumnIcon, ClipboardListIcon, PlugIcon, RepeatIcon, SearchIcon, SunriseIcon, WalletIcon, type LucideIcon } from "lucide-react"
 import type { ComponentType } from "react"
-import { GmailLogo, GoogleDocsLogo, GoogleSheetsLogo, NotionLogo, OutlookLogo, SlackLogo } from "@/components/elements/AppLogos"
+import { GmailLogo, GoogleDocsLogo, GoogleSheetsLogo, NotionLogo, OutlookLogo, SlackLogo, ZoomLogo } from "@/components/elements/AppLogos"
 
 /** Each skill's icon on its card and page. */
 export const SKILL_ICON: Record<string, LucideIcon | ComponentType<{ className?: string }>> = {
@@ -39,4 +39,5 @@ export const SKILL_ICON: Record<string, LucideIcon | ComponentType<{ className?:
   notion: NotionLogo,
   outlook: OutlookLogo,
   slack: SlackLogo,
+  zoom: ZoomLogo,
 }

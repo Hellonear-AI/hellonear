@@ -19,6 +19,7 @@ export const ACTION_RULES: ActionRule[] = [
   { tool: "notion_create_page", label: "Add a Notion page" },
   { tool: "notion_add_row", label: "Add a row to a Notion database" },
   { tool: "slack_send_message", label: "Post a Slack message", warning: "Everyone in the channel sees it at once." },
+  { tool: "zoom_create_meeting", label: "Schedule a Zoom meeting" },
   { tool: "sell_offer", label: "Publish something for sale" },
 ]
 
