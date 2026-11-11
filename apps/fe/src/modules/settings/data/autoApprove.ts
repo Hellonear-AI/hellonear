@@ -10,6 +10,7 @@ export type ActionRule = { tool: string; label: string; warning?: string }
 export const ACTION_RULES: ActionRule[] = [
   { tool: "googlecalendar_create_event", label: "Add an event to your calendar" },
   { tool: "googlecalendar_create_meeting", label: "Schedule a meeting with guests", warning: "Guests get Google's invite in your name right away." },
+  { tool: "googlecalendar_move_event", label: "Move an event to a new time", warning: "Guests are not emailed about the change." },
   { tool: "gmail_organize", label: "Archive or label your emails" },
   { tool: "mail_send", label: "Send an email from its own address", warning: "A sent email can't be taken back." },
   { tool: "mail_send_to_owner", label: "Email you" },

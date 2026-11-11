@@ -140,3 +140,26 @@ describe("Notion row change card (#247)", () => {
     expect(d?.note).toBe("Changes only these properties of this row. The old value is what the Mind read; if the row holds something else when you approve, nothing is changed.")
   })
 })
+
+describe("Calendar free time and moving an event (#247)", () => {
+  it("the move card shows the old and the new time on the owner's clock, and says nobody is emailed", () => {
+    const d = approvalDetails(step("googlecalendar_move_event", {
+      eventId: "cc1", title: "Client call", oldStart: "2026-11-12T15:00:00+07:00", oldEnd: "2026-11-12T16:00:00+07:00", newStart: "2026-11-12T16:00:00+07:00", newEnd: "2026-11-12T17:00:00+07:00",
+    }), "Asia/Jakarta")
+    expect(d?.title).toBe('Move "Client call"')
+    expect(d?.lines).toEqual([{ label: "From", value: "Thu 12 Nov, 15:00 to 16:00" }, { label: "To", value: "Thu 12 Nov, 16:00 to 17:00" }])
+    expect(d?.note).toMatch(/Nobody is emailed/)
+    expect(approvalDetails(step("googlecalendar_move_event", {}))?.lines.map((l) => l.value)).toEqual(["Not read", "Not given"])
+  })
+
+  it("step rows say what happened", () => {
+    expect(stepText(step("googlecalendar_find_free_time", {}, { slots: [{}, {}] }, "ok"))).toMatchObject({ label: "Looked for free time", detail: "2 free slots" })
+    expect(stepText(step("googlecalendar_move_event", { title: "Client call" }, { status: "moved", title: "Client call" }, "ok"))).toMatchObject({ label: "Moved an event", detail: "Client call" })
+  })
+
+  it("moving is a switch in Approvals; finding free time is not (it never asks)", async () => {
+    const { ACTION_RULES } = await import("@/modules/settings/data/autoApprove")
+    expect(ACTION_RULES.some((r) => r.tool === "googlecalendar_move_event")).toBe(true)
+    expect(ACTION_RULES.some((r) => r.tool === "googlecalendar_find_free_time")).toBe(false)
+  })
+})

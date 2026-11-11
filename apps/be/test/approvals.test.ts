@@ -87,6 +87,15 @@ test('every approval tool the app details also has details on Telegram, in the s
     note: 'Changes only these cells. "Now" is what the Mind read; if the cells hold something else when you approve, nothing is changed.',
   })
   assert.deepEqual(approvalDetails('googlesheets_update_cells', { range: 'A!B2:C2', newValues: [['x', 2]], oldValues: [['', null]] })!.lines[0], { label: 'Now', value: '(empty), (empty)' })
+  // Moving an event (#247): the old and the new time, on the clock given (Telegram passes UTC).
+  assert.deepEqual(approvalDetails('googlecalendar_move_event', {
+    eventId: 'cc1', title: 'Client call', oldStart: '2026-11-12T15:00:00+07:00', oldEnd: '2026-11-12T16:00:00+07:00', newStart: '2026-11-12T16:00:00+07:00', newEnd: '2026-11-12T17:00:00+07:00',
+  }, 'Asia/Jakarta'), {
+    title: 'Move "Client call"',
+    lines: [{ label: 'From', value: 'Thu 12 Nov, 15:00 to 16:00' }, { label: 'To', value: 'Thu 12 Nov, 16:00 to 17:00' }],
+    note: 'Only the time changes, in your Google Calendar. Nobody is emailed, so tell any guests yourself. If the event has moved since the Mind read it, nothing is changed.',
+  })
+  assert.deepEqual(approvalDetails('googlecalendar_move_event', { title: 'X', oldStart: '2026-11-12T08:00:00Z', oldEnd: '2026-11-12T09:00:00Z', newStart: '2026-11-13T08:00:00Z', newEnd: '2026-11-13T09:00:00Z' }, 'UTC')!.lines.map((l) => l.value), ['Thu 12 Nov, 08:00 to 09:00', 'Fri 13 Nov, 08:00 to 09:00'])
   assert.deepEqual(approvalDetails('googlesheets_append_row', { sheet: 'Expenses', values: ['2026-11-11', 12.5, null, 'Hosting'] })!.lines, [{ label: 'Row', value: '2026-11-11, 12.5, , Hosting' }])
   assert.equal(approvalDetails('googledocs_create_document', { title: 'Treasury', markdown: 'a'.repeat(1234) })!.lines[0].value, '1,234 characters')
   assert.deepEqual(approvalDetails('googledocs_append_text', { documentId: 'd1', title: 'Weekly Notes', text: 'Week 46: shipped.' }), {

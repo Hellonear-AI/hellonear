@@ -72,7 +72,7 @@ export const SKILLS: Record<string, SkillCopy> = {
   },
   "daily-planner": {
     title: "Daily planner",
-    blurb: "Knows the time and date, plans your day, schedules meetings, and does quick math.",
+    blurb: "Knows the time and date, plans your day, finds free time, moves events, schedules meetings, and does quick math.",
     // The calendar line comes from `uses` with its real status (skillLines).
     canUse: () => ["The time and date", "Simple math"],
     cannot: [],
@@ -80,10 +80,10 @@ export const SKILLS: Record<string, SkillCopy> = {
     uses: ["googlecalendar", "googlemeet"],
     ask: {
       why: (c) =>
-        `${c.name} will help plan your day. With Google Calendar connected, it can read your events, add new ones and invite guests; with Google Meet, it can add a video link.`,
-      does: () => ["Plan your day and do quick math", "Read your calendar and add events", "Schedule meetings with guests and a Meet link"],
-      never: (c) => ["Add an event or invite anyone without asking you", "Invite an address you didn't type in the chat", `Change anything ${c.name} didn't add`],
-      note: "No signature needed. Every new event waits for your OK, and Google emails each guest an invite in your name.",
+        `${c.name} will help plan your day. With Google Calendar connected, it can read your events, find free time, add or move events and invite guests; with Google Meet, it can add a video link.`,
+      does: () => ["Plan your day and do quick math", "Read your calendar, find free time, add and move events", "Schedule meetings with guests and a Meet link"],
+      never: () => ["Add or move an event, or invite anyone, without asking you", "Invite an address you didn't type in the chat", "Delete an event or change who is invited"],
+      note: "No signature needed. Every new or moved event waits for your OK. Google emails each guest an invite in your name; a move emails nobody.",
     },
     added: (c) => `${c.name} can plan your day. Connect Google Calendar in Connections to let it see your events, and Google Meet for video links.`,
     removed: (c) => `${c.name} won't plan your day any more. Events it added stay in your calendar.`,

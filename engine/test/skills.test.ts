@@ -6,7 +6,7 @@ import { needsApproval } from '../src/tools.ts'
 
 test('every SKILL.md in engine/skills parses and only uses registered tools', () => {
   assert.deepEqual([...skillCatalog.keys()], ['best-price', 'calendar-conflicts', 'confidential-reader', 'daily-planner', 'docs', 'email-address', 'email-triage', 'follow-ups', 'freeze-advisor', 'health-journal', 'hellonear-guide', 'http-request', 'invoice', 'meeting-prep', 'mind-seller', 'morning-briefing', 'near-account', 'notion', 'outlook', 'paid-data', 'payments', 'phishing-detector', 'price-watch', 'recipient-guard', 'redact-before-send', 'revenue-split', 'sheets', 'slack', 'spending-audit', 'spending-tracker', 'split-bill', 'subscriptions', 'treasury-report', 'zoom'])
-  assert.deepEqual(skillCatalog.get('daily-planner')?.tools, ['get_time', 'add_numbers', 'googlecalendar_list_events', 'googlecalendar_create_event', 'googlecalendar_create_meeting', 'googlecalendar_block_time'])
+  assert.deepEqual(skillCatalog.get('daily-planner')?.tools, ['get_time', 'add_numbers', 'googlecalendar_list_events', 'googlecalendar_create_event', 'googlecalendar_create_meeting', 'googlecalendar_block_time', 'googlecalendar_find_free_time', 'googlecalendar_move_event'])
   assert.deepEqual(skillCatalog.get('daily-planner')?.connections, ['googlecalendar', 'googlemeet'])
   assert.equal(skillCatalog.get('payments')?.status, 'available')
   assert.deepEqual(skillCatalog.get('payments')?.tools, ['send_payment', 'get_balance', 'list_payments', 'get_time', 'near_view_account'])
@@ -166,9 +166,11 @@ test('one small skill per connected app (#194): its own tools and connection, wr
   assert.ok(!skillCatalog.get('outlook')!.tools.some((t) => needsApproval(t) || /send/.test(t)))
 })
 
-test('calendar-conflicts (#192): reads the calendar, and its only write waits for approval', () => {
+test('calendar-conflicts (#192, #247): reads the calendar and free time; its writes (a buffer, a move) wait for approval', () => {
   const s = skillCatalog.get('calendar-conflicts')!
-  assert.deepEqual([s.tools, s.connections, s.status], [['get_time', 'googlecalendar_list_events', 'googlecalendar_create_event'], ['googlecalendar'], 'available'])
+  assert.deepEqual([s.tools, s.connections, s.status], [['get_time', 'googlecalendar_list_events', 'googlecalendar_create_event', 'googlecalendar_find_free_time', 'googlecalendar_move_event'], ['googlecalendar'], 'available'])
   assert.ok(s.title && s.blurb)
   assert.equal(needsApproval('googlecalendar_create_event'), true)
+  assert.equal(needsApproval('googlecalendar_move_event'), true)
+  assert.equal(needsApproval('googlecalendar_find_free_time'), false)
 })

@@ -46,6 +46,16 @@ export function approvalDetails(step: ToolStep, timeZone?: string): ApprovalDeta
           : "Adds it to your Google Calendar.",
       }
     }
+    case "googlecalendar_move_event":
+      // #247: the time it has now (as the Mind listed it; the engine checks again before moving) and the new one.
+      return {
+        title: `Move "${str(a.title) ?? "an event"}"`,
+        lines: [
+          { label: "From", value: whenText(a.oldStart, a.oldEnd, timeZone) ?? "Not read" },
+          { label: "To", value: whenText(a.newStart, a.newEnd, timeZone) ?? "Not given" },
+        ],
+        note: "Only the time changes, in your Google Calendar. Nobody is emailed, so tell any guests yourself. If the event has moved since the Mind read it, nothing is changed.",
+      }
     case "gmail_organize": {
       // #106: the card lists every email, as the Mind listed them, so the owner approves exactly this batch.
       const emails = Array.isArray(a.emails) ? (a.emails as Record<string, unknown>[]) : []

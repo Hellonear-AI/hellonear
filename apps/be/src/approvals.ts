@@ -178,6 +178,13 @@ export function approvalDetails(tool: string, args: unknown, timeZone?: string):
           : 'Adds it to your Google Calendar.',
       }
     }
+    // Moving an event (#247): the time it has now, as the Mind listed it, and the new one, in the app's words.
+    case 'googlecalendar_move_event':
+      return {
+        title: `Move "${str(a.title) ?? 'an event'}"`,
+        lines: [{ label: 'From', value: whenText(a.oldStart, a.oldEnd, timeZone) ?? 'Not read' }, { label: 'To', value: whenText(a.newStart, a.newEnd, timeZone) ?? 'Not given' }],
+        note: 'Only the time changes, in your Google Calendar. Nobody is emailed, so tell any guests yourself. If the event has moved since the Mind read it, nothing is changed.',
+      }
     case 'gmail_organize': {
       const emails = Array.isArray(a.emails) ? (a.emails as Record<string, unknown>[]) : []
       const n = emails.length
