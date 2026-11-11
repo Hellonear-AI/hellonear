@@ -64,21 +64,23 @@ export function ChatRow({
         href={href}
         onClick={onNavigate}
         aria-current={isOpen ? "page" : undefined}
-        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-2 pr-10 pl-3"
+        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-2 pr-3 pl-3"
       >
         <span className={cn("min-w-0 flex-1 truncate text-[13px]", shimmer && "text-shimmer")}>{chat.title}</span>
+        {/* In the row's flow, so the title stops before it (Ancung, 11 Nov: "Yesterday" ran over a
+            long title when it floated). At least as wide as ⋯, which takes its place on hover. */}
+        <span
+          className={cn(
+            "flex min-w-6 shrink-0 items-center justify-end transition-opacity",
+            // Keyboard focus only: after the menu closes, focus goes back to ⋯ and a plain focus-within
+            // kept the time hidden for good (Ancung, 11 Nov).
+            "group-hover/chat:opacity-0 group-has-[:focus-visible]/chat:opacity-0 pointer-coarse:opacity-0",
+            menuOpen && "opacity-0"
+          )}
+        >
+          {status}
+        </span>
       </Link>
-      <span
-        className={cn(
-          "pointer-events-none absolute right-3 flex items-center transition-opacity",
-          // Keyboard focus only: after the menu closes, focus goes back to ⋯ and a plain focus-within
-          // kept the time hidden for good (Ancung, 11 Nov).
-          "group-hover/chat:opacity-0 group-has-[:focus-visible]/chat:opacity-0 pointer-coarse:opacity-0",
-          menuOpen && "opacity-0"
-        )}
-      >
-        {status}
-      </span>
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
         <DropdownMenuTrigger
           render={
