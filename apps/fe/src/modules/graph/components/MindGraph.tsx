@@ -37,9 +37,11 @@ const KEPT = new Map<string, { sim: Sim; view: { x: number; y: number; k: number
 
 /** How long a finished state keeps glowing (ms). */
 const AFTERGLOW = { ok: 1600, error: 4000, denied: 4000 } as const
-// The magnet: a hovered bubble moves a quarter of the way toward the cursor, at most 6 units.
-const MAGNET_PULL = 0.25
-const MAGNET_MAX = 6
+// The magnet: bubbles within 120 screen px of the cursor move toward it, up to a third of the
+// way when right under it, fading to nothing at the edge, at most 8 units.
+const MAGNET_REACH = 120
+const MAGNET_PULL = 0.35
+const MAGNET_MAX = 8
 
 export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect, label, trail = [], live = false, run = null, className }: Props) {
   const wrap = useRef<HTMLDivElement>(null)
@@ -236,16 +238,20 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         v0.y += (ty - v0.y) * e
         if (Math.abs(tx - v0.x) < 0.5 && Math.abs(ty - v0.y) < 0.5 && Math.abs(k - v0.k) < 0.005) focus.current = null
       }
-      // A hovered bubble leans toward the cursor a little, like a magnet (Ancung, 11 Nov), and
-      // eases back when the cursor leaves; its lines follow. Drawn only: the layout never sees it.
+      // The cursor is a magnet anywhere on the canvas (Ancung, 11 Nov): every bubble within its
+      // reach leans toward it, the nearer the stronger, and eases back when it leaves; the lines
+      // follow their bubbles. Drawn only: the layout never sees it.
+      const field = MAGNET_REACH / view.current.k
       for (const [id, b] of s.bodies) {
         const o = magnet.current.get(id) ?? { x: 0, y: 0 }
         const t = torch.current
         let tx = 0
         let ty = 0
-        if (id === hover.current && t && !dragging.current && !still.matches) {
-          const dx = (t.x - b.x) * MAGNET_PULL
-          const dy = (t.y - b.y) * MAGNET_PULL
+        const away = t ? Math.hypot(t.x - b.x, t.y - b.y) : Infinity
+        if (t && away < field && !dragging.current && !still.matches) {
+          const pull = MAGNET_PULL * (1 - away / field) ** 2
+          const dx = (t.x - b.x) * pull
+          const dy = (t.y - b.y) * pull
           const d = Math.hypot(dx, dy)
           const m = d > MAGNET_MAX ? MAGNET_MAX / d : 1
           tx = dx * m
