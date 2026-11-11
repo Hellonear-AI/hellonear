@@ -41,9 +41,8 @@ export function VerifiedBadge({ level, proof }: { level: "gateway_tee" | "model_
           <p className="text-sm font-semibold text-foreground">{label}</p>
           <p className="text-[13px] text-muted-foreground">
             {level === "model_tee"
-              ? "This reply was made inside a sealed part of the chip (a TEE) that runs the model itself, so not even NEAR AI can read your messages."
-              : "This reply came through NEAR AI's gateway, which runs inside a sealed part of the chip (a TEE)."}{" "}
-            Every step was signed by a key that never leaves it, and HelloNear checked each signature against the hardware&apos;s own proof from NVIDIA and Intel.
+              ? "This reply was made inside a sealed part of the chip (a TEE) that runs the model itself, so not even NEAR AI can read your messages. Every step was signed by a key that never leaves the model's TEE, and HelloNear checked each signature against that TEE's attestation from NVIDIA (GPU) and Intel (CPU)."
+              : "This reply came through NEAR AI's gateway, which runs inside a sealed part of the chip (a TEE). Every step was signed by a key that never leaves the gateway's TEE, and HelloNear checked each signature against that TEE's Intel TDX attestation."}
           </p>
         </div>
         <dl className="flex flex-col gap-1.5 text-[13px]">
