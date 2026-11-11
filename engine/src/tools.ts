@@ -107,7 +107,7 @@ const paymentSchema = z.object({
 
 const sendPayment = createTool({
   id: 'send_payment',
-  description: 'Send testnet NEAR from this Mind\'s wallet. Always waits for the owner to approve. The wallet policy can still refuse it (policy_denied, wallet_frozen).',
+  description: 'Send testnet NEAR from this Mind\'s wallet. Waits for the owner to approve, unless one of the owner\'s rules covers it. The wallet policy can still refuse it (policy_denied, wallet_frozen).',
   inputSchema: z.object({
     to: z.string().min(2).max(64).regex(NEAR_ACCOUNT_ID, 'not a valid NEAR account id'),
     amountNear: z.string().regex(/^\d{1,3}(\.\d{1,24})?$/, 'a decimal string, e.g. "0.01"').refine((a) => /[1-9]/.test(a), 'must be more than 0'),

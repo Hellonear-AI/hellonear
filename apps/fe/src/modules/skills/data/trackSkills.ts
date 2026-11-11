@@ -5,7 +5,8 @@
 import type { SkillCopy } from "@/modules/skills/data/skills"
 
 const limitText = (limit: string | null) => (limit ? `up to ${limit} NEAR per payment` : "inside the limits you set")
-const approvalNote = "No signature needed. Every payment still waits for your approval, and your wallet limits apply."
+// "Unless you set a rule": auto-approve rules (#167) can let small payments skip the card.
+const approvalNote = "No signature needed. Payments still wait for your approval unless you set a rule in Settings, and your wallet limits apply."
 const readNote = "No signature needed. It only reads."
 
 export const TRACK_SKILLS: Record<string, SkillCopy> = {
@@ -47,7 +48,7 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
     cannot: [],
     needsWallet: true,
     ask: {
-      why: (c) => `${c.name} will split a bill between people and pay each share. Every share asks you first.`,
+      why: (c) => `${c.name} will split a bill between people and pay each share. Each share asks you first unless a rule you set covers it.`,
       does: () => ["Work out each person's share", "Pay each one, with its own approval"],
       never: () => ["Pay without asking you", "Pay someone off your address list"],
       note: approvalNote,
@@ -62,7 +63,7 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
     cannot: [],
     needsWallet: true,
     ask: {
-      why: (c) => `${c.name} will remember how income is shared and pay each partner their part when you say money came in. Each payment asks you first.`,
+      why: (c) => `${c.name} will remember how income is shared and pay each partner their part when you say money came in. Each payment asks you first unless a rule you set covers it.`,
       does: () => ["Remember each partner's share", "Pay each share, with its own approval"],
       never: () => ["Pay without asking you", "Change the split unless you tell it to"],
       note: approvalNote,
@@ -91,7 +92,7 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
     cannot: ["Not in the try-out: try-out Minds share one wallet"],
     needsWallet: true,
     ask: {
-      why: (c) => `${c.name} will sell reports it made to other Minds, paid into its own wallet, and buy theirs. Every sale and purchase asks you first.`,
+      why: (c) => `${c.name} will sell reports it made to other Minds, paid into its own wallet, and buy theirs. Every sale and purchase asks you first unless a rule you set covers it.`,
       does: () => ["Put something up for sale, after you approve", "Buy from another Mind, after you approve"],
       never: () => ["Sell or buy without asking you", "Pay a Mind your wallet doesn't list"],
       note: approvalNote,

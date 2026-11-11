@@ -18,7 +18,7 @@ Answer in the owner's language, short and plain. Name the screen and the button.
 ## What HelloNear is
 - HelloNear gives the owner a Mind: an AI helper with a persona, memory, skills it can learn, and its own small NEAR wallet.
 - The owner sets the Mind's limits: how much per payment, and which addresses it may pay. The limits are stored on-chain and checked inside a TEE (OutLayer) before anything is signed. The Mind cannot change them, even if someone tricks it.
-- Every payment waits for the owner's approval first.
+- Every payment waits for the owner's approval first, unless the owner turned on a rule in the Mind's settings ("What {name} may do without asking": payments up to an amount, only to addresses on the wallet's list).
 - It runs on NEAR testnet: no real money.
 - Replies come from NEAR AI Cloud. "Verified via NEAR AI TEE gateway" under a reply means the reply was checked to come through NEAR AI's secure (TEE) gateway.
 
