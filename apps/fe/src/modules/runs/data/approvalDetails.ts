@@ -85,6 +85,19 @@ export function approvalDetails(step: ToolStep, timeZone?: string): ApprovalDeta
         lines: [{ label: "Length", value: `${(str(a.markdown) ?? "").length.toLocaleString("en")} characters` }],
         note: "Creates a new Google Doc in your Drive. Nothing is shared.",
       }
+    case "googledocs_append_text": {
+      // #247: which Doc (its title as the Mind read it; the engine checks it again before writing), where, and the text.
+      const text = str(a.text) ?? ""
+      return {
+        title: `Add to "${str(a.title) ?? "a Google Doc"}"`,
+        lines: [
+          { label: "Where", value: "At the end" },
+          { label: "Length", value: `${text.length.toLocaleString("en")} characters` },
+          { label: "Text", value: text || "Empty" },
+        ],
+        note: "Adds this text at the end of your Google Doc. Nothing already in it changes. If the Doc has another title when you approve, nothing is added.",
+      }
+    }
     case "googlesheets_update_cells": {
       // #245: what is in the cells now (as the Mind read them; the engine checks again before writing) and what replaces it.
       const flat = (v: unknown) => (Array.isArray(v) ? v.flat().map((x) => (x === null || x === undefined || x === "" ? "(empty)" : String(x))).join(", ") : "")

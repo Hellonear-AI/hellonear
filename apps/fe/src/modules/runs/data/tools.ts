@@ -84,6 +84,7 @@ export const TOOLS: Record<string, ToolWords> = {
   slack_list_channels: { doing: "Looking at your Slack channels", done: "Looked at your Slack channels", orb: "searching", node: "Slack channels" },
   // Writing.
   googledocs_create_document: { doing: "Writing a Google Doc", done: "Wrote a Google Doc", orb: "composing", node: "Write a Doc", thing: "the document" },
+  googledocs_append_text: { doing: "Adding to a Google Doc", done: "Added to a Google Doc", orb: "composing", node: "Add to a Doc", thing: "the added text" },
   notion_create_page: { doing: "Writing a Notion page", done: "Wrote a Notion page", orb: "composing", node: "New Notion page", thing: "the Notion page" },
   outlook_create_draft: { doing: "Saving a draft in Outlook", done: "Saved a draft in Outlook", orb: "composing", node: "Outlook draft" },
   slack_send_message: { doing: "Posting to Slack", done: "Posted to Slack", orb: "composing", node: "Slack post", thing: "the Slack message" },

@@ -16,6 +16,7 @@ export const ACTION_RULES: ActionRule[] = [
   { tool: "googlesheets_append_row", label: "Add a row to a Google Sheet" },
   { tool: "googlesheets_update_cells", label: "Change cells in a Google Sheet", warning: "The old value is replaced; Google Sheets keeps its version history." },
   { tool: "googledocs_create_document", label: "Create a Google Doc" },
+  { tool: "googledocs_append_text", label: "Add text to the end of a Google Doc" },
   { tool: "notion_create_page", label: "Add a Notion page" },
   { tool: "notion_add_row", label: "Add a row to a Notion database" },
   { tool: "slack_send_message", label: "Post a Slack message", warning: "Everyone in the channel sees it at once." },

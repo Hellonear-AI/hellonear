@@ -119,3 +119,13 @@ describe("Sheets cell change card (#245)", () => {
     expect(blank?.lines[0]).toEqual({ label: "Now", value: "(empty), (empty)" })
   })
 })
+
+describe("Docs append card (#247)", () => {
+  it("shows the Doc's title, that it goes at the end, and the text", async () => {
+    const { approvalDetails } = await import("@/modules/runs/data/approvalDetails")
+    const d = approvalDetails({ toolCallId: "c", tool: "googledocs_append_text", status: "awaiting_approval", args: { documentId: "d1", title: "Weekly Notes", text: "Week 46: shipped." }, result: undefined })
+    expect(d?.title).toBe('Add to "Weekly Notes"')
+    expect(d?.lines).toEqual([{ label: "Where", value: "At the end" }, { label: "Length", value: "17 characters" }, { label: "Text", value: "Week 46: shipped." }])
+    expect(d?.note).toMatch(/Nothing already in it changes/)
+  })
+})
