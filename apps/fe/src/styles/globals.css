@@ -324,6 +324,12 @@
 
 /* Chat "working" motion (design/CLAUDE.md, Chat streaming): typing dots and a shimmering
    activity label ("Thinking", "Checking the balance"). Reduced motion keeps a fade, drops movement. */
+/* A cut-off chat title scrolling to its end while hovered (ChatRow); it rests at each end. */
+@keyframes hn-marquee {
+  0%, 18% { transform: translateX(0); }
+  82%, 100% { transform: translateX(var(--marquee)); }
+}
+
 @keyframes hn-dot {
     0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
     40% { transform: translateY(-3px); opacity: 1; }

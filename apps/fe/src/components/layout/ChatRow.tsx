@@ -2,7 +2,8 @@
 
 import { EllipsisIcon, PencilIcon, Trash2Icon } from "lucide-react"
 import Link from "next/link"
-import { useRef, useState, type ReactNode } from "react"
+import { useRef, useState, type CSSProperties, type ReactNode } from "react"
+import { prefersReducedMotion } from "@/lib/media"
 import { cn } from "cn"
 import { Spinner } from "@/components/elements/Spinner"
 import { Button } from "@/components/ui/button"
@@ -66,7 +67,7 @@ export function ChatRow({
         aria-current={isOpen ? "page" : undefined}
         className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-2 pr-3 pl-3"
       >
-        <span className={cn("min-w-0 flex-1 truncate text-[13px]", shimmer && "text-shimmer")}>{chat.title}</span>
+        <MarqueeTitle title={chat.title} shimmer={shimmer} />
         {/* In the row's flow, so the title stops before it (Ancung, 11 Nov: "Yesterday" ran over a
             long title when it floated). At least as wide as ⋯, which takes its place on hover. */}
         <span
@@ -162,5 +163,50 @@ function RenameField({ initial, onDone }: { initial: string; onDone: (title: str
       onBlur={() => finish(cleanTitle(value))}
       className="h-9 w-full rounded-md border border-ring bg-background px-3 text-[13px] text-foreground outline-none"
     />
+  )
+}
+
+/** Pixels a second while a cut-off title scrolls. */
+const MARQUEE_SPEED = 40
+
+/**
+ * The chat's title, cut off with "…" at rest. While the row is hovered (or focused from the
+ * keyboard), a title too long for the row scrolls to its end, rests, and comes back, until the
+ * pointer leaves (Ancung, 11 Nov). A title that fits never moves; reduced motion keeps it still.
+ */
+function MarqueeTitle({ title, shimmer }: { title: string; shimmer: boolean }) {
+  const box = useRef<HTMLSpanElement>(null)
+  const text = useRef<HTMLSpanElement>(null)
+  const [shift, setShift] = useState(0)
+  const start = () => {
+    const b = box.current
+    const t = text.current
+    if (!b || !t || prefersReducedMotion()) return
+    const over = t.scrollWidth - b.clientWidth
+    setShift(over > 2 ? over : 0)
+  }
+  const stop = () => setShift(0)
+  // Rests at each end for about a fifth of the loop, so the start and the end can be read.
+  const seconds = Math.max(2, (shift / MARQUEE_SPEED) * 1.6)
+  return (
+    <span
+      ref={box}
+      onMouseEnter={start}
+      onMouseLeave={stop}
+      onFocus={start}
+      onBlur={stop}
+      className={cn(
+        "min-w-0 flex-1 overflow-hidden text-[13px] whitespace-nowrap",
+        shift ? "[mask-image:linear-gradient(to_right,black_calc(100%_-_12px),transparent)]" : "text-ellipsis"
+      )}
+    >
+      <span
+        ref={text}
+        className={cn(shift ? "inline-block animate-[hn-marquee_var(--marquee-time)_ease-in-out_infinite_alternate]" : "", shimmer && "text-shimmer")}
+        style={shift ? ({ "--marquee": `-${shift}px`, "--marquee-time": `${seconds}s` } as CSSProperties) : undefined}
+      >
+        {title}
+      </span>
+    </span>
   )
 }
