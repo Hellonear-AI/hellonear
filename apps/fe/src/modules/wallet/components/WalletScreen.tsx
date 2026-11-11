@@ -10,8 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { formatNear, resetTime } from "@/lib/format"
-import { compareNear, subNear } from "@/lib/near"
+import { formatNear } from "@/lib/format"
 import { TryOutLockedDialog, useTryOutLock, type LockedAction } from "@/modules/auth/components/TryOutLockedDialog"
 import { useIsTryOut } from "@/modules/auth/hooks/useSession"
 import type { ApiWallet } from "@/modules/wallet/api"
@@ -174,8 +173,6 @@ function Balance({ mindId, name, wallet }: { mindId: string; name: string; walle
           </p>
           <p className="text-xs text-muted-foreground">Nothing can be sent until you unfreeze.</p>
         </div>
-      ) : wallet.policy?.dailyNear ? (
-        <DailyUse daily={wallet.policy.dailyNear} spent={wallet.spentTodayNear ?? "0"} />
       ) : today && today.count > 0 ? (
         <div className="rounded-md bg-muted px-3 py-2.5">
           <p className="text-sm font-semibold text-foreground">Spent today: {formatNear(today.total)} NEAR</p>
@@ -185,31 +182,6 @@ function Balance({ mindId, name, wallet }: { mindId: string; name: string; walle
         </div>
       ) : null}
     </Card>
-  )
-}
-
-/**
- * Today against the daily limit (#149): OutLayer's own counter (`spentTodayNear`), which is what the
- * TEE checks, and when it starts over on the owner's clock (00:00 UTC; Axel on #149: the local-day
- * sum of payments disagreed with it between midnight and 07:00 in Jakarta).
- */
-function DailyUse({ daily, spent }: { daily: string; spent: string }) {
-  const left = subNear(daily, spent) ?? daily
-  const share = Math.min(1, Number(spent) / Number(daily) || 0)
-  const full = compareNear(spent, daily) !== -1
-  return (
-    <div className="flex flex-col gap-2 rounded-md bg-muted px-3 py-2.5">
-      <div className="flex items-baseline justify-between gap-3">
-        <p className="text-sm font-semibold text-foreground">
-          {formatNear(spent)} of {daily} NEAR today
-        </p>
-        <span className={cn("text-xs", full ? "font-medium text-danger" : "text-muted-foreground")}>{full ? "Limit reached" : `${formatNear(left)} left`}</span>
-      </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-border" role="meter" aria-valuemin={0} aria-valuemax={Number(daily)} aria-valuenow={Number(spent)} aria-label="Spent today">
-        <div className={cn("h-full rounded-full transition-[width] duration-500 ease-out", full ? "bg-danger" : "bg-foreground")} style={{ width: `${share * 100}%` }} />
-      </div>
-      <p className="text-xs text-muted-foreground">Starts over at {resetTime()} your time. The wallet blocks anything past it, even if you approve.</p>
-    </div>
   )
 }
 
@@ -332,7 +304,6 @@ function LimitsCard({
               )
             )}
           </div>
-          <Row label="Per day" value={wallet.policy?.dailyNear ? `Up to ${wallet.policy.dailyNear} NEAR` : "No daily limit"} />
           <Row
             label={`Who ${name} can pay`}
             value={demo ? "Approved test addresses" : count === 1 ? "1 address you added" : `${count} addresses you added`}

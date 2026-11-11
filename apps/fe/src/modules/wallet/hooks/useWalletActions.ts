@@ -7,16 +7,13 @@ import { mindKeys } from "@/modules/minds/hooks/useMinds"
 import { OwnerActionError, ownerStep, readWalletUntil } from "@/modules/wallet/data/ownerAction"
 import { useOwnerTransaction } from "@/modules/wallet/hooks/useOwnerTransaction"
 
-export type Limits = { perTransactionNear: string; dailyNear: string | null; whitelist: string[] }
+export type Limits = { perTransactionNear: string; whitelist: string[] }
 
 export function sameLimits(policy: ApiWallet["policy"], limits: Limits): boolean {
   if (!policy?.perTransactionNear || !policy.whitelist) return false
   const a = [...policy.whitelist].map((x) => x.toLowerCase()).sort()
   const b = [...limits.whitelist].sort()
-  const daily = policy.dailyNear ?? null
-  const want = limits.dailyNear ?? null
-  const sameDaily = daily === null || want === null ? daily === want : compareNear(daily, want) === 0
-  return compareNear(policy.perTransactionNear, limits.perTransactionNear) === 0 && sameDaily && a.length === b.length && a.every((x, i) => x === b[i])
+  return compareNear(policy.perTransactionNear, limits.perTransactionNear) === 0 && a.length === b.length && a.every((x, i) => x === b[i])
 }
 
 /**

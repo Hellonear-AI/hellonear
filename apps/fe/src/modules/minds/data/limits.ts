@@ -4,8 +4,6 @@
 
 export const MAX_PER_PAYMENT_NEAR = 10
 export const MAX_ADDRESSES = 20
-/** The most a daily limit may be (apps/be/src/wallets.ts, #149). */
-export const MAX_PER_DAY_NEAR = 100
 /** The design's "safe starting value" (L3.1). */
 export const DEFAULT_PER_PAYMENT = "2"
 
@@ -28,21 +26,6 @@ export function perPaymentError(value: string): string | null {
   return null
 }
 
-/**
- * What's wrong with the daily limit, or null when it's fine. Empty means no daily limit. It can't
- * be below the per-payment limit, which would make that one meaningless (the backend refuses it).
- */
-export function perDayError(value: string, perPayment: string): string | null {
-  const v = value.trim()
-  if (v === "") return null
-  if (!/^\d{1,3}(\.\d{1,24})?$/.test(v)) return "Use a number, like 5 or 0.5."
-  const yocto = toYocto(v)
-  if (yocto === 0n) return "Use more than 0 NEAR, or leave it empty for no daily limit."
-  if (yocto > BigInt(MAX_PER_DAY_NEAR) * YOCTO) return `The most is ${MAX_PER_DAY_NEAR} NEAR a day.`
-  if (!perPaymentError(perPayment) && yocto < toYocto(perPayment.trim())) return `Use at least the per payment limit, ${perPayment.trim()} NEAR.`
-  return null
-}
-
 /** Accounts are compared and sent in lowercase, as NEAR account ids are. */
 export function normalizeAccount(value: string): string {
   return value.trim().toLowerCase()
@@ -60,7 +43,6 @@ export function addressError(value: string, earlier: string[]): string | null {
 
 export type LimitsCheck = {
   perPayment: string | null
-  perDay: string | null
   /** One entry per address row. */
   addresses: (string | null)[]
   /** The addresses to send: filled-in rows, lowercased. */
@@ -69,19 +51,16 @@ export type LimitsCheck = {
   blocker: string | null
 }
 
-export function checkLimits(perPayment: string, rows: string[], perDay = ""): LimitsCheck {
+export function checkLimits(perPayment: string, rows: string[]): LimitsCheck {
   const perPaymentErr = perPaymentError(perPayment)
-  const perDayErr = perDayError(perDay, perPayment)
   const addresses = rows.map((row, i) => addressError(row, rows.slice(0, i)))
   const whitelist = rows.map(normalizeAccount).filter((v, i) => v !== "" && addresses[i] === null)
   const blocker = perPaymentErr
     ? "Fix the per payment limit first"
-    : perDayErr
-      ? "Fix the daily limit first"
-      : addresses.some(Boolean)
+    : addresses.some(Boolean)
       ? "Fix the addresses first"
       : whitelist.length === 0
         ? "Add at least one address first"
         : null
-  return { perPayment: perPaymentErr, perDay: perDayErr, addresses, whitelist, blocker }
+  return { perPayment: perPaymentErr, addresses, whitelist, blocker }
 }

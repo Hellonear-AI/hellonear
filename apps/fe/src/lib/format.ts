@@ -40,12 +40,3 @@ export function explorerTxUrl(txHash: string): string {
   return `https://testnet.nearblocks.io/txns/${encodeURIComponent(txHash)}`
 }
 
-
-/**
- * When the daily limit starts over, on the owner's clock: OutLayer's counter resets at 00:00 UTC
- * (#149, Axel), which is 07:00 in Jakarta.
- */
-export function resetTime(now: Date = new Date()): string {
-  const midnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1))
-  return midnight.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
-}

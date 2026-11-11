@@ -8,14 +8,10 @@ export type ApiWallet = {
   address: string
   shared: boolean
   balanceNear: string
-  /** OutLayer's own counter for the daily limit, "0" before the first payment (#149). It resets at 00:00 UTC. */
-  spentTodayNear?: string
   frozen: boolean
   /** Fields are null when the policy was set elsewhere (e.g. the OutLayer dashboard) without them. */
   policy: null | {
     perTransactionNear: string | null
-    /** The most the Mind may send in a day (UTC), enforced in the TEE; null: no daily limit (#149). */
-    dailyNear?: string | null
     whitelist: string[] | null
     transactionTypes: string[] | null
     boundToThisWallet: boolean
@@ -71,8 +67,7 @@ export const walletApi = {
     }
   },
   /** The `store_wallet_policy` transaction for policy v2; the owner signs it. */
-  // Leaving `dailyNear` out removes the daily limit (apps/be/src/wallets.ts), so every save sends it.
-  policyTransaction: async (mindId: string, body: { perTransactionNear: string; dailyNear: string | null; whitelist: string[] }) =>
+  policyTransaction: async (mindId: string, body: { perTransactionNear: string; whitelist: string[] }) =>
     (await api<{ transaction: OwnerTransaction }>(`/minds/${encodeURIComponent(mindId)}/wallet/policy`, { method: "POST", body }))
       .transaction,
   approvals: async (mindId: string) =>
