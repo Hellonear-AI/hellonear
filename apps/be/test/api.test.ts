@@ -245,6 +245,58 @@ describe('minds (#8, #13)', () => {
     assert.equal((await sentMind()).personaVersion, 3)
   })
 
+  test('memory switches (#209): stored on the Mind, sent to the engine only when one is off', async () => {
+    const alice = await signIn()
+    const { mind } = await (await alice.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Mona' })).json()
+    assert.deepEqual(mind.memory, { enabled: true, recall: true })
+    const sentMind = async () => {
+      await events(await alice.call('POST', `/v1/minds/${mind.id}/chat`, { message: 'hi' }))
+      return fake.requests.findLast((r) => r.path === `/v1/minds/${mind.id}/chat`)!.body.mind
+    }
+    assert.equal('memory' in (await sentMind()), false, 'both on: the same config as before')
+    const patch = async (body: object) => alice.call('PATCH', `/v1/minds/${mind.id}`, body)
+    assert.deepEqual((await (await patch({ memory: { recall: false } })).json()).mind.memory, { enabled: true, recall: false })
+    assert.deepEqual((await sentMind()).memory, { enabled: true, recall: false })
+    assert.deepEqual((await (await patch({ memory: { enabled: false } })).json()).mind.memory, { enabled: false, recall: false }, 'one switch leaves the other')
+    assert.equal((await (await patch({ name: 'Mona' })).json()).mind.memory.enabled, false, 'other edits keep the switches')
+    assert.equal((await (await patch({ memory: { enabled: false } })).json()).mind.personaVersion, 0, 'switches keep the persona version')
+    assert.deepEqual((await sentMind()).memory, { enabled: false, recall: false })
+    assert.equal((await patch({ memory: { enabled: 'no' } })).status, 400)
+    assert.equal((await patch({ memory: { other: true } })).status, 400)
+    await patch({ memory: { enabled: true, recall: true } })
+    assert.equal('memory' in (await sentMind()), false)
+  })
+
+  test('memory (#209): the owner reads, replaces and clears it through the engine, keyed by the persona version', async () => {
+    const alice = await signIn()
+    const { mind } = await (await alice.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Remi' })).json()
+    const me = (await (await alice.call('GET', '/v1/me')).json()).user
+    const path = `/v1/minds/${mind.id}/memory`
+    assert.deepEqual(await (await alice.call('GET', path)).json(), { memory: { markdown: '', updatedAt: null } })
+    assert.equal(fake.requests.findLast((r) => r.path.startsWith(`${path}?`))!.path, `${path}?userId=${me.id}`, 'never renamed: no persona version')
+
+    const doc = '# You\n- Name: Sam'
+    const put = await alice.call('PUT', path, { markdown: doc })
+    assert.equal(put.status, 200)
+    assert.equal((await put.json()).memory.markdown, doc)
+    assert.deepEqual(fake.requests.findLast((r) => r.method === 'PUT' && r.path === path)!.body, { userId: me.id, markdown: doc })
+    assert.equal((await (await alice.call('GET', path)).json()).memory.markdown, doc)
+
+    await alice.call('PATCH', `/v1/minds/${mind.id}`, { name: 'Rena' })
+    assert.equal((await (await alice.call('GET', path)).json()).memory.markdown, '', 'a new name reads the new persona\'s memory')
+    assert.equal(fake.requests.findLast((r) => r.path.startsWith(`${path}?`))!.path, `${path}?userId=${me.id}&personaVersion=1`)
+    await alice.call('PUT', path, { markdown: 'v1' })
+    assert.equal((await alice.call('DELETE', path)).status, 204)
+    assert.deepEqual(fake.requests.findLast((r) => r.method === 'DELETE' && r.path === path)!.body, { userId: me.id, personaVersion: 1 })
+    assert.equal((await (await alice.call('GET', path)).json()).memory.markdown, '')
+
+    assert.equal((await alice.call('PUT', path, {})).status, 400)
+    assert.equal((await alice.call('PUT', path, { markdown: 'x'.repeat(20_001) })).status, 400)
+    assert.equal((await alice.call('POST', path, {})).status, 405)
+    const bob = await signIn()
+    for (const method of ['GET', 'PUT', 'DELETE']) assert.equal((await bob.call(method, path, method === 'PUT' ? { markdown: 'x' } : undefined)).status, 404, method)
+  })
+
   test('templates pass through the engine card quote (#63)', async () => {
     const a = await signIn()
     const { templates } = await (await a.call('GET', '/v1/templates')).json()
@@ -1144,12 +1196,16 @@ describe('judge try-out mode (#43)', () => {
       ['POST', `/v1/minds/${mindId}/wallet/policy`, { perTransactionNear: '0.05', whitelist: ['a.testnet'] }, 'set_policy'],
       ['POST', `/v1/minds/${mindId}/wallet/freeze`, {}, 'freeze'],
       ['PUT', `/v1/minds/${mindId}/workflows/daily-report/autopilot`, {}, 'autopilot'],
+      ['PUT', `/v1/minds/${mindId}/memory`, { markdown: 'x' }, 'edit_memory'],
+      ['DELETE', `/v1/minds/${mindId}/memory`, undefined, 'edit_memory'],
     ]
     for (const [method, path, body, action] of cases) {
       const res = await d.call(method, path, body, origin)
       assert.equal(res.status, 403, `${method} ${path}`)
       assert.deepEqual(await res.json(), { error: 'demo_not_allowed', action })
     }
+    // Reading what the Mind remembers is allowed (#209).
+    assert.equal((await d.call('GET', `/v1/minds/${mindId}/memory`)).status, 200)
   })
 
   test('at most 2 sent payments per demo user, then a recorded refusal without calling OutLayer', async () => {

@@ -10,6 +10,8 @@ export type MindConfig = {
   skills: { skillId: string }[]
   // Present once the name or soul changed (#116): the engine reads memory as userId:mindId:v{n}.
   personaVersion?: number
+  // Memory switches (#209), present only when one is off; the engine reads absent as on.
+  memory?: { enabled: boolean; recall: boolean }
 }
 export type EngineSecret = { name: string; value: string; allowedHosts: string[] }
 export type SkillInfo = { skillId: string; description: string; status: string; connections: string[]; note?: string; title?: string; blurb?: string }

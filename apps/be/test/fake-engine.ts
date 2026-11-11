@@ -27,6 +27,8 @@ export const fake = {
   forgotten: [] as string[],
   forgetStatus: 204,
   forgetBodies: [] as { userId: string }[],
+  // Working memory per resource (#209), keyed like the engine: userId:mindId[:vN].
+  memory: new Map<string, { markdown: string; updatedAt: string | null }>(),
 }
 export type Script = { text: string; pieces?: number; delayMs?: number; toolMs?: number; verifyMs?: number; approval?: { tool: string; args: unknown } }
 
@@ -193,6 +195,21 @@ export const engine = createServer(async (req, res) => {
     if (fake.forgetStatus !== 204) return send(res, fake.forgetStatus, { error: 'engine_error' })
     fake.forgotten.push(forget[2])
     return send(res, 204)
+  }
+
+  const mem = url.pathname.match(/^\/v1\/minds\/([^/]+)\/memory$/)
+  if (mem) {
+    const src = req.method === 'GET' ? Object.fromEntries(url.searchParams) : (body ?? {})
+    if (typeof src.userId !== 'string') return send(res, 400, { error: 'invalid_body' })
+    const v = Number(src.personaVersion ?? 0)
+    const key = v ? `${src.userId}:${mem[1]}:v${v}` : `${src.userId}:${mem[1]}`
+    if (req.method === 'GET') return send(res, 200, { memory: fake.memory.get(key) ?? { markdown: '', updatedAt: null } })
+    if (req.method === 'PUT') {
+      const memory = { markdown: String(src.markdown), updatedAt: new Date().toISOString() }
+      fake.memory.set(key, memory)
+      return send(res, 200, { memory })
+    }
+    if (req.method === 'DELETE') { fake.memory.delete(key); return send(res, 204) }
   }
 
   const resume = url.pathname.match(/^\/v1\/runs\/([^/]+)\/(approve|decline)$/)

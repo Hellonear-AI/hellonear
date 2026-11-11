@@ -11,6 +11,8 @@ export type ApiMind = {
   model: string
   skills: string[]
   outlayerWalletId: string | null
+  /** Memory switches (#209): working memory and search of past chats. Both on by default. */
+  memory?: { enabled: boolean; recall: boolean }
   createdAt: string
   updatedAt: string
 }
@@ -41,7 +43,7 @@ export const mindsApi = {
     (await api<{ mind: ApiMind }>("/minds", { method: "POST", body })).mind,
   list: async () => (await api<{ minds: ApiMind[] }>("/minds")).minds,
   /** Change a Mind's name, persona, model or skills; the backend re-sends it to every Autopilot job. */
-  update: async (mindId: string, body: Partial<Pick<ApiMind, "name" | "soul" | "model" | "skills">>) =>
+  update: async (mindId: string, body: Partial<Pick<ApiMind, "name" | "soul" | "model" | "skills">> & { memory?: { enabled?: boolean; recall?: boolean } }) =>
     (await api<{ mind: ApiMind }>(`/minds/${encodeURIComponent(mindId)}`, { method: "PATCH", body })).mind,
   /**
    * Delete a Mind, its chats, memory and Autopilot jobs (`204`). While its own wallet holds more
