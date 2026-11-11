@@ -254,6 +254,24 @@ describe('engine HTTP API', () => {
       // Streaming completions carry Gateway signatures (measured 3 Nov), so the level is gateway_tee.
       assert.equal(v.level, 'gateway_tee')
       assert.equal(v.completionIds.length, evs.filter((e) => e.type === 'step.finished').length, 'one verified completion per model step')
+      // The evidence behind it (#254): one signed step per completion, each pointing at an attestation whose signer
+      // is the one that signed it, with the TDX quote and nonce anyone can check again.
+      const proof = v.proof
+      assert.ok(proof, 'run.verified carries the proof')
+      assert.deepEqual(proof.steps.map((s: Ev) => s.id), v.completionIds)
+      for (const s of proof.steps) {
+        const att = proof.attestations[s.attestation]
+        assert.ok(att, `attestation ${s.attestation}`)
+        assert.equal(s.signatureKind, 'gateway')
+        assert.equal(att.kind, 'gateway')
+        assert.equal(s.signer.address.toLowerCase(), att.signer.address.toLowerCase(), 'signed by the attested key')
+        assert.match(s.signedText, /^[0-9a-f]{64}:[0-9a-f]{64}$/, 'hashes only, never the conversation')
+        assert.ok(s.signature.length > 20)
+        assert.ok(att.intelQuote.length > 1000 && /^[0-9a-f]+$/i.test(att.intelQuote), 'a TDX quote')
+        assert.ok(att.nonce.length >= 32)
+        assert.ok(att.tcbStatus)
+      }
+      assert.ok(!JSON.stringify(proof).includes('4 + 5'), 'no conversation text in the proof')
     })
 
     test('an Incognito model never gets the private badge', async () => {
@@ -359,7 +377,9 @@ describe('engine HTTP API', () => {
 
     test('a try-out run reads the sample calendar on the googlecalendar App node', async () => {
       const evs = await events(await post('/v1/minds/cal/chat', { userId, threadId: randomUUID(), demo: true, mind: planner, message: 'What is on my calendar this week? Use googlecalendar_list_events.' }))
-      const listed = evs.find((e) => e.type === 'tool.result' && e.tool === 'googlecalendar_list_events')
+      // The model sometimes sends arguments that fail validation first and calls again (Mastra answers `{ error: true }`
+      // as a tool.result; seen once in the full suite, 11 Nov): the call that ran is the one to check.
+      const listed = evs.find((e) => e.type === 'tool.result' && e.tool === 'googlecalendar_list_events' && e.result?.error !== true)
       assert.ok(listed, JSON.stringify(evs.filter((e) => e.tool)))
       assert.equal(listed.nodeId, 'app:googlecalendar')
       assert.equal(listed.result.source, 'sample_calendar')
