@@ -5,9 +5,10 @@ import { cn } from "cn"
 
 // The pieces every settings tab is built from (Ancung, 11 Nov, like Claude's settings): a group is
 // a heading over rows; a row is its label and a short line on the left and its control on the
-// right, with anything longer (a field, a list) underneath. No boxed cards.
+// right, with anything longer (a field, a list) underneath. No boxed cards, and no lines between
+// rows (Ancung, 11 Nov: the dividers read busy); spacing alone separates them.
 
-/** A heading over rows, with a quiet line between the rows. */
+/** A heading over rows. */
 export function SettingsGroup({ title, description, children, className }: { title?: ReactNode; description?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <section className={cn("flex flex-col gap-1", className)}>
@@ -17,7 +18,7 @@ export function SettingsGroup({ title, description, children, className }: { tit
           {description && <p className="text-[13px] text-muted-foreground">{description}</p>}
         </div>
       )}
-      <div className="flex flex-col divide-y divide-border">{children}</div>
+      <div className="flex flex-col">{children}</div>
     </section>
   )
 }
@@ -41,7 +42,7 @@ export function SettingsRow({
 }) {
   const Label = htmlFor ? "label" : "span"
   return (
-    <div className="flex flex-col gap-3 py-4">
+    <div className="flex flex-col gap-3 py-3">
       <div className="flex items-start gap-4">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <Label htmlFor={htmlFor} className={cn("text-sm font-medium", tone === "danger" ? "text-danger" : "text-foreground")}>
