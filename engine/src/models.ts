@@ -7,7 +7,7 @@
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { InferenceClient } from '@nearai/inference-sdk/node'
 import { config } from './config.ts'
-import type { StepResult } from './verify.ts'
+import { stepProof, type StepResult } from './verify.ts'
 
 export const inferenceClient = new InferenceClient({ apiKey: config.nearaiApiKey })
 
@@ -53,7 +53,7 @@ export async function verifyCompletions(ids: string[]): Promise<StepResult[]> {
     ids.map(async (id): Promise<StepResult> => {
       try {
         const v = await inferenceClient.verifyResponse(id)
-        return { id, ok: true, signatureKind: v.signatureKind }
+        return { id, ok: true, signatureKind: v.signatureKind, proof: stepProof(v) }
       } catch (e) {
         const err = e as { code?: string; message?: string }
         return { id, ok: false, error: err.code ?? err.message ?? String(e) }

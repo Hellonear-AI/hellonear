@@ -254,6 +254,24 @@ describe('engine HTTP API', () => {
       // Streaming completions carry Gateway signatures (measured 3 Nov), so the level is gateway_tee.
       assert.equal(v.level, 'gateway_tee')
       assert.equal(v.completionIds.length, evs.filter((e) => e.type === 'step.finished').length, 'one verified completion per model step')
+      // The evidence behind it (#254): one signed step per completion, each pointing at an attestation whose signer
+      // is the one that signed it, with the TDX quote and nonce anyone can check again.
+      const proof = v.proof
+      assert.ok(proof, 'run.verified carries the proof')
+      assert.deepEqual(proof.steps.map((s: Ev) => s.id), v.completionIds)
+      for (const s of proof.steps) {
+        const att = proof.attestations[s.attestation]
+        assert.ok(att, `attestation ${s.attestation}`)
+        assert.equal(s.signatureKind, 'gateway')
+        assert.equal(att.kind, 'gateway')
+        assert.equal(s.signer.address.toLowerCase(), att.signer.address.toLowerCase(), 'signed by the attested key')
+        assert.match(s.signedText, /^[0-9a-f]{64}:[0-9a-f]{64}$/, 'hashes only, never the conversation')
+        assert.ok(s.signature.length > 20)
+        assert.ok(att.intelQuote.length > 1000 && /^[0-9a-f]+$/i.test(att.intelQuote), 'a TDX quote')
+        assert.ok(att.nonce.length >= 32)
+        assert.ok(att.tcbStatus)
+      }
+      assert.ok(!JSON.stringify(proof).includes('4 + 5'), 'no conversation text in the proof')
     })
 
     test('an Incognito model never gets the private badge', async () => {
