@@ -9,13 +9,29 @@ import { cn } from "cn"
 // rows (Ancung, 11 Nov: the dividers read busy); spacing alone separates them.
 
 /** A heading over rows. */
-export function SettingsGroup({ title, description, children, className }: { title?: ReactNode; description?: ReactNode; children: ReactNode; className?: string }) {
+export function SettingsGroup({
+  title,
+  description,
+  control,
+  children,
+  className,
+}: {
+  title?: ReactNode
+  description?: ReactNode
+  /** Beside the heading, for a switch that sets the whole group. */
+  control?: ReactNode
+  children: ReactNode
+  className?: string
+}) {
   return (
     <section className={cn("flex flex-col gap-1", className)}>
       {(title || description) && (
-        <div className="flex flex-col gap-1 pb-2">
-          {title && <h2 className="text-[15px] font-semibold text-foreground">{title}</h2>}
-          {description && <p className="text-[13px] text-muted-foreground">{description}</p>}
+        <div className="flex items-start gap-4 pb-2">
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            {title && <h2 className="text-[15px] font-semibold text-foreground">{title}</h2>}
+            {description && <p className="text-[13px] text-muted-foreground">{description}</p>}
+          </div>
+          {control && <div className="flex shrink-0 items-center gap-2.5">{control}</div>}
         </div>
       )}
       <div className="flex flex-col">{children}</div>
@@ -31,6 +47,7 @@ export function SettingsRow({
   below,
   htmlFor,
   tone,
+  icon,
 }: {
   label: ReactNode
   description?: ReactNode
@@ -39,11 +56,14 @@ export function SettingsRow({
   /** The control's id, so the label focuses it. */
   htmlFor?: string
   tone?: "danger"
+  /** A logo or icon before the label, so a long list can be scanned by it. */
+  icon?: ReactNode
 }) {
   const Label = htmlFor ? "label" : "span"
   return (
     <div className="flex flex-col gap-3 py-3">
       <div className="flex items-start gap-4">
+        {icon && <span className="mt-px flex size-5 shrink-0 items-center justify-center text-muted-foreground [&_svg]:size-5">{icon}</span>}
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <Label htmlFor={htmlFor} className={cn("text-sm font-medium", tone === "danger" ? "text-danger" : "text-foreground")}>
             {label}

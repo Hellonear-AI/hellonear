@@ -1,7 +1,8 @@
 "use client"
 
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { useState } from "react"
+import { MailIcon, StoreIcon, WalletIcon } from "lucide-react"
+import { useState, type ReactNode } from "react"
 import { toast } from "sonner"
 import { Spinner } from "@/components/elements/Spinner"
 import { Button } from "@/components/ui/button"
@@ -15,6 +16,7 @@ import { useSkillCatalog } from "@/modules/skills/hooks/useSkills"
 import type { ApiWallet } from "@/modules/wallet/api"
 import { isValidMaxNear, NO_RULES, overWalletLimit, rulesFor, sameRules } from "@/modules/settings/data/autoApprove"
 import { SaveBar, SettingsGroup, SettingsRow } from "@/modules/settings/components/SettingsParts"
+import { APPS } from "@/modules/connections/data/apps"
 
 const DEFAULT_MAX_NEAR = "0.1"
 
@@ -76,7 +78,8 @@ export function AutoApproveSection({ mind, name, wallet, tryOut }: { mind: ApiMi
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    // Not the page's full width: the switches stay near their labels (Ancung, 11 Nov).
+    <div className="flex max-w-[600px] flex-col gap-8">
       <p className="text-[13px] text-muted-foreground">
         Everything here is off until you turn it on. Anything left off waits for your approval in the chat. The chat still shows each action, marked as approved by your rule.
         {tryOut && " A try-out Mind always asks; connect a wallet to choose this."}
@@ -85,6 +88,7 @@ export function AutoApproveSection({ mind, name, wallet, tryOut }: { mind: ApiMi
       {pays && (
         <SettingsGroup title="Payments">
           <SettingsRow
+            icon={<WalletIcon />}
             label="Send payments without asking"
             htmlFor="auto-pay"
             description={
@@ -129,20 +133,27 @@ export function AutoApproveSection({ mind, name, wallet, tryOut }: { mind: ApiMi
       )}
 
       {actions.length > 0 && (
-        <SettingsGroup title="Apps and email" description="Each action asks you first unless you turn it on here.">
-          {/* All at once (Ancung, 11 Nov). Payments stay apart on purpose: money gets its own switch and amount. */}
-          <SettingsRow
-            label="All apps and email"
-            htmlFor="auto-all"
-            description={`${onCount} of ${actions.length} on. Payments stay separate.`}
-            control={<Switch id="auto-all" checked={allOn} disabled={tryOut} onCheckedChange={setAll} />}
-          />
+        <SettingsGroup
+          title="Apps and email"
+          description="Each action asks you first unless you turn it on here. Payments stay separate."
+          // All at once, beside the heading so it reads as the group's switch, not one more action
+          // (Ancung, 11 Nov). Payments stay apart on purpose: money gets its own switch and amount.
+          control={
+            <>
+              <label htmlFor="auto-all" className="text-xs text-muted-foreground">
+                {onCount} of {actions.length} on
+              </label>
+              <Switch id="auto-all" aria-label="All apps and email" checked={allOn} disabled={tryOut} onCheckedChange={setAll} />
+            </>
+          }
+        >
           {actions.map((a) => {
             const on = rules.tools.includes(a.tool)
             const id = `auto-${a.tool}`
             return (
               <SettingsRow
                 key={a.tool}
+                icon={actionIcon(a.tool)}
                 label={a.label}
                 htmlFor={id}
                 description={on && a.warning ? <span className="text-warning">{a.warning}</span> : a.warning ? `When on: ${a.warning.charAt(0).toLowerCase()}${a.warning.slice(1)}` : undefined}
@@ -166,4 +177,12 @@ export function AutoApproveSection({ mind, name, wallet, tryOut }: { mind: ApiMi
       )}
     </div>
   )
+}
+
+/** Each action's app logo (the same as Connections), so the list can be scanned by app. */
+function actionIcon(tool: string): ReactNode {
+  if (tool === "mail_send" || tool === "mail_send_to_owner") return <MailIcon />
+  if (tool === "sell_offer") return <StoreIcon />
+  const app = APPS.find((x) => tool.startsWith(`${x.toolkit}_`))
+  return app?.logo ?? null
 }
