@@ -6,7 +6,7 @@ import { Logo } from "./Logo";
 // "Pick a Mind you'd like around": three cards dealt from below, face down (a brushed platinum back
 // with the logo), flipping over one by one. Hover pops a card up with a small random tilt and fades
 // its character into a second, livelier pose. The Choose button opens the app's "Choose a Mind" screen with
-// that template picked (`/minds/new?template=<id>`; apps/fe needs to read the param).
+// that template picked (`/minds/new?template=<id>`); a visitor who isn't signed in keeps the pick through sign-in.
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.hellonear.xyz";
 

@@ -21,6 +21,7 @@ export const mindKeys = {
 export const chatKeys = {
   thread: (mindId: string, threadId: string) => ["minds", mindId, "threads", threadId] as const,
   run: (runId: string) => ["runs", runId] as const,
+  proof: (runId: string) => ["runs", runId, "proof"] as const,
   /** The user message that started a run (Approvals' "You asked"). */
   asked: (runId: string) => ["runs", runId, "asked"] as const,
 }

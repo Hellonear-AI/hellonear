@@ -144,7 +144,7 @@ export function TurnView({
           {working && <Working name={name} />}
           {!live && view.text && (
             <div className="flex flex-wrap items-center gap-2">
-              {view.verified && <VerifiedBadge level={view.verified} proof={view.proof} />}
+              {view.verified && <VerifiedBadge level={view.verified} proof={view.proof} runId={view.runId} />}
               {view.at && <span className="text-xs text-muted-foreground">{clockTime(view.at)}</span>}
               {/* Actions under a finished reply, like Claude (Ancung, 10 Nov). */}
               <span className="flex items-center gap-0.5">

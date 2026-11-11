@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { isApiCode } from "@/lib/api"
 import { clockTime } from "@/lib/format"
-import { OwnerActionError, wrongAccountText } from "@/modules/wallet/data/ownerAction"
+import { BLOCKED_HINT, OwnerActionError, wrongAccountText } from "@/modules/wallet/data/ownerAction"
+import type { OwnerTransaction } from "@/modules/wallet/api"
+import { useBlockedHint } from "@/modules/wallet/hooks/useBlockedHint"
 import { useFreeze } from "@/modules/wallet/hooks/useFreeze"
 
 // W3 Freeze: ask (W3.1), wait for Meteor (W3.2, can't be closed by accident), done (W3.3);
@@ -42,7 +44,11 @@ export function FreezeDialog({
   const [freeze] = useState(freezeProp)
   const mutation = useFreeze(mindId)
   const [doneAt, setDoneAt] = useState<string | null>(null)
+  // Built too slowly for the browser to allow Meteor's window from the first click (#260): one
+  // more click signs it straight away.
+  const [prepared, setPrepared] = useState<OwnerTransaction | null>(null)
   const signing = mutation.isPending
+  const blocked = useBlockedHint(signing)
 
   // No reset on close: the content stays as it is while the dialog animates out, and the next
   // opening is a fresh dialog (Ancung, 9 Nov: the ask flashed back on Close).
@@ -94,10 +100,16 @@ export function FreezeDialog({
                 </li>
               ))}
             </ul>
-            {mutation.error ? (
+            {blocked ? (
+              <p role="status" className="text-[13px] text-warning">
+                {BLOCKED_HINT}
+              </p>
+            ) : mutation.error ? (
               <p role="alert" className="text-[13px] text-danger">
                 {freezeErrorText(mutation.error, freeze)}
               </p>
+            ) : prepared ? (
+              <p className="text-xs text-muted-foreground">Ready to sign. Meteor opens when you press the button.</p>
             ) : (
               <p className="text-xs text-muted-foreground">
                 {freeze ? "Freezing needs your signature in Meteor. It's free on testnet." : "Unfreezing needs your signature in Meteor."}
@@ -110,10 +122,22 @@ export function FreezeDialog({
               <Button
                 variant={freeze ? "destructive" : "default"}
                 disabled={signing}
-                onClick={() => mutation.mutate(freeze, { onSuccess: ({ at }) => setDoneAt(at) })}
+                onClick={() =>
+                  mutation.mutate(
+                    { freeze, startedAt: Date.now(), prepared: prepared ?? undefined },
+                    {
+                      onSuccess: (r) => {
+                        if (r.status === "needs_click") return setPrepared(r.transaction)
+                        setPrepared(null)
+                        setDoneAt(r.at)
+                      },
+                      // A signature that failed leaves the built transaction to sign again.
+                    }
+                  )
+                }
               >
                 {signing ? <Spinner /> : <SnowflakeIcon />}
-                {signing ? "Waiting for Meteor" : mutation.error ? "Try again" : freeze ? "Freeze with Meteor" : "Unfreeze with Meteor"}
+                {signing ? "Waiting for Meteor" : prepared ? "Sign in Meteor" : mutation.error ? "Try again" : freeze ? "Freeze with Meteor" : "Unfreeze with Meteor"}
               </Button>
             </DialogFooter>
           </>

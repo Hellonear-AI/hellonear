@@ -23,8 +23,12 @@ export function useOwnerTransaction() {
   return async (transaction: OwnerTransaction) => {
     if (!owner) throw new Error("Not signed in")
     const wallet = signedAccountId ? await connector.wallet() : await connector.connect()
-    const accounts = (await wallet.getAccounts()).map((a) => a.accountId)
-    if (!accounts.includes(owner)) throw new WrongAccountError(owner, accounts)
+    // The hook already knows the account: asking Meteor again is one more wait between the click
+    // and its window, which the browser may then block (#260). Ask only when it doesn't match.
+    if (signedAccountId !== owner) {
+      const accounts = (await wallet.getAccounts()).map((a) => a.accountId)
+      if (!accounts.includes(owner)) throw new WrongAccountError(owner, accounts)
+    }
     return wallet.signAndSendTransaction({ signerId: owner, receiverId: transaction.receiverId, actions: transaction.actions })
   }
 }

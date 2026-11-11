@@ -700,6 +700,11 @@ label[for] {
 @keyframes marquee {
   to { transform: translateX(-50%); }
 }
+/* "Works with" slides the other way, a little slower. */
+.marquee-reverse {
+  animation-direction: reverse;
+  animation-duration: 55s;
+}
 @media (hover: hover) and (pointer: fine) {
   .marquee:hover .marquee-track {
     animation-play-state: paused;
