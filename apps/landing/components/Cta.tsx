@@ -52,7 +52,7 @@ export function Cta() {
             className={`cta-btns mt-3 grid grid-cols-2 gap-2.5 lg:w-fit ${seen ? "rise-in" : "opacity-0"}`}
             style={{ animationDelay: "480ms" }}
           >
-            <a href="#minds" className="hero-btn hero-btn-primary hero-btn-lg justify-between">
+            <a href="#minds" className="hero-btn hero-btn-primary hero-btn-lg justify-center">
               Meet your Mind <I d={Icon.arrow} size={16} />
             </a>
             <a href="https://github.com/Hellonear-AI/hellonear" className="hero-btn hero-btn-ghost hero-btn-lg justify-center">
