@@ -30,7 +30,8 @@ export function Welcome({ mindId }: { mindId: string }) {
     },
     {
       title: "It asks before it pays",
-      text: "Every payment waits for your Approve, here in the chat or in Telegram. You see who gets paid and how much first.",
+      // Not "every payment": an auto-approve rule (#167) can let small ones through.
+      text: "Payments wait for your Approve, here in the chat or in Telegram, and you see who gets paid and how much first. Small ones can skip it if you set a rule in its settings.",
       art: <ApproveArt />,
     },
     {

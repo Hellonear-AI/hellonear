@@ -30,7 +30,7 @@ export function gettingStartedSteps(
     { id: "chat", title: `Say hi to ${name}`, line: "Ask what it can do, or for your balance.", href: mindHref(mindId, "chat"), done: s.chatted },
     { id: "limits", title: "Set its limits", line: "How much per payment and per day, and who it may pay.", href: mindHref(mindId, "wallet"), done: s.limits, owner: true },
     { id: "funds", title: "Add funds", line: `Send testnet NEAR to ${name}'s wallet from Meteor.`, href: mindHref(mindId, "wallet"), done: s.funded, owner: true },
-    { id: "pay", title: "Ask for a payment", line: "It asks you first, and the wallet checks your limits.", href: mindHref(mindId, "chat"), done: s.paid },
+    { id: "pay", title: "Ask for a payment", line: "It asks you first, unless you set a rule, and the wallet checks your limits.", href: mindHref(mindId, "chat"), done: s.paid },
     { id: "live", title: "Explore the live view", line: "Drag or click a bubble to see what it used.", href: mindHref(mindId, "chat"), done: s.live },
     { id: "app", title: "Connect an app", line: "Gmail, Calendar, Notion, Telegram and more.", href: mindHref(mindId, "connections"), done: s.connected, owner: true },
     { id: "attack", title: "Try to trick it", line: "Run an attack and watch where it gets stopped.", href: mindHref(mindId, "attack"), done: s.attacked },
