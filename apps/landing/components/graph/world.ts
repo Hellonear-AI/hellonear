@@ -104,7 +104,7 @@ export function buildWorld(COUNT: number) {
       return id;
     });
     // many small bubbles: some on the Mind itself (a dandelion), some on its skills
-    const leaves = big ? 90 + Math.floor(r() * 120) : 12 + Math.floor(r() * 45);
+    const leaves = big ? 55 + Math.floor(r() * 70) : 8 + Math.floor(r() * 28);
     for (let j = 0; j < leaves; j++) {
       const onHub = r() < 0.6 || !skillIds.length;
       const parent = onHub ? hub : skillIds[Math.floor(r() * skillIds.length)];

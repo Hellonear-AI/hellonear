@@ -131,7 +131,7 @@ export function MindGraph() {
     // Fewer Minds on phones and slower machines, so it stays smooth there.
     const small = window.innerWidth < 1024 || (navigator.hardwareConcurrency || 8) <= 4;
     const phone = window.innerWidth < 768;
-    const COUNT = phone ? 18 : small ? 30 : 64;
+    const COUNT = phone ? 14 : small ? 24 : 46;
     const { nodes, links, penny } = buildWorld(COUNT);
     // the zoom Penny is first seen at, for the size of its labels in the layout (set below)
     let labelK = 0.72;
