@@ -198,6 +198,41 @@ const docsCreate = createTool({
   },
 })
 
+// Adding to an existing Doc (#247 item 6). GOOGLEDOCS_INSERT_TEXT_ACTION (schema read live 11 Nov, version 20261101_00:
+// `document_id`, `text_to_insert`, `append_to_end`, and optional `insertion_index`, `segment_id`, `tab_id`; answers
+// `document_id`, `display_url`). It only inserts text and has no argument that deletes or replaces a range; we always send
+// `append_to_end: true` and never an index, segment or tab, so the text goes at the end of the body's first tab.
+// GOOGLEDOCS_UPDATE_DOCUMENT_MARKDOWN is not used: its `markdown` "will replace the document's entire existing content".
+// The card shows the Doc's title as the Mind read it (`title`); `execute` reads the Doc again and adds nothing if the id
+// now has another title, so the card can't name one Doc while the text lands in another.
+const MAX_APPEND = 10_000
+// Insert takes a bare id (the read takes an id or a link), so a link is cut down to its id.
+export const docId = (idOrLink: string) => idOrLink.match(/\/document\/d\/([A-Za-z0-9_-]+)/)?.[1] ?? idOrLink.trim()
+// The text starts on a new line, so it does not run on from the Doc's last sentence.
+export const appendText = (text: string) => (text.startsWith('\n') ? text : `\n${text}`)
+
+const docsAppend = createTool({
+  id: 'googledocs_append_text',
+  description: `Add text at the end of one of the owner's existing Google Docs ("add this week's summary to my Weekly Notes doc"). Waits for the owner to approve, unless one of the owner's rules covers it. Always call googledocs_read_document on the Doc first (a Drive search result is not enough) and pass the id and title that read returned, so the owner sees which Doc. It only adds plain text at the end (at most ${MAX_APPEND} characters); it never changes or deletes what is already in the Doc.`,
+  inputSchema: z.object({
+    documentId: z.string().min(1).max(300).describe('the Doc id (or link) googledocs_read_document returned'),
+    title: z.string().min(1).max(200).describe('the Doc title exactly as googledocs_read_document returned it'),
+    text: z.string().min(1).max(MAX_APPEND).describe('the plain text to add at the end'),
+  }),
+  outputSchema: z.object({ source: z.string(), documentId: z.string(), title: z.string(), characters: z.number(), link: z.string(), status: z.enum(['appended', 'refused']), message: z.string().optional() }),
+  requireApproval: true,
+  execute: async ({ documentId, title, text }, context) => {
+    const id = docId(documentId)
+    const now = unwrap(await appCall(context, 'googledocs', 'GOOGLEDOCS_GET_DOCUMENT_BY_ID', { id }))
+    const actual = String(now.title ?? '')
+    if (actual.trim() !== title.trim()) {
+      return { source: 'googledocs', documentId: id, title: actual, characters: 0, link: '', status: 'refused' as const, message: `not added: this Doc is now titled ${JSON.stringify(actual)}, not ${JSON.stringify(title)} as shown for approval. Read it again and ask the owner once more.` }
+    }
+    const data = unwrap(await appCall(context, 'googledocs', 'GOOGLEDOCS_INSERT_TEXT_ACTION', { document_id: id, text_to_insert: appendText(text), append_to_end: true }))
+    return { source: 'googledocs', documentId: String(data.document_id ?? id), title: actual, characters: text.length, link: String(data.display_url ?? now.document_url ?? ''), status: 'appended' as const }
+  },
+})
+
 // Slack (#197). SLACK_LIST_ALL_CHANNELS (`channels[]`; its `limit` defaults to 1, so always send one) and
 // SLACK_SEND_MESSAGE (`markdown_text`; answers `ok`, `channel`, `ts`). Slack reports refusals as `ok: false` + `error`.
 const slackOk = (data: any) => {
@@ -356,7 +391,7 @@ const outlookDraft = createTool({
 
 export const appTools = {
   googlesheets_find_spreadsheets: sheetsFind, googlesheets_read_range: sheetsRead, googlesheets_append_row: sheetsAppend, googlesheets_update_cells: sheetsUpdate,
-  googledrive_find_files: driveFind, googledocs_read_document: docsRead, googledocs_create_document: docsCreate,
+  googledrive_find_files: driveFind, googledocs_read_document: docsRead, googledocs_create_document: docsCreate, googledocs_append_text: docsAppend,
   slack_list_channels: slackChannels, slack_send_message: slackSend,
   notion_search: notionSearch, notion_read_page: notionRead, notion_create_page: notionCreatePage, notion_add_row: notionAddRow,
   outlook_list_emails: outlookList, outlook_read_email: outlookRead, outlook_create_draft: outlookDraft,

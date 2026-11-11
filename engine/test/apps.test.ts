@@ -8,7 +8,7 @@ import type { AddressInfo } from 'node:net'
 import { needsApproval, toolRegistry, toolsFor } from '../src/tools.ts'
 import { USER_KEY, resetComposioSessions } from '../src/composio.ts'
 import { DEMO_KEY } from '../src/email.ts'
-import { docText, htmlText, notionText, notionTitle, sheetRange, startRow } from '../src/apps.ts'
+import { appendText, docId, docText, htmlText, notionText, notionTitle, sheetRange, startRow } from '../src/apps.ts'
 import { nodeIdFor } from '../src/graph.ts'
 
 const calls: { url: string; body: any }[] = []
@@ -30,6 +30,7 @@ const answers: Record<string, (a: any) => unknown> = {
     { paragraph: { elements: [{ textRun: { content: 'Payment terms: ' } }, { textRun: { content: '30 days.\n' } }] } },
     { table: { tableRows: [{ tableCells: [{ content: [{ paragraph: { elements: [{ textRun: { content: 'Fee\n' } }] } }] }] }] } },
   ] } }),
+  GOOGLEDOCS_INSERT_TEXT_ACTION: (a) => ok({ document_id: a.document_id, display_url: `https://docs.google.com/document/d/${a.document_id}/edit`, replies: [{}] }),
   GOOGLEDOCS_CREATE_DOCUMENT_MARKDOWN: (a) => ok({ documentId: 'newdoc', title: a.title, display_url: 'https://docs.google.com/document/d/newdoc/edit' }),
   SLACK_LIST_ALL_CHANNELS: () => ok({ ok: true, channels: [{ id: 'C1', name: 'finance', is_private: false, is_member: true }, { id: 'C2', name: 'founders', is_private: true }] }),
   SLACK_SEND_MESSAGE: (a) => (a.channel === 'gone' ? ok({ ok: false, error: 'channel_not_found' }) : ok({ ok: true, channel: 'C1', ts: '1731300000.000100' })),
@@ -79,7 +80,7 @@ const ctx = (userId?: string, demo = false) => ({ requestContext: { get: (k: str
 const run = (tool: keyof typeof toolRegistry, input: unknown, c: unknown = ctx('usr_a')) => toolRegistry[tool].execute!(input as any, c as any) as Promise<any>
 const exec = (slug: string) => calls.find((c) => c.body?.tool_slug === slug)!.body.arguments
 
-const WRITES = ['googlesheets_append_row', 'googlesheets_update_cells', 'googledocs_create_document', 'slack_send_message', 'notion_create_page', 'notion_add_row'] as const
+const WRITES = ['googlesheets_append_row', 'googlesheets_update_cells', 'googledocs_create_document', 'googledocs_append_text', 'slack_send_message', 'notion_create_page', 'notion_add_row'] as const
 const READS = ['googlesheets_find_spreadsheets', 'googlesheets_read_range', 'googledrive_find_files', 'googledocs_read_document', 'slack_list_channels', 'notion_search', 'notion_read_page', 'outlook_list_emails', 'outlook_read_email', 'outlook_create_draft'] as const
 
 test('writes and posts wait for approval, reads and drafts do not, and unattended runs never get a write', () => {
@@ -152,6 +153,30 @@ test('drive and docs: find files (trashed left out), read a doc as plain text, c
   assert.equal(docText({ a: [{ textRun: { content: 'x' } }, { b: { textRun: { content: 'y' } } }] }), 'xy')
 })
 
+test('docs: add text only at the end of an existing Doc, after reading its title again (#247)', async () => {
+  const added = await run('googledocs_append_text', { documentId: 'https://docs.google.com/document/d/d1/edit', title: 'Contract', text: 'Week 46: shipped the Docs tool.' })
+  // The title is checked against the Doc right before writing, by its bare id.
+  assert.deepEqual(exec('GOOGLEDOCS_GET_DOCUMENT_BY_ID'), { id: 'd1' })
+  // Exactly these arguments: text at the end, no index, segment, tab, or anything that deletes or replaces.
+  assert.deepEqual(exec('GOOGLEDOCS_INSERT_TEXT_ACTION'), { document_id: 'd1', text_to_insert: '\nWeek 46: shipped the Docs tool.', append_to_end: true })
+  assert.deepEqual(added, { source: 'googledocs', documentId: 'd1', title: 'Contract', characters: 31, link: 'https://docs.google.com/document/d/d1/edit', status: 'appended' })
+  // No call ever goes to an action that replaces or deletes.
+  assert.ok(!calls.some((c) => /UPDATE_DOCUMENT|REPLACE|DELETE/.test(String(c.body?.tool_slug))), JSON.stringify(calls.map((c) => c.body?.tool_slug)))
+  // Another title than the card showed: nothing is added.
+  calls.length = 0
+  const other = await run('googledocs_append_text', { documentId: 'd1', title: 'Weekly Notes', text: 'x' })
+  assert.equal(other.status, 'refused')
+  assert.match(other.message, /now titled "Contract"/)
+  assert.ok(!calls.some((c) => c.body?.tool_slug === 'GOOGLEDOCS_INSERT_TEXT_ACTION'), 'not written')
+  // Empty text and text over the limit fail validation (Mastra answers instead of running the tool).
+  calls.length = 0
+  assert.equal((await run('googledocs_append_text', { documentId: 'd1', title: 'Contract', text: '' })).error, true)
+  assert.equal((await run('googledocs_append_text', { documentId: 'd1', title: 'Contract', text: 'a'.repeat(10_001) })).error, true)
+  assert.equal(calls.length, 0)
+  assert.equal(docId(' 1AbC_d-9xyz '), '1AbC_d-9xyz')
+  assert.equal(appendText('\nalready'), '\nalready')
+})
+
 test('slack: list channels with an explicit limit, post Markdown without the #, and a Slack refusal is an error', async () => {
   const list = await run('slack_list_channels', {})
   assert.deepEqual(exec('SLACK_LIST_ALL_CHANNELS'), { limit: 200, types: 'public_channel,private_channel', exclude_archived: true })
@@ -213,7 +238,7 @@ test('an app the owner has not connected answers "<App> is not connected" for th
 
 test('try-out runs never reach Composio: every app answers that it is not in the try-out', async () => {
   for (const t of [...READS, ...WRITES]) {
-    const input = { googlesheets_append_row: { spreadsheetId: 's', sheet: 'a', values: ['x'] }, googlesheets_update_cells: { spreadsheetId: 's', range: 'a!A1', newValues: [['x']], oldValues: [['y']] }, googledocs_create_document: { title: 't', markdown: '' }, slack_send_message: { channel: 'c', text: 't' },
+    const input = { googlesheets_append_row: { spreadsheetId: 's', sheet: 'a', values: ['x'] }, googlesheets_update_cells: { spreadsheetId: 's', range: 'a!A1', newValues: [['x']], oldValues: [['y']] }, googledocs_create_document: { title: 't', markdown: '' }, googledocs_append_text: { documentId: 'd', title: 't', text: 'x' }, slack_send_message: { channel: 'c', text: 't' },
       notion_create_page: { parentId: 'p', title: 't' }, notion_add_row: { databaseId: 'd', properties: [{ name: 'n', type: 'title', value: 'v' }] }, googlesheets_read_range: { spreadsheetId: 's' },
       googledrive_find_files: { query: 'q' }, googledocs_read_document: { id: 'd' }, notion_read_page: { pageId: 'p' }, outlook_read_email: { id: 'i' }, outlook_create_draft: { replyToId: 'i', body: 'b' } } as Record<string, unknown>
     await assert.rejects(run(t, input[t] ?? {}, ctx('usr_demo', true)), /not available in the try-out/, t)
