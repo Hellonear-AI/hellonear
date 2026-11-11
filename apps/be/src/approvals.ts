@@ -10,7 +10,13 @@ export type Check = { ok: boolean; text: string }
 export type NextStep = 'approve' | 'add_address' | 'change_limits' | 'unfreeze' | 'fund'
 export type Payment = { to: string; amountNear: string }
 // The parts of `getWallet` (src/wallets.ts) the checks read.
-export type WalletView = { balanceNear: string; frozen: boolean; policy: null | { perTransactionNear: string | null; whitelist: string[] | null } }
+// `spentTodayNear` and `dailyNear` (#149) are optional so a wallet read without them simply skips the daily check.
+export type WalletView = {
+  balanceNear: string
+  spentTodayNear?: string
+  frozen: boolean
+  policy: null | { perTransactionNear: string | null; dailyNear?: string | null; whitelist: string[] | null }
+}
 
 const DECIMAL = /^\d+(\.\d+)?$/
 
@@ -26,6 +32,30 @@ export function compareNear(a: string, b: string): -1 | 0 | 1 | null {
   if (aw.length !== bw.length) return aw.length > bw.length ? 1 : -1
   if (aw !== bw) return aw > bw ? 1 : -1
   return af === bf ? 0 : af > bf ? 1 : -1
+}
+
+// Exact sum and difference of decimal NEAR strings (24 decimals), like the app's `addNear` / `subNear`; a difference
+// below 0 is "0". Callers check DECIMAL first.
+const toYocto = (v: string) => {
+  const [whole = '0', frac = ''] = v.trim().split('.')
+  return BigInt(whole + frac.padEnd(24, '0').slice(0, 24))
+}
+const fromYocto = (y: bigint) => {
+  const digits = (y < 0n ? 0n : y).toString().padStart(25, '0')
+  const frac = digits.slice(-24).replace(/0+$/, '')
+  return frac ? `${digits.slice(0, -24)}.${frac}` : digits.slice(0, -24)
+}
+export const addNear = (a: string, b: string) => fromYocto(toYocto(a) + toYocto(b))
+export const subNear = (a: string, b: string) => fromYocto(toYocto(a) - toYocto(b))
+
+// The daily cap (#149): OutLayer refuses when what it counted today plus this payment is over the cap (a payment that
+// lands exactly on it goes through, testnet 10 Nov). Its day starts at 00:00 UTC (testnet 11 Nov). null: no cap set, or
+// a value that isn't a plain decimal, so there is nothing to say in advance.
+export function dailyCheck(payment: Payment, wallet: Pick<WalletView, 'spentTodayNear' | 'policy'> | null): { over: boolean; daily: string; left: string } | null {
+  const daily = wallet?.policy?.dailyNear
+  const spent = wallet?.spentTodayNear
+  if (!daily || spent === undefined || ![daily, spent, payment.amountNear].every((v) => DECIMAL.test(v.trim()))) return null
+  return { over: compareNear(addNear(spent, payment.amountNear), daily) === 1, daily, left: subNear(daily, spent) }
 }
 
 // "1234.5" -> "1,234.50", like the app's balance.
@@ -54,6 +84,12 @@ export function approvalChecks(payment: Payment, wallet: WalletView | null): { c
     if (over && next === 'approve') next = 'change_limits'
   }
 
+  const day = dailyCheck(payment, wallet)
+  if (day) {
+    checks.push(day.over ? { ok: false, text: `Over today's ${day.daily} NEAR limit (${formatNear(day.left)} left): blocked even if you approve` } : { ok: true, text: `Within today's ${day.daily} NEAR limit` })
+    if (day.over && next === 'approve') next = 'change_limits'
+  }
+
   const list = wallet.policy?.whitelist
   if (list) {
     const listed = list.includes(payment.to.toLowerCase())
@@ -78,10 +114,13 @@ export const fixFirstLabel = (next: Exclude<NextStep, 'approve'>) =>
 
 // Which of the owner's limits a refused payment broke, read against the wallet's stored policy.
 export const NOT_LISTED = 'Not on your list of addresses'
-export function refusalReasons(payment: Payment, policy: WalletView['policy']): string[] {
+// A refused payment doesn't count toward today's total, so the daily check still holds after the refusal.
+export function refusalReasons(payment: Payment, wallet: Pick<WalletView, 'spentTodayNear' | 'policy'> | null): string[] {
   const reasons: string[] = []
+  const policy = wallet?.policy ?? null
   if (policy?.whitelist && !policy.whitelist.includes(payment.to.toLowerCase())) reasons.push(NOT_LISTED)
   if (policy?.perTransactionNear && compareNear(payment.amountNear, policy.perTransactionNear) === 1) reasons.push(`Over ${policy.perTransactionNear} NEAR per payment`)
+  if (dailyCheck(payment, wallet)?.over) reasons.push(`Over today's ${policy?.dailyNear} NEAR limit`)
   return reasons
 }
 

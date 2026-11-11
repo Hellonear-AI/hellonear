@@ -320,7 +320,7 @@ async function resultOf(mindId: string, title: string, action: 'approve' | 'decl
   }
   if (status === 'wallet_frozen') return done('Not sent: the wallet is frozen, so it was refused before signing. Nothing left your wallet.')
   if (status === 'policy_denied') {
-    const reasons = refusalReasons(payment, (await walletOf(mindId))?.policy ?? null)
+    const reasons = refusalReasons(payment, await walletOf(mindId))
     return done(['Not sent: refused by the wallet policy before signing. Nothing left your wallet.', ...reasons.map((x) => `${mark(false)} ${x}`)].join('\n'))
   }
   if (status === 'pending') return done(`Not confirmed yet: ${why(result.message) || 'waiting for the wallet'}.`)
