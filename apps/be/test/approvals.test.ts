@@ -108,3 +108,14 @@ test('long values are cut so a card stays under Telegram\'s 4096 characters', ()
   const notion = approvalDetails('notion_add_row', { properties: Array.from({ length: 8 }, (_, i) => ({ name: `P${i}`, value: 'z'.repeat(2000) })) })!
   assert.ok(notion.lines.reduce((n, l) => n + l.label.length + l.value.length + 2, 0) < 3600)
 })
+
+test('a Zoom meeting (#246): when on the given clock, the length, and that nobody is invited, in the app\'s words', () => {
+  assert.deepEqual(approvalDetails('zoom_create_meeting', { topic: 'Launch review', start: '2026-11-12T10:00:00+07:00', minutes: 30 }, 'Asia/Jakarta'), {
+    title: 'Schedule the Zoom meeting "Launch review"',
+    lines: [{ label: 'When', value: 'Thu 12 Nov, 10:00 to 10:30' }, { label: 'Length', value: '30 minutes' }, { label: 'Guests', value: 'Nobody is invited' }],
+    note: 'Creates the meeting in your Zoom with a join link. Nobody is emailed; share the link yourself.',
+  })
+  // Telegram passes UTC.
+  assert.equal(approvalDetails('zoom_create_meeting', { topic: 'T', start: '2026-11-12T10:00:00+07:00', minutes: 90 }, 'UTC')!.lines[0].value, 'Thu 12 Nov, 03:00 to 04:30')
+  assert.deepEqual(approvalDetails('zoom_create_meeting', {})!.lines, [{ label: 'Guests', value: 'Nobody is invited' }])
+})

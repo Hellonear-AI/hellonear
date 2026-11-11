@@ -251,6 +251,21 @@ export function approvalDetails(tool: string, args: unknown, timeZone?: string):
         lines: [{ label: 'Message', value: clip(str(a.text) ?? '') }],
         note: 'Posted to Slack as you.',
       }
+    // Zoom (#246): a meeting with a join link in the owner's Zoom; nobody is invited.
+    case 'zoom_create_meeting': {
+      const minutes = typeof a.minutes === 'number' && a.minutes > 0 ? a.minutes : null
+      const start = str(a.start) ? Date.parse(a.start as string) : NaN
+      const when = whenText(a.start, minutes && !Number.isNaN(start) ? new Date(start + minutes * 60_000).toISOString() : null, timeZone)
+      const lines: ApprovalDetails['lines'] = []
+      if (when) lines.push({ label: 'When', value: when })
+      if (minutes) lines.push({ label: 'Length', value: `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}` })
+      lines.push({ label: 'Guests', value: 'Nobody is invited' })
+      return {
+        title: `Schedule the Zoom meeting "${str(a.topic) ?? 'a meeting'}"`,
+        lines,
+        note: 'Creates the meeting in your Zoom with a join link. Nobody is emailed; share the link yourself.',
+      }
+    }
     case 'sell_offer':
       return {
         title: `Sell "${str(a.title) ?? 'an offer'}" for ${str(a.priceNear) ?? '?'} NEAR`,
