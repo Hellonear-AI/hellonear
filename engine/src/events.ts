@@ -15,7 +15,8 @@ type Usage = { inputTokens?: number; outputTokens?: number; reasoningTokens?: nu
 const pickUsage = (u: Usage | undefined) =>
   u ? { inputTokens: u.inputTokens ?? 0, outputTokens: u.outputTokens ?? 0, reasoningTokens: u.reasoningTokens ?? 0, totalTokens: u.totalTokens ?? 0 } : undefined
 
-export function createNormalizer(opts: { mindId: string; threadId: string; model: string; skills?: string[]; secretValues?: string[]; startSeq?: number }) {
+// `autoApproved` (#167): which owner rule lets a tool call run without an approval, so `tool.called` can say so.
+export function createNormalizer(opts: { mindId: string; threadId: string; model: string; skills?: string[]; secretValues?: string[]; startSeq?: number; autoApproved?: (tool: string, args: unknown) => 'tool' | 'payment' | null }) {
   let seq = opts.startSeq ?? 0
   let step = 0
   let text = ''
@@ -43,8 +44,11 @@ export function createNormalizer(opts: { mindId: string; threadId: string; model
         text += t
         return t ? [emit(chunk.runId, 'text.delta', { text: t })] : []
       }
-      case 'tool-call':
-        return [emit(chunk.runId, 'tool.called', { toolCallId: p.toolCallId, tool, nodeId: nodeIdFor(opts.mindId, tool!, p.args), args: p.args })]
+      case 'tool-call': {
+        // Covered by a rule: no approval card follows, and the chat says the owner's rule approved it.
+        const rule = tool ? opts.autoApproved?.(tool, p.args) ?? null : null
+        return [emit(chunk.runId, 'tool.called', { toolCallId: p.toolCallId, tool, nodeId: nodeIdFor(opts.mindId, tool!, p.args), args: p.args, ...(rule ? { approvedBy: 'rule', rule } : {}) })]
+      }
       case 'tool-result':
         // The wallet refused before signing (#42), or a send was refused (#96): a hard stop, red in the Mind Graph,
         // never with a tx link or a message id.

@@ -24,6 +24,7 @@ import { mindSchema, timeZoneSchema } from './mind.ts'
 import { secretSchema } from './secrets.ts'
 import { deleteWorkflow, listWorkflows, loadWorkflow, saveWorkflow } from './workflows.ts'
 import { forgetThread } from './threads.ts'
+import { ruleFor } from './autoApprove.ts'
 import { autopilotSchema, deleteAutopilot, getAutopilot, listRuns, setAutopilot } from './autopilot.ts'
 
 // `attackId` (#16): an Attack Playground run; the engine ends it with an `attack.verdict` event.
@@ -99,7 +100,7 @@ function contextFor(mind: Mind, secrets: Secret[], opts: { unattended?: boolean;
 // Values no event may carry: the owner's secrets and the run's wallet and mail tokens.
 const hiddenValues = (secrets: Secret[], ...tokens: (string | undefined)[]) => [...secrets.map((s) => s.value), ...tokens.filter((t): t is string => !!t)]
 
-async function pipeRun(res: ServerResponse, stream: { fullStream: AsyncIterable<any> }, opts: { mindId: string; threadId: string; model: string; skills: string[]; secretValues: string[]; runId?: string; title?: Promise<string | null>; attack?: { id: AttackId; skills: string[] } }) {
+async function pipeRun(res: ServerResponse, stream: { fullStream: AsyncIterable<any> }, opts: { mindId: string; threadId: string; model: string; skills: string[]; secretValues: string[]; runId?: string; title?: Promise<string | null>; attack?: { id: AttackId; skills: string[] }; autoApproved?: (tool: string, args: unknown) => 'tool' | 'payment' | null }) {
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' })
   const normalize = createNormalizer({ ...opts, startSeq: opts.runId ? nextSeq.get(opts.runId) : 0 })
   let runId = opts.runId
@@ -173,6 +174,9 @@ async function pipeWorkflow(res: ServerResponse, run: { stream: (args: any) => {
   res.end()
 }
 
+// The same decision the tools' needsApprovalFn makes (#167), for the events.
+const rulesOf = (mind: Mind, demo?: boolean) => (tool: string, args: unknown) => ruleFor(tool, args, { autoApprove: mind.autoApprove, demo })
+
 const loadedSkills = (mind: Mind) => usableSkills(mind.skills.map((s) => s.skillId)).map((s) => s.name)
 
 // Stop (#121): when the backend drops the request (the owner pressed Stop, or the browser left and the backend
@@ -220,7 +224,7 @@ export const server = createServer(async (req, res) => {
       // Started before the run so it is usually ready when the run ends; it never throws.
       const title = (await isNewThread(threadId)) ? makeTitle(message) : undefined
       const stream = await agent.stream(message, { ...agentOptions(mind, secrets, userId, mindId, threadId, { walletToken, mailToken, timeZone }, demo), abortSignal: abortOnClose(res) })
-      return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secretValues: hiddenValues(secrets, walletToken, mailToken), title, attack })
+      return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secretValues: hiddenValues(secrets, walletToken, mailToken), title, attack, autoApproved: rulesOf(mind, demo) })
     }
 
     const resume = url.pathname.match(/^\/v1\/runs\/([^/]+)\/(approve|decline)$/)
@@ -233,7 +237,7 @@ export const server = createServer(async (req, res) => {
       if (!mindId) return sendJson(res, 400, { error: 'mindId query parameter is required' })
       const options = { ...agentOptions(mind, secrets, userId, mindId, threadId, { walletToken, mailToken, timeZone }, demo), runId, toolCallId, abortSignal: abortOnClose(res) }
       const stream = resume[2] === 'approve' ? await agent.approveToolCall(options) : await agent.declineToolCall({ ...options, reason })
-      return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secretValues: hiddenValues(secrets, walletToken, mailToken), runId, attack: attackId ? { id: attackId, skills: mind.skills.map((s) => s.skillId) } : undefined })
+      return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secretValues: hiddenValues(secrets, walletToken, mailToken), runId, attack: attackId ? { id: attackId, skills: mind.skills.map((s) => s.skillId) } : undefined, autoApproved: rulesOf(mind, demo) })
     }
 
     // The owner deleted a chat (#207): its Mastra thread, messages and recall embeddings go now; working memory stays.

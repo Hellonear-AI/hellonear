@@ -5,7 +5,9 @@ import { z } from 'zod'
 import { SECRETS_KEY, assertHostAllowed, assertPublicHttpsUrl, assertResolvesPublic, fillSecrets, redact, type Secret } from './secrets.ts'
 import { NoWalletError, markPaymentFailed, paymentFailedEarlier, walletCall } from './wallet.ts'
 import { idempotencyKeyOf, mailCall, ownerMailCall } from './mail.ts'
-import { draftSample, isDemo, listSample, readSample } from './email.ts'
+import { DEMO_KEY, draftSample, isDemo, listSample, readSample } from './email.ts'
+import { ruleFor } from './autoApprove.ts'
+import type { Mind } from './mind.ts'
 import { addressOf, composioTool, gmail, toListed, toRead } from './composio.ts'
 import { appTools } from './apps.ts'
 import {
@@ -688,6 +690,20 @@ export const CANVAS_ONLY: ReadonlySet<string> = new Set(['mail_send_to_owner', '
 // Chat versions of canvas-only tools, which wait for the owner's approval like any other approval tool (#205), so
 // "email me the link" works in a chat. Unattended runs never get them.
 const IN_CHAT: Partial<Record<ToolKey, typeof mailSendToOwnerInChat>> = { mail_send_to_owner: mailSendToOwnerInChat }
+
+// Auto-approve rules (#167): every approval tool asks unless a rule from the Mind config covers the call. Mastra reads a
+// tool's `needsApprovalFn` per call (authoritative over the boolean `requireApproval`, which stays true so the Builder
+// and `toolsFor` still treat these as approval tools). The function gets a plain view of the request context
+// (`mind` is MIND_KEY in mastra.ts, which imports this file).
+// A payment after a failed one always goes to the gate, so send_payment's beforeApproval still refuses it.
+const approvalFn = (key: string) => (input: unknown, ctx?: { requestContext?: Record<string, unknown> }) => {
+  const view = ctx?.requestContext
+  if (key === 'send_payment' && paymentFailedEarlier(view)) return true
+  return ruleFor(key, input, { autoApprove: (view?.mind as Mind | undefined)?.autoApprove, demo: view?.[DEMO_KEY] === true }) === null
+}
+for (const [key, tool] of [...Object.entries(toolRegistry), ...Object.entries(IN_CHAT)] as [string, { requireApproval?: unknown }][]) {
+  if (tool.requireApproval === true) Object.assign(tool, { needsApprovalFn: approvalFn(key) })
+}
 
 // Tools every Mind has, plus the tools of its equipped skills. Unknown keys are ignored.
 // Unattended runs (workflows) never get approval tools: nobody is there to approve,

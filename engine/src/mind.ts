@@ -4,6 +4,7 @@ import { secretSchema } from './secrets.ts'
 import { walletTokenSchema } from './wallet.ts'
 import { mailTokenSchema } from './mail.ts'
 import { equippableSkills, skillCatalog } from './skills.ts'
+import { autoApproveSchema } from './autoApprove.ts'
 
 export const timeZoneSchema = z.string().max(64).refine((tz) => {
   try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return true } catch { return false }
@@ -22,6 +23,8 @@ export const mindSchema = z.object({
   personaVersion: z.number().int().min(0).optional(),
   // Equipped skills by id. The engine's catalog decides which tools each skill grants.
   skills: z.array(z.object({ skillId: z.string().refine((id) => skillCatalog.has(id), { message: 'unknown skillId' }) })).default([]),
+  // What the Mind may do without asking (#167). Absent: every approval tool asks, as before.
+  autoApprove: autoApproveSchema.optional(),
 })
 export type Mind = z.infer<typeof mindSchema>
 
