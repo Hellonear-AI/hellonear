@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import { cn } from "cn"
+import { setFlag } from "@/modules/onboarding/data/progress"
 import { wheelPan, wheelPixels, wheelZoomFactor } from "@/modules/builder/hooks/useCanvasView"
 import { APPS } from "@/modules/connections/data/apps"
 import type { GraphLink, GraphNode } from "@/modules/graph/data/graph"
@@ -532,6 +533,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         if (touches.size === 2) return startPinch()
         if (touches.size > 2) return
       }
+      setFlag("live")
       const id = space || e.button === 1 ? null : hit(p.x, p.y)
       if (e.button === 1) e.preventDefault()
       dragging.current = true

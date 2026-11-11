@@ -27,6 +27,7 @@ import { walletApi } from "@/modules/wallet/api"
 import { mindKeys } from "@/modules/minds/hooks/useMinds"
 import { Run, RunPanel } from "@/modules/attack/components/RunPanel"
 import { OutcomeBadge } from "@/modules/attack/components/OutcomeBadge"
+import { setFlag } from "@/modules/onboarding/data/progress"
 
 const ICON: Record<AttackCopy["icon"], typeof MailIcon> = {
   message: MessageSquareWarningIcon,
@@ -76,6 +77,7 @@ export function AttackScreen() {
   }
 
   function start(attack: ApiAttack) {
+    setFlag("attack")
     void follow({ attack, events: [], streaming: true, answered: null, failed: false }, (onEvent, signal) =>
       attackApi.run(attack.attackId, onEvent, signal)
     )
