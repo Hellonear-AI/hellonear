@@ -98,7 +98,11 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
     const grew = sim.current.bodies.size - before
     if ((first && nodes.length > 1) || grew >= 3) {
       settle(sim.current, new Map(nodes.map((n) => [n.id, n.kind])))
-      snap.current = true
+      // Frame it at once only while the graph is opening (nothing but the Mind before). Later, the
+      // camera glides to the new frame, and only if the owner hasn't moved it: snapping during a
+      // reply read as the graph zooming by itself (Ancung, 11 Nov).
+      if (first || before <= 1) snap.current = true
+      else fitting.current = true
     }
     const now = performance.now()
     for (const n of nodes) {
