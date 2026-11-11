@@ -18,7 +18,7 @@ const skillsSchema = z.array(z.string().min(1).max(64)).max(16)
 // be) and only to the wallet policy's listed accounts, which are added for each run (`runMindConfig` in server.ts).
 export const AUTO_APPROVE_TOOLS = [
   'googlecalendar_create_event', 'googlecalendar_create_meeting', 'gmail_organize', 'mail_send', 'mail_send_to_owner',
-  'googlesheets_append_row', 'googledocs_create_document', 'notion_create_page', 'notion_add_row', 'slack_send_message',
+  'googlesheets_append_row', 'googlesheets_update_cells', 'googledocs_create_document', 'notion_create_page', 'notion_add_row', 'slack_send_message',
   'sell_offer',
 ] as const
 export const autoApproveSchema = z.object({
