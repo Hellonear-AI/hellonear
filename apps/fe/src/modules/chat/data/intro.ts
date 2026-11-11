@@ -38,8 +38,8 @@ export function composerNote(name: string, frozen: boolean): string {
 /**
  * The first chat's heading, picked at random from the Mind's own lines each time a new chat opens
  * (Ancung, 11 Nov, like Claude's and Gemini's changing hellos), so it isn't always "Hi, I'm Omaga."
- * Some follow the owner's clock. Each template has lines in its own voice; unknown ones get the
- * General Assistant's.
+ * Some follow the owner's clock. Each template has twelve lines in its own voice (more on Ancung's
+ * ask, the same day); unknown ones get the General Assistant's.
  */
 const GREETINGS: Record<string, ((name: string, hello: string) => string)[]> = {
   "payments-mind": [
@@ -48,6 +48,13 @@ const GREETINGS: Record<string, ((name: string, hello: string) => string)[]> = {
     () => "What should we pay today?",
     () => "Money stuff? I'm on it.",
     (name, hello) => `${hello}. ${name} here.`,
+    () => "Got a bill for me?",
+    () => "Who are we paying today?",
+    () => "Your wallet, your rules. What's next?",
+    (_, hello) => `${hello}. Ready to settle up?`,
+    () => "Let's keep the money tidy.",
+    () => "Anything due soon?",
+    (name) => `${name} at your service.`,
   ],
   "email-manager": [
     (name) => `Hi, I'm ${name}.`,
@@ -55,6 +62,13 @@ const GREETINGS: Record<string, ((name: string, hello: string) => string)[]> = {
     () => "What's waiting in your inbox?",
     () => "Let's tame that inbox.",
     (name, hello) => `${hello}. ${name} here.`,
+    () => "Anything worth replying to?",
+    () => "Shall we clear some mail?",
+    () => "Who wrote to you today?",
+    (_, hello) => `${hello}. Let's see your mail.`,
+    () => "Inbox zero, or close to it?",
+    () => "Need a draft for someone?",
+    (name) => `${name}, sorting your mail.`,
   ],
   "general-assistant": [
     (name) => `Hi, I'm ${name}.`,
@@ -62,6 +76,13 @@ const GREETINGS: Record<string, ((name: string, hello: string) => string)[]> = {
     () => "Where should we start?",
     () => "What can I help with?",
     (name, hello) => `${hello}. ${name} here.`,
+    () => "What's on your mind?",
+    () => "Ready when you are.",
+    () => "What are we doing today?",
+    (_, hello) => `${hello}. How can I help?`,
+    () => "Let's plan something.",
+    () => "Ask me anything.",
+    (name) => `${name}, at your side.`,
   ],
 }
 
