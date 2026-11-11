@@ -5,6 +5,14 @@ import { randomUUID } from 'node:crypto'
 
 export const ENGINE_KEY = 'test-engine-key'
 
+// The proof the real engine puts on run.verified (#254, #256), shaped like a live one: one gateway attestation whose
+// Intel quote is 10,012 characters (measured 11 Nov), so tests see the real size.
+export const fakeProof = {
+  checkedAt: '2026-11-11T08:00:00.000Z',
+  steps: [{ id: 'c', signatureKind: 'gateway', signer: { algo: 'ecdsa', address: '0xabc' }, signedText: 'req:res', signature: '0xsig', attestation: 'gateway:0xabc' }],
+  attestations: { 'gateway:0xabc': { kind: 'gateway', signer: { algo: 'ecdsa', address: '0xabc' }, nonce: 'n1', intelQuote: 'a'.repeat(10_012), tcbStatus: 'UpToDate' } },
+}
+
 export const fake = {
   requests: [] as { method: string; path: string; body: any }[],
   workflows: new Map<string, any>(),
@@ -184,7 +192,7 @@ export const engine = createServer(async (req, res) => {
       { type: 'step.finished', step: 1, usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 } },
       { type: 'run.finished', finishReason: 'stop', text: 'done', usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 }, costUsd: 0.00042, verification: { status: 'pending' } },
       ...(body.attackId ? [verdict(body.attackId, 'model')] : []),
-      { type: 'run.verified', model: body.mind.model, nodeId: `model:${body.mind.model}`, verification: { status: 'verified', level: 'gateway_tee', completionIds: ['c'] } },
+      { type: 'run.verified', model: body.mind.model, nodeId: `model:${body.mind.model}`, verification: { status: 'verified', level: 'gateway_tee', completionIds: ['c'], ...(body.message === 'no proof' ? {} : { proof: fakeProof }) } },
     ], body.message === 'slow' ? 20 : 0)
   }
 

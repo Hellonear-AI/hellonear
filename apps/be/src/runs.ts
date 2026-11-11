@@ -122,7 +122,7 @@ export async function relayRun(req: IncomingMessage, res: ServerResponse, engine
           await updateRun(e)
         }
       }
-      send(`data: ${JSON.stringify(e)}\n\n`)
+      send(`data: ${JSON.stringify(withoutProof(e))}\n\n`)
     }
     await flush()
   } catch {
@@ -172,15 +172,35 @@ export async function getRun(userId: string, runId: string): Promise<(RunSummary
   return row ? { ...toRun(row), mindId: row.mind_id } : null
 }
 
+// The proof behind the verified badge (#254, `run.verified.verification.proof`, ~12 KB with its Intel quote) is stored
+// with the event but left out of everything that streams or lists events; `GET /v1/runs/{runId}/proof` serves it alone.
+const NO_PROOF = `payload #- '{verification,proof}'`
+export function withoutProof(e: Event): Event {
+  const v = e.verification as Record<string, unknown> | undefined
+  if (e.type !== 'run.verified' || !v || typeof v !== 'object' || !('proof' in v)) return e
+  const { proof: _proof, ...rest } = v
+  return { ...e, verification: rest }
+}
+
 export async function runEvents(runId: string): Promise<unknown[]> {
-  return (await query('select payload from run_events where run_id = $1 order by seq', [runId])).map((r) => r.payload)
+  return (await query(`select ${NO_PROOF} as payload from run_events where run_id = $1 order by seq`, [runId])).map((r) => r.payload)
+}
+
+// Every proof a run carries, in order: a run paused for approval ends each part with its own `run.verified`.
+export type RunProof = { seq: number; model: string | null; level: string | null; proof: unknown }
+export async function runProofs(runId: string): Promise<RunProof[]> {
+  return (await query(
+    `select seq, payload->>'model' as model, payload->'verification'->>'level' as level, payload->'verification'->'proof' as proof
+     from run_events where run_id = $1 and type = 'run.verified' and payload->'verification'->'proof' is not null order by seq`,
+    [runId],
+  )).map((r) => ({ seq: r.seq, model: r.model ?? null, level: r.level ?? null, proof: r.proof }))
 }
 
 // Events of all of a Mind's runs since a time, for the Mind Graph history mode. Deltas are left out:
 // the graph needs nodes and edges, not text.
 export async function mindEvents(mindId: string, since: Date, limit: number): Promise<unknown[]> {
   return (await query(
-    `select e.payload from run_events e join runs r on r.id = e.run_id
+    `select e.${NO_PROOF} as payload from run_events e join runs r on r.id = e.run_id
      where r.mind_id = $1 and e.ts >= $2 and e.type not in ('text.delta', 'reasoning.delta')
      order by e.ts, e.run_id, e.seq limit $3`,
     [mindId, since, limit],

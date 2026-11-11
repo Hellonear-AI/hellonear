@@ -9,7 +9,7 @@ import { engineFetch, engineJson, skill, skills, templates } from './engine.ts'
 import { HttpError, assertSameOrigin, cors, logServerError, readBody, sendJson, setCookie, isLoopback } from './http.ts'
 import { TOOLKITS, connect, disconnect, listConnections, toolkitSchema } from './connections.ts'
 import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, playgroundAttackOf, playgroundMind, requireMind, updateMind, updateMindSchema, type Mind } from './minds.ts'
-import { cancelRun, getRun, isAwaiting, listRuns, mindEvents, pendingApprovals, relayRun, runEvents, sweepStuckRuns } from './runs.ts'
+import { cancelRun, getRun, isAwaiting, listRuns, mindEvents, pendingApprovals, relayRun, runEvents, runProofs, sweepStuckRuns } from './runs.ts'
 import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema, secretsForRun } from './secrets.ts'
 import { addressRuleOf, assertWalletEmpty, createWallet, freezeTransaction, getWallet, hasWallet, isDemoMind, policySchema, policyTransaction } from './wallets.ts'
 import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
@@ -392,11 +392,18 @@ export const server = createServer(async (req, res) => {
     }
 
     // Runs (#14, #17)
-    const run = path.match(/^\/v1\/runs\/([^/]+)(\/approve|\/decline|\/cancel)?$/)
+    const run = path.match(/^\/v1\/runs\/([^/]+)(\/approve|\/decline|\/cancel|\/proof)?$/)
     if (run) {
       const found = await getRun(user.id, decodeURIComponent(run[1]))
       if (!found) throw new HttpError(404, 'run_not_found')
       if (!run[2] && req.method === 'GET') return sendJson(res, 200, { run: found, events: await runEvents(found.runId) })
+      // The proof behind the verified badge (#254), as the engine stored it on run.verified. None: no badge, Incognito,
+      // failed verification, a step without evidence, or a run from before #256.
+      if (run[2] === '/proof' && req.method === 'GET') {
+        const proofs = await runProofs(found.runId)
+        if (!proofs.length) throw new HttpError(404, 'no_proof')
+        return sendJson(res, 200, { runId: found.runId, proofs })
+      }
       // Stop a run that is still streaming (#121). A run paused for approval has no stream: decline it instead.
       if (run[2] === '/cancel' && req.method === 'POST') {
         const stopped = cancelRun(found.runId)
@@ -404,7 +411,7 @@ export const server = createServer(async (req, res) => {
         await stopped
         return sendJson(res, 200, { run: await getRun(user.id, found.runId) })
       }
-      if (run[2] && req.method === 'POST') {
+      if ((run[2] === '/approve' || run[2] === '/decline') && req.method === 'POST') {
         // Awaited, so its 409 / 429 lands in the catch below.
         return await resumeRun(user, found, run[2] === '/approve' ? 'approve' : 'decline', await readBody(req, resumeSchema), req, res)
       }
