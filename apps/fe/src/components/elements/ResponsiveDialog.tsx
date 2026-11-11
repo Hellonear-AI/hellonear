@@ -59,11 +59,13 @@ export function ResponsiveDialog({
   return (
     <Drawer open={open} onOpenChange={change} showSwipeHandle>
       {/* Roomy on phones (Ancung, 11 Nov: the drawers felt cramped), the same spacing as Welcome. */}
-      <DrawerContent className="gap-5 px-5 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      <DrawerContent className="gap-5 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         {/* The spacing lives on this wrapper: DrawerContent's own classes go on the outer popup,
             and its children sit in an inner element with no gap, so a header touched what came
-            after it (Telegram's steps, found in the phone check, 11 Nov). */}
-        <div className="flex min-h-0 flex-col gap-5">
+            after it (Telegram's steps, found in the phone check, 11 Nov). The side padding is here
+            too, inside that element's overflow-hidden: on the outer popup it cut off the left edge
+            of a title's first letter (the "T" of "The proof…", Ancung, 11 Nov). */}
+        <div className="flex min-h-0 flex-col gap-5 px-5">
           {top}
           <DrawerHeader
             className={cn(
