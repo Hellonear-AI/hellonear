@@ -43,7 +43,7 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
   "split-bill": {
     title: "Split bill",
     blurb: "Works out each person's share of a bill and pays each one, one approval each.",
-    canUse: (c) => [`${c.name}'s wallet, ${limitText(c.limit)}`, "Exact shares, worked out to the last digit"],
+    canUse: (c) => [`${c.name}'s wallet, ${limitText(c.limit)}`, "Exact shares, rounded down to 4 decimals"],
     cannot: [],
     needsWallet: true,
     ask: {
