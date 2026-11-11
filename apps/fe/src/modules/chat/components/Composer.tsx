@@ -6,6 +6,8 @@ import { Spinner } from "@/components/elements/Spinner"
 import { Button } from "@/components/ui/button"
 import { readPref, writePref } from "@/lib/storage"
 import { MEDIA, matches } from "@/lib/media"
+import { BorderBeam } from "border-beam"
+import { useTheme } from "next-themes"
 
 /**
  * The message box (C1.1). Enter sends, Shift+Enter adds a line. While the Mind replies, the send
@@ -60,6 +62,7 @@ export function Composer({
   }
   const message = value.trim()
   const canSend = !busy && !locked && message.length > 0
+  const { resolvedTheme } = useTheme()
 
   function send() {
     if (!canSend) return
@@ -82,7 +85,10 @@ export function Composer({
       }}
       className="flex w-full flex-col gap-2"
     >
-      <div className="flex w-full items-end gap-2 rounded-[24px] border border-input bg-surface py-2 pr-2 pl-[18px] transition-[border-color,box-shadow] duration-150 ease-out focus-within:ring-2 focus-within:ring-focus focus-within:ring-offset-2 focus-within:ring-offset-background">
+      {/* A beam travels along the box's bottom edge only while the Mind replies (Ancung, 11 Nov),
+          like "Thinking...": off otherwise, so nothing moves while the owner types. */}
+      <BorderBeam size="line" colorVariant="mono" staticColors active={busy} theme={resolvedTheme === "light" ? "light" : "dark"} strength={1} brightness={1.8} className="composer-beam">
+            <div className="flex w-full items-end gap-2 rounded-[24px] border border-input bg-surface py-2 pr-2 pl-[18px] transition-[border-color,box-shadow] duration-150 ease-out focus-within:ring-2 focus-within:ring-focus focus-within:ring-offset-2 focus-within:ring-offset-background">
         <label htmlFor="chat-message" className="sr-only">
           Message {name}
         </label>
@@ -108,6 +114,7 @@ export function Composer({
           </Button>
         )}
       </div>
+      </BorderBeam>
       <p className="text-center text-xs text-muted-foreground">{note}</p>
     </form>
   )

@@ -400,3 +400,14 @@
         display: none;
     }
 }
+
+/* The composer's beam (border-beam, Composer.tsx) has no colour of its own to set: its "mono" light
+   is tinted to the brand lime here, on the beam's own layers only so the text keeps its colour.
+   The bloom keeps the 6 px blur the library gives it (Ancung, 11 Nov). */
+.composer-beam::before,
+.composer-beam::after {
+  filter: sepia(1) saturate(6) hue-rotate(28deg) brightness(1.08);
+}
+.composer-beam [data-beam-bloom] {
+  filter: blur(6px) sepia(1) saturate(6) hue-rotate(28deg) brightness(1.08);
+}
