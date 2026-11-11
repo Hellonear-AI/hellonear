@@ -152,7 +152,7 @@ test('one small skill per connected app (#194): its own tools and connection, wr
     sheets: [['add_numbers', 'googlesheets_find_spreadsheets', 'googlesheets_read_range', 'googlesheets_append_row', 'googlesheets_update_cells'], ['googlesheets']],
     docs: [['googledrive_find_files', 'googledocs_read_document', 'googledocs_create_document'], ['googledrive', 'googledocs']],
     slack: [['slack_list_channels', 'slack_send_message'], ['slack']],
-    notion: [['notion_search', 'notion_read_page', 'notion_create_page', 'notion_add_row'], ['notion']],
+    notion: [['notion_search', 'notion_read_page', 'notion_create_page', 'notion_add_row', 'notion_query_database', 'notion_update_row'], ['notion']],
     outlook: [['outlook_list_emails', 'outlook_read_email', 'outlook_create_draft'], ['outlook']],
   }
   for (const [id, [tools, connections]] of Object.entries(apps)) {
@@ -160,7 +160,7 @@ test('one small skill per connected app (#194): its own tools and connection, wr
     assert.deepEqual([s.tools, s.connections, s.status], [tools, connections, 'available'], id)
     assert.ok(s.title && s.blurb, id)
   }
-  for (const t of ['googlesheets_append_row', 'googlesheets_update_cells', 'googledocs_create_document', 'slack_send_message', 'notion_create_page', 'notion_add_row']) assert.equal(needsApproval(t), true, t)
+  for (const t of ['googlesheets_append_row', 'googlesheets_update_cells', 'googledocs_create_document', 'slack_send_message', 'notion_create_page', 'notion_add_row', 'notion_update_row']) assert.equal(needsApproval(t), true, t)
   // Outlook is drafts only, like Gmail: none of its tools sends.
   assert.ok(!skillCatalog.get('outlook')!.tools.some((t) => needsApproval(t) || /send/.test(t)))
 })
