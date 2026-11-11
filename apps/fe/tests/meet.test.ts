@@ -119,3 +119,47 @@ describe("Sheets cell change card (#245)", () => {
     expect(blank?.lines[0]).toEqual({ label: "Now", value: "(empty), (empty)" })
   })
 })
+
+describe("Docs append card (#247)", () => {
+  it("shows the Doc's title, that it goes at the end, and the text", async () => {
+    const { approvalDetails } = await import("@/modules/runs/data/approvalDetails")
+    const d = approvalDetails({ toolCallId: "c", tool: "googledocs_append_text", status: "awaiting_approval", args: { documentId: "d1", title: "Weekly Notes", text: "Week 46: shipped." }, result: undefined })
+    expect(d?.title).toBe('Add to "Weekly Notes"')
+    expect(d?.lines).toEqual([{ label: "Where", value: "At the end" }, { label: "Length", value: "17 characters" }, { label: "Text", value: "Week 46: shipped." }])
+    expect(d?.note).toMatch(/Nothing already in it changes/)
+  })
+})
+
+describe("Notion row change card (#247)", () => {
+  it("shows each property old and new, in the same words as Telegram", async () => {
+    const { approvalDetails } = await import("@/modules/runs/data/approvalDetails")
+    const args = { rowId: "r1", rowTitle: "Send invoice", properties: [{ name: "Status", type: "status", oldValue: "In progress", newValue: "Done" }, { name: "Notes", type: "rich_text", oldValue: "", newValue: "sent" }] }
+    const d = approvalDetails({ toolCallId: "c", tool: "notion_update_row", status: "awaiting_approval", args, result: undefined })
+    expect(d?.title).toBe('Change "Send invoice" in Notion')
+    expect(d?.lines).toEqual([{ label: "Status", value: "In progress → Done" }, { label: "Notes", value: "(empty) → sent" }])
+    expect(d?.note).toBe("Changes only these properties of this row. The old value is what the Mind read; if the row holds something else when you approve, nothing is changed.")
+  })
+})
+
+describe("Calendar free time and moving an event (#247)", () => {
+  it("the move card shows the old and the new time on the owner's clock, and says nobody is emailed", () => {
+    const d = approvalDetails(step("googlecalendar_move_event", {
+      eventId: "cc1", title: "Client call", oldStart: "2026-11-12T15:00:00+07:00", oldEnd: "2026-11-12T16:00:00+07:00", newStart: "2026-11-12T16:00:00+07:00", newEnd: "2026-11-12T17:00:00+07:00",
+    }), "Asia/Jakarta")
+    expect(d?.title).toBe('Move "Client call"')
+    expect(d?.lines).toEqual([{ label: "From", value: "Thu 12 Nov, 15:00 to 16:00" }, { label: "To", value: "Thu 12 Nov, 16:00 to 17:00" }])
+    expect(d?.note).toMatch(/Nobody is emailed/)
+    expect(approvalDetails(step("googlecalendar_move_event", {}))?.lines.map((l) => l.value)).toEqual(["Not read", "Not given"])
+  })
+
+  it("step rows say what happened", () => {
+    expect(stepText(step("googlecalendar_find_free_time", {}, { slots: [{}, {}] }, "ok"))).toMatchObject({ label: "Looked for free time", detail: "2 free slots" })
+    expect(stepText(step("googlecalendar_move_event", { title: "Client call" }, { status: "moved", title: "Client call" }, "ok"))).toMatchObject({ label: "Moved an event", detail: "Client call" })
+  })
+
+  it("moving is a switch in Approvals; finding free time is not (it never asks)", async () => {
+    const { ACTION_RULES } = await import("@/modules/settings/data/autoApprove")
+    expect(ACTION_RULES.some((r) => r.tool === "googlecalendar_move_event")).toBe(true)
+    expect(ACTION_RULES.some((r) => r.tool === "googlecalendar_find_free_time")).toBe(false)
+  })
+})

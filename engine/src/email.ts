@@ -8,10 +8,10 @@ type Ctx = { requestContext?: { get: (key: string) => unknown } } | undefined
 export const isDemo = (context: Ctx) => context?.requestContext?.get(DEMO_KEY) === true
 
 // Apps an owner connects through Composio (#13, #57, #97, #194), named by their Composio toolkit slug.
-export type App = 'gmail' | 'googlecalendar' | 'googlemeet' | 'googlesheets' | 'googledrive' | 'googledocs' | 'slack' | 'discord' | 'notion' | 'outlook' | 'hubspot'
+export type App = 'gmail' | 'googlecalendar' | 'googlemeet' | 'googlesheets' | 'googledrive' | 'googledocs' | 'slack' | 'discord' | 'notion' | 'outlook' | 'hubspot' | 'zoom'
 export const APP_NAMES: Record<App, string> = {
   gmail: 'Gmail', googlecalendar: 'Google Calendar', googlemeet: 'Google Meet', googlesheets: 'Google Sheets', googledrive: 'Google Drive',
-  googledocs: 'Google Docs', slack: 'Slack', discord: 'Discord', notion: 'Notion', outlook: 'Outlook', hubspot: 'HubSpot',
+  googledocs: 'Google Docs', slack: 'Slack', discord: 'Discord', notion: 'Notion', outlook: 'Outlook', hubspot: 'HubSpot', zoom: 'Zoom',
 }
 
 export class AppNotConnectedError extends Error {

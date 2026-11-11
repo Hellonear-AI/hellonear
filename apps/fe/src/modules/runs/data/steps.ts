@@ -99,6 +99,11 @@ function summary(step: ToolStep): string | null {
       return count(r.events, "event", "events")
     case "googlecalendar_create_event":
       return text(r.title)
+    // #247: how many free slots; the moved event's title.
+    case "googlecalendar_find_free_time":
+      return count(r.slots, "free slot", "free slots")
+    case "googlecalendar_move_event":
+      return text(r.title) ?? text(a.title)
     case "googlecalendar_create_meeting":
       // Who was invited matters more than the title here: Google emailed them.
       return Array.isArray(r.attendees) && r.attendees.length

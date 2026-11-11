@@ -4,7 +4,7 @@ import { api } from "@/lib/api"
 
 /** An app the account connects through Composio (Gmail, Google Calendar, Google Meet). */
 export type ApiConnection = {
-  toolkit: "gmail" | "googlecalendar" | "googlemeet" | "googlesheets" | "googledrive" | "googledocs" | "slack" | "discord" | "notion" | "outlook" | "hubspot"
+  toolkit: "gmail" | "googlecalendar" | "googlemeet" | "googlesheets" | "googledrive" | "googledocs" | "slack" | "discord" | "notion" | "outlook" | "hubspot" | "zoom"
   status: "connected" | "pending" | "expired" | "not_connected"; since?: string }
 export type Toolkit = ApiConnection["toolkit"]
 

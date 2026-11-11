@@ -9,6 +9,7 @@ import {
   NotionLogo,
   OutlookLogo,
   SlackLogo,
+  ZoomLogo,
 } from "@/components/elements/AppLogos"
 import type { Toolkit } from "@/modules/connections/api"
 
@@ -151,6 +152,20 @@ export const APPS: AppInfo[] = [
     disconnect: (mind) => [
       { ok: false, t: `${mind} can't post to Slack` },
       { ok: true, t: "Messages already posted stay" },
+    ],
+  },
+  // Zoom (#246).
+  {
+    toolkit: "zoom",
+    logo: <ZoomLogo />,
+    by: "Zoom",
+    uses: "Used by Zoom to list your meetings, schedule ones you approve and read their AI summaries.",
+    needs: "The Zoom skill needs it to see and schedule your meetings.",
+    paused: "Zoom",
+    lost: "Your Mind can't see your Zoom meetings",
+    disconnect: (mind) => [
+      { ok: false, t: `${mind} can't see, schedule or summarise your Zoom meetings` },
+      { ok: true, t: "Meetings it already scheduled stay in your Zoom" },
     ],
   },
 ]

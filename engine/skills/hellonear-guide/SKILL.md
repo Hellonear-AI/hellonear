@@ -37,14 +37,14 @@ Answer in the owner's language, short and plain. Name the screen and the button.
 - **Skills**: what the Mind can learn, in tabs (Money, Safety, Privacy, Email & calendar, Apps & tools). "Add" to give it a skill; "Settings" shows what it uses, "What {name} is told" (the exact instructions the Mind reads) and "Remove skill". No signature needed.
 - **Autopilot**: jobs the Mind runs on a schedule. "New job" opens the Builder (steps such as Ask the Mind, Use a tool, Call a website, If or else); there are also ready ideas, like a morning balance check. "Run now" runs a job once; the switch turns its schedule on. Scheduled jobs cannot pay, approve anything or use keys.
 - **Connections**: apps and keys.
-  - Apps: Gmail, Google Calendar, Google Meet, Google Sheets, Google Drive, Google Docs, Notion, Outlook and Slack, for the whole account. "Connect" opens the app's sign-in in a new window; the page updates by itself. "Disconnect" removes access.
+  - Apps: Gmail, Google Calendar, Google Meet, Google Sheets, Google Drive, Google Docs, Notion, Outlook, Slack and Zoom, for the whole account. "Connect" opens the app's sign-in in a new window; the page updates by itself. "Disconnect" removes access.
   - Telegram, per Mind: "Connect Telegram" walks through making a bot with BotFather and pasting its token. Then the owner can chat with the Mind in Telegram and approve or decline there too.
   - Keys (for the "Other apps" skill): "Add key", then name, key and the sites it may go to. Keys are never shown again, only go to the listed sites, and the Mind never sees them.
 - **Attack playground**: try to trick a test Mind into paying (straight asks, an email with hidden orders, and more) and see which safety layer stopped it. It uses a test Mind and a shared demo wallet, never the owner's.
 - **Settings** (from the Mind switcher), in three tabs:
   - General: the Mind's name, how it talks, which model it uses, and "Delete". A new name or voice starts a fresh memory.
   - Memory: whether it remembers things about the owner and searches past chats, what it remembers ("Edit"), and "Clear all memory".
-  - Approvals: what it may do without asking. Payments up to an amount, only to the wallet's listed addresses, and a switch per action (calendar events, meetings, emails, Sheets rows, Docs, Notion pages, Slack posts, selling). All off until the owner turns them on. Actions done this way show "Approved by your rule".
+  - Approvals: what it may do without asking. Payments up to an amount, only to the wallet's listed addresses, and a switch per action (calendar events, moving events, meetings, emails, Sheets rows, Docs, Notion pages, Slack posts, Zoom meetings, selling). All off until the owner turns them on. Actions done this way show "Approved by your rule".
 - **Getting started** (bottom of the sidebar): a short checklist of first steps; "Watch the intro" plays the introduction again.
 - **Account menu** (bottom of the sidebar): Appearance (system, light, dark) and Sign out.
 
@@ -70,13 +70,14 @@ Answer in the owner's language, short and plain. Name the screen and the button.
 - **Email address**: gives the Mind its own email address (…@agentmail.to) to send from. Every email waits for approval unless a rule covers it, and only goes to addresses the owner typed.
 - **Follow-ups**: finds unpaid invoices and unanswered promises in Gmail and drafts polite follow-ups.
 - **Subscriptions**: finds receipts and renewals in Gmail, adds up what the owner pays each month, and warns about renewals. It never pays by itself.
-- **Daily planner**: the time and date, quick math, and Google Calendar once connected: read events, add an event, or schedule a meeting with guests and a Google Meet link. Adding anything asks first unless a rule covers it; for a meeting, Google emails each guest an invite.
-- **Calendar conflict check**: finds double bookings and back-to-back meetings in the week and suggests what to move. It changes nothing.
+- **Daily planner**: the time and date, quick math, and Google Calendar once connected: read events, find free time, add an event, move an event to a new time, or schedule a meeting with guests and a Google Meet link. Adding or moving anything asks first unless a rule covers it; for a meeting, Google emails each guest an invite; a move emails nobody.
+- **Calendar conflict check**: finds double bookings and back-to-back meetings in the week and suggests what to move, with free slots. It moves an event only when the owner asks, after approval.
 - **Meeting prep**: who is coming, what was emailed about, open questions and a short checklist.
 - **Morning briefing**: one message with today's meetings, the emails that need the owner, payments due and the balance. It only reads.
 - **NEAR account lookup**: checks any testnet account's balance. It cannot spend.
 - **Other apps**: calls a website or service with a key saved in Connections.
-- **Google Sheets**, **Google Docs**, **Slack**, **Notion**, **Outlook email**: work in the owner's own app once it is connected. They read, and add a row, a Doc, a page or a Slack message only after approval (or under the owner's rule); Google Sheets can also change existing cells the same way, showing the old and new value first. Outlook email only saves drafts. None of them clears or deletes anything, and they are not in the try-out.
+- **Google Sheets**, **Google Docs**, **Slack**, **Notion**, **Outlook email**: work in the owner's own app once it is connected. They read, and add a row, a Doc, a page or a Slack message only after approval (or under the owner's rule); Google Sheets can also change existing cells, and Notion a database row's properties (mark a task done, move its date), the same way, showing the old and new value first. Notion can also list a database's rows (which tasks are due, what is still open). Google Docs can also add text at the end of an existing Doc the same way, never changing what is already there. Outlook email only saves drafts. None of them clears or deletes anything, and they are not in the try-out.
+- **Zoom**: lists the owner's Zoom meetings, sets up a meeting with a join link only after approval (or under the owner's rule; nobody is invited), and reads Zoom's AI summary of a past meeting when the host had it on. It never deletes, ends or changes meetings, and is not in the try-out.
 
 ## Common questions
 - **Why do I have to approve payments?** So nothing leaves the wallet without the owner. The owner can let small payments to listed addresses through without asking in Settings, Approvals. The limits are a second, hard stop either way: a payment over the limit per payment or per day, or to an address not on the list, is refused before signing.

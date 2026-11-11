@@ -87,12 +87,32 @@ test('every approval tool the app details also has details on Telegram, in the s
     note: 'Changes only these cells. "Now" is what the Mind read; if the cells hold something else when you approve, nothing is changed.',
   })
   assert.deepEqual(approvalDetails('googlesheets_update_cells', { range: 'A!B2:C2', newValues: [['x', 2]], oldValues: [['', null]] })!.lines[0], { label: 'Now', value: '(empty), (empty)' })
+  // Moving an event (#247): the old and the new time, on the clock given (Telegram passes UTC).
+  assert.deepEqual(approvalDetails('googlecalendar_move_event', {
+    eventId: 'cc1', title: 'Client call', oldStart: '2026-11-12T15:00:00+07:00', oldEnd: '2026-11-12T16:00:00+07:00', newStart: '2026-11-12T16:00:00+07:00', newEnd: '2026-11-12T17:00:00+07:00',
+  }, 'Asia/Jakarta'), {
+    title: 'Move "Client call"',
+    lines: [{ label: 'From', value: 'Thu 12 Nov, 15:00 to 16:00' }, { label: 'To', value: 'Thu 12 Nov, 16:00 to 17:00' }],
+    note: 'Only the time changes, in your Google Calendar. Nobody is emailed, so tell any guests yourself. If the event has moved since the Mind read it, nothing is changed.',
+  })
+  assert.deepEqual(approvalDetails('googlecalendar_move_event', { title: 'X', oldStart: '2026-11-12T08:00:00Z', oldEnd: '2026-11-12T09:00:00Z', newStart: '2026-11-13T08:00:00Z', newEnd: '2026-11-13T09:00:00Z' }, 'UTC')!.lines.map((l) => l.value), ['Thu 12 Nov, 08:00 to 09:00', 'Fri 13 Nov, 08:00 to 09:00'])
   assert.deepEqual(approvalDetails('googlesheets_append_row', { sheet: 'Expenses', values: ['2026-11-11', 12.5, null, 'Hosting'] })!.lines, [{ label: 'Row', value: '2026-11-11, 12.5, , Hosting' }])
   assert.equal(approvalDetails('googledocs_create_document', { title: 'Treasury', markdown: 'a'.repeat(1234) })!.lines[0].value, '1,234 characters')
+  assert.deepEqual(approvalDetails('googledocs_append_text', { documentId: 'd1', title: 'Weekly Notes', text: 'Week 46: shipped.' }), {
+    title: 'Add to "Weekly Notes"',
+    lines: [{ label: 'Where', value: 'At the end' }, { label: 'Length', value: '17 characters' }, { label: 'Text', value: 'Week 46: shipped.' }],
+    note: 'Adds this text at the end of your Google Doc. Nothing already in it changes. If the Doc has another title when you approve, nothing is added.',
+  })
+  assert.match(approvalDetails('googledocs_append_text', { title: 'W', text: 'a'.repeat(2000) })!.lines[2].value, /^a{1500}… \(2,000 characters, the rest in the app\)$/)
   assert.equal(approvalDetails('notion_create_page', { title: 'Notes' })!.lines[0].value, 'Empty page')
   const row = approvalDetails('notion_add_row', { databaseId: 'db', properties: Array.from({ length: 10 }, (_, i) => ({ name: `P${i}`, type: 'rich_text', value: `v${i}` })) })!
   assert.equal(row.lines.length, 8)
   assert.deepEqual(row.lines[0], { label: 'P0', value: 'v0' })
+  assert.deepEqual(approvalDetails('notion_update_row', { rowId: 'r1', rowTitle: 'Send invoice', properties: [{ name: 'Status', type: 'status', oldValue: 'In progress', newValue: 'Done' }, { name: 'Notes', type: 'rich_text', oldValue: '', newValue: 'sent' }] }), {
+    title: 'Change "Send invoice" in Notion',
+    lines: [{ label: 'Status', value: 'In progress → Done' }, { label: 'Notes', value: '(empty) → sent' }],
+    note: 'Changes only these properties of this row. The old value is what the Mind read; if the row holds something else when you approve, nothing is changed.',
+  })
   assert.equal(approvalDetails('mail_send_to_owner', { subject: 'Today', text: 'hello' })!.title, 'Email you "Today"')
   assert.deepEqual(approvalDetails('sell_offer', { title: 'Weather data', priceNear: '0.01', item: 'Forecast for Jakarta' }), {
     title: 'Sell "Weather data" for 0.01 NEAR', lines: [{ label: 'Item', value: 'Forecast for Jakarta' }], note: "Other Minds can buy it; they pay into this Mind's own wallet.",
@@ -107,4 +127,15 @@ test('long values are cut so a card stays under Telegram\'s 4096 characters', ()
   assert.match(long, /… \(4,000 characters, the rest in the app\)$/)
   const notion = approvalDetails('notion_add_row', { properties: Array.from({ length: 8 }, (_, i) => ({ name: `P${i}`, value: 'z'.repeat(2000) })) })!
   assert.ok(notion.lines.reduce((n, l) => n + l.label.length + l.value.length + 2, 0) < 3600)
+})
+
+test('a Zoom meeting (#246): when on the given clock, the length, and that nobody is invited, in the app\'s words', () => {
+  assert.deepEqual(approvalDetails('zoom_create_meeting', { topic: 'Launch review', start: '2026-11-12T10:00:00+07:00', minutes: 30 }, 'Asia/Jakarta'), {
+    title: 'Schedule the Zoom meeting "Launch review"',
+    lines: [{ label: 'When', value: 'Thu 12 Nov, 10:00 to 10:30' }, { label: 'Length', value: '30 minutes' }, { label: 'Guests', value: 'Nobody is invited' }],
+    note: 'Creates the meeting in your Zoom with a join link. Nobody is emailed; share the link yourself.',
+  })
+  // Telegram passes UTC.
+  assert.equal(approvalDetails('zoom_create_meeting', { topic: 'T', start: '2026-11-12T10:00:00+07:00', minutes: 90 }, 'UTC')!.lines[0].value, 'Thu 12 Nov, 03:00 to 04:30')
+  assert.deepEqual(approvalDetails('zoom_create_meeting', {})!.lines, [{ label: 'Guests', value: 'Nobody is invited' }])
 })
