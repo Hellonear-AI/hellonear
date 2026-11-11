@@ -13,23 +13,34 @@ import { useEffect, useRef, useState } from "react";
 //    its animations, it covers the page for a moment, jumps straight to the target, and lifts again.
 // Reduced motion: no building or breathing, just a short fade.
 
-// The Mind mark from the logo (Logo.tsx), drawn as separate circles so each one can pop in.
+// The Mind mark from the logo (Logo.tsx), rebuilt from HTML pieces (round divs for the head's bubbles,
+// small SVGs for the sprout and the eyes) so every animation is transform/opacity on its own layer:
+// the compositor runs them, and they stay smooth while the page is busy loading three.js and images.
 const BUBBLES: [number, number, number][] = [
   [56, 174, 28], [200, 174, 28], [84, 146, 38], [172, 146, 38], [128, 128, 46], [96, 182, 34], [160, 182, 34], [128, 186, 36],
 ];
+const S = 0.6; // 220 x 196 logo units -> 132 x 118 px
+const at = (x: number, y: number, w: number, h: number): React.CSSProperties => ({
+  left: (x - 18) * S,
+  top: (y - 34) * S,
+  width: w * S,
+  height: h * S,
+});
 
 function Mark() {
   return (
-    <svg viewBox="18 34 220 196" className="ld-mark h-auto w-[132px]" aria-hidden="true">
-      <path className="ld-sprout" fill="var(--color-accent)" d="M122 92V62H134V92ZM128 64A24.6 24.6 0 0 1 96.9 42.2A24.6 24.6 0 0 1 128 64ZM159.1 42.2A24.6 24.6 0 0 1 128 64A24.6 24.6 0 0 1 159.1 42.2Z" />
+    <div className="ld-mark relative" style={{ width: 220 * S, height: 196 * S }} aria-hidden="true">
+      <svg className="ld-sprout absolute" style={at(96.9, 42.2, 62.2, 49.8)} viewBox="96.9 42.2 62.2 49.8">
+        <path fill="var(--color-accent)" d="M122 92V62H134V92ZM128 64A24.6 24.6 0 0 1 96.9 42.2A24.6 24.6 0 0 1 128 64ZM159.1 42.2A24.6 24.6 0 0 1 128 64A24.6 24.6 0 0 1 159.1 42.2Z" />
+      </svg>
       {BUBBLES.map(([cx, cy, r], i) => (
-        <circle key={i} className="ld-bubble" cx={cx} cy={cy} r={r} fill="var(--color-text)" style={{ animationDelay: `${i * 55}ms` }} />
+        <span key={i} className="ld-bubble absolute rounded-full bg-[var(--color-text)]" style={{ ...at(cx - r, cy - r, r * 2, r * 2), animationDelay: `${i * 55}ms` }} />
       ))}
-      <g className="ld-eyes">
+      <svg className="ld-eyes absolute" style={at(77.7, 142, 100.6, 20)} viewBox="77.7 142 100.6 20">
         <path fill="#fff" d="M114.3 142A20 20 0 1 1 77.7 142ZM178.3 142A20 20 0 1 1 141.7 142Z" />
         <path fill="var(--color-text)" d="M109.9 142A10.4 10.4 0 1 1 94.9 142ZM173.9 142A10.4 10.4 0 1 1 158.9 142Z" />
-      </g>
-    </svg>
+      </svg>
+    </div>
   );
 }
 
@@ -60,14 +71,7 @@ export function PageLoader() {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const html = document.documentElement;
     html.style.overflow = "hidden";
-    let progress = 0.08;
-    let raf = 0;
-    const creep = () => {
-      progress += (0.9 - progress) * 0.015; // eases towards 90% while it waits
-      if (bar.current) bar.current.style.transform = `scaleX(${progress})`;
-      raf = requestAnimationFrame(creep);
-    };
-    raf = requestAnimationFrame(creep);
+    // the progress line creeps towards 90% in CSS (.ld-bar), and fills when the page is ready
 
     const minTime = new Promise((r) => setTimeout(r, reduced ? 200 : 1300));
     const pageLoaded = new Promise<void>((r) => (document.readyState === "complete" ? r() : window.addEventListener("load", () => r(), { once: true })));
@@ -79,8 +83,7 @@ export function PageLoader() {
     Promise.race([Promise.all([minTime, pageLoaded, mind]), cap]).then(() => {
       if (done) return;
       done = true;
-      cancelAnimationFrame(raf);
-      if (bar.current) bar.current.style.transform = "scaleX(1)";
+      bar.current?.classList.add("is-full");
       setTimeout(() => {
         setPhase("out");
         html.style.overflow = "";
@@ -91,7 +94,6 @@ export function PageLoader() {
     });
     return () => {
       done = true;
-      cancelAnimationFrame(raf);
       html.style.overflow = "";
     };
   }, []);
@@ -140,7 +142,7 @@ export function PageLoader() {
       <div className="ld-stack" key={run}>
         <Mark />
         <div className="ld-track" aria-hidden="true">
-          <div ref={phase === "loading" ? bar : undefined} className={`ld-bar ${phase === "cover" ? "is-sweep" : ""}`} />
+          <div ref={phase === "loading" ? bar : undefined} className={`ld-bar ${phase === "cover" ? "is-sweep" : "is-creep"}`} />
         </div>
       </div>
     </div>
