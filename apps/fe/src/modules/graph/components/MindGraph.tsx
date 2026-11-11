@@ -39,6 +39,9 @@ const KEPT = new Map<string, { sim: Sim; view: { x: number; y: number; k: number
 
 /** How long a finished state keeps glowing (ms). */
 const AFTERGLOW = { ok: 1600, error: 4000, denied: 4000 } as const
+// The live view's entrance: from 1.35 times the frame's zoom out to it, over 700 ms, ease-out.
+const ENTER_ZOOM = 1.35
+const ENTER_MS = 700
 // The magnet: bubbles within 120 screen px of the cursor move toward it, up to a third of the
 // way when right under it, fading to nothing at the edge, at most 8 units.
 const MAGNET_REACH = 120
@@ -73,6 +76,11 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
   const fitting = useRef(false)
   // How many bubbles the camera last framed, so a change reframes it.
   const framedCount = useRef(0)
+  // The entrance zoom out: null when none, -1 waiting for the first frame, else when it started.
+  const entering = useRef<number | null>(null)
+  // No layout kept for this Mind yet: its first real frame on this page gets the entrance, even if
+  // the very first graph held only the Mind.
+  const fresh = useRef(!KEPT.has(mindId))
   const hover = useRef<string | null>(null)
   // How far each bubble leans toward the cursor right now (drawn only), and whether one is dragged.
   const magnet = useRef(new Map<string, { x: number; y: number }>())
@@ -107,7 +115,12 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       // Frame it at once only while the graph is opening (nothing but the Mind before). Later, the
       // camera glides to the new frame, and only if the owner hasn't moved it: snapping during a
       // reply read as the graph zooming by itself (Ancung, 11 Nov).
-      if (first || before <= 1) snap.current = true
+      // The very first graph of this Mind on the page comes in with a zoom out (ENTER_MS); a page
+      // that finds the layout kept, or one still opening, frames at once.
+      if (fresh.current) {
+        fresh.current = false
+        entering.current = -1
+      } else if (before <= 1) snap.current = true
       else fitting.current = true
     }
     const now = performance.now()
@@ -210,6 +223,25 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       // The Mind alone is no frame: zooming to it is what stuck when a chat page opened before the
       // other bubbles were back (Ancung, 11 Nov). Wait for them, keeping a pending snap.
       if (bodies.length <= 1) return
+      // The entrance (Ancung, 11 Nov): start a little zoomed in on the frame's middle and ease out
+      // to it, fast at first and slowing at the end. Reduced motion frames at once.
+      if (entering.current !== null && !still.matches) {
+        const now = performance.now()
+        if (entering.current < 0) entering.current = now
+        const p = Math.min(1, (now - entering.current) / ENTER_MS)
+        const e = 1 - (1 - p) ** 4
+        const from = ENTER_ZOOM + (1 - ENTER_ZOOM) * e
+        // Scaling the frame about the panel's middle keeps the same spot in the middle.
+        v.k = to.k * from
+        v.x = to.x * from
+        v.y = to.y * from
+        if (p >= 1) entering.current = null
+        return
+      }
+      if (entering.current !== null) {
+        entering.current = null
+        snap.current = true
+      }
       if (snap.current) {
         snap.current = false
         v.k = to.k
@@ -251,7 +283,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         framedCount.current = s.bodies.size
         fitting.current = true
       }
-      if (view.current.auto && (moving || snap.current || fitting.current || now < 1500)) fit()
+      if (view.current.auto && (moving || snap.current || fitting.current || entering.current !== null || now < 1500)) fit()
       // Glide to the picked node and zoom in a little; a jump with reduced motion.
       const f = focus.current ? s.bodies.get(focus.current) : null
       if (f) {
