@@ -212,6 +212,15 @@ export function approvalDetails(tool: string, args: unknown, timeZone?: string):
         lines: [{ label: 'Length', value: `${(str(a.markdown) ?? '').length.toLocaleString('en')} characters` }],
         note: 'Creates a new Google Doc in your Drive. Nothing is shared.',
       }
+    // Changing cells (#245): the cells now, as the Mind read them, and what replaces them, in the app's words.
+    case 'googlesheets_update_cells': {
+      const flat = (v: unknown) => (Array.isArray(v) ? v.flat().map((x) => (x === null || x === undefined || x === '' ? '(empty)' : String(x))).join(', ') : '')
+      return {
+        title: `Change ${str(a.range) ?? 'cells'} in your Google Sheet`,
+        lines: [{ label: 'Now', value: clip(flat(a.oldValues)) || 'Not read' }, { label: 'New', value: clip(flat(a.newValues)) || 'Empty' }],
+        note: 'Changes only these cells. "Now" is what the Mind read; if the cells hold something else when you approve, nothing is changed.',
+      }
+    }
     case 'googlesheets_append_row': {
       const values = Array.isArray(a.values) ? a.values.map((v) => (v === null || v === undefined ? '' : String(v))) : []
       return {

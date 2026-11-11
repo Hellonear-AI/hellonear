@@ -81,6 +81,12 @@ test('every approval tool the app details also has details on Telegram, in the s
     title: 'Post to #general', lines: [{ label: 'Message', value: 'Standup moved to 10:00' }], note: 'Posted to Slack as you.',
   })
   assert.equal(approvalDetails('slack_send_message', { channel: '#ops', text: 'x' })!.title, 'Post to #ops')
+  assert.deepEqual(approvalDetails('googlesheets_update_cells', { range: 'Invoices!D3', newValues: [['Paid']], oldValues: [['Unpaid']] }), {
+    title: 'Change Invoices!D3 in your Google Sheet',
+    lines: [{ label: 'Now', value: 'Unpaid' }, { label: 'New', value: 'Paid' }],
+    note: 'Changes only these cells. "Now" is what the Mind read; if the cells hold something else when you approve, nothing is changed.',
+  })
+  assert.deepEqual(approvalDetails('googlesheets_update_cells', { range: 'A!B2:C2', newValues: [['x', 2]], oldValues: [['', null]] })!.lines[0], { label: 'Now', value: '(empty), (empty)' })
   assert.deepEqual(approvalDetails('googlesheets_append_row', { sheet: 'Expenses', values: ['2026-11-11', 12.5, null, 'Hosting'] })!.lines, [{ label: 'Row', value: '2026-11-11, 12.5, , Hosting' }])
   assert.equal(approvalDetails('googledocs_create_document', { title: 'Treasury', markdown: 'a'.repeat(1234) })!.lines[0].value, '1,234 characters')
   assert.equal(approvalDetails('notion_create_page', { title: 'Notes' })!.lines[0].value, 'Empty page')
