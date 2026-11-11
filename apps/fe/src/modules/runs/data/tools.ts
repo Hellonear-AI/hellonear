@@ -82,6 +82,8 @@ export const TOOLS: Record<string, ToolWords> = {
   outlook_list_emails: { doing: "Reading your Outlook inbox", done: "Read your Outlook inbox", orb: "searching", node: "Outlook inbox" },
   outlook_read_email: { doing: "Reading an email", done: "Read an email", orb: "searching", node: "Read an email" },
   slack_list_channels: { doing: "Looking at your Slack channels", done: "Looked at your Slack channels", orb: "searching", node: "Slack channels" },
+  zoom_list_meetings: { doing: "Looking at your Zoom meetings", done: "Looked at your Zoom meetings", orb: "searching", node: "Zoom meetings" },
+  zoom_meeting_summary: { doing: "Reading a Zoom meeting summary", done: "Read a Zoom meeting summary", orb: "searching", node: "Zoom summary" },
   // Writing.
   googledocs_create_document: { doing: "Writing a Google Doc", done: "Wrote a Google Doc", orb: "composing", node: "Write a Doc", thing: "the document" },
   googledocs_append_text: { doing: "Adding to a Google Doc", done: "Added to a Google Doc", orb: "composing", node: "Add to a Doc", thing: "the added text" },
@@ -92,6 +94,7 @@ export const TOOLS: Record<string, ToolWords> = {
   googlesheets_update_cells: { doing: "Changing cells in a spreadsheet", done: "Changed cells in a spreadsheet", orb: "working", node: "Sheets cells", thing: "the cell change" },
   googlesheets_append_row: { doing: "Adding a row to a spreadsheet", done: "Added a row to a spreadsheet", orb: "working", node: "Sheets row", thing: "the new row" },
   notion_add_row: { doing: "Adding a row in Notion", done: "Added a row in Notion", orb: "working", node: "Notion row", thing: "the new Notion row" },
+  zoom_create_meeting: { doing: "Scheduling a Zoom meeting", done: "Scheduled a Zoom meeting", orb: "working", node: "New Zoom meeting", thing: "the Zoom meeting" },
   sell_offer: { doing: "Setting what it sells", done: "Set what it sells", orb: "working", node: "Offers", thing: "the offer" },
   buy_from_mind: { doing: "Buying from another Mind", done: "Bought from another Mind", orb: "working", node: "Buy from a Mind" },
   // Working something out.

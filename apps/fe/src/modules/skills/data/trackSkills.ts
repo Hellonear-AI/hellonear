@@ -342,4 +342,20 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
     added: (c) => `${c.name} can post to Slack now. Ask it in the chat, for example "Post this summary to #finance."`,
     removed: (c) => `${c.name} won't post to Slack any more.`,
   },
+  // Zoom (#246).
+  zoom: {
+    title: "Zoom",
+    blurb: "Lists your Zoom meetings, schedules one with a join link when you approve, and reads Zoom's AI summary of a past call.",
+    canUse: () => ["Summaries only when Zoom's AI summary was on"],
+    cannot: ["Never invites anyone, deletes or ends meetings", "Not in the try-out"],
+    needs: "zoom",
+    ask: {
+      why: (c) => `${c.name} will check your Zoom meetings when you ask, schedule one after you approve, and tell you what Zoom's AI summary says about a past call.`,
+      does: () => ["List your upcoming meetings", "Schedule a meeting with a join link, after you approve", "Read Zoom's AI summary of a past meeting"],
+      never: () => ["Invite or email anyone", "Delete, change or end meetings", "Delete recordings"],
+      note: "No signature needed. You can disconnect Zoom any time in Connections.",
+    },
+    added: (c) => `${c.name} can use your Zoom now. Ask it in the chat, for example "Set up a Zoom call tomorrow at 10:00 for 30 minutes."`,
+    removed: (c) => `${c.name} won't use your Zoom any more. Meetings it scheduled stay.`,
+  },
 }

@@ -7,6 +7,7 @@ import { z } from 'zod'
 export const SWITCHABLE_TOOLS = [
   'googlecalendar_create_event', 'googlecalendar_create_meeting', 'gmail_organize', 'mail_send', 'mail_send_to_owner',
   'googlesheets_append_row', 'googlesheets_update_cells', 'googledocs_create_document', 'googledocs_append_text', 'notion_create_page', 'notion_add_row', 'slack_send_message',
+  'zoom_create_meeting',
   'sell_offer',
 ] as const
 

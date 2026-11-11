@@ -227,6 +227,7 @@ export const TOOLKIT_NAME: Record<ApiConnection["toolkit"], string> = {
   notion: "Notion",
   outlook: "Outlook",
   hubspot: "HubSpot",
+  zoom: "Zoom",
 }
 
 /** What a try-out gets instead of each app (engine: sample data, a fake Meet link, nobody invited). */

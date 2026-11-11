@@ -34,7 +34,7 @@ export type GraphLink = { source: string; target: string }
 const WALLET_TOOLS = new Set(["send_payment", "get_balance", "list_payments"])
 // The same rule as engine/src/graph.ts: an app's tools are one App bubble, hung off the skill that
 // uses it, so the graph reads Mind, skill, app (Ancung, 11 Nov: the track apps showed twice).
-const APP_TOOL = /^(gmail|googlecalendar|mail|googlesheets|googledrive|googledocs|slack|notion|outlook)_/
+const APP_TOOL = /^(gmail|googlecalendar|mail|googlesheets|googledrive|googledocs|slack|notion|outlook|zoom)_/
 const SKILL_NAME_ARG: Record<string, string> = { skill: "name", skill_read: "skillName" }
 
 /** The engine's node id for a tool call (engine/src/graph.ts, docs/api-contract.md §4). */
