@@ -135,7 +135,7 @@ export async function getWallet(mindId: string) {
     shared,
     balanceNear: toNear(b.balance ?? '0'),
     // OutLayer's own counter for the daily cap (`usage.daily.native.spent`, testnet 10 Nov); `{}` before the first payment.
-    // Whether it resets at 00:00 UTC or after a rolling 24 h is not proven yet.
+    // It resets at 00:00 UTC (a calendar day, not a rolling 24 h): measured on testnet 11 Nov (#149).
     spentTodayNear: toNear(/^\d+$/.test(String(p.usage?.daily?.native?.spent)) ? p.usage.daily.native.spent : '0'),
     frozen: p.frozen === true,
     policy: stored
