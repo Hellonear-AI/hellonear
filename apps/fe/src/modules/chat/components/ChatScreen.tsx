@@ -24,6 +24,7 @@ import { pinGap, useChatScroll } from "@/modules/chat/hooks/useChatScroll"
 import { dayLabel } from "@/modules/chat/data/thread"
 import { Shown, TurnView } from "@/modules/chat/components/TurnView"
 import { FirstChat, Centered, ThreadSkeleton } from "@/modules/chat/components/ChatStates"
+import { onLiveDrawer } from "@/modules/graph/data/liveDrawer"
 
 /**
  * Chat (design 4 · Chat, C1): the thread, what each run did, and the composer. `threadId` null
@@ -54,6 +55,9 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
   // Phones get it as a drawer from the bottom (Ancung, 10 Nov), tablets as a sheet from the right.
   const [liveDrawer, setLiveDrawer] = useState(false)
   const [liveAnimate, setLiveAnimate] = useState(false)
+  // Phones: the Live view button is in the top bar now (MobileHeader), not floating over the
+  // messages, where it hid words (the phone check, 11 Nov).
+  useEffect(() => onLiveDrawer(() => setLiveDrawer(true)), [])
   const toggleLive = () => {
     if (!matches(MEDIA.md)) return setLiveDrawer(true)
     if (!matches(MEDIA.xl)) return setLiveSheet(true)
@@ -167,10 +171,14 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
       </header>
 
       {tryOut && (
-        <div role="status" className="mx-4 mt-3 flex flex-col gap-2 rounded-md bg-brand-soft px-4 py-2.5 text-sm text-foreground sm:flex-row sm:items-center md:mx-8">
+        // One line on phones (the phone check, 11 Nov: about 122 px of a short screen); the wallet
+        // sentence shows from 640 px.
+        <div role="status" className="mx-4 mt-3 flex items-center gap-3 rounded-md bg-brand-soft px-4 py-2 text-sm text-foreground md:mx-8">
           <p className="min-w-0 flex-1">
-            Try-out{tryOutLeft !== null ? `: ${tryOutLeft} of ${TRY_OUT_MESSAGES} messages left` : ""}. Payments come from a shared test wallet
-            {limit ? `, up to ${limit} NEAR each,` : ""} to approved addresses only.
+            Try-out{tryOutLeft !== null ? `: ${tryOutLeft} of ${TRY_OUT_MESSAGES} messages left` : ""}.
+            <span className="hidden sm:inline">
+              {" "}Payments come from a shared test wallet{limit ? `, up to ${limit} NEAR each,` : ""} to approved addresses only.
+            </span>
           </p>
           <Button size="sm" variant="outline" className="w-fit shrink-0" onClick={leaveTryOut}>
             Connect a wallet
@@ -199,16 +207,6 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
           )}
           style={{ background: "radial-gradient(ellipse 55% 45% at 50% 52%, color-mix(in oklab, var(--brand) 9%, transparent), transparent 70%)" }}
         />
-        {/* Phones have no chat header, so the live view opens from here (Ancung, 10 Nov). */}
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="Live view"
-          onClick={() => setLiveDrawer(true)}
-          className="absolute top-2 right-3 z-10 bg-surface/90 shadow-xs backdrop-blur-sm md:hidden"
-        >
-          <NetworkIcon />
-        </Button>
         {/* The scroll area runs to the bottom of the screen and the composer floats over it, so the
             scrollbar reaches the bottom like Claude's (Ancung, 10 Nov). The text still fades under the
             header and into the composer (Ancung, 9 Nov, like Gemini), now with overlays in the page

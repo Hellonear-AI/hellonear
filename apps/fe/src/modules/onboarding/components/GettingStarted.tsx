@@ -13,6 +13,8 @@ import { useConnections } from "@/modules/connections/hooks/useConnections"
 import { useTelegram } from "@/modules/connections/hooks/useTelegram"
 import { useMind, useMindWallet, usePayments, useRecentChats } from "@/modules/minds/hooks/useMinds"
 import { setFlag, useFlag } from "@/modules/onboarding/data/progress"
+import { useMediaQuery } from "@/hooks/useMediaQuery"
+import { MEDIA } from "@/lib/media"
 
 export type Step = { id: string; title: string; line: string; href: string; done: boolean }
 
@@ -51,6 +53,7 @@ export function GettingStarted({ mindId, onNavigate }: { mindId: string; onNavig
   const connections = useConnections().data
   const telegram = useTelegram(mindId).data
   const [open, setOpen] = useState(false)
+  const wide = useMediaQuery(MEDIA.md, true)
 
   if (!mind) return null
   const name = mind.name
@@ -90,7 +93,9 @@ export function GettingStarted({ mindId, onNavigate }: { mindId: string; onNavig
           <span className="block h-full rounded-full bg-brand transition-[width] duration-500 ease-out" style={{ width: `${(done / steps.length) * 100}%` }} />
         </span>
       </PopoverTrigger>
-      <PopoverContent side="right" align="end" sideOffset={12} className="w-80 max-w-[calc(100vw-2rem)] gap-0 p-2">
+      {/* Beside the sidebar from 768 px; above the card in the phone drawer, which is narrower than
+          the popover (it ran 16 px past the drawer's edge; the phone check, 11 Nov). */}
+      <PopoverContent side={wide ? "right" : "top"} align={wide ? "end" : "start"} sideOffset={wide ? 12 : 8} className="w-80 max-w-[calc(100vw-2rem)] gap-0 p-2">
         <div className="flex flex-col gap-0.5 px-2.5 pt-2 pb-3">
           <p className="text-sm font-semibold text-foreground">Getting started with {name}</p>
           <p className="text-xs text-muted-foreground">

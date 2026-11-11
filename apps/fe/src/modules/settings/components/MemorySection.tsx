@@ -15,6 +15,7 @@ import { mindKeys } from "@/lib/queryKeys"
 import { mindsApi, type ApiMind } from "@/modules/minds/api"
 import { MEMORY_MAX_CHARS, memoryApi } from "@/modules/settings/api"
 import { memorySections, updatedLine } from "@/modules/settings/data/memory"
+import { SettingsGroup, SettingsRow } from "@/modules/settings/components/SettingsParts"
 
 type Switches = { enabled: boolean; recall: boolean }
 
@@ -70,34 +71,29 @@ export function MemorySection({ mind, name, tryOut }: { mind: ApiMind; name: str
   const busy = toggle.isPending
 
   return (
-    <section aria-labelledby="memory-title" className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-5">
-      <div className="flex flex-col gap-1">
-        <h2 id="memory-title" className="text-[15px] font-semibold text-foreground">
-          Memory
-        </h2>
-        <p className="text-[13px] text-muted-foreground">What {name} keeps about you between chats. A new name or voice starts a fresh memory.</p>
-      </div>
+    <div className="flex flex-col gap-8">
+      <SettingsGroup description={`What ${name} keeps about you between chats. A new name or voice starts a fresh memory.`}>
+        <SwitchRow
+          id="memory-enabled"
+          title="Remember things about you"
+          description={`${name} keeps notes about you and uses them in every chat. Off: it neither reads nor writes them.`}
+          checked={switches.enabled}
+          disabled={busy}
+          onChange={(enabled) => toggle.mutate({ enabled })}
+        />
+        <SwitchRow
+          id="memory-recall"
+          title="Search past chats"
+          description={`${name} looks up what was said in your other chats. Off: chats held meanwhile are not found later either.`}
+          checked={switches.recall}
+          disabled={busy}
+          onChange={(recall) => toggle.mutate({ recall })}
+        />
+      </SettingsGroup>
 
-      <SwitchRow
-        id="memory-enabled"
-        title="Remember things about you"
-        description={`${name} keeps notes about you and uses them in every chat. Off: it neither reads nor writes them.`}
-        checked={switches.enabled}
-        disabled={busy}
-        onChange={(enabled) => toggle.mutate({ enabled })}
-      />
-      <SwitchRow
-        id="memory-recall"
-        title="Search past chats"
-        description={`${name} looks up what was said in your other chats. Off: chats held meanwhile are not found later either.`}
-        checked={switches.recall}
-        disabled={busy}
-        onChange={(recall) => toggle.mutate({ recall })}
-      />
-
-      <div className="flex flex-col gap-3 border-t border-border pt-4">
+      <section aria-labelledby="remembers-title" className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
-          <h3 className="min-w-0 flex-1 text-sm font-medium text-foreground">What {name} remembers</h3>
+          <h2 id="remembers-title" className="min-w-0 flex-1 text-[15px] font-semibold text-foreground">What {name} remembers</h2>
           {!tryOut && draft === null && memory.isSuccess && (
             <Button variant="ghost" size="sm" onClick={() => setDraft(markdown)}>
               <PencilIcon />
@@ -137,7 +133,7 @@ export function MemorySection({ mind, name, tryOut }: { mind: ApiMind; name: str
           <div className="flex flex-col gap-4">
             {sections.map((section, i) => (
               <div key={`${section.title ?? ""}-${i}`} className="flex flex-col gap-1.5">
-                {section.title && <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{section.title}</h4>}
+                {section.title && <h3 className="text-[13px] font-medium text-muted-foreground">{section.title}</h3>}
                 <ul className="flex flex-col gap-1">
                   {section.rows.map((row, j) => (
                     <li key={j} className="rounded-md bg-muted px-3 py-2 text-[13px] text-foreground">
@@ -162,7 +158,7 @@ export function MemorySection({ mind, name, tryOut }: { mind: ApiMind; name: str
             </Button>
           )
         )}
-      </div>
+      </section>
 
       <Dialog open={confirmClear} onOpenChange={(open) => !clear.isPending && setConfirmClear(open)}>
         <DialogContent>
@@ -183,22 +179,10 @@ export function MemorySection({ mind, name, tryOut }: { mind: ApiMind; name: str
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </section>
+    </div>
   )
 }
 
 function SwitchRow({ id, title, description, checked, disabled, onChange }: { id: string; title: string; description: string; checked: boolean; disabled: boolean; onChange: (checked: boolean) => void }) {
-  return (
-    <div className="flex items-start gap-4">
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <label htmlFor={id} className="text-sm font-medium text-foreground">
-          {title}
-        </label>
-        <p id={`${id}-hint`} className="text-[13px] text-muted-foreground">
-          {description}
-        </p>
-      </div>
-      <Switch id={id} checked={checked} disabled={disabled} aria-describedby={`${id}-hint`} onCheckedChange={onChange} />
-    </div>
-  )
+  return <SettingsRow label={title} htmlFor={id} description={description} control={<Switch id={id} checked={checked} disabled={disabled} onCheckedChange={onChange} />} />
 }

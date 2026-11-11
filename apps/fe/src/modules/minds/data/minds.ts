@@ -57,6 +57,15 @@ export function templateAvatar(templateId: string): string {
 }
 
 /**
+ * A head-and-shoulders crop (`<id>-face.jpg`, 256 x 256 from the avatar's 340 px around the head)
+ * for circles of 40 px and under: the whole body shrunk that far turned its knit, coins and straps
+ * into specks and left the face about 15 px (Ancung, 11 Nov: "burik").
+ */
+export function templateFace(templateId: string): string {
+  return templateImage(templateId).replace(/\.jpg$/, "-face.jpg")
+}
+
+/**
  * A thread title as the sidebar shows it. The engine's titles can carry a stray reasoning tag when
  * the model closes "</think>" without opening it ("Casual Greeting</think>…", Ancung, 9 Nov):
  * keep what follows the last closing tag when there is any, and drop every leftover tag.

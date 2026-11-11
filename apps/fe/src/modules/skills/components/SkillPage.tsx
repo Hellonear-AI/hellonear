@@ -65,13 +65,11 @@ export function SkillPage({ mindId, skillId }: { mindId: string; skillId: string
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <h1 className="text-[26px] font-medium tracking-[-0.8px] text-foreground md:text-[32px]">{copy.title}</h1>
           <p className="text-sm text-muted-foreground md:text-[15px]">{copy.blurb}</p>
+          {/* Phones: under the text, so the blurb gets the width (beside the title it squeezed the
+              blurb into a 190 px column; the phone check, 11 Nov). */}
+          {mind && <AddedBadge added={added} className="mt-1 w-fit md:hidden" />}
         </div>
-        {mind && (
-          <Badge variant={added ? "success" : "neutral"}>
-            {added && <CheckIcon />}
-            {added ? "Added" : "Not added"}
-          </Badge>
-        )}
+        {mind && <AddedBadge added={added} className="max-md:hidden" />}
       </div>
 
       {rules.length > 0 && (
@@ -127,5 +125,14 @@ export function SkillPage({ mindId, skillId }: { mindId: string; skillId: string
         />
       )}
     </div>
+  )
+}
+
+function AddedBadge({ added, className }: { added: boolean; className?: string }) {
+  return (
+    <Badge variant={added ? "success" : "neutral"} className={className}>
+      {added && <CheckIcon />}
+      {added ? "Added" : "Not added"}
+    </Badge>
   )
 }
