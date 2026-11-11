@@ -79,29 +79,31 @@ export function VerifiedBadge({
               </div>
             )}
           </dl>
-          {runId && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-fit"
-              onClick={() => {
-                setOpen(false)
-                setViewing(true)
-              }}
-            >
-              <FileCheckIcon />
-              View proof
-            </Button>
-          )}
-          <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[13px] font-medium">
+          {/* One row of actions (Ancung, 11 Nov: a button and two links stacked read as clutter).
+              With a run, View proof leads and "Check it yourself" lives in its dialog. */}
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pt-1 text-[13px] font-medium">
+            {runId && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  setOpen(false)
+                  setViewing(true)
+                }}
+              >
+                <FileCheckIcon />
+                View proof
+              </Button>
+            )}
             <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-foreground hover:underline">
               How it&apos;s verified
               <ArrowUpRightIcon className="size-3.5" />
             </a>
-            <a href={VERIFIER_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-foreground hover:underline">
-              Check it yourself
-              <ArrowUpRightIcon className="size-3.5" />
-            </a>
+            {!runId && (
+              <a href={VERIFIER_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-foreground hover:underline">
+                Check it yourself
+                <ArrowUpRightIcon className="size-3.5" />
+              </a>
+            )}
           </div>
         </PopoverContent>
       </Popover>
