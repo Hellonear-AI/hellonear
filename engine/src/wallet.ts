@@ -7,7 +7,16 @@ import { z } from 'zod'
 export const WALLET_KEY = 'wallet'
 export const walletContext = (token: string | undefined) => new Map(token ? [['token', token]] : [])
 
-export const walletTokenSchema = z.string().regex(/^wt_[A-Za-z0-9._~-]+$/, 'not a wallet token').max(2048)
+// A payment that failed with an error is remembered in the same per-request Map (not in run snapshots), so the
+// rest of that request sends no other payment (tools.ts send_payment). beforeApproval sees a plain object view of
+// the request context whose values are the same Map.
+export function markPaymentFailed(context: Ctx) {
+  (context?.requestContext?.get(WALLET_KEY) as Map<string, string> | undefined)?.set('failed', '1')
+}
+export const paymentFailedEarlier = (view: Record<string, unknown> | undefined) =>
+  (view?.[WALLET_KEY] as Map<string, string> | undefined)?.get('failed') === '1'
+
+export const walletTokenSchema =z.string().regex(/^wt_[A-Za-z0-9._~-]+$/, 'not a wallet token').max(2048)
 
 type Ctx = { requestContext?: { get: (key: string) => unknown } } | undefined
 
@@ -16,7 +25,8 @@ export class NoWalletError extends Error {
 }
 
 // Calls one of the backend's internal wallet routes with the engine key and the run's wallet token.
-export async function walletCall<T>(context: Ctx, method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+// `accept`: statuses that are answers, not errors (paid data's 402 and 409, #150); the JSON body comes back with `httpStatus`.
+export async function walletCall<T>(context: Ctx, method: 'GET' | 'POST' | 'PUT', path: string, body?: unknown, accept: number[] = []): Promise<T> {
   const token = (context?.requestContext?.get(WALLET_KEY) as Map<string, string> | undefined)?.get('token')
   if (!token) throw new NoWalletError()
   // Read per call, not at import: unit tests load the tools without the engine's config.
@@ -30,6 +40,7 @@ export async function walletCall<T>(context: Ctx, method: 'GET' | 'POST', path: 
     signal: AbortSignal.timeout(30_000),
   })
   const json = (await res.json().catch(() => ({}))) as Record<string, unknown>
+  if (accept.includes(res.status)) return { ...json, httpStatus: res.status } as T
   if (!res.ok) throw new Error(`wallet: ${res.status} ${String(json.error ?? 'error')}`)
   return json as T
 }

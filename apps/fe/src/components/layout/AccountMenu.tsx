@@ -1,7 +1,6 @@
 "use client"
 
 import { ChevronsUpDownIcon, LogOutIcon, MonitorIcon, MoonIcon, SettingsIcon, SunIcon } from "lucide-react"
-import { useNearWallet } from "near-connect-hooks"
 import { useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
 import { cn } from "cn"
@@ -17,6 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useSession, useSignOut } from "@/modules/auth/hooks/useSession"
 
 const THEMES = [
   { value: "system", label: "System", icon: MonitorIcon },
@@ -29,14 +29,16 @@ const THEMES = [
  * Opens from the sidebar's account row, the rail avatar, or the gear in the phone drawer.
  */
 export function AccountMenu({ variant }: { variant: "row" | "avatar" | "icon" }) {
-  const { signedAccountId, signOut } = useNearWallet()
+  const { data: user } = useSession()
+  const signOut = useSignOut()
   const { theme = "system", setTheme } = useTheme()
   const router = useRouter()
+  const signedAccountId = user?.nearAccountId
   const account = signedAccountId ?? "Not signed in"
 
-  async function handleSignOut() {
-    await signOut()
-    router.push("/")
+  function handleSignOut() {
+    // replace, not push: the signed-out page shouldn't stay in Back's history.
+    signOut.mutate(undefined, { onSettled: () => router.replace("/") })
   }
 
   return (
@@ -94,7 +96,7 @@ export function AccountMenu({ variant }: { variant: "row" | "avatar" | "icon" })
         {signedAccountId && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" className="p-2" onClick={() => void handleSignOut()}>
+            <DropdownMenuItem variant="destructive" className="p-2" onClick={handleSignOut}>
               <LogOutIcon />
               Sign out
             </DropdownMenuItem>

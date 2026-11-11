@@ -4,11 +4,18 @@
 // REST v3.1 (docs.composio.dev, read 5 Nov 2026), checked live: session 201, link 201, list 200, delete 200.
 import { z } from 'zod'
 import { config } from './config.ts'
-import { HttpError } from './http.ts'
+import { HttpError, UPSTREAM_ERROR, fetchFailure } from './http.ts'
 
 // Composio toolkit slugs, checked live (6 Nov): both use Composio-managed Google OAuth. Calendar's default scopes are
 // calendar + calendar.events; the engine only exposes list and create (with approval), see #57.
-export const TOOLKITS = ['gmail', 'googlecalendar'] as const
+// googlemeet (#97): Composio-managed OAuth2 auth config `ac_ISu09_uuoKCK` (made by James 9 Nov, read live: ENABLED,
+// scopes meetings.space.created + meetings.space.settings, so it can create Meet spaces but not read other meetings).
+// The engine only creates Meet spaces.
+// More apps (#194, #195–#201): Sheets, Drive, Docs, Slack, Discord, Notion, Outlook, HubSpot. Each slug read live on
+// 11 Nov (GET /api/v3/toolkits/<slug>: 200, Composio-managed OAUTH2) and a Connect Link made for a throwaway user
+// (session 201, link 201, then deleted), so owners connect with one sign-in and we create no OAuth app. The backend
+// only connects, lists and disconnects them; which actions a Mind may run is decided in the engine.
+export const TOOLKITS = ['gmail', 'googlecalendar', 'googlemeet', 'googlesheets', 'googledrive', 'googledocs', 'slack', 'discord', 'notion', 'outlook', 'hubspot'] as const
 export const toolkitSchema = z.enum(TOOLKITS)
 export type Toolkit = z.infer<typeof toolkitSchema>
 
@@ -25,11 +32,11 @@ async function composio(method: string, path: string, body?: unknown): Promise<a
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(15_000),
     })
-  } catch {
-    throw new HttpError(502, 'composio_unreachable')
+  } catch (e) {
+    throw new HttpError(UPSTREAM_ERROR, 'composio_unreachable', { reason: fetchFailure(e) })
   }
   if (res.status === 404 && method === 'DELETE') return null
-  if (!res.ok) throw new HttpError(502, 'composio_error', { composioStatus: res.status })
+  if (!res.ok) throw new HttpError(UPSTREAM_ERROR, 'composio_error', { composioStatus: res.status })
   return res.json()
 }
 
@@ -68,13 +75,30 @@ export async function connect(userId: string, toolkit: Toolkit): Promise<{ redir
     toolkits: { enable: [toolkit] },
     manage_connections: { enable: false },
   })
-  if (typeof session?.session_id !== 'string') throw new HttpError(502, 'composio_error')
+  if (typeof session?.session_id !== 'string') throw new HttpError(UPSTREAM_ERROR, 'composio_error')
   const link = await composio('POST', `/tool_router/session/${encodeURIComponent(session.session_id)}/link`, {
     toolkit,
     callback_url: `${config.feOrigin}/connections?toolkit=${toolkit}`,
   })
-  if (typeof link?.redirect_url !== 'string' || !link.redirect_url.startsWith('https://')) throw new HttpError(502, 'composio_error')
+  if (typeof link?.redirect_url !== 'string' || !link.redirect_url.startsWith('https://')) throw new HttpError(UPSTREAM_ERROR, 'composio_error')
   return { redirectUrl: link.redirect_url }
+}
+
+// The address of the owner's connected Gmail (#146), for Autopilot's "Email me": Google proved it at OAuth time, so it
+// needs no confirmation code. Composio GMAIL_GET_PROFILE (schema read 10 Nov 2026: `emailAddress`, "may be wrapped
+// under a top-level data field"); a user without Gmail gets 404 ActionExecute_ConnectedAccountNotFound (checked live).
+export async function gmailAddress(userId: string): Promise<string> {
+  let body: any
+  try {
+    body = await composio('POST', '/tools/execute/GMAIL_GET_PROFILE', { user_id: userId, arguments: { user_id: 'me' } })
+  } catch (e) {
+    if (e instanceof HttpError && e.extra.composioStatus === 404) throw new HttpError(409, 'gmail_not_connected')
+    throw e
+  }
+  const address = body?.data?.emailAddress ?? body?.data?.data?.emailAddress
+  const parsed = z.string().trim().toLowerCase().email().max(254).safeParse(address)
+  if (body?.successful === false || !parsed.success) throw new HttpError(UPSTREAM_ERROR, 'composio_error', { action: 'gmail_profile' })
+  return parsed.data
 }
 
 // Deletes every connection of this user for the toolkit (Composio revokes the stored tokens). false = none existed.

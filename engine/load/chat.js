@@ -9,10 +9,13 @@ export const options = {
   thresholds: { checks: ['rate>0.95'], http_req_failed: ['rate<0.05'] },
 }
 
+// A fresh prefix per k6 run, so every iteration really starts a new thread (and gets a title, #86).
+const RUN = Date.now().toString(36)
+
 export default function () {
   const body = JSON.stringify({
     userId: `load-${__VU}`,
-    threadId: `load-${__VU}-${__ITER}`,
+    threadId: `load-${RUN}-${__VU}-${__ITER}`,
     message: 'Use your tool: what is 2 + 3? Answer with the number only.',
     mind: { templateId: 'general-assistant', name: 'Lo', soul: { identity: 'Be brief.', invariants: [], priors: [] }, skills: [{ skillId: 'daily-planner' }] },
   })
@@ -22,5 +25,7 @@ export default function () {
     'run finished': (r) => r.body.includes('"type":"run.finished"'),
     'tool ran': (r) => r.body.includes('"type":"tool.result"'),
     'no run.error': (r) => !r.body.includes('"type":"run.error"'),
+    // Every iteration is a new thread, so each run should also get a title (#86).
+    'thread titled': (r) => r.body.includes('"type":"thread.titled"'),
   })
 }

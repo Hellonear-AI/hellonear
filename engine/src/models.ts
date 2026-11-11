@@ -11,12 +11,18 @@ import type { StepResult } from './verify.ts'
 
 export const inferenceClient = new InferenceClient({ apiKey: config.nearaiApiKey })
 
+// Asks the models in `config.lowReasoningModels` for minimal reasoning, unless a call sets its own (#92).
+export function withReasoningEffort<T extends { model?: string; reasoning_effort?: string }>(body: T): T & { reasoning_effort?: string } {
+  return body.reasoning_effort === undefined && body.model && config.lowReasoningModels.includes(body.model) ? { ...body, reasoning_effort: 'low' } : body
+}
+
 const verifiedChat = createOpenAICompatible({
   name: 'nearai',
   baseURL: inferenceClient.getBaseUrl(),
   apiKey: config.nearaiApiKey,
   includeUsage: true,
   fetch: inferenceClient.fetch,
+  transformRequestBody: withReasoningEffort,
 })
 
 // Embeddings need no badge, so they use a plain client.

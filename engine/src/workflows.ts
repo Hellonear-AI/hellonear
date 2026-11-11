@@ -25,7 +25,10 @@ const summary = (d: StoredDefinition) => {
 // Replaces any earlier version: new runs use the new graph, running ones keep theirs.
 export async function saveWorkflow(mindId: string, workflowId: string, canvas: unknown) {
   const compiled = compileCanvas(mindId, workflowId, canvas)
+  // Multi-step If ways (#153) are nested workflows: register them first, and drop a way that is no longer one.
+  for (const child of compiled.children) await mastra.addDynamicWorkflow(child as never)
   await mastra.addDynamicWorkflow(compiled.definition as never)
+  await removeWays(mindId, workflowId, new Set(compiled.children.map((c) => c.id)))
   const meta = (compiled.definition.metadata as { hellonear: Meta }).hellonear
   // An Autopilot schedule follows the new cron, or pauses if the new canvas cannot run unattended.
   const autopilot = await syncAutopilot(mindId, workflowId, meta)
@@ -45,11 +48,24 @@ export async function listWorkflows(mindId: string) {
   return definitions.filter((d) => d.id.startsWith(prefix) && d.metadata?.hellonear?.mindId === mindId).map(summary)
 }
 
+// Nested workflows of a job (If ways, #153; any If and the steps after it, #164) all have ids under
+// `<job id>--`. Drops every one the current canvas no longer uses.
+async function removeWays(mindId: string, workflowId: string, keep = new Set<string>()) {
+  const prefix = `${mastraWorkflowId(mindId, workflowId)}--`
+  const { definitions } = await (await store()).list()
+  for (const d of definitions) {
+    if (!d.id.startsWith(prefix) || keep.has(d.id)) continue
+    await (await store()).delete(d.id)
+    try { mastra.removeWorkflow(d.id) } catch { /* not registered in this process */ }
+  }
+}
+
 export async function deleteWorkflow(mindId: string, workflowId: string): Promise<boolean> {
   if (!(await loadWorkflow(mindId, workflowId))) return false
   const id = mastraWorkflowId(mindId, workflowId)
   await deleteAutopilot(mindId, workflowId)
   await (await store()).delete(id)
   mastra.removeWorkflow(id)
+  await removeWays(mindId, workflowId)
   return true
 }

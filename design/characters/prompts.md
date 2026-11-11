@@ -1,4 +1,4 @@
-# Mind character prompts (v0.3)
+# Mind character prompts (v0.3, v0.4)
 
 The prompts used to generate the v0.3 Mind images in pen.dev (Google generative AI, see `design/CLAUDE.md`). Reuse them in any image generator to keep new images on-model.
 
@@ -36,3 +36,25 @@ Use the reference-image method and change only the expression, for example:
 - `Only change the expression: happy, eyes closed in upward arcs, beak slightly open`
 - `Only change the expression: surprised, eyes wide open, round pupils, beak open`
 - `Only change the expression: sad, droopy lids, pupils looking down`
+
+## v0.4 outfits (8 Nov): `characters/minds/`
+
+Upload `design/generated-10.png` as the face reference for every image; for a hover pose also upload the finished rest pose, so the outfit stays the same. Files: `<template-id>.webp` (rest) and `<template-id>-hover.webp`.
+
+Prefix for every v0.4 image:
+
+```
+Same character as the reference image: keep the big puffy charcoal cloud head, the flat half-moon eyes with heavy lids, the small rounded lime beak, the pink oval blush, the lime sprout on top, the short stubby arms with chubby three-finger hands, the short thick legs and the matte soft-touch vinyl finish exactly the same. 3D render of a designer vinyl figure, full body, centered, soft diffuse studio light from the upper left, soft contact shadow, transparent background, PNG. No text, no letters, no numbers, no logos, no currency symbols anywhere.
+```
+
+Add this to every rest pose (without it the generator may close or hide the eyes):
+
+```
+Face exactly like the reference: large white half-moon eyes with a heavy charcoal upper lid covering the top third, a small black pupil just under the lid glancing to the side, the lime beak closed with a thin split line, pink oval blush. Deadpan look, do not close or hide the eyes.
+```
+
+| Mind | Rest pose | Hover pose |
+|---|---|---|
+| General Assistant | a sharp tailored lime green blazer with rolled-up sleeves over a crisp white shirt, a tiny charcoal bow tie, a pencil tucked behind where an ear would be, round thin gold glasses resting low on the beak, a leather satchel strap across the chest, two pens and a highlighter in the breast pocket, holding a thick open planner full of colourful sticky tabs, the other hand giving a confident thumbs up, a few sticky notes stuck on the blazer; standing straight, proud, deadpan but confident | same outfit; jumping a little off the ground, the planner thrown open with sticky notes flying out, one hand pointing up like "got it!", eyes closed in happy upward arcs, beak open in a big cheerful smile |
+| Payments Mind | a mustard yellow quilted puffer vest over a cream turtleneck, a small brown leather crossbody pouch overflowing with plain gold coins, a lime green padlock pin, a tiny green visor cap, a chunky gold chain bracelet, holding a fan of plain mint green paper notes (no prints, no numbers) and a small calculator, a few plain gold coins at the feet; arms crossed, standing firm, deadpan and in control | same outfit; tossing a shower of plain gold coins and plain mint green notes into the air, one foot lifted in a little victory dance, eyes closed in happy upward arcs, beak open in a big grin |
+| Email Manager | an orange mail carrier uniform jacket with brass buttons and lime green piping, an orange postal cap with a small lime feather, a big orange messenger bag stuffed with white envelopes, envelopes tucked under the cap and in the pockets, a small paper airplane clipped to the strap, a lime green rubber stamp on the belt, holding up one sealed white envelope with a lime wax seal; standing tall, deadpan and focused | same outfit; juggling three white envelopes while a paper airplane flies past the head, one leg kicked up mid-step, eyes closed in happy upward arcs, beak open in a big laugh, a few letters fluttering around |

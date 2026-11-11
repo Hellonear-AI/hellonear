@@ -2,7 +2,10 @@
 // through Mastra workflow schedules (spike 03), and every run shows up in the run history.
 import { z } from 'zod'
 import { mastraWorkflowId, type Canvas } from './builder.ts'
+import { USER_KEY } from './composio.ts'
 import { builderNodeId, type BuilderStep } from './graph.ts'
+import { MIND_ID_KEY } from './mail.ts'
+import { TIME_ZONE_KEY } from './tools.ts'
 import { MIND_KEY, UNATTENDED_KEY, mastra, storage } from './mastra.ts'
 import { mindSchema, type Mind } from './mind.ts'
 import { missingTools } from './skills.ts'
@@ -68,8 +71,10 @@ export async function setAutopilot(mindId: string, workflowId: string, saved: Sa
     // Explicit, so fire times never depend on where the engine runs.
     timezone: saved.schedule!.timezone ?? 'UTC',
     inputData: req.input,
-    // Never secrets here (see problems()). Unattended: agent steps get no approval tools.
-    requestContext: { [MIND_KEY]: req.mind, [UNATTENDED_KEY]: true },
+    // Never secrets here (see problems()). Unattended: agent steps get no approval tools. The user and Mind ids are not
+    // secrets: the user's id opens their Composio session (calendar and inbox steps), both reach "Email me" (#146). The
+    // schedule's time zone is the owner's: get_time and "Add to my calendar" use it.
+    requestContext: { [MIND_KEY]: req.mind, [UNATTENDED_KEY]: true, [USER_KEY]: req.userId, [MIND_ID_KEY]: mindId, [TIME_ZONE_KEY]: saved.schedule!.timezone ?? 'UTC' },
     resourceId: req.userId,
     metadata: metadata(mindId, workflowId),
     status: req.enabled ? ('active' as const) : ('paused' as const),
@@ -108,6 +113,12 @@ export async function syncAutopilot(mindId: string, workflowId: string, saved: S
   }
 }
 
+// Every s_<node> in a nested block's output, depth first (#164): the steps that ran inside it, in order.
+function innerSteps(output: unknown): [string, unknown][] {
+  if (!output || typeof output !== 'object' || Array.isArray(output)) return []
+  return Object.entries(output as Record<string, unknown>).flatMap(([k, v]) => (k.startsWith('s_') ? [[k.slice(2), v] as [string, unknown]] : k === 'continues' ? [] : innerSteps(v)))
+}
+
 type StepResult = { status?: string; output?: unknown; error?: unknown; startedAt?: number; endedAt?: number }
 type Snapshot = { status?: string; context?: Record<string, StepResult> }
 
@@ -121,10 +132,21 @@ export async function listRuns(mindId: string, workflowId: string, steps: Record
     const snap = (typeof r.snapshot === 'string' ? JSON.parse(r.snapshot) : r.snapshot) as Snapshot
     // In the order they ran, which is not the order of the steps map.
     const ran = Object.entries(steps).filter(([id]) => snap.context?.[id]?.status).sort(([a], [b]) => (snap.context![a].startedAt ?? 0) - (snap.context![b].startedAt ?? 0))
-    const nodes = ran.map(([id, step]) => {
+    type RunNode = { node: string; nodeType: BuilderStep['type']; nodeId: string; status: string; output?: unknown; error?: string; startedAt: string | null; endedAt: string | null }
+    const actions = Object.entries(steps).filter(([, x]) => !x.way).sort(([, a], [, b]) => (a.order ?? 0) - (b.order ?? 0))
+    const nodes = ran.flatMap(([id, step]): RunNode[] => {
       const res = snap.context![id]
-      const outcome = res.status === 'success' ? { status: 'ok', output: res.output } : res.status === 'failed' ? { status: 'error', error: String((res.error as { message?: string })?.message ?? res.error) } : { status: res.status }
-      return { node: step.node, nodeType: step.type, nodeId: builderNodeId(mindId, step), ...outcome, startedAt: iso(res.startedAt), endedAt: iso(res.endedAt) }
+      const when = { startedAt: iso(res.startedAt), endedAt: iso(res.endedAt) }
+      // A nested block of a #164 tree (its entry names an If, not a step): Mastra keeps only its output, where each
+      // block that carried on or ended put its steps' outputs as s_<node>. Listed in compile order, which is run order.
+      if (step.way && !actions.some(([, x]) => x.node === step.node)) {
+        if (res.status !== 'success') return [{ node: step.node, nodeType: step.type, nodeId: builderNodeId(mindId, step), status: res.status === 'failed' ? 'error' : String(res.status), ...(res.status === 'failed' ? { error: String((res.error as { message?: string })?.message ?? res.error) } : {}), ...when }]
+        const got = new Map(innerSteps(res.output))
+        return actions.filter(([, x]) => got.has(x.node)).map(([, x]) => ({ node: x.node, nodeType: x.type, nodeId: builderNodeId(mindId, x), status: 'ok', output: got.get(x.node), ...when }))
+      }
+      // A one-level chained way (#153) keeps its last step's output under that step.
+      const outcome = res.status === 'success' ? { status: 'ok', output: res.output } : res.status === 'failed' ? { status: 'error', error: String((res.error as { message?: string })?.message ?? res.error) } : { status: String(res.status) }
+      return [{ node: step.node, nodeType: step.type, nodeId: builderNodeId(mindId, step), ...outcome, ...when }]
     })
     // Scheduled fires (cron or "fire now") get run ids sched_<scheduleId>_<ts>.
     return { runId: r.runId, trigger: r.runId.startsWith('sched_') ? 'autopilot' : 'manual', status: snap.status ?? 'unknown', startedAt: new Date(r.createdAt).toISOString(), updatedAt: new Date(r.updatedAt).toISOString(), nodes }

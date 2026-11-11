@@ -4,25 +4,31 @@ import { timingSafeEqual } from 'node:crypto'
 import { RequestContext } from '@mastra/core/request-context'
 import { z } from 'zod'
 import { config } from './config.ts'
-import { createNormalizer, createWorkflowNormalizer } from './events.ts'
+import { createNormalizer, createWorkflowNormalizer, type HelloNearEvent } from './events.ts'
 import { MIND_KEY, UNATTENDED_KEY, mastra, storage } from './mastra.ts'
 import { resourceId, runRequestSchema, type Mind } from './mind.ts'
 import { SECRETS_KEY, redact, type Secret } from './secrets.ts'
+import { TIME_ZONE_KEY } from './tools.ts'
 import { WALLET_KEY, walletContext, walletTokenSchema } from './wallet.ts'
+import { MAIL_KEY, MIND_ID_KEY, mailContext, mailTokenSchema } from './mail.ts'
 import { DEMO_KEY } from './email.ts'
 import { USER_KEY } from './composio.ts'
-import { missingTools, skillCatalogSummaries, usableSkills } from './skills.ts'
+import { missingTools, skillCatalogSummaries, skillDetail, usableSkills } from './skills.ts'
 import { attestationStatus, modelInfo, verifyCompletions, warmAttestation } from './models.ts'
 import { summarize } from './verify.ts'
 import { templateSummaries, templates } from './templates.ts'
+import { isNewThread, makeTitle } from './titles.ts'
+import { attackIdSchema, attackSummaries, verdictOf, type AttackId } from './attacks.ts'
 import { BuilderError, mastraWorkflowId, mindIdSchema, workflowIdSchema } from './builder.ts'
-import { mindSchema } from './mind.ts'
+import { mindSchema, timeZoneSchema } from './mind.ts'
 import { secretSchema } from './secrets.ts'
 import { deleteWorkflow, listWorkflows, loadWorkflow, saveWorkflow } from './workflows.ts'
+import { forgetThread } from './threads.ts'
 import { autopilotSchema, deleteAutopilot, getAutopilot, listRuns, setAutopilot } from './autopilot.ts'
 
-const chatSchema = runRequestSchema.extend({ message: z.string().min(1) })
-const resumeSchema = runRequestSchema.extend({ toolCallId: z.string().min(1), reason: z.string().optional() })
+// `attackId` (#16): an Attack Playground run; the engine ends it with an `attack.verdict` event.
+const chatSchema = runRequestSchema.extend({ message: z.string().min(1), attackId: attackIdSchema.optional() })
+const resumeSchema = runRequestSchema.extend({ toolCallId: z.string().min(1), reason: z.string().optional(), attackId: attackIdSchema.optional() })
 // A workflow run has no chat thread; the Mind config and secrets come with every run, as in chat.
 const workflowRunSchema = z.object({
   userId: z.string().min(1),
@@ -30,8 +36,12 @@ const workflowRunSchema = z.object({
   secrets: z.array(secretSchema).default([]),
   input: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).default({}),
   walletToken: walletTokenSchema.optional(),
+  mailToken: mailTokenSchema.optional(),
   demo: z.boolean().optional(),
+  timeZone: timeZoneSchema.optional(),
 })
+// Deleting a chat (#207): the user id, so only that user's memory of the Mind can be touched.
+const forgetSchema = z.object({ userId: z.string().min(1) })
 
 // Next event seq per run, so events after an approval continue the run's sequence.
 // In-memory for now: a restarted engine restarts numbering for resumed runs.
@@ -68,33 +78,57 @@ function sendJson(res: ServerResponse, status: number, body: unknown) {
   res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body))
 }
 
-function contextFor(mind: Mind, secrets: Secret[], opts: { unattended?: boolean; walletToken?: string; demo?: boolean; userId?: string } = {}) {
+function contextFor(mind: Mind, secrets: Secret[], opts: { unattended?: boolean; walletToken?: string; mailToken?: string; demo?: boolean; userId?: string; mindId?: string; timeZone?: string } = {}) {
   const requestContext = new RequestContext()
   requestContext.set(MIND_KEY, mind)
   // The run's user: Composio sessions (Gmail) are opened for this user only (#13).
   if (opts.userId) requestContext.set(USER_KEY, opts.userId)
+  // The run's Mind, for Autopilot's "Email me" (#146). Not a secret.
+  if (opts.mindId) requestContext.set(MIND_ID_KEY, opts.mindId)
   if (opts.unattended) requestContext.set(UNATTENDED_KEY, true)
   // Not registered as a tracing requestContextKey, so tracing never records it.
   requestContext.set(SECRETS_KEY, new Map(secrets.map((s) => [s.name, s])))
   requestContext.set(WALLET_KEY, walletContext(opts.walletToken))
+  requestContext.set(MAIL_KEY, mailContext(opts.mailToken))
   if (opts.demo) requestContext.set(DEMO_KEY, true)
+  // The owner's time zone (#112): get_time gives the local date, time and weekday.
+  if (opts.timeZone) requestContext.set(TIME_ZONE_KEY, opts.timeZone)
   return requestContext
 }
 
-// Values no event may carry: the owner's secrets and the run's wallet token.
-const hiddenValues = (secrets: Secret[], walletToken?: string) => [...secrets.map((s) => s.value), ...(walletToken ? [walletToken] : [])]
+// Values no event may carry: the owner's secrets and the run's wallet and mail tokens.
+const hiddenValues = (secrets: Secret[], ...tokens: (string | undefined)[]) => [...secrets.map((s) => s.value), ...tokens.filter((t): t is string => !!t)]
 
-async function pipeRun(res: ServerResponse, stream: { fullStream: AsyncIterable<any> }, opts: { mindId: string; threadId: string; model: string; skills: string[]; secretValues: string[]; runId?: string }) {
+async function pipeRun(res: ServerResponse, stream: { fullStream: AsyncIterable<any> }, opts: { mindId: string; threadId: string; model: string; skills: string[]; secretValues: string[]; runId?: string; title?: Promise<string | null>; attack?: { id: AttackId; skills: string[] } }) {
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' })
   const normalize = createNormalizer({ ...opts, startSeq: opts.runId ? nextSeq.get(opts.runId) : 0 })
   let runId = opts.runId
+  const seen: HelloNearEvent[] = []
   try {
     for await (const chunk of stream.fullStream) {
       for (const event of await normalize(chunk)) {
+        seen.push(event)
         runId = event.runId
         nextSeq.set(runId, event.seq + 1)
         res.write(`data: ${JSON.stringify(event)}\n\n`)
       }
+    }
+    // Stopped (#121): the client is gone, so skip the title, the verdict and the verification.
+    if (res.destroyed) return
+    // A thread's first run gets a short title (#86), made while the run streamed; no title is fine.
+    if (runId && opts.title) {
+      const title = await opts.title
+      if (title) {
+        const event = normalize.event(runId, 'thread.titled', { threadId: opts.threadId, title })
+        nextSeq.set(runId, event.seq + 1)
+        res.write(`data: ${JSON.stringify(event)}\n\n`)
+      }
+    }
+    // Attack Playground (#16): which layer stopped the attack in this run.
+    if (runId && opts.attack) {
+      const event = normalize.event(runId, 'attack.verdict', verdictOf(opts.attack.id, opts.attack.skills, seen as any))
+      nextSeq.set(runId, event.seq + 1)
+      res.write(`data: ${JSON.stringify(event)}\n\n`)
     }
     // The stream is fully read, so the SDK holds every completion's bytes: verify them (#19).
     if (runId) {
@@ -113,9 +147,9 @@ async function pipeRun(res: ServerResponse, stream: { fullStream: AsyncIterable<
 }
 
 // Streams a builder workflow run (#20) as HelloNear events, ending with run.verified like chat.
-async function pipeWorkflow(res: ServerResponse, run: { stream: (args: any) => { fullStream: AsyncIterable<any> } }, opts: { mindId: string; workflowId: string; model: string; skills: string[]; secrets: Secret[]; walletToken?: string; demo?: boolean; userId: string; mind: Mind; input: Record<string, unknown>; steps: Parameters<typeof createWorkflowNormalizer>[0]['steps'] }) {
+async function pipeWorkflow(res: ServerResponse, run: { stream: (args: any) => { fullStream: AsyncIterable<any> } }, opts: { mindId: string; workflowId: string; model: string; skills: string[]; secrets: Secret[]; walletToken?: string; mailToken?: string; demo?: boolean; timeZone?: string; userId: string; mind: Mind; input: Record<string, unknown>; steps: Parameters<typeof createWorkflowNormalizer>[0]['steps'] }) {
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' })
-  const secretValues = hiddenValues(opts.secrets, opts.walletToken)
+  const secretValues = hiddenValues(opts.secrets, opts.walletToken, opts.mailToken)
   const normalize = createWorkflowNormalizer({ ...opts, secretValues })
   let runId: string | undefined
   let seq = 0
@@ -125,7 +159,7 @@ async function pipeWorkflow(res: ServerResponse, run: { stream: (args: any) => {
     res.write(`data: ${JSON.stringify(event)}\n\n`)
   }
   try {
-    const out = run.stream({ inputData: opts.input, requestContext: contextFor(opts.mind, opts.secrets, { unattended: true, walletToken: opts.walletToken, demo: opts.demo, userId: opts.userId }) })
+    const out = run.stream({ inputData: opts.input, requestContext: contextFor(opts.mind, opts.secrets, { unattended: true, walletToken: opts.walletToken, mailToken: opts.mailToken, demo: opts.demo, userId: opts.userId, mindId: opts.mindId, timeZone: opts.timeZone }) })
     for await (const chunk of out.fullStream) for (const event of await normalize(chunk)) write(event)
     if (runId) {
       const info = await modelInfo(opts.model)
@@ -141,9 +175,18 @@ async function pipeWorkflow(res: ServerResponse, run: { stream: (args: any) => {
 
 const loadedSkills = (mind: Mind) => usableSkills(mind.skills.map((s) => s.skillId)).map((s) => s.name)
 
-const agentOptions = (mind: Mind, secrets: Secret[], userId: string, mindId: string, threadId: string, walletToken?: string, demo?: boolean) => ({
-  requestContext: contextFor(mind, secrets, { walletToken, demo, userId }),
-  memory: { resource: resourceId(userId, mindId), thread: threadId },
+// Stop (#121): when the backend drops the request (the owner pressed Stop, or the browser left and the backend
+// cancelled), abort the agent so no more model calls are made. A tool already running finishes on its own terms:
+// the wallet and mail tools call the backend without this signal, so a payment is never left half-done.
+function abortOnClose(res: ServerResponse): AbortSignal {
+  const controller = new AbortController()
+  res.on('close', () => { if (!res.writableEnded) controller.abort(new Error('client closed the stream')) })
+  return controller.signal
+}
+
+const agentOptions = (mind: Mind, secrets: Secret[], userId: string, mindId: string, threadId: string, tokens: { walletToken?: string; mailToken?: string; timeZone?: string }, demo?: boolean) => ({
+  requestContext: contextFor(mind, secrets, { ...tokens, demo, userId, mindId }),
+  memory: { resource: resourceId(userId, mindId, mind.personaVersion), thread: threadId },
   maxSteps: 8,
   // No automatic retries: each completion must map to one verifiable request (NEAR AI SDK guide).
   modelSettings: { maxOutputTokens: config.maxOutputTokens, maxRetries: 0, timeout: { totalMs: config.runTimeoutMs } },
@@ -157,6 +200,13 @@ export const server = createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/v1/templates') return sendJson(res, 200, { templates: templateSummaries() })
     if (req.method === 'GET' && url.pathname === '/v1/skills') return sendJson(res, 200, { skills: skillCatalogSummaries() })
+    // Skill ids are [a-z0-9-] (skills.ts), so anything else falls through to 404 without decoding.
+    const skillPath = url.pathname.match(/^\/v1\/skills\/([a-z0-9-]+)$/)
+    if (req.method === 'GET' && skillPath) {
+      const skill = skillDetail(skillPath[1])
+      return skill ? sendJson(res, 200, { skill }) : sendJson(res, 404, { error: 'not_found' })
+    }
+    if (req.method === 'GET' && url.pathname === '/v1/attacks') return sendJson(res, 200, { attacks: attackSummaries() })
 
     const agent = mastra.getAgent('mind')
 
@@ -164,23 +214,39 @@ export const server = createServer(async (req, res) => {
     if (req.method === 'POST' && chat) {
       const parsed = chatSchema.safeParse(await readJson(req))
       if (!parsed.success) return sendJson(res, 400, { error: 'invalid_body', issues: parsed.error.issues })
-      const { userId, threadId, message, mind, secrets, walletToken, demo } = parsed.data
+      const { userId, threadId, message, mind, secrets, walletToken, mailToken, demo, attackId, timeZone } = parsed.data
       const mindId = decodeURIComponent(chat[1])
-      const stream = await agent.stream(message, agentOptions(mind, secrets, userId, mindId, threadId, walletToken, demo))
-      return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secretValues: hiddenValues(secrets, walletToken) })
+      const attack = attackId ? { id: attackId, skills: mind.skills.map((s) => s.skillId) } : undefined
+      // Started before the run so it is usually ready when the run ends; it never throws.
+      const title = (await isNewThread(threadId)) ? makeTitle(message) : undefined
+      const stream = await agent.stream(message, { ...agentOptions(mind, secrets, userId, mindId, threadId, { walletToken, mailToken, timeZone }, demo), abortSignal: abortOnClose(res) })
+      return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secretValues: hiddenValues(secrets, walletToken, mailToken), title, attack })
     }
 
     const resume = url.pathname.match(/^\/v1\/runs\/([^/]+)\/(approve|decline)$/)
     if (req.method === 'POST' && resume) {
       const parsed = resumeSchema.safeParse(await readJson(req))
       if (!parsed.success) return sendJson(res, 400, { error: 'invalid_body', issues: parsed.error.issues })
-      const { userId, threadId, mind, secrets, walletToken, demo, toolCallId, reason } = parsed.data
+      const { userId, threadId, mind, secrets, walletToken, mailToken, demo, toolCallId, reason, attackId, timeZone } = parsed.data
       const runId = decodeURIComponent(resume[1])
       const mindId = String(url.searchParams.get('mindId') ?? '')
       if (!mindId) return sendJson(res, 400, { error: 'mindId query parameter is required' })
-      const options = { ...agentOptions(mind, secrets, userId, mindId, threadId, walletToken, demo), runId, toolCallId }
+      const options = { ...agentOptions(mind, secrets, userId, mindId, threadId, { walletToken, mailToken, timeZone }, demo), runId, toolCallId, abortSignal: abortOnClose(res) }
       const stream = resume[2] === 'approve' ? await agent.approveToolCall(options) : await agent.declineToolCall({ ...options, reason })
-      return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secretValues: hiddenValues(secrets, walletToken), runId })
+      return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secretValues: hiddenValues(secrets, walletToken, mailToken), runId, attack: attackId ? { id: attackId, skills: mind.skills.map((s) => s.skillId) } : undefined })
+    }
+
+    // The owner deleted a chat (#207): its Mastra thread, messages and recall embeddings go now; working memory stays.
+    // 204 also when Mastra has no such thread, so the backend can ask again until it gets a 204.
+    const thread = url.pathname.match(/^\/v1\/minds\/([^/]+)\/threads\/([^/]+)$/)
+    if (thread && req.method === 'DELETE') {
+      const mindId = decodeURIComponent(thread[1])
+      const threadId = decodeURIComponent(thread[2])
+      if (!mindIdSchema.safeParse(mindId).success || !threadId) return sendJson(res, 400, { error: 'invalid_id' })
+      const parsed = forgetSchema.safeParse(await readJson(req))
+      if (!parsed.success) return sendJson(res, 400, { error: 'invalid_body', issues: parsed.error.issues })
+      const out = await forgetThread(parsed.data.userId, mindId, threadId)
+      return out === 'not_owner' ? sendJson(res, 404, { error: 'thread_not_found' }) : res.writeHead(204).end()
     }
 
     const wfList = url.pathname.match(/^\/v1\/minds\/([^/]+)\/workflows$/)
@@ -208,7 +274,7 @@ export const server = createServer(async (req, res) => {
       if (wf?.[3] === '/runs' && req.method === 'POST') {
         const parsed = workflowRunSchema.safeParse(await readJson(req))
         if (!parsed.success) return sendJson(res, 400, { error: 'invalid_body', issues: parsed.error.issues })
-        const { userId, mind, secrets, walletToken, demo, input } = parsed.data
+        const { userId, mind, secrets, walletToken, mailToken, demo, input, timeZone } = parsed.data
         const saved = await loadWorkflow(mindId, workflowId)
         if (!saved) return sendJson(res, 404, { error: 'not_found' })
         // A workflow may only use tools its Mind has equipped right now (skills can be unequipped after saving).
@@ -223,7 +289,7 @@ export const server = createServer(async (req, res) => {
           workflow = mastra.getWorkflow(mastraWorkflowId(mindId, workflowId))
         }
         const run = await workflow.createRun()
-        return pipeWorkflow(res, run as never, { mindId, workflowId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secrets, walletToken, demo, userId, mind, input, steps: saved.steps })
+        return pipeWorkflow(res, run as never, { mindId, workflowId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secrets, walletToken, mailToken, demo, timeZone, userId, mind, input, steps: saved.steps })
       }
       if (wf?.[3] === '/runs' && req.method === 'GET') {
         const saved = await loadWorkflow(mindId, workflowId)

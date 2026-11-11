@@ -8,7 +8,7 @@ test('regular tools map to tool nodes', () => {
 })
 
 test('wallet tools map to the Mind\'s wallet node', () => {
-  for (const tool of ['send_payment', 'get_balance', 'list_payments']) assert.equal(nodeIdFor('m1', tool, {}), 'wallet:m1')
+  for (const tool of ['send_payment', 'get_balance', 'list_payments', 'buy_data', 'get_quotes', 'sell_offer', 'buy_from_mind']) assert.equal(nodeIdFor('m1', tool, {}), 'wallet:m1')
 })
 
 test('Gmail tools map to the gmail App node', () => {
@@ -23,4 +23,10 @@ test('skill activations and reads map to skill nodes', () => {
 test('skill tools without a name fall back to a tool node', () => {
   assert.equal(nodeIdFor('m1', 'skill', {}), 'tool:skill')
   assert.equal(nodeIdFor('m1', 'skill_search', { query: 'pay' }), 'tool:skill_search')
+})
+
+test('a skill named by its internal path lights the same skill node (11 Nov)', () => {
+  assert.equal(nodeIdFor('m1', 'skill', { name: 'inline/best-price/SKILL.md' }), 'skill:best-price')
+  assert.equal(nodeIdFor('m1', 'skill', { name: 'best-price' }), 'skill:best-price')
+  assert.equal(nodeIdFor('m1', 'skill_read', { skillName: 'inline/payments/SKILL.md' }), 'skill:payments')
 })

@@ -3,6 +3,11 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { z } from 'zod'
 import { config } from './config.ts'
 
+// Status for a failing service we depend on (OutLayer, Composio, the engine, the NEAR RPC). Not 502: Cloudflare
+// replaces a 502 or 504 body from the origin with its own HTML page (passing it through is Enterprise-only), so the FE
+// would lose `{ error, ...details }`.
+export const UPSTREAM_ERROR = 503
+
 export class HttpError extends Error {
   constructor(readonly status: number, message: string, readonly extra: Record<string, unknown> = {}) { super(message) }
 }
@@ -31,6 +36,19 @@ export async function readBody<S extends z.ZodType>(req: IncomingMessage, schema
   return parsed.data
 }
 
+// Why a fetch to a service failed, without the URL or headers: `timeout`, or a network code such as `ECONNREFUSED`.
+export function fetchFailure(e: unknown): string {
+  const err = e as { name?: string; cause?: { code?: string } }
+  return err?.name === 'TimeoutError' ? 'timeout' : err?.cause?.code ?? err?.name ?? 'unknown'
+}
+
+// One journal line per 5xx answer, so a failure behind the tunnel can be traced later: route without the query string,
+// error code and details (statuses from OutLayer/Composio, never keys or bodies).
+export function logServerError(req: IncomingMessage, status: number, error: string, details: Record<string, unknown> = {}) {
+  const path = (req.url ?? '/').split('?')[0]
+  console.error('http error', JSON.stringify({ status, method: req.method, path, error, ...details }))
+}
+
 export function sendJson(res: ServerResponse, status: number, body: unknown) {
   res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body))
 }
@@ -49,10 +67,11 @@ export function setCookie(res: ServerResponse, name: string, value: string, maxA
   res.setHeader('set-cookie', attrs.join('; '))
 }
 
-// CORS for the web app only, with credentials (the session cookie).
+// CORS for the web app origins only (FE_ORIGIN), with credentials (the session cookie).
 export function cors(req: IncomingMessage, res: ServerResponse) {
-  if (req.headers.origin !== config.feOrigin) return
-  res.setHeader('access-control-allow-origin', config.feOrigin)
+  const origin = req.headers.origin
+  if (origin === undefined || !config.feOrigins.includes(origin)) return
+  res.setHeader('access-control-allow-origin', origin)
   res.setHeader('access-control-allow-credentials', 'true')
   res.setHeader('access-control-allow-methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
   res.setHeader('access-control-allow-headers', 'content-type')
@@ -64,7 +83,7 @@ export function cors(req: IncomingMessage, res: ServerResponse) {
 export function assertSameOrigin(req: IncomingMessage) {
   if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return
   const origin = req.headers.origin
-  if (origin !== undefined && origin !== config.feOrigin) throw new HttpError(403, 'bad_origin')
+  if (origin !== undefined && !config.feOrigins.includes(origin)) throw new HttpError(403, 'bad_origin')
 }
 
 // Loopback only: 127.0.0.0/8, ::1 and their IPv4-mapped forms. Used for the engine-only internal routes.

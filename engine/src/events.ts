@@ -1,10 +1,12 @@
 // Normalizes Mastra stream chunks into HelloNear events (docs/api-contract.md §3).
 // The UI and Mind Graph depend on these, never on raw Mastra chunks.
 import { builderNodeId, nodeIdFor, type BuilderStep } from './graph.ts'
+import { plainDashes } from './mind.ts'
 import { priceOf } from './models.ts'
 import { redact } from './secrets.ts'
 import type { Verification } from './verify.ts'
 import { HARD_STOPS } from './wallet.ts'
+import { isMailRefusal } from './mail.ts'
 
 export type HelloNearEvent = { v: 1; type: string; runId: string; mindId: string; seq: number; ts: string } & Record<string, unknown>
 type Usage = { inputTokens?: number; outputTokens?: number; reasoningTokens?: number; totalTokens?: number }
@@ -33,14 +35,20 @@ export function createNormalizer(opts: { mindId: string; threadId: string; model
         return [emit(chunk.runId, 'step.started', { step: ++step })]
       case 'reasoning-delta':
         return p.text ? [emit(chunk.runId, 'reasoning.delta', { text: p.text })] : []
-      case 'text-delta':
-        text += p.text ?? ''
-        return p.text ? [emit(chunk.runId, 'text.delta', { text: p.text })] : []
+      case 'text-delta': {
+        // House style (Axel, 9 Nov): no em or en dashes in what the owner reads. The prompt asks for it (#109), but
+        // a model still copies them from real calendars and inboxes (#124), so the reply text is normalised here.
+        // Display only: the TEE verification covers the model's own completion bytes.
+        const t = plainDashes(p.text ?? '')
+        text += t
+        return t ? [emit(chunk.runId, 'text.delta', { text: t })] : []
+      }
       case 'tool-call':
         return [emit(chunk.runId, 'tool.called', { toolCallId: p.toolCallId, tool, nodeId: nodeIdFor(opts.mindId, tool!, p.args), args: p.args })]
       case 'tool-result':
-        // The wallet refused before signing (#42): a hard stop, red in the Mind Graph, never with a tx link.
-        if (HARD_STOPS.has(p.result?.status)) {
+        // The wallet refused before signing (#42), or a send was refused (#96): a hard stop, red in the Mind Graph,
+        // never with a tx link or a message id.
+        if (HARD_STOPS.has(p.result?.status) || isMailRefusal(tool, p.result)) {
           return [emit(chunk.runId, 'tool.error', { toolCallId: p.toolCallId, tool, nodeId: nodeIdFor(opts.mindId, tool!, p.args), status: p.result.status, error: String(p.result.message ?? p.result.status), result: p.result })]
         }
         return [emit(chunk.runId, 'tool.result', { toolCallId: p.toolCallId, tool, nodeId: nodeIdFor(opts.mindId, tool!, p.args), result: p.result, status: 'ok' })]
@@ -81,7 +89,9 @@ export function createWorkflowNormalizer(opts: { mindId: string; workflowId: str
 
   const normalize = async function normalize(chunk: { type: string; runId: string; payload?: any }): Promise<HelloNearEvent[]> {
     const p = chunk.payload ?? {}
-    const step = typeof p.id === 'string' ? opts.steps[p.id] : undefined
+    // A multi-step If way's own entry (#153) only frames its steps, which stream as `<way>.<node>`.
+    const found = typeof p.id === 'string' ? opts.steps[p.id] : undefined
+    const step = found?.way ? undefined : found
     switch (chunk.type) {
       case 'workflow-start':
         return [inner.event(chunk.runId, 'workflow.started', { workflowId: opts.workflowId, nodeId: `workflow:${opts.workflowId}`, model: opts.model, skills: opts.skills })]

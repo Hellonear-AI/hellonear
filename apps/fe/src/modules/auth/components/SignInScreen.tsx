@@ -1,0 +1,257 @@
+"use client"
+
+import Image from "next/image"
+import { useRouter } from "next/navigation"
+import { ArrowRightIcon, CircleXIcon, FlaskConicalIcon, GlobeIcon, KeyRoundIcon, WalletMinimalIcon } from "lucide-react"
+import { useEffect, useState, type ReactNode } from "react"
+import { cn } from "cn"
+import { ErrorRetry } from "@/components/elements/ErrorRetry"
+import { Spinner } from "@/components/elements/Spinner"
+import { MeteorLogo } from "@/components/elements/AppLogos"
+import { Logo } from "@/components/elements/Logo"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { mindHref } from "@/components/layout/nav"
+import { demoError, walletError } from "@/modules/auth/data/errors"
+import { lastAccount, useDemoSignIn, useSession, useSignIn } from "@/modules/auth/hooks/useSession"
+import { useMinds } from "@/modules/minds/hooks/useMinds"
+
+const METEOR = "meteor-wallet"
+
+/**
+ * Sign in (design "3 · Start", L1 and T1.1). Meteor is the main choice and opens straight away;
+ * "Other NEAR wallets" opens the NEAR Connect list; "Try without a wallet" sits under them after a
+ * divider. Once signed in, it opens the newest Mind, or Choose a Mind when there is none.
+ * A try-out with no Mind yet stays here (Ancung, 9 Nov): Back from Choose a Mind returns to this
+ * page, nothing is lost, and "Try without a wallet" continues the same try-out instead of
+ * making a new one (the backend allows 10 new try-outs per network per hour).
+ */
+export function SignInScreen() {
+  const router = useRouter()
+  const session = useSession()
+  const minds = useMinds()
+  const signIn = useSignIn()
+  const demo = useDemoSignIn()
+  const [returning, setReturning] = useState<string | null>(null)
+  const [aboutOpen, setAboutOpen] = useState(false)
+  const [picked, setPicked] = useState<"meteor" | "other" | null>(null)
+
+  // The last account is read after mount, so the server and first client render match.
+  useEffect(() => {
+    const account = lastAccount()
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of localStorage
+    if (account) setReturning(account)
+  }, [])
+
+  const user = session.data
+  // A try-out that hasn't made a Mind has nothing to lose here, so it may stay on this page.
+  const emptyTryOut = Boolean(user?.demo && minds.data?.length === 0)
+  useEffect(() => {
+    if (!user || !minds.data || emptyTryOut) return
+    const newest = minds.data[0]
+    router.replace(newest ? mindHref(newest.mindId) : "/minds/new")
+  }, [user, minds.data, emptyTryOut, router])
+
+  // push, not replace: Back from Choose a Mind comes back here.
+  function tryOut() {
+    signIn.reset()
+    if (user?.demo) router.push("/minds/new")
+    else demo.mutate(undefined, { onSuccess: () => router.push("/minds/new") })
+  }
+
+  const busy = signIn.isPending || demo.isPending
+  const error = signIn.error ? walletError(signIn.error) : demo.error ? demoError(demo.error) : null
+
+  function withWallet(which: "meteor" | "other") {
+    setPicked(which)
+    demo.reset()
+    signIn.mutate(which === "meteor" ? { walletId: METEOR } : {})
+  }
+
+  if (user && minds.isError) {
+    return <ErrorRetry fullPage message="Your Minds could not be loaded. Check your connection and try again." onRetry={() => void minds.refetch()} />
+  }
+  if (session.isPending || (user && !emptyTryOut)) {
+    return <div aria-busy="true" className="min-h-dvh bg-background" />
+  }
+
+  return (
+    <div className="flex min-h-dvh bg-background lg:p-4">
+      <aside className="relative hidden w-[42%] max-w-[600px] shrink-0 overflow-hidden rounded-xl bg-muted lg:block">
+        <Image src="/sign-in/forest.jpg" alt="" fill priority sizes="600px" className="object-cover" />
+        <div className="absolute bottom-4 left-4 flex max-w-[340px] flex-col gap-1 rounded-lg bg-white/90 px-4 py-3 text-[#161614]">
+          <p className="text-[15px] font-semibold">Your limits stay yours.</p>
+          <p className="text-[13px] text-[#5c5a54]">Even if someone tricks your Mind, it can&apos;t spend more than you allow.</p>
+        </div>
+      </aside>
+
+      <main className="flex min-w-0 flex-1 flex-col px-4 py-5 md:px-10 lg:px-16">
+        <div className="flex items-center justify-between gap-3">
+          <Logo height={28} />
+          <button
+            type="button"
+            onClick={() => setAboutOpen(true)}
+            className="rounded-sm text-[13px] font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus"
+          >
+            What is a Mind?
+          </button>
+        </div>
+
+        <div className="mx-auto flex w-full max-w-[440px] flex-1 flex-col justify-center gap-7 py-10">
+          <div className="flex flex-col gap-3">
+            <h1 className="text-[40px] leading-[1.05] font-medium tracking-[-1.2px] text-foreground md:text-[52px]">
+              {returning ? "Welcome back." : "Meet your Mind."}
+            </h1>
+            <p className="text-[15px] text-muted-foreground md:text-base">
+              {returning
+                ? "Your Mind is waiting. Sign in with the same wallet to continue."
+                : "An AI helper with its own wallet. You set the limits, and it can't go past them."}
+            </p>
+          </div>
+
+          {error && (
+            <div role="alert" className="flex items-start gap-2.5 rounded-md bg-danger-soft px-3.5 py-3 text-sm text-foreground">
+              <CircleXIcon className="mt-0.5 size-4 shrink-0 text-danger" />
+              {error}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2.5">
+            <Option
+              onClick={() => withWallet("meteor")}
+              disabled={busy}
+              strong
+              icon={signIn.isPending && picked === "meteor" ? <Spinner /> : <MeteorLogo className="size-6" />}
+              logoTile
+              title={signIn.isPending && picked === "meteor" ? "Waiting for Meteor" : returning ? "Continue with Meteor" : "Meteor Wallet"}
+              note={
+                signIn.isPending && picked === "meteor"
+                  ? "Approve the sign-in in the Meteor window."
+                  : returning ?? "Recommended. We test every feature with it."
+              }
+              noteMono={Boolean(returning) && !(signIn.isPending && picked === "meteor")}
+            />
+            <Option
+              onClick={() => withWallet("other")}
+              disabled={busy}
+              icon={signIn.isPending && picked === "other" ? <Spinner /> : <WalletMinimalIcon />}
+              title={signIn.isPending && picked === "other" ? "Waiting for your wallet" : "Other NEAR wallets"}
+            />
+
+            <div className="flex items-center gap-3 py-1 text-xs text-tertiary-foreground" aria-hidden>
+              <span className="h-px flex-1 bg-border" />
+              or
+              <span className="h-px flex-1 bg-border" />
+            </div>
+
+            <Option
+              onClick={tryOut}
+              disabled={busy}
+              icon={demo.isPending ? <Spinner /> : <FlaskConicalIcon />}
+              title={emptyTryOut ? "Continue your try-out" : "Try without a wallet"}
+              note={emptyTryOut ? "Pick a Mind and start chatting." : "No sign-up. 20 messages and a shared test wallet. Deleted after 7 days."}
+            />
+          </div>
+
+          <ul className="flex flex-col gap-2 text-[13px] text-muted-foreground">
+            <li className="flex items-center gap-2">
+              <KeyRoundIcon className="size-3.5 shrink-0" />
+              We never see your keys. Signing in is free.
+            </li>
+            <li className="flex items-center gap-2">
+              <GlobeIcon className="size-3.5 shrink-0" />
+              Running on NEAR testnet. No real money.
+            </li>
+          </ul>
+        </div>
+
+        <p className="text-xs text-tertiary-foreground">Nothing here is financial advice.</p>
+      </main>
+
+      <AboutMind open={aboutOpen} onOpenChange={setAboutOpen} />
+    </div>
+  )
+}
+
+function Option({
+  onClick,
+  disabled,
+  icon,
+  title,
+  note,
+  noteMono,
+  strong,
+  logoTile,
+}: {
+  onClick: () => void
+  disabled: boolean
+  icon: ReactNode
+  title: string
+  note?: string
+  /** The remembered account is an address, the one place mono is allowed. */
+  noteMono?: boolean
+  /** The main choice gets the darker edge (Meteor). */
+  strong?: boolean
+  /** A brand logo sits on a light tile, the way it's drawn, instead of the dark icon tile. */
+  logoTile?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "group flex w-full items-center gap-3.5 rounded-lg border bg-surface px-4 py-3.5 text-left outline-none transition-[border-color,background-color,transform] duration-150 ease-out hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.99] disabled:opacity-60 motion-reduce:active:scale-100",
+        strong ? "border-foreground" : "border-border"
+      )}
+    >
+      <span
+        className={cn(
+          "flex size-9 shrink-0 items-center justify-center rounded-md",
+          logoTile ? "bg-white text-[#161614] ring-1 ring-border" : "bg-primary text-primary-foreground [&>svg]:size-[18px]"
+        )}
+      >
+        {icon}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="text-[15px] font-semibold text-foreground">{title}</span>
+        {note && <span className={cn("truncate text-[13px] text-muted-foreground", noteMono && "font-mono")}>{note}</span>}
+      </span>
+      <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground transition-transform duration-150 ease-out group-hover:translate-x-0.5 motion-reduce:transition-none" />
+    </button>
+  )
+}
+
+/** L1.5: three plain points, no sign-in needed to read them. */
+function AboutMind({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const points = [
+    { title: "It talks with you", text: "Ask in plain words. It remembers what matters to you and shows every step it takes." },
+    { title: "It has its own wallet", text: "A small NEAR wallet, separate from yours. You decide how much goes in." },
+    {
+      title: "It can't go past your limits",
+      text: "You set what it may spend and who it may pay. Those rules are saved where the Mind can't change them, so even a tricked Mind can't overspend.",
+    },
+  ]
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>What is a Mind?</DialogTitle>
+          <DialogDescription>An AI helper that can do things for you, including pay.</DialogDescription>
+        </DialogHeader>
+        <ul className="flex flex-col gap-3">
+          {points.map((p) => (
+            <li key={p.title} className="flex flex-col gap-0.5">
+              <span className="text-sm font-semibold text-foreground">{p.title}</span>
+              <span className="text-[13px] text-muted-foreground">{p.text}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="text-xs text-muted-foreground">HelloNear runs on NEAR testnet, so nothing here is real money.</p>
+        <DialogFooter>
+          <Button onClick={() => onOpenChange(false)}>Got it</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}

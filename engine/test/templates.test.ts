@@ -25,3 +25,10 @@ test('summaries expose skill status and connections for the UI', () => {
   assert.equal(pay.status, 'available')
   assert.equal(pay.note, undefined)
 })
+
+test('each template starts with the skills its track shows (#194)', () => {
+  const skills = (id: string) => templates.find((t) => t.templateId === id)!.skills
+  assert.deepEqual(skills('payments-mind'), ['payments', 'daily-planner', 'recipient-guard', 'split-bill', 'treasury-report', 'spending-audit', 'best-price', 'freeze-advisor'])
+  assert.deepEqual(skills('email-manager'), ['email-triage', 'daily-planner', 'phishing-detector', 'follow-ups', 'subscriptions', 'confidential-reader', 'calendar-conflicts'])
+  assert.deepEqual(skills('general-assistant'), ['daily-planner', 'calendar-conflicts', 'health-journal', 'redact-before-send'])
+})

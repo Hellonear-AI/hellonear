@@ -1,15 +1,18 @@
 import Image from "next/image"
 import { cn } from "cn"
-import { TEMPLATE_IMAGE, type MindTemplate } from "@/modules/minds/data/minds"
+import { templateAvatar } from "@/modules/minds/data/minds"
 
 // Avatar/Mind (40) and Avatar/Mind large (64) from the design: the template's character in a circle.
 export function MindAvatar({
   templateId,
   size = 40,
+  shown,
   className,
 }: {
-  templateId: MindTemplate
+  templateId: string
   size?: 24 | 32 | 40 | 64
+  /** The size it really shows at when a class makes it bigger, so the image is sharp there too. */
+  shown?: number
   className?: string
 }) {
   return (
@@ -17,7 +20,7 @@ export function MindAvatar({
       className={cn("relative block shrink-0 overflow-hidden rounded-full bg-muted", className)}
       style={{ width: size, height: size }}
     >
-      <Image src={TEMPLATE_IMAGE[templateId]} alt="" fill sizes={`${size}px`} className="object-cover" />
+      <Image src={templateAvatar(templateId)} alt="" fill sizes={`${shown ?? size}px`} quality={90} className="object-cover" />
     </span>
   )
 }

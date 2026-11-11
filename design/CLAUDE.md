@@ -95,18 +95,19 @@ Based on Emil Kowalski's rules (`emil-design-eng` skill): the more often people 
 | Attack blocked (X1) | Rare, the demo moment | Wallet line turns red, the lock clicks once, the proof items stagger in (about 500 ms total) |
 | Builder drag | While building | Block follows the pointer on a spring, + spots fade in (120 ms), the block settles with a small bounce |
 
-## Mind characters (#13, v0.3 draft)
+## Mind characters (#13, v0.4)
 
 Frame `Mind Characters v0.3` in `hellonear.pen` (earlier tries were removed). One shared base character for every Mind; the outfit color and one prop change with its job.
 
 - Same for all: big puffy cloud-shaped head on a small body with short limbs, matte vinyl finish, **charcoal** base color (cream was the alternative), flat half-moon eyes with a heavy lid and pupils glancing sideways (deadpan but cute), a small rounded **lime beak**, pink blush, and a lime sprout on top (the HelloNear mark).
-- Per Mind: General Assistant = lime hoodie, waving; Payments Mind = mustard quilted vest, brown pouch, lime padlock pin, arms crossed; Email Manager = orange mail cap and messenger bag, holding an envelope.
+- Per Mind (v0.4, 8 Nov, richer outfits): General Assistant = lime blazer, white shirt, bow tie, round gold glasses, satchel, planner with sticky tabs, thumbs up; Payments Mind = lime visor cap, mustard quilted puffer vest over a cream turtleneck, gold bracelet, coin pouch, a fan of plain notes and a calculator, arms crossed; Email Manager = orange mail carrier uniform and cap with a lime feather, messenger bag full of envelopes, rubber stamp, holding up a sealed envelope. Props carry no text, numbers, logos or currency symbols.
+- Each Mind has two poses: the deadpan rest pose and a lively "hover" pose (happy arc eyes, open beak), used by the landing cards (rest pose by default, the second on hover).
 - Inspired by big-head designer toys, but drawn our own way. Never copy a specific existing character: references are for mood only.
 - Avoid: collector-toy packaging, fur or busy textures, logos, text or currency symbols on props, gradients behind characters in the app UI.
 - 3D (Three.js) is only considered for the landing page hero; in the app, characters are images and their use is up to `apps/fe`.
-- Current art: `generated-10.png` (base) to `generated-14.png` (cream base), AI renders from pen.dev. More poses and expressions are planned in Blender, exported as transparent PNGs.
+- Current art (v0.4): `characters/minds/<template-id>.webp` and `<template-id>-hover.webp`, transparent, file names match the template ids (`general-assistant`, `payments-mind`, `email-manager`). The app's `apps/fe/public/minds/<template-id>.jpg` are made from the rest poses (1408 x 768, the old warm grey background). The v0.3 images (`generated-10.png` base, `-11` Payments, `-12` General Assistant, `-13` Email Manager, `-14` cream base) stay as references; their numbering does not follow the templates, which is how the app got two of them swapped (#79).
 - Character references live in `hellonear-assets/char-ref/` (gitignored).
-- Prompts used for v0.3 (and tips to stay on-model in other generators): `characters/prompts.md`. pen.dev images are made by Google generative AI (C2PA label, SynthID watermark); the files are JPEG despite the `.png` name.
+- Prompts used for v0.3 and v0.4 (and tips to stay on-model in other generators): `characters/prompts.md`. pen.dev images are made by Google generative AI (C2PA label, SynthID watermark); the files are JPEG despite the `.png` name.
 
 ## Copywriting (UX first, draft; Ancung may extend)
 

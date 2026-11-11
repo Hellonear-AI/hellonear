@@ -9,7 +9,7 @@
     "dev": "node --env-file=.env --import tsx src/server.ts",
     "migrate": "node --env-file=.env --import tsx src/migrate.ts",
     "test": "node --env-file-if-exists=.env --import tsx --test --test-concurrency=1 test/*.test.ts",
-    "test:unit": "node --import tsx --test test/crypto.test.ts test/sse.test.ts",
+    "test:unit": "node --import tsx --test test/crypto.test.ts test/sse.test.ts test/telegram-format.test.ts test/approvals.test.ts",
     "load": "node --env-file-if-exists=.env --import tsx load/api.ts",
     "typecheck": "tsc --noEmit"
   },

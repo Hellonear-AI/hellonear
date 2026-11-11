@@ -1,6 +1,6 @@
 // Secret encryption (#18): AES-256-GCM with the master key from the hosting secret manager (KMS deferred).
 // The ciphertext is bound to its owner and name (AAD), so a row copied to another user or name fails to decrypt.
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
+import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 
 const IV_BYTES = 12
 const TAG_BYTES = 16
@@ -27,3 +27,6 @@ export const randomToken = (bytes = 32) => randomBytes(bytes).toString('base64ur
 
 // Ids look like `usr_…`, `mnd_…`: letters, digits and `_`, which the engine's mindId format accepts.
 export const newId = (prefix: string) => `${prefix}_${randomBytes(12).toString('hex')}`
+
+// Constant-time comparison of two secrets (tokens, codes, header values).
+export const sameSecret = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b))

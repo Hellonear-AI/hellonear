@@ -4,6 +4,7 @@ import { newId } from './crypto.ts'
 import { pool, query } from './db.ts'
 import { skills, templates, type MindConfig } from './engine.ts'
 import { HttpError } from './http.ts'
+import { shownEmail } from './mail.ts'
 
 const soulSchema = z.object({
   identity: z.string().min(1).max(4000),
@@ -34,22 +35,31 @@ export type Mind = {
   model: string | null
   skills: string[]
   outlayerWalletId: string | null
+  // The Mind's email address (#96): its own AgentMail inbox, or the shared demo inbox for a try-out user's Mind that
+  // equips `email-address`. null until then.
+  email: string | null
+  // Bumped when the name or soul changes (#116); the engine keys memory on it. 0 = never changed.
+  personaVersion: number
   createdAt: string
   updatedAt: string
 }
 
-const SELECT = `select m.id, m.template_id, m.name, m.soul, m.model, m.outlayer_wallet_id, m.created_at, m.updated_at,
-  coalesce((select array_agg(ms.skill_id order by ms.position) from mind_skills ms where ms.mind_id = m.id), '{}') as skills
+const SELECT = `select m.id, m.template_id, m.name, m.soul, m.model, m.outlayer_wallet_id, m.persona_version, m.created_at, m.updated_at,
+  coalesce((select array_agg(ms.skill_id order by ms.position) from mind_skills ms where ms.mind_id = m.id), '{}') as skills,
+  (select mi.email from mind_inboxes mi where mi.mind_id = m.id) as email,
+  (select u.is_demo from users u where u.id = m.user_id) as is_demo
   from minds m`
 
 const toMind = (r: any): Mind => ({
   id: r.id, templateId: r.template_id, name: r.name, soul: r.soul, model: r.model, skills: r.skills,
-  outlayerWalletId: r.outlayer_wallet_id, createdAt: r.created_at.toISOString(), updatedAt: r.updated_at.toISOString(),
+  outlayerWalletId: r.outlayer_wallet_id, email: shownEmail(r.is_demo === true, r.skills, r.email ?? null), personaVersion: r.persona_version, createdAt: r.created_at.toISOString(), updatedAt: r.updated_at.toISOString(),
 })
 
 // The config the engine builds the agent from on every request (docs/api-contract.md §2).
 export const mindConfig = (m: Mind): MindConfig => ({
   templateId: m.templateId, name: m.name, soul: m.soul, ...(m.model ? { model: m.model } : {}), skills: m.skills.map((skillId) => ({ skillId })),
+  // Sent only after a change, so a Mind that was never renamed keeps its memory (#116).
+  ...(m.personaVersion > 0 ? { personaVersion: m.personaVersion } : {}),
 })
 
 // Skills a Mind may equip: the engine's whole catalog (docs/api-contract.md §2 `GET /v1/skills`).
@@ -75,7 +85,7 @@ async function writeSkills(client: { query: typeof pool.query }, mindId: string,
   }
 }
 
-export async function createMind(userId: string, body: z.infer<typeof createMindSchema>): Promise<Mind> {
+export async function createMind(userId: string, body: z.infer<typeof createMindSchema>, opts: { playgroundAttack?: string } = {}): Promise<Mind> {
   const template = (await templates()).find((t) => t.templateId === body.templateId)
   if (!template) throw new HttpError(400, 'unknown_template')
   const skills = body.skills ?? template.skills.map((s) => s.skillId)
@@ -84,8 +94,8 @@ export async function createMind(userId: string, body: z.infer<typeof createMind
   const client = await pool.connect()
   try {
     await client.query('begin')
-    await client.query('insert into minds (id, user_id, template_id, name, soul, model) values ($1, $2, $3, $4, $5, $6)', [
-      id, userId, template.templateId, body.name, body.soul ?? template.soul, body.model ?? template.model ?? null,
+    await client.query('insert into minds (id, user_id, template_id, name, soul, model, playground_attack) values ($1, $2, $3, $4, $5, $6, $7)', [
+      id, userId, template.templateId, body.name, body.soul ?? template.soul, body.model ?? template.model ?? null, opts.playgroundAttack ?? null,
     ])
     await writeSkills(client, id, skills)
     await client.query('commit')
@@ -99,7 +109,8 @@ export async function createMind(userId: string, body: z.infer<typeof createMind
 }
 
 export async function listMinds(userId: string): Promise<Mind[]> {
-  return (await query(`${SELECT} where m.user_id = $1 order by m.created_at desc`, [userId])).map(toMind)
+  // Attack Playground Minds (#129) are not the owner's: they never show in the list.
+  return (await query(`${SELECT} where m.user_id = $1 and m.playground_attack is null order by m.created_at desc`, [userId])).map(toMind)
 }
 
 // Ownership check for every Mind route: another user's Mind looks exactly like a missing one.
@@ -121,7 +132,11 @@ export async function updateMind(userId: string, mindId: string, body: z.infer<t
   try {
     await client.query('begin')
     await client.query(
-      `update minds set name = coalesce($3, name), soul = coalesce($4, soul), model = coalesce($5, model), updated_at = now()
+      // A new name or soul starts a new persona version (#116); the same value sent again does not.
+      `update minds set name = coalesce($3, name), soul = coalesce($4, soul), model = coalesce($5, model),
+         persona_version = persona_version + (($3::text is not null and $3 is distinct from name)
+           or ($4::jsonb is not null and $4::jsonb is distinct from soul))::int,
+         updated_at = now()
        where id = $1 and user_id = $2`,
       [mindId, userId, body.name ?? null, body.soul ?? null, body.model ?? null],
     )
@@ -134,6 +149,37 @@ export async function updateMind(userId: string, mindId: string, body: z.infer<t
     client.release()
   }
   return (await getMind(userId, mindId))!
+}
+
+// The attack scenario a playground Mind (#129) was made for, or null for an owner's own Mind.
+export async function playgroundAttackOf(mindId: string): Promise<string | null> {
+  const [r] = await query<{ playground_attack: string | null }>('select playground_attack from minds where id = $1', [mindId])
+  return r?.playground_attack ?? null
+}
+
+// The user's playground Mind for one attack scenario (#129), made on first use from the scenario's template and
+// skills, and brought back to the scenario's skills if they changed since.
+export async function playgroundMind(userId: string, attack: { attackId: string; title: string; templateId: string; skills: string[] }): Promise<Mind> {
+  const find = async () => {
+    const [r] = await query<{ id: string }>('select id from minds where user_id = $1 and playground_attack = $2', [userId, attack.attackId])
+    return r ? getMind(userId, r.id) : null
+  }
+  let mind = await find()
+  if (!mind) {
+    try {
+      mind = await createMind(userId, { templateId: attack.templateId, name: attack.title, skills: attack.skills }, { playgroundAttack: attack.attackId })
+    } catch (e) {
+      // Two first runs at once: the unique index keeps one Mind; use it.
+      mind = await find()
+      if (!mind) throw e
+    }
+  }
+  if (mind.skills.join() !== attack.skills.join()) {
+    await assertSkills(attack.skills)
+    await writeSkills(pool, mind.id, attack.skills)
+    mind = (await getMind(userId, mind.id))!
+  }
+  return mind
 }
 
 export async function deleteMind(userId: string, mindId: string): Promise<boolean> {

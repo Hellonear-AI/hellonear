@@ -1,11 +1,15 @@
-import { notFound } from "next/navigation"
 import type { ReactNode } from "react"
-import { AppShell } from "@/components/layout/AppShell"
-import { SAMPLE_MINDS } from "@/modules/minds/data/minds"
+import { ChatRunProvider } from "@/modules/chat/hooks/ChatRunProvider"
+import { MindGate } from "@/modules/minds/components/MindGate"
 
+// Every Mind screen: the session and ownership check, and the one chat run in progress. The app
+// shell (sidebar, rail, phone header) is in `(shell)/layout.tsx`; the Builder in `(focus)` has
+// none, so it gets the whole screen (Ancung, 9 Nov; design B1).
 export default async function MindLayout({ children, params }: { children: ReactNode; params: Promise<{ mindId: string }> }) {
   const { mindId } = await params
-  // Sample Minds until GET /v1/minds is wired; an unknown id is the not-found page (E1.3).
-  if (!SAMPLE_MINDS.some((m) => m.mindId === mindId)) notFound()
-  return <AppShell mindId={mindId}>{children}</AppShell>
+  return (
+    <MindGate mindId={mindId}>
+      <ChatRunProvider mindId={mindId}>{children}</ChatRunProvider>
+    </MindGate>
+  )
 }

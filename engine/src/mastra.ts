@@ -3,13 +3,14 @@
 // for tool approval snapshots) and pgvector for semantic recall.
 import { Mastra } from '@mastra/core'
 import { Agent } from '@mastra/core/agent'
+import { TokenLimiterProcessor } from '@mastra/core/processors'
 import { PgVector, PostgresStore } from '@mastra/pg'
 import { Memory } from '@mastra/memory'
 import { config } from './config.ts'
 import { buildInstructions, type Mind } from './mind.ts'
 import { chatModel, embedder } from './models.ts'
-import { usableSkills } from './skills.ts'
-import { toolRegistry, toolsFor } from './tools.ts'
+import { mindSkills } from './skills.ts'
+import { TIME_ZONE_KEY, toolRegistry, toolsFor } from './tools.ts'
 
 // Small pools: the local Postgres allows 40 connections.
 // Every run stores a snapshot (~8 KB) and every Autopilot fire a trigger row; prune() deletes old ones.
@@ -18,7 +19,7 @@ export const storage = new PostgresStore({
   id: 'engine-storage', connectionString: config.databaseUrl, schemaName: 'mastra', max: 5,
   retention: { workflows: { workflowSnapshot: keep }, schedules: { triggers: keep } },
 })
-const vector = new PgVector({ id: 'engine-vector', connectionString: config.databaseUrl, schemaName: 'mastra', max: 5 })
+export const vector = new PgVector({ id: 'engine-vector', connectionString: config.databaseUrl, schemaName: 'mastra', max: 5 })
 
 const memory = new Memory({
   vector,
@@ -41,16 +42,20 @@ const mindOf = ({ requestContext }: Ctx) => {
 }
 
 // Only skills that are not blocked; their tools and playbooks come from engine/skills.
-export const skillsOf = (ctx: Ctx) => usableSkills(mindOf(ctx).skills.map((s) => s.skillId))
+// Equipped skills plus the built-in HelloNear guide (#114).
+export const skillsOf = (ctx: Ctx) => mindSkills(mindOf(ctx).skills.map((s) => s.skillId))
 
 export const mindAgent = new Agent({
   id: 'mind',
   name: 'Mind',
-  instructions: (ctx) => buildInstructions(mindOf(ctx)),
+  instructions: (ctx) => buildInstructions(mindOf(ctx), { timeZone: ctx.requestContext.get(TIME_ZONE_KEY) as string | undefined }),
   model: (ctx) => chatModel(mindOf(ctx).model ?? config.defaultModel),
   tools: (ctx) => toolsFor(skillsOf(ctx).flatMap((s) => s.tools), { unattended: ctx.requestContext.get(UNATTENDED_KEY) === true }),
   skills: (ctx) => skillsOf(ctx).map((s) => s.skill),
   memory,
+  // Bounds every model call's prompt (#123): 'contiguous' keeps the newest turns that fit, keeps the system prompt and
+  // keeps a tool call with its result. Stored history is untouched; only what reaches the model is trimmed.
+  inputProcessors: [new TokenLimiterProcessor({ limit: config.contextTokenLimit, trimMode: 'contiguous' })],
   // Also applies to agent steps inside workflows, which get no per-call options.
   // No automatic retries: each completion must map to one verifiable request (#19).
   defaultOptions: {

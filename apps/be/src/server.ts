@@ -3,29 +3,56 @@ import { createServer } from 'node:http'
 import { z } from 'zod'
 import { SESSION_COOKIE, createChallenge, login, loginSchema, logout, requireUser } from './auth.ts'
 import { config } from './config.ts'
-import { newId } from './crypto.ts'
+import { newId, sameSecret } from './crypto.ts'
 import { migrate, query } from './db.ts'
-import { engineFetch, engineJson, skills, templates } from './engine.ts'
-import { HttpError, assertSameOrigin, cors, readBody, sendJson, setCookie, isLoopback } from './http.ts'
+import { engineFetch, engineJson, skill, skills, templates } from './engine.ts'
+import { HttpError, assertSameOrigin, cors, logServerError, readBody, sendJson, setCookie, isLoopback } from './http.ts'
 import { TOOLKITS, connect, disconnect, listConnections, toolkitSchema } from './connections.ts'
-import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, requireMind, updateMind, updateMindSchema } from './minds.ts'
-import { getRun, listRuns, mindEvents, pendingApprovals, relayRun, runEvents } from './runs.ts'
+import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, playgroundAttackOf, playgroundMind, requireMind, updateMind, updateMindSchema, type Mind } from './minds.ts'
+import { cancelRun, getRun, isAwaiting, listRuns, mindEvents, pendingApprovals, relayRun, runEvents } from './runs.ts'
 import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema, secretsForRun } from './secrets.ts'
-import { createWallet, freezeTransaction, getWallet, hasWallet, policySchema, policyTransaction } from './wallets.ts'
+import { assertWalletEmpty, createWallet, freezeTransaction, getWallet, hasWallet, isDemoMind, policySchema, policyTransaction } from './wallets.ts'
 import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
-import { issueWalletToken, verifyWalletToken } from './walletToken.ts'
-import { listThreads, parseCursor, threadExists, threadMessages } from './threads.ts'
+import { itemSchema, sellerSchema, shop, txHashSchema } from './shop.ts'
+import { buyOffer, offerItemSchema, putOffer, putOfferSchema } from './offers.ts'
+import { issueMailToken, issueWalletToken, verifyMailToken, verifyWalletToken } from './walletToken.ts'
+import { EMAIL_SKILL, ensureInbox, inboxOf, listMail, listSends, mailEnabled, messageIdSchema, ownerMailSchema, readMail, releaseInbox, sendMail, sendMailSchema, sendMailToOwner } from './mail.ts'
+import { deleteThread, listThreads, parseCursor, renameThread, sweepDeletedThreads, threadExists, threadMessages, threadTitleSchema } from './threads.ts'
+import { connectTelegram, disconnectTelegram, outcomeOf, registerTelegramWebhooks, startTelegramPolling, telegramStatus, telegramTokenSchema, telegramWebhook, type MindRunner } from './telegram.ts'
 import { assertDemoRunAllowed, cleanupDemoUsers, createDemoUser, demoPaymentCap, denyDemo } from './demo.ts'
 import type { User } from './auth.ts'
-import { timingSafeEqual } from 'node:crypto'
+import { EventEmitter } from 'node:events'
+import type { IncomingMessage, ServerResponse } from 'node:http'
+import { readFileSync } from 'node:fs'
 import { autopilotSchema, deleteAllWorkflows, deleteAutopilot, putAutopilot, runWorkflowSchema, syncAutopilots, workflowIdSchema, workflowPath } from './workflows.ts'
 
+// The commit this release was deployed from: deploy/deploy.sh writes REVISION at the release root. null when run from a checkout.
+const REVISION = (() => {
+  try {
+    return readFileSync(new URL('../../../REVISION', import.meta.url), 'utf8').trim() || null
+  } catch {
+    return null
+  }
+})()
+
+// The owner's IANA time zone from the browser (`Intl.DateTimeFormat().resolvedOptions().timeZone`, e.g.
+// `Asia/Jakarta`), passed on to the engine so a Mind knows the owner's local date and weekday (#112). Optional on
+// every run request; a name the runtime does not know is a 400, never forwarded.
+const isTimeZone = (tz: string) => { try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return true } catch { return false } }
+const timeZoneSchema = z.string().min(1).max(64).regex(/^[A-Za-z0-9_+\-/]+$/).refine(isTimeZone, 'unknown time zone')
 const chatSchema = z.object({
   // Omit to start a new thread. A given thread must already belong to this Mind (see below).
   threadId: z.string().regex(/^thr_[a-f0-9]{24}$/).optional(),
   message: z.string().min(1).max(16_000),
+  timeZone: timeZoneSchema.optional(),
 })
-const resumeSchema = z.object({ toolCallId: z.string().min(1).max(200), reason: z.string().max(500).optional() })
+const resumeSchema = z.object({ toolCallId: z.string().min(1).max(200), reason: z.string().max(500).optional(), timeZone: timeZoneSchema.optional() })
+const attackRunSchema = z.object({ timeZone: timeZoneSchema.optional() })
+const attackIdSchema = z.string().regex(/^[a-z0-9-]{1,40}$/)
+type Attack = { attackId: string; title: string; templateId: string; skills: string[]; message: string }
+const runSchema = runWorkflowSchema.extend({ timeZone: timeZoneSchema.optional() })
+const timeZoneOf = (body: { timeZone?: string }) => (body.timeZone ? { timeZone: body.timeZone } : {})
+const attackOf = (attackId: string | null) => (attackId ? { attackId } : {})
 
 const limitOf = (url: URL, fallback: number, max: number) => Math.min(Math.max(Number(url.searchParams.get('limit') ?? fallback) || fallback, 1), max)
 
@@ -33,14 +60,137 @@ const limitOf = (url: URL, fallback: number, max: number) => Math.min(Math.max(N
 const passthrough = (res: Parameters<typeof sendJson>[0], out: { status: number; body: unknown }) =>
   out.status === 204 ? res.writeHead(204).end() : sendJson(res, out.status, out.body)
 
-// Extra fields for one engine call: the wallet token (#42) only for a Mind that has a wallet, and `demo: true` for a
-// judge try-out user (#43), so the engine can use the sample inbox. Autopilot gets neither.
+// Extra fields for one engine call: the wallet token (#42) only for a Mind that has a wallet, the mail token (#96) only
+// for a Mind with the email-address skill and an inbox, and `demo: true` for a judge try-out user (#43) or an Attack
+// Playground Mind (#129), so the engine uses the sample inbox and calendar. Autopilot gets none of them.
 const runExtras = async (user: User, mindId: string) => ({
   ...((await hasWallet(mindId)) ? { walletToken: issueWalletToken(user.id, mindId) } : {}),
-  ...(user.demo ? { demo: true } : {}),
+  ...((await mailEnabled(mindId)) ? { mailToken: issueMailToken(user.id, mindId) } : {}),
+  ...(user.demo || (await playgroundAttackOf(mindId)) ? { demo: true } : {}),
 })
 
-const sameSecret = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b))
+// A playground run (#129) never gets the owner's secrets: the scenarios are prompt injections.
+const secretsFor = async (userId: string, mindId: string) => ((await playgroundAttackOf(mindId)) ? [] : secretsForRun(userId))
+
+// An owner's Mind gets its inbox when it equips the email-address skill (#96). The skills are saved either way; a
+// failure (AgentMail down, organization full) comes back as `inboxError` and POST …/inbox retries it.
+async function withInbox(user: User, mind: Mind): Promise<{ mind: Mind; inboxError?: Record<string, unknown> }> {
+  if (user.demo || mind.email || !mind.skills.includes(EMAIL_SKILL)) return { mind }
+  try {
+    const { inbox } = await ensureInbox(mind.id)
+    return { mind: { ...mind, email: inbox.email } }
+  } catch (e) {
+    if (!(e instanceof HttpError)) throw e
+    if (e.status >= 500) logServerError({ url: `/v1/minds/${mind.id}/inbox`, method: 'POST' } as never, e.status, e.message, e.extra)
+    return { mind, inboxError: { error: e.message, ...e.extra } }
+  }
+}
+
+
+// Approve or decline what a paused run waits for, through the engine. The app's route and Telegram's buttons (#208) both
+// come here, so both get the same checks and the same resume. Only a call of the current pause counts (`isAwaiting`).
+// The run is then claimed (awaiting_approval → running in one update), so two answers at once (the app and Telegram, or
+// a double press) resume it once; the second gets 409. If the engine does not take the resume, the claim is undone.
+async function resumeRun(user: User, found: { runId: string; mindId: string; threadId: string | null }, action: 'approve' | 'decline', body: z.infer<typeof resumeSchema>, req: IncomingMessage, res: ServerResponse) {
+  if (!(await isAwaiting(found.runId, body.toolCallId))) throw new HttpError(409, 'not_awaiting_approval')
+  const mind = await requireMind(user.id, found.mindId)
+  await assertDemoRunAllowed(user, req)
+  const claimed = await query(`update runs set status = 'running' where id = $1 and status = 'awaiting_approval' returning 1`, [found.runId])
+  if (!claimed.length) throw new HttpError(409, 'not_awaiting_approval')
+  const release = () => query(`update runs set status = 'awaiting_approval' where id = $1 and status = 'running'`, [found.runId])
+  const controller = new AbortController()
+  let engineRes: Response
+  try {
+    engineRes = await engineFetch(`/v1/runs/${encodeURIComponent(found.runId)}/${action}?mindId=${encodeURIComponent(mind.id)}`, {
+      method: 'POST', signal: controller.signal,
+      body: {
+        userId: user.id, threadId: found.threadId, mind: mindConfig(mind), secrets: await secretsFor(user.id, mind.id), toolCallId: body.toolCallId, reason: body.reason,
+        ...timeZoneOf(body), ...(await runExtras(user, mind.id)), ...attackOf(await playgroundAttackOf(mind.id)),
+      },
+    })
+  } catch (e) {
+    await release()
+    throw e
+  }
+  if (engineRes.status !== 200) await release()
+  return relayRun(req, res, engineRes, { mindId: mind.id, threadId: found.threadId ?? undefined, resumeOf: found.runId, controller })
+}
+
+// Telegram runs (#168, #208) go through the same code as the app's, relayed into an in-memory sink instead of a browser,
+// then read back as text (`outcomeOf`). Same owner, Mind config, secrets, tokens and try-out limits as the app.
+// No time zone: Telegram doesn't send one, so runs are in UTC.
+async function telegramOwner(mindId: string): Promise<User | null> {
+  const [owner] = await query<{ id: string; near_account_id: string; is_demo: boolean }>('select u.id, u.near_account_id, u.is_demo from minds m join users u on u.id = m.user_id where m.id = $1', [mindId])
+  return owner ? { id: owner.id, nearAccountId: owner.near_account_id, demo: owner.is_demo } : null
+}
+// Telegram runs have no client IP: key the try-out hourly window per user, so one busy bot can't use up everyone's
+// (Lin1er's review on #171). The per-user run cap still applies.
+const telegramReq = (user: User, mindId: string) =>
+  Object.assign(new EventEmitter(), { headers: { 'cf-connecting-ip': `telegram:${user.id}` }, socket: { remoteAddress: 'telegram' }, url: `/v1/telegram/${mindId}`, method: 'POST' }) as unknown as IncomingMessage
+// `onEvent` (#222) sees each relayed event as it is written, so Telegram can show the reply while the run goes on; the
+// relay itself (storage, threads, live view) is the same as for the app.
+function memorySink(onEvent?: (e: Record<string, any>) => void) {
+  const out = { raw: '', status: 200 }
+  let partial = ''
+  const take = (t: string) => {
+    out.raw += t
+    if (!onEvent) return
+    const lines = (partial + t).split('\n')
+    partial = lines.pop() ?? ''
+    for (const l of lines) {
+      if (!l.startsWith('data: ')) continue
+      let e: Record<string, any> | null = null
+      try { e = JSON.parse(l.slice(6)) } catch { /* not an event */ }
+      if (e) { try { onEvent(e) } catch { /* the relay must go on */ } }
+    }
+  }
+  const res = {
+    writeHead(code: number) { out.status = code; return res },
+    write(t: string) { take(t); return true },
+    end(t?: string) { if (t) take(t); return res },
+  }
+  return { out, res: res as unknown as ServerResponse }
+}
+const failedRun = (threadId: string, error: string) => ({ threadId, text: '', asked: [], outcomes: [], error })
+
+// One owner message, run like a chat from the app.
+export const runTelegramChat: MindRunner['chat'] = async (mindId, threadId, text, onEvent) => {
+  const thread = threadId ?? `thr_${newId('x').slice(2)}`
+  const user = await telegramOwner(mindId)
+  if (!user) return failedRun(thread, 'mind_not_found')
+  const mind = await requireMind(user.id, mindId)
+  const fakeReq = telegramReq(user, mindId)
+  try {
+    await assertDemoRunAllowed(user, fakeReq)
+  } catch (e) {
+    return failedRun(thread, e instanceof HttpError ? e.message : 'error')
+  }
+  const controller = new AbortController()
+  const engineRes = await engineFetch(`/v1/minds/${encodeURIComponent(mind.id)}/chat`, {
+    method: 'POST', signal: controller.signal,
+    body: { userId: user.id, threadId: thread, message: text, mind: mindConfig(mind), secrets: await secretsForRun(user.id), ...(await runExtras(user, mind.id)) },
+  })
+  const sink = memorySink(onEvent)
+  await relayRun(fakeReq, sink.res, engineRes, { mindId: mind.id, threadId: thread, userMessage: text, controller })
+  return outcomeOf(thread, sink.out.status, sink.out.raw)
+}
+
+// A button press, answered exactly like the app's approve/decline route (`resumeRun`).
+export const answerTelegramApproval: MindRunner['answer'] = async (mindId, runId, toolCallId, action) => {
+  const user = await telegramOwner(mindId)
+  const found = user ? await getRun(user.id, runId) : null
+  if (!user || !found || found.mindId !== mindId) return failedRun('', 'run_not_found')
+  const thread = found.threadId ?? ''
+  const sink = memorySink()
+  try {
+    await resumeRun(user, found, action, { toolCallId }, telegramReq(user, mindId), sink.res)
+  } catch (e) {
+    return failedRun(thread, e instanceof HttpError ? e.message : 'error')
+  }
+  return outcomeOf(thread, sink.out.status, sink.out.raw)
+}
+
+export const telegramRunner: MindRunner = { chat: runTelegramChat, answer: answerTelegramApproval }
 
 export const server = createServer(async (req, res) => {
   try {
@@ -53,7 +203,7 @@ export const server = createServer(async (req, res) => {
 
     if (route('GET', /^\/v1\/health$/)) {
       const engine = await engineFetch('/v1/health').then((r) => r.ok, () => false)
-      return sendJson(res, 200, { ok: true, engine })
+      return sendJson(res, 200, { ok: true, engine, revision: REVISION })
     }
 
     // Auth (#8)
@@ -83,12 +233,87 @@ export const server = createServer(async (req, res) => {
       const { userId, mindId } = verifyWalletToken(req.headers['x-wallet-token'] as string | undefined)
       await requireMind(userId, mindId)
       if (internal[1] === 'send_payment' && req.method === 'POST') {
-        const [owner] = await query<{ is_demo: boolean }>('select is_demo from users where id = $1', [userId])
-        return sendJson(res, 200, await sendPayment(mindId, await readBody(req, sendPaymentSchema), { cap: owner?.is_demo ? demoPaymentCap(userId) : undefined }))
+        // The shared demo wallet (a try-out user's or a playground Mind, #129) keeps the per-user payment cap.
+        return sendJson(res, 200, await sendPayment(mindId, await readBody(req, sendPaymentSchema), { cap: (await isDemoMind(mindId)) ? demoPaymentCap(userId) : undefined }))
       }
       if (internal[1] === 'balance' && req.method === 'GET') return sendJson(res, 200, await walletBalance(mindId))
       if (internal[1] === 'payments' && req.method === 'GET') return sendJson(res, 200, { payments: await listPayments(mindId, limitOf(url, 20, 100)) })
       throw new HttpError(405, 'method_not_allowed')
+    }
+    // Paid data (#150): the engine's buy_data tool, with the run's wallet token (the Mind pays from its own wallet).
+    const shopPath = path.match(/^\/internal\/v1\/shop\/([^/]+)$/)
+    if (shopPath) {
+      if (!sameSecret(String(req.headers['x-engine-key'] ?? ''), config.engineApiKey)) throw new HttpError(401, 'unauthorized')
+      const { userId, mindId } = verifyWalletToken(req.headers['x-wallet-token'] as string | undefined)
+      await requireMind(userId, mindId)
+      if (req.method !== 'GET') throw new HttpError(405, 'method_not_allowed')
+      const item = itemSchema.safeParse(decodeURIComponent(shopPath[1]))
+      if (!item.success) throw new HttpError(404, 'unknown_item')
+      const tx = url.searchParams.get('tx')
+      if (tx !== null && !txHashSchema.safeParse(tx).success) throw new HttpError(400, 'invalid_tx_hash')
+      const seller = url.searchParams.get('seller')
+      if (seller !== null && !sellerSchema.safeParse(seller).success) throw new HttpError(400, 'invalid_seller')
+      // Best Price Buyer (#176): the price list, without paying; it takes no seller or tx.
+      const quotes = url.searchParams.get('quotes')
+      if (quotes !== null && (quotes !== '1' || tx !== null || seller !== null)) throw new HttpError(400, 'invalid_query')
+      const out = await shop(mindId, item.data, { txHash: tx ?? undefined, seller: seller ?? undefined, quotes: quotes === '1' })
+      return sendJson(res, out.httpStatus, out.body)
+    }
+    // Mind as Seller (#181): a Mind publishes what it sells (`PUT /internal/v1/offers/{item}`) and another Mind buys it
+    // (`GET /internal/v1/minds/{sellerMindId}/offers/{item}`), each with its own run's wallet token.
+    const offerPath = path.match(/^\/internal\/v1\/offers\/([^/]+)$/)
+    const buyPath = path.match(/^\/internal\/v1\/minds\/(mnd_[0-9a-f]{24})\/offers\/([^/]+)$/)
+    if (offerPath || buyPath) {
+      if (!sameSecret(String(req.headers['x-engine-key'] ?? ''), config.engineApiKey)) throw new HttpError(401, 'unauthorized')
+      const { userId, mindId } = verifyWalletToken(req.headers['x-wallet-token'] as string | undefined)
+      await requireMind(userId, mindId)
+      const item = offerItemSchema.safeParse(decodeURIComponent((offerPath ?? buyPath)!.at(-1)!))
+      if (!item.success) throw new HttpError(404, 'no_offer')
+      if (offerPath) {
+        if (req.method !== 'PUT') throw new HttpError(405, 'method_not_allowed')
+        return sendJson(res, 200, await putOffer(mindId, item.data, await readBody(req, putOfferSchema)))
+      }
+      if (req.method !== 'GET') throw new HttpError(405, 'method_not_allowed')
+      const tx = url.searchParams.get('tx')
+      if (tx !== null && !txHashSchema.safeParse(tx).success) throw new HttpError(400, 'invalid_tx_hash')
+      const out = await buyOffer(mindId, buyPath![1], item.data, tx ?? undefined)
+      return sendJson(res, out.httpStatus, out.body)
+    }
+    // Autopilot's "Email me" (#146): engine key only, since a scheduled run carries no run token; the recipient is
+    // decided here (the owner's Gmail address), never by the engine.
+    if (path === '/internal/v1/mail/owner') {
+      if (!sameSecret(String(req.headers['x-engine-key'] ?? ''), config.engineApiKey)) throw new HttpError(401, 'unauthorized')
+      if (req.method !== 'POST') throw new HttpError(405, 'method_not_allowed')
+      const body = await readBody(req, ownerMailSchema)
+      await requireMind(body.userId, body.mindId)
+      return sendJson(res, 200, await sendMailToOwner(body))
+    }
+    // The mail tools (#96): same three checks, with a mail token that names the run's Mind.
+    const mail = path.match(/^\/internal\/v1\/mail\/(send|messages)(?:\/([^/]+))?$/)
+    if (mail) {
+      if (!sameSecret(String(req.headers['x-engine-key'] ?? ''), config.engineApiKey)) throw new HttpError(401, 'unauthorized')
+      const { userId, mindId } = verifyMailToken(req.headers['x-mail-token'] as string | undefined)
+      await requireMind(userId, mindId)
+      if (mail[1] === 'send' && !mail[2] && req.method === 'POST') {
+        const [owner] = await query<{ is_demo: boolean }>('select is_demo from users where id = $1', [userId])
+        return sendJson(res, 200, await sendMail(mindId, await readBody(req, sendMailSchema), { cap: owner?.is_demo ? { userId, max: config.demo.mailPerUser } : undefined }))
+      }
+      if (mail[1] === 'messages' && !mail[2] && req.method === 'GET') return sendJson(res, 200, await listMail(mindId, limitOf(url, 10, 25)))
+      if (mail[1] === 'messages' && mail[2] && req.method === 'GET') {
+        const id = messageIdSchema.safeParse(decodeURIComponent(mail[2]))
+        if (!id.success) throw new HttpError(400, 'invalid_message_id')
+        return sendJson(res, 200, await readMail(mindId, id.data))
+      }
+      throw new HttpError(405, 'method_not_allowed')
+    }
+
+    // Telegram's webhook (#168): no session; the bot's secret token header is the check.
+    const tg = path.match(/^\/v1\/telegram\/([A-Za-z0-9_-]{1,64})\/webhook$/)
+    if (tg) {
+      if (req.method !== 'POST') throw new HttpError(405, 'method_not_allowed')
+      const update = await readBody(req, z.object({ update_id: z.number().int() }).passthrough())
+      await telegramWebhook(tg[1], req.headers['x-telegram-bot-api-secret-token'] as string | undefined, update, telegramRunner)
+      return sendJson(res, 200, { ok: true })
     }
 
     // Everything below needs a session.
@@ -96,6 +321,9 @@ export const server = createServer(async (req, res) => {
     if (route('GET', /^\/v1\/me$/)) return sendJson(res, 200, { user })
     if (route('GET', /^\/v1\/templates$/)) return sendJson(res, 200, { templates: await templates() })
     if (route('GET', /^\/v1\/skills$/)) return sendJson(res, 200, { skills: await skills() })
+    const skillRoute = route('GET', /^\/v1\/skills\/([^/]+)$/)
+    // Skill ids are [a-z0-9-] in the engine; anything else is unknown and never reaches it.
+    if (skillRoute) return /^[a-z0-9-]{1,64}$/.test(skillRoute[1]) ? sendJson(res, 200, { skill: await skill(skillRoute[1]) }) : sendJson(res, 404, { error: 'unknown_skill' })
 
     // Secrets (#18): names and hosts only ever leave the backend, never values.
     if (route('GET', /^\/v1\/secrets$/)) return sendJson(res, 200, { secrets: await listSecrets(user.id) })
@@ -122,27 +350,48 @@ export const server = createServer(async (req, res) => {
 
     // Minds (#8, #13)
     if (route('GET', /^\/v1\/minds$/)) return sendJson(res, 200, { minds: await listMinds(user.id) })
-    if (route('POST', /^\/v1\/minds$/)) return sendJson(res, 201, { mind: await createMind(user.id, await readBody(req, createMindSchema)) })
+    if (route('POST', /^\/v1\/minds$/)) return sendJson(res, 201, await withInbox(user, await createMind(user.id, await readBody(req, createMindSchema))))
+
+    // Attack Playground (#129): the engine's scenarios, each run on the user's playground Mind for it.
+    if (route('GET', /^\/v1\/attacks$/)) return passthrough(res, await engineJson('/v1/attacks'))
+    const attackRun = path.match(/^\/v1\/attacks\/([^/]+)\/runs$/)
+    if (attackRun && req.method === 'POST') {
+      const id = attackIdSchema.safeParse(decodeURIComponent(attackRun[1]))
+      const body = await readBody(req, attackRunSchema)
+      const listed = await engineJson('/v1/attacks')
+      const attack = id.success && listed.status === 200 ? ((listed.body as { attacks: Attack[] }).attacks ?? []).find((a) => a.attackId === id.data) : undefined
+      if (!attack) {
+        if (listed.status !== 200) return passthrough(res, listed)
+        throw new HttpError(404, 'unknown_attack')
+      }
+      const mind = await playgroundMind(user.id, attack)
+      await assertDemoRunAllowed(user, req)
+      const threadId = `thr_${newId('x').slice(2)}`
+      // Stop (#121) works on attack runs too.
+      const controller = new AbortController()
+      const engineRes = await engineFetch(`/v1/minds/${encodeURIComponent(mind.id)}/chat`, {
+        method: 'POST', signal: controller.signal,
+        body: { userId: user.id, threadId, message: attack.message, mind: mindConfig(mind), secrets: [], attackId: attack.attackId, ...timeZoneOf(body), ...(await runExtras(user, mind.id)) },
+      })
+      return relayRun(req, res, engineRes, { mindId: mind.id, threadId, userMessage: attack.message, controller })
+    }
 
     // Runs (#14, #17)
-    const run = path.match(/^\/v1\/runs\/([^/]+)(\/approve|\/decline)?$/)
+    const run = path.match(/^\/v1\/runs\/([^/]+)(\/approve|\/decline|\/cancel)?$/)
     if (run) {
       const found = await getRun(user.id, decodeURIComponent(run[1]))
       if (!found) throw new HttpError(404, 'run_not_found')
       if (!run[2] && req.method === 'GET') return sendJson(res, 200, { run: found, events: await runEvents(found.runId) })
+      // Stop a run that is still streaming (#121). A run paused for approval has no stream: decline it instead.
+      if (run[2] === '/cancel' && req.method === 'POST') {
+        const stopped = cancelRun(found.runId)
+        if (!stopped) throw new HttpError(409, 'not_running', { status: found.status })
+        await stopped
+        return sendJson(res, 200, { run: await getRun(user.id, found.runId) })
+      }
       if (run[2] && req.method === 'POST') {
-        const body = await readBody(req, resumeSchema)
-        // Only an action the run is actually waiting for can be approved or declined.
-        const [waiting] = await query(
-          `select 1 from run_events where run_id = $1 and type = 'tool.approval_required' and payload->>'toolCallId' = $2`, [found.runId, body.toolCallId])
-        if (found.status !== 'awaiting_approval' || !waiting) throw new HttpError(409, 'not_awaiting_approval')
-        const mind = await requireMind(user.id, found.mindId)
-        await assertDemoRunAllowed(user, req)
-        const engineRes = await engineFetch(`/v1/runs/${encodeURIComponent(found.runId)}${run[2]}?mindId=${encodeURIComponent(mind.id)}`, {
-          method: 'POST',
-          body: { userId: user.id, threadId: found.threadId, mind: mindConfig(mind), secrets: await secretsForRun(user.id), toolCallId: body.toolCallId, reason: body.reason, ...(await runExtras(user, mind.id)) },
-        })
-        return relayRun(req, res, engineRes, { mindId: mind.id, threadId: found.threadId ?? undefined, resumeOf: found.runId })
+        // Awaited, so its 409 / 429 lands in the catch below.
+        return await resumeRun(user, found, run[2] === '/approve' ? 'approve' : 'decline', await readBody(req, resumeSchema), req, res)
       }
       throw new HttpError(405, 'method_not_allowed')
     }
@@ -150,6 +399,8 @@ export const server = createServer(async (req, res) => {
     const m = path.match(/^\/v1\/minds\/([^/]+)(\/.*)?$/)
     if (m) {
       const mind = await requireMind(user.id, decodeURIComponent(m[1]))
+      // A playground Mind (#129) is reached only through /v1/attacks and its runs, never as one of the owner's.
+      if (await playgroundAttackOf(mind.id)) throw new HttpError(404, 'mind_not_found')
       const sub = m[2] ?? ''
 
       // The Mind's OutLayer wallet (#14, #15). Owner actions come back as transactions for the owner to sign.
@@ -163,13 +414,32 @@ export const server = createServer(async (req, res) => {
       if ((sub === '/wallet/freeze' || sub === '/wallet/unfreeze') && req.method === 'POST') return sendJson(res, 200, { transaction: await freezeTransaction(mind.id, sub === '/wallet/freeze') })
       if (sub.startsWith('/wallet')) throw new HttpError(req.method === 'GET' || req.method === 'POST' ? 404 : 405, req.method === 'GET' || req.method === 'POST' ? 'not_found' : 'method_not_allowed')
 
+      // The Mind's email address (#96). POST creates the inbox (idempotent) for a Mind that equips email-address.
+      if (sub === '/inbox' && req.method === 'GET') {
+        const inbox = await inboxOf(mind.id)
+        return sendJson(res, 200, { inbox: inbox ? { email: inbox.email, shared: inbox.shared } : null })
+      }
+      if (sub === '/inbox' && req.method === 'POST') {
+        denyDemo(user, 'create_inbox')
+        if (!mind.skills.includes(EMAIL_SKILL)) throw new HttpError(409, 'email_skill_off', { skill: EMAIL_SKILL })
+        const { inbox, created } = await ensureInbox(mind.id)
+        return sendJson(res, created ? 201 : 200, { inbox: { email: inbox.email, shared: false } })
+      }
+      if (sub === '/mail/sent' && req.method === 'GET') return sendJson(res, 200, { sends: await listSends(mind.id, limitOf(url, 20, 100)) })
+
       if (sub === '' && req.method === 'GET') return sendJson(res, 200, { mind })
       if (sub === '' && req.method === 'PATCH') {
-        const updated = await updateMind(user.id, mind.id, await readBody(req, updateMindSchema))
-        return sendJson(res, 200, { mind: updated, autopilot: await syncAutopilots(user.id, updated) })
+        const { mind: updated, inboxError } = await withInbox(user, await updateMind(user.id, mind.id, await readBody(req, updateMindSchema)))
+        return sendJson(res, 200, { mind: updated, autopilot: await syncAutopilots(user.id, updated), ...(inboxError ? { inboxError } : {}) })
       }
       if (sub === '' && req.method === 'DELETE') {
+        // Deleting drops the wallet's agent key for good, so a Mind whose own wallet still holds NEAR is refused
+        // until the owner has seen the balance (#161).
+        if (url.searchParams.get('acknowledgeBalance') !== 'true') await assertWalletEmpty(mind.id)
         await deleteAllWorkflows(mind.id)
+        // The bot's webhook would keep pointing at a Mind that is gone, and the bot would go quiet (#171 review).
+        await disconnectTelegram(mind.id).catch(() => {})
+        await releaseInbox(mind.id)
         await deleteMind(user.id, mind.id)
         return res.writeHead(204).end()
       }
@@ -177,17 +447,22 @@ export const server = createServer(async (req, res) => {
       if (sub === '/chat' && req.method === 'POST') {
         const body = await readBody(req, chatSchema)
         // Engine memory is keyed by thread id, so a thread id from another Mind (or user) must never pass.
-        if (body.threadId && !(await query('select 1 from runs where mind_id = $1 and thread_id = $2 limit 1', [mind.id, body.threadId])).length) {
+        if (body.threadId && !(await threadExists(mind.id, body.threadId))) {
           throw new HttpError(404, 'thread_not_found')
         }
         const threadId = body.threadId ?? `thr_${newId('x').slice(2)}`
         await assertDemoRunAllowed(user, req)
+        const controller = new AbortController()
         const engineRes = await engineFetch(`/v1/minds/${encodeURIComponent(mind.id)}/chat`, {
-          method: 'POST',
-          body: { userId: user.id, threadId, message: body.message, mind: mindConfig(mind), secrets: await secretsForRun(user.id), ...(await runExtras(user, mind.id)) },
+          method: 'POST', signal: controller.signal,
+          body: { userId: user.id, threadId, message: body.message, mind: mindConfig(mind), secrets: await secretsForRun(user.id), ...timeZoneOf(body), ...(await runExtras(user, mind.id)) },
         })
-        return relayRun(req, res, engineRes, { mindId: mind.id, threadId, userMessage: body.message })
+        return relayRun(req, res, engineRes, { mindId: mind.id, threadId, userMessage: body.message, controller })
       }
+      // Telegram (#168): the Mind's own bot, made by the owner with @BotFather.
+      if (sub === '/telegram' && req.method === 'GET') return sendJson(res, 200, { telegram: await telegramStatus(mind.id) })
+      if (sub === '/telegram' && req.method === 'PUT') return sendJson(res, 200, { telegram: await connectTelegram(mind.id, (await readBody(req, telegramTokenSchema)).token) })
+      if (sub === '/telegram' && req.method === 'DELETE') return (await disconnectTelegram(mind.id)) ? res.writeHead(204).end() : sendJson(res, 404, { error: 'not_connected' })
       if (sub === '/runs' && req.method === 'GET') {
         return sendJson(res, 200, { runs: await listRuns(mind.id, limitOf(url, 20, 100), url.searchParams.get('threadId') ?? undefined) })
       }
@@ -205,6 +480,15 @@ export const server = createServer(async (req, res) => {
         const before = raw === null ? undefined : parseCursor(raw)
         if (before === null) throw new HttpError(400, 'invalid_before')
         return sendJson(res, 200, await threadMessages(mind.id, thread[1], limitOf(url, 50, 200), before))
+      }
+      const one = sub.match(/^\/threads\/(thr_[a-f0-9]{24})$/)
+      if (one && req.method === 'PATCH') {
+        const body = await readBody(req, threadTitleSchema).catch((e) => { throw e instanceof HttpError && e.message === 'invalid_body' ? new HttpError(400, 'invalid_title') : e })
+        return sendJson(res, 200, { thread: await renameThread(mind.id, one[1], body.title) })
+      }
+      if (one && req.method === 'DELETE') {
+        await deleteThread(mind.id, one[1])
+        return res.writeHead(204).end()
       }
       if (sub.startsWith('/threads')) throw new HttpError(req.method === 'GET' ? 404 : 405, req.method === 'GET' ? 'thread_not_found' : 'method_not_allowed')
       if (sub === '/approvals' && req.method === 'GET') return sendJson(res, 200, { approvals: await pendingApprovals(mind.id) })
@@ -224,10 +508,11 @@ export const server = createServer(async (req, res) => {
           return passthrough(res, out)
         }
         if (wf[2] === '/runs' && req.method === 'POST') {
-          const body = await readBody(req, runWorkflowSchema)
+          const body = await readBody(req, runSchema)
           await assertDemoRunAllowed(user, req)
-          const engineRes = await engineFetch(`${p}/runs`, { method: 'POST', body: { userId: user.id, mind: mindConfig(mind), secrets: await secretsForRun(user.id), input: body.input, ...(await runExtras(user, mind.id)) } })
-          return relayRun(req, res, engineRes, { mindId: mind.id, workflowId: id.data })
+          const controller = new AbortController()
+          const engineRes = await engineFetch(`${p}/runs`, { method: 'POST', signal: controller.signal, body: { userId: user.id, mind: mindConfig(mind), secrets: await secretsForRun(user.id), input: body.input, ...timeZoneOf(body), ...(await runExtras(user, mind.id)) } })
+          return relayRun(req, res, engineRes, { mindId: mind.id, workflowId: id.data, controller })
         }
         if (wf[2] === '/runs' && req.method === 'GET') return passthrough(res, await engineJson(`${p}/runs?limit=${limitOf(url, 20, 100)}`))
         if (wf[2] === '/autopilot' && req.method === 'GET') return passthrough(res, await engineJson(`${p}/autopilot`))
@@ -241,8 +526,11 @@ export const server = createServer(async (req, res) => {
     return sendJson(res, 404, { error: 'not_found' })
   } catch (e) {
     if (res.headersSent) return void res.end()
-    if (e instanceof HttpError) return sendJson(res, e.status, { error: e.message, ...e.extra })
-    console.error('unhandled', e instanceof Error ? e.message : e)
+    if (e instanceof HttpError) {
+      if (e.status >= 500) logServerError(req, e.status, e.message, e.extra)
+      return sendJson(res, e.status, { error: e.message, ...e.extra })
+    }
+    logServerError(req, 500, 'internal_error', { message: e instanceof Error ? e.message : String(e) })
     sendJson(res, 500, { error: 'internal_error' })
   }
 })
@@ -252,7 +540,15 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (applied.length) console.log('migrations applied', applied.join(', '))
   server.listen(config.port, () => console.log(`backend listening on :${config.port}`))
   // Judge try-out users are deleted after the retention: at start and once a day.
-  const sweep = () => cleanupDemoUsers(async (mindId) => { await deleteAllWorkflows(mindId) }).then((n) => { if (n) console.log('demo users removed', n) }, (e) => console.error('demo cleanup failed', e instanceof Error ? e.message : e))
+  const sweep = () => cleanupDemoUsers(async (mindId) => { await deleteAllWorkflows(mindId); await disconnectTelegram(mindId).catch(() => {}) }).then((n) => { if (n) console.log('demo users removed', n) }, (e) => console.error('demo cleanup failed', e instanceof Error ? e.message : e))
   void sweep()
   setInterval(sweep, 24 * 3600_000).unref()
+  // Deleted chats (#207): the engine is asked again to forget them, and after 30 days they are purged for good.
+  const threadSweep = () => sweepDeletedThreads().then((n) => { if (n.forgotten || n.purged) console.log('deleted threads', n) }, (e) => console.error('thread sweep failed', e instanceof Error ? e.message : e))
+  void threadSweep()
+  setInterval(threadSweep, 3600_000).unref()
+  // Local dev without a public URL (#168): poll Telegram instead of waiting for webhooks.
+  if (config.telegramPolling && !config.telegramWebhookBase) { startTelegramPolling(telegramRunner); console.log('telegram polling on') }
+  // Every bot's webhook again, so bots connected before #208 also get button presses (callback_query).
+  else void registerTelegramWebhooks().then((n) => { if (n.updated || n.failed) console.log('telegram webhooks set', JSON.stringify(n)) })
 }

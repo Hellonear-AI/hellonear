@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { createSkill } from '@mastra/core/skills'
 import { parse } from 'yaml'
 import { z } from 'zod'
-import { toolRegistry, toolsFor } from './tools.ts'
+import { CANVAS_ONLY, toolRegistry, toolsFor } from './tools.ts'
 
 const frontmatterSchema = z.object({
   name: z.string().regex(/^[a-z0-9-]+$/),
@@ -16,6 +16,15 @@ const frontmatterSchema = z.object({
       connections: z.array(z.string()),
       status: z.enum(['available', 'simulated', 'blocked']),
       note: z.string().optional(),
+      // The name people see (the FE's Skills screen), so a Mind can name a skill to add (#114).
+      title: z.string().optional(),
+      // One line on what it can and cannot do, for the Mind's own list of skills (#114).
+      blurb: z.string().optional(),
+      // Built in: every Mind has it, it is not offered in GET /v1/skills and cannot be equipped or removed (#114).
+      builtin: z.boolean().optional(),
+      // Shared docs from engine/references/ the Mind can open with skill_read when it needs them,
+      // so several skills reuse one verified text without loading it into every prompt.
+      references: z.array(z.string().regex(/^[a-z0-9-]+\.md$/)).optional(),
     }),
   }),
 })
@@ -27,10 +36,18 @@ export type SkillEntry = {
   connections: string[]
   status: 'available' | 'simulated' | 'blocked'
   note?: string
+  title?: string
+  blurb?: string
+  builtin?: boolean
+  references?: string[]
+  // The SKILL.md body without its frontmatter, for the FE's skill detail page (#220).
+  markdown: string
   skill: ReturnType<typeof createSkill>
 }
 
-export function parseSkillMd(text: string, folder: string): SkillEntry {
+const referencesDir = new URL('../references', import.meta.url).pathname
+
+export function parseSkillMd(text: string, folder: string, readReference = (file: string) => readFileSync(join(referencesDir, file), 'utf8')): SkillEntry {
   const match = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/)
   if (!match) throw new Error(`skills/${folder}/SKILL.md: missing YAML frontmatter`)
   const fm = frontmatterSchema.parse(parse(match[1]))
@@ -38,11 +55,13 @@ export function parseSkillMd(text: string, folder: string): SkillEntry {
   const unknown = fm.metadata.hellonear.tools.filter((t) => !(t in toolRegistry))
   if (unknown.length) throw new Error(`skills/${folder}/SKILL.md: unknown tools ${unknown.join(', ')}`)
   const instructions = match[2].trim()
+  const references = Object.fromEntries((fm.metadata.hellonear.references ?? []).map((file) => [file, readReference(file)]))
   return {
     name: fm.name,
     description: fm.description,
     ...fm.metadata.hellonear,
-    skill: createSkill({ name: fm.name, description: fm.description, instructions, metadata: fm.metadata }),
+    markdown: instructions,
+    skill: createSkill({ name: fm.name, description: fm.description, instructions, references, metadata: fm.metadata }),
   }
 }
 
@@ -61,19 +80,40 @@ export function usableSkills(skillIds: string[]): SkillEntry[] {
   return skillIds.map((id) => skillCatalog.get(id)).filter((s): s is SkillEntry => !!s && s.status !== 'blocked')
 }
 
+// Built-in skills (the HelloNear guide) are loaded for every Mind on top of its equipped skills.
+export const builtinSkillIds = () => [...skillCatalog.values()].filter((s) => s.builtin && s.status !== 'blocked').map((s) => s.name)
+export const mindSkills = (skillIds: string[]) => usableSkills([...new Set([...skillIds, ...builtinSkillIds()])])
+// Skills an owner can equip: the catalog without built-ins.
+export const equippableSkills = () => [...skillCatalog.values()].filter((s) => !s.builtin)
+
 // How a skill is shown to the UI: status and connections, so blocked or simulated features are visible, not hidden.
 export function skillSummary(id: string) {
   const s = skillCatalog.get(id)
   if (!s) throw new Error(`unknown skill ${id}`)
-  return { skillId: id, description: s.description, status: s.status, connections: s.connections, ...(s.note ? { note: s.note } : {}) }
+  return {
+    skillId: id, description: s.description, status: s.status, connections: s.connections,
+    ...(s.note ? { note: s.note } : {}), ...(s.title ? { title: s.title } : {}), ...(s.blurb ? { blurb: s.blurb } : {}),
+  }
 }
 
 // Every skill a Mind may equip, not only those a template starts with (e.g. the Visual Builder's
 // near-account and http-request). Blocked skills are listed so the UI can say why they are off.
-export const skillCatalogSummaries = () => [...skillCatalog.values()].map((s) => ({ ...skillSummary(s.name), tools: s.tools }))
+export const skillCatalogSummaries = () => equippableSkills().map((s) => ({ ...skillSummary(s.name), tools: s.tools }))
+
+// One equippable skill with its SKILL.md body (#220), for the FE's skill detail page. Built-in skills are hidden
+// like in the catalog. Shared references (engine/references/) are left out: they are long reference text the Mind
+// opens on demand, not a description of the skill.
+export function skillDetail(id: string) {
+  const s = skillCatalog.get(id)
+  if (!s || s.builtin) return undefined
+  return { skillId: id, title: s.title, blurb: s.blurb, status: s.status, connections: s.connections, tools: s.tools, markdown: s.markdown }
+}
 
 // Workflow tools the Mind has not equipped (skills can be unequipped after a workflow is saved).
 export function missingTools(skillIds: string[], tools: string[]): string[] {
-  const allowed = Object.keys(toolsFor(usableSkills(skillIds).flatMap((s) => s.tools), { unattended: true }))
+  // The model's unattended tools, plus the canvas-only steps (#146) the Mind's skills grant: toolsFor hides those from
+  // the model, but a canvas may use them.
+  const granted = usableSkills(skillIds).flatMap((s) => s.tools)
+  const allowed = [...Object.keys(toolsFor(granted, { unattended: true })), ...granted.filter((t) => CANVAS_ONLY.has(t))]
   return tools.filter((t) => !allowed.includes(t))
 }

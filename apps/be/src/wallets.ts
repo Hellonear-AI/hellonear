@@ -6,17 +6,21 @@ import { z } from 'zod'
 import { config } from './config.ts'
 import { decrypt, encrypt, sha256 } from './crypto.ts'
 import { query } from './db.ts'
-import { HttpError } from './http.ts'
+import { HttpError, UPSTREAM_ERROR, fetchFailure } from './http.ts'
 
 const YOCTO = 10n ** 24n
 const accountIdSchema = z.string().toLowerCase().regex(/^(?=.{2,64}$)(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/, 'a NEAR account id')
 const nearAmountSchema = z.string().regex(/^\d{1,3}(\.\d{1,24})?$/, 'NEAR as a decimal string, e.g. "0.05"')
 
 // Policy v2 (decided 4 Nov): OutLayer is the hard stop, approval lives in the app.
+// The daily cap (#149) is OutLayer's `rules.limits.daily`, checked in the TEE as `spent today + amount > cap` (proven on
+// testnet 10 Nov: a payment that lands exactly on the cap goes through, a refused one does not count). Optional: null
+// or left out = no daily cap. It may not be below the per-payment limit, which would make that limit meaningless.
 export const policySchema = z.object({
   perTransactionNear: nearAmountSchema.refine((v) => toYocto(v) > 0n && toYocto(v) <= 10n * YOCTO, 'between 0 and 10 NEAR'),
+  dailyNear: nearAmountSchema.refine((v) => toYocto(v) > 0n && toYocto(v) <= 100n * YOCTO, 'between 0 and 100 NEAR').nullish(),
   whitelist: z.array(accountIdSchema).min(1).max(20),
-})
+}).refine((b) => !b.dailyNear || toYocto(b.dailyNear) >= toYocto(b.perTransactionNear), { path: ['dailyNear'], message: 'not below perTransactionNear' })
 
 export function toYocto(near: string): bigint {
   const [whole, frac = ''] = near.split('.')
@@ -38,8 +42,8 @@ export async function outlayerRaw(method: string, path: string, key: string, bod
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(30_000),
     })
-  } catch {
-    throw new HttpError(502, 'outlayer_unreachable')
+  } catch (e) {
+    throw new HttpError(UPSTREAM_ERROR, 'outlayer_unreachable', { reason: fetchFailure(e) })
   }
   return { status: res.status, body: await res.json().catch(() => null) }
 }
@@ -53,10 +57,10 @@ async function outlayer(method: string, path: string, key?: string, body?: unkno
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(20_000),
     })
-  } catch {
-    throw new HttpError(502, 'outlayer_unreachable')
+  } catch (e) {
+    throw new HttpError(UPSTREAM_ERROR, 'outlayer_unreachable', { reason: fetchFailure(e) })
   }
-  if (!res.ok) throw new HttpError(502, 'outlayer_error', { outlayerStatus: res.status })
+  if (!res.ok) throw new HttpError(UPSTREAM_ERROR, 'outlayer_error', { outlayerStatus: res.status })
   return res.json()
 }
 
@@ -66,9 +70,9 @@ async function view(method: string, args: unknown): Promise<any> {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'query', params: { request_type: 'call_function', finality: 'final', account_id: config.outlayerContractId, method_name: method, args_base64: Buffer.from(JSON.stringify(args)).toString('base64') } }),
     signal: AbortSignal.timeout(15_000),
-  }).catch(() => { throw new HttpError(502, 'rpc_unreachable') })
+  }).catch((e) => { throw new HttpError(UPSTREAM_ERROR, 'rpc_unreachable', { reason: fetchFailure(e) }) })
   const body: any = await res.json().catch(() => null)
-  if (!body?.result?.result) throw new HttpError(502, 'rpc_error')
+  if (!body?.result?.result) throw new HttpError(UPSTREAM_ERROR, 'rpc_error')
   return JSON.parse(Buffer.from(body.result.result).toString('utf8'))
 }
 
@@ -80,9 +84,11 @@ async function row(mindId: string): Promise<Row | null> {
 }
 // Judge try-out mode (#43): every demo user's Mind pays from one shared demo wallet (DEMO_OUTLAYER_API_KEY).
 let demoWallet: { walletId: string; address: string } | undefined
-async function isDemoMind(mindId: string): Promise<boolean> {
-  const [r] = await query<{ is_demo: boolean }>('select u.is_demo from minds m join users u on u.id = m.user_id where m.id = $1', [mindId])
-  return r?.is_demo === true
+// A try-out user's Mind, or an Attack Playground Mind (#129): it pays from the shared demo wallet, never its own.
+export async function isDemoMind(mindId: string): Promise<boolean> {
+  const [r] = await query<{ demo: boolean }>(
+    'select u.is_demo or m.playground_attack is not null as demo from minds m join users u on u.id = m.user_id where m.id = $1', [mindId])
+  return r?.demo === true
 }
 
 export async function hasWallet(mindId: string): Promise<boolean> {
@@ -110,7 +116,7 @@ const call = (methodName: string, args: Record<string, unknown>, gas: string, de
 export async function createWallet(mindId: string) {
   if (await row(mindId)) throw new HttpError(409, 'wallet_exists')
   const reg = await outlayer('POST', '/register')
-  if (typeof reg?.api_key !== 'string' || !/^[0-9a-f]{64}$/.test(reg.near_account_id ?? '')) throw new HttpError(502, 'outlayer_error')
+  if (typeof reg?.api_key !== 'string' || !/^[0-9a-f]{64}$/.test(reg.near_account_id ?? '')) throw new HttpError(UPSTREAM_ERROR, 'outlayer_error')
   const inserted = await query(
     `insert into mind_wallets (mind_id, wallet_id, near_account_id, key_ciphertext) values ($1, $2, $3, $4)
      on conflict (mind_id) do nothing returning mind_id`,
@@ -128,10 +134,14 @@ export async function getWallet(mindId: string) {
     address,
     shared,
     balanceNear: toNear(b.balance ?? '0'),
+    // OutLayer's own counter for the daily cap (`usage.daily.native.spent`, testnet 10 Nov); `{}` before the first payment.
+    // Whether it resets at 00:00 UTC or after a rolling 24 h is not proven yet.
+    spentTodayNear: toNear(/^\d+$/.test(String(p.usage?.daily?.native?.spent)) ? p.usage.daily.native.spent : '0'),
     frozen: p.frozen === true,
     policy: stored
       ? {
           perTransactionNear: p.rules?.limits?.per_transaction?.native ? toNear(p.rules.limits.per_transaction.native) : null,
+          dailyNear: p.rules?.limits?.daily?.native ? toNear(p.rules.limits.daily.native) : null,
           whitelist: p.rules?.addresses?.mode === 'whitelist' ? p.rules.addresses.list : null,
           transactionTypes: p.rules?.transaction_types ?? null,
           // false if the policy was set for another key: then OutLayer would refuse this Mind's own key.
@@ -141,13 +151,40 @@ export async function getWallet(mindId: string) {
   }
 }
 
+// The paying wallet's address rule (#176), so a Mind can tell which sellers its payment would reach. `null`: the policy
+// sets no address rule, so OutLayer lets a payment go to any account (other rules still apply).
+export type AddressRule = { mode: 'whitelist' | 'blacklist'; list: string[] } | null
+export async function addressRuleOf(mindId: string): Promise<AddressRule> {
+  const { key } = await keyOf(mindId)
+  const a = (await outlayer('GET', '/wallet/v1/policy', key)).rules?.addresses
+  return (a?.mode === 'whitelist' || a?.mode === 'blacklist') && Array.isArray(a.list) ? { mode: a.mode, list: a.list } : null
+}
+export const allowsAddress = (rule: AddressRule, account: string) => !rule || (rule.mode === 'whitelist') === rule.list.includes(account)
+
+// Deleting a Mind deletes its `mind_wallets` row, the only copy of the agent key: after that nobody can move what is
+// left in the wallet (the owner never holds the key, #15). So a delete is refused while the Mind's own wallet holds more
+// than dust, unless the owner acknowledged it (#161). Try-out and playground Minds pay from the shared demo wallet and
+// have no row of their own, so they are never refused.
+const DUST_YOCTO = 10n ** 21n // 0.001 NEAR
+export async function assertWalletEmpty(mindId: string) {
+  if (await isDemoMind(mindId)) return
+  const r = await row(mindId)
+  if (!r) return
+  const b = await outlayer('GET', '/wallet/v1/balance?chain=near', decrypt(config.secretsMasterKey, r.key_ciphertext, `wallet:${mindId}`))
+  const balance = BigInt(b.balance ?? '0')
+  if (balance > DUST_YOCTO) throw new HttpError(409, 'wallet_not_empty', { balanceNear: toNear(balance) })
+}
+
 // Builds policy v2 for this wallet, has OutLayer encrypt and sign it, and returns the owner's store_wallet_policy tx.
 export async function policyTransaction(mindId: string, ownerAccountId: string, body: z.infer<typeof policySchema>): Promise<OwnerTransaction> {
   const { walletId, key } = await keyOf(mindId)
   const policy = {
     wallet_id: walletId,
     rules: {
-      limits: { per_transaction: { native: toYocto(body.perTransactionNear).toString() } },
+      limits: {
+        per_transaction: { native: toYocto(body.perTransactionNear).toString() },
+        ...(body.dailyNear ? { daily: { native: toYocto(body.dailyNear).toString() } } : {}),
+      },
       addresses: { mode: 'whitelist', list: [...new Set(body.whitelist)] },
       transaction_types: ['transfer'],
     },
@@ -157,11 +194,14 @@ export async function policyTransaction(mindId: string, ownerAccountId: string, 
   }
   const enc = await outlayer('POST', '/wallet/v1/encrypt-policy', key, policy)
   const sig = await outlayer('POST', '/wallet/v1/sign-policy', key, { encrypted_data: enc.encrypted_base64, caller: ownerAccountId })
-  if (typeof enc?.encrypted_base64 !== 'string' || typeof sig?.signature_hex !== 'string' || typeof sig?.public_key_hex !== 'string') throw new HttpError(502, 'outlayer_error')
+  if (typeof enc?.encrypted_base64 !== 'string' || typeof sig?.signature_hex !== 'string' || typeof sig?.public_key_hex !== 'string') throw new HttpError(UPSTREAM_ERROR, 'outlayer_error')
+  // The keystore signs `store_wallet_policy:v2:…` over the version this write stores (current + 1), the new policy's
+  // lock and a deadline (unix seconds); the contract rebuilds that message from the same three args, so pass them as is.
+  if (!Number.isSafeInteger(sig.version) || typeof sig.locked !== 'boolean' || !Number.isSafeInteger(sig.valid_until)) throw new HttpError(UPSTREAM_ERROR, 'outlayer_error')
   const walletPubkey = `ed25519:${sig.public_key_hex}`
   const deposit = await view('estimate_wallet_policy_cost', { wallet_pubkey: walletPubkey, encrypted_data: enc.encrypted_base64 })
-  if (!/^\d+$/.test(String(deposit))) throw new HttpError(502, 'rpc_error')
-  return call('store_wallet_policy', { wallet_pubkey: walletPubkey, encrypted_data: enc.encrypted_base64, wallet_signature: sig.signature_hex }, '100000000000000', String(deposit))
+  if (!/^\d+$/.test(String(deposit))) throw new HttpError(UPSTREAM_ERROR, 'rpc_error')
+  return call('store_wallet_policy', { wallet_pubkey: walletPubkey, encrypted_data: enc.encrypted_base64, wallet_signature: sig.signature_hex, version: sig.version, locked: sig.locked, valid_until: sig.valid_until }, '100000000000000', String(deposit))
 }
 
 export async function freezeTransaction(mindId: string, frozen: boolean): Promise<OwnerTransaction> {

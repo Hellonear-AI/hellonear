@@ -47,7 +47,7 @@ HelloNear is an AI agent persona platform on NEAR, built for NEAR HACKATHON (1�
 | `sc` | Mind registry contract (Rust `near-sdk`) | Axel |
 | `docs` | Shared technical docs, incl. `api-contract.md` | James + Axel |
 | `design` | Design tokens, screens, Mind characters (`hellonear.pen`, pen.dev) | Nabil |
-| `deploy` | Hosted demo: systemd units + `deploy.sh` for one Proxmox LXC (#22) | James |
+| `deploy` | Hosted demo: systemd units + `deploy.sh` for one Proxmox LXC, and the automatic deploy after a merge (`deploy/autodeploy/`) (#22) | James |
 
 ## Decided stack (see #4)
 
@@ -60,6 +60,19 @@ HelloNear is an AI agent persona platform on NEAR, built for NEAR HACKATHON (1�
 
 **Bun** for every JS/TS folder (`bun install`, `bun run <script>`, `bun.lock` committed, no `package-lock.json`). Runtimes are chosen per folder: the engine runs on Node (see `engine/CLAUDE.md`). Global setup commands such as `npx skills add …` stay as written.
 
+## CI (GitHub Actions)
+
+Each folder has its own workflow in `.github/workflows/`. It runs on pull requests that touch that folder and on pushes to `main`. None of them need secrets.
+
+| Workflow | Folder | Runs |
+|---|---|---|
+| `be` | `apps/be` | typecheck, unit + integration tests against Postgres + pgvector (fake engine) |
+| `engine` | `engine` | typecheck, `test:unit` (the NEAR AI integration tests stay local) |
+| `fe` | `apps/fe` | lint, typecheck, `next build` |
+| `sc` | `sc` | unit tests, sandbox tests (incl. upgrades from the fixtures), clippy |
+
+CI does not replace the local integration and load tests required by the rules below. Nothing deploys from CI itself. A merged `main` is deployed to the hosted demo after its CI passes, by a poller on James's always-on LAN machine that comments the result on the merged PR (rule 3, `deploy/README.md`).
+
 ## Local machines
 
 The team uses macOS with **OrbStack** as the Docker runtime. Keep local services light: `docker-compose.yml` caps Postgres at 1 CPU / 512 MB, run tests sequentially, keep load tests short, and `docker compose stop` when you are done.
@@ -68,8 +81,9 @@ The team uses macOS with **OrbStack** as the Docker runtime. Keep local services
 
 | What | Account | Env |
 |---|---|---|
-| Mind registry contract (`sc/`), v0.2.0 | `hellonear-registry.testnet` | `REGISTRY_CONTRACT_ID`, `NEAR_NETWORK=testnet` |
-| Demo Mind wallet (OutLayer, policy v2), owner `lin1er.testnet` | `0fdc9294b3f4f9be1ef5a9e2440e9f37dc03a641f236c8e1877c55f953d04e7a`; sub-wallet `skill-payments` `e81791309e25c72f894f2d376e7a6ea35fbfe4e05b908da9fe18d8690e8f8b8a` | `OUTLAYER_API_KEY`, `OUTLAYER_SUB_SKILL_PAYMENTS` (James's `apps/be/.env`, never committed) |
+| Mind registry contract (`sc/`), v0.3.0 | `hellonear-registry.testnet` | `REGISTRY_CONTRACT_ID`, `NEAR_NETWORK=testnet` |
+| Demo Mind wallet (OutLayer, policy v2), owner `lin1er.testnet` | `83e05486fc84f7150a70fe44bdfc0692c19182cdd72af7721c9a8a2a511e98bd`; sub-wallet `skill-payments` `bcd8cdbd8b4038c12ab9076188d01f9e5238ff397c3c6097cec1488c6b16588b`. Replaced `0fdc9294…` on 8 Nov (its key was exposed; #70) | `OUTLAYER_API_KEY`, `OUTLAYER_SUB_SKILL_PAYMENTS` (James's `apps/be/.env`, never committed); hosted demo: `DEMO_OUTLAYER_API_KEY` |
+| Try-out email inbox (AgentMail, Free plan, lexirieru's organization; not on chain) (#96) | `hellonear-demo@agentmail.to` (AgentMail `client_id` `hellonear-demo`), created 9 Nov | `AGENTMAIL_API_KEY` (Axel's local `apps/be/.env`, never committed), `DEMO_AGENTMAIL_INBOX`; not on the hosted demo yet |
 
 Keep this table and each folder's `.env.example` in sync when something is (re)deployed.
 
@@ -77,7 +91,7 @@ Keep this table and each folder's `.env.example` in sync when something is (re)d
 
 1. **Use data, not assumptions.** Claims like "safe", "done", or "X causes Y" must be backed by something seen in this session (test output, logs, responses, diffs). Otherwise write "not proven yet". Do not act on an unproven cause.
 2. **Integration + load tests locally before every push/merge**, reported in the PR. Tests that cannot run are reported as not run, with the reason.
-3. **No push to `main`, merge, deploy, PR, or submission without Axel's approval — every time.** Approval for one action does not cover the next.
+3. **No push to `main`, merge, PR, or submission without Axel's approval — every time.** Approval for one action does not cover the next. **Approving a merge to `main` also approves deploying that `main` to the hosted testnet demo** (decided 9 Nov, #22): it deploys after the merge without asking again (see `deploy/README.md`). Still a separate approval each time: deploying anything other than `main`, changing `be.env` or other secrets on the box, a manual rollback, redeploying a contract, and anything on mainnet.
 4. **Secrets only in `.env`** (gitignored). Each folder has a `.env.example` with names only. Never paste secrets into code, issues, PRs, logs, or prompts.
 5. **Verify NEAR facts before relying on them.** Use the official NEAR agent skills (`npx skills add near/agent-skills`) and live docs (docs.near.org, docs.near.ai, docs.near-intents.org). If a skill and the live docs disagree, follow the docs. Pin package versions; do not upgrade during the hackathon.
 6. **Read websites properly.** Do not conclude a site is empty from a plain fetch (many are JS-rendered); use `curl -s "https://r.jina.ai/<url>"`, the site's `llms.txt`/`.md` pages, or a browser.

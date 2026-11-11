@@ -2,10 +2,28 @@
 // event in run_events, the source for the Mind Graph history, Receipts and the approval inbox.
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { query } from './db.ts'
+import { UPSTREAM_ERROR, logServerError } from './http.ts'
 import { sseEvents } from './sse.ts'
+import { NOT_DELETED } from './threads.ts'
 
 type Event = Record<string, any> & { runId?: string; seq: number; type: string; ts: string }
-type RunContext = { mindId: string; threadId?: string; workflowId?: string; resumeOf?: string; userMessage?: string }
+// `controller` aborts the engine request (passed to engineFetch as its signal) when the run is canceled (#121).
+type RunContext = { mindId: string; threadId?: string; workflowId?: string; resumeOf?: string; userMessage?: string; controller?: AbortController }
+
+// Runs this process is relaying right now (#121). Cancel aborts the engine request; the relay then stores the
+// run as canceled and ends the stream. A run that is not here (finished, paused for approval, or relayed before
+// a backend restart) is not running.
+type Live = { controller: AbortController; canceled: boolean; done: Promise<void> }
+const live = new Map<string, Live>()
+
+// Cancels a live run and resolves once the relay has stored it; null when the run is not live.
+export function cancelRun(runId: string): Promise<void> | null {
+  const run = live.get(runId)
+  if (!run) return null
+  run.canceled = true
+  run.controller.abort()
+  return run.done
+}
 
 // Deltas arrive many per second; they are written in batches, everything else right away.
 const BATCHED = new Set(['text.delta', 'reasoning.delta'])
@@ -49,7 +67,8 @@ async function insertEvents(events: Event[]) {
 export async function relayRun(req: IncomingMessage, res: ServerResponse, engineRes: Response, ctx: RunContext) {
   if (engineRes.status !== 200 || !engineRes.body) {
     const body = await engineRes.json().catch(() => ({ error: 'engine_error' }))
-    res.writeHead(engineRes.status >= 500 ? 502 : engineRes.status, { 'content-type': 'application/json' }).end(JSON.stringify(body))
+    if (engineRes.status >= 500) logServerError(req, UPSTREAM_ERROR, 'engine_error', { engineStatus: engineRes.status })
+    res.writeHead(engineRes.status >= 500 ? UPSTREAM_ERROR : engineRes.status, { 'content-type': 'application/json' }).end(JSON.stringify(body))
     return
   }
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive', 'x-accel-buffering': 'no' })
@@ -71,6 +90,14 @@ export async function relayRun(req: IncomingMessage, res: ServerResponse, engine
   let runStored = false
   let pending: Event[] = []
   const flush = async () => { await insertEvents(pending); pending = [] }
+  let finishLive = () => {}
+  let entry: Live | undefined
+  const register = (id: string) => {
+    if (entry || !ctx.controller) return
+    entry = { controller: ctx.controller, canceled: false, done: new Promise((resolve) => { finishLive = resolve }) }
+    live.set(id, entry)
+  }
+  if (runId) register(runId)
 
   try {
     for await (const raw of sseEvents(engineRes.body as unknown as AsyncIterable<Uint8Array>)) {
@@ -80,7 +107,7 @@ export async function relayRun(req: IncomingMessage, res: ServerResponse, engine
         shiftDecided = true
       }
       e.seq += offset
-      if (e.runId) runId = e.runId
+      if (e.runId) { runId = e.runId; register(runId) }
       lastSeq = e.seq
       if (e.runId) {
         // The run row exists before its first event is stored: from run.started / workflow.started,
@@ -100,14 +127,27 @@ export async function relayRun(req: IncomingMessage, res: ServerResponse, engine
     await flush()
   } catch {
     await flush().catch(() => {})
-    const e: Event = { v: 1, type: 'run.error', runId, mindId: ctx.mindId, seq: lastSeq + 1, ts: new Date().toISOString(), error: 'engine_stream_interrupted' }
-    if (runId) {
-      await insertEvents([e]).catch(() => {})
-      await updateRun(e).catch(() => {})
+    const ts = new Date().toISOString()
+    if (entry?.canceled) {
+      // Canceled (#121): the stream ends like any other run, with its finish event and status canceled.
+      const e: Event = { v: 1, type: ctx.workflowId ? 'workflow.finished' : 'run.finished', runId, mindId: ctx.mindId, seq: lastSeq + 1, ts, status: 'canceled', finishReason: 'canceled' }
+      if (runId) {
+        await insertEvents([e]).catch(() => {})
+        await query(`update runs set status = 'canceled', finished_at = now() where id = $1`, [runId]).catch(() => {})
+      }
+      send(`data: ${JSON.stringify(e)}\n\n`)
+    } else {
+      const e: Event = { v: 1, type: 'run.error', runId, mindId: ctx.mindId, seq: lastSeq + 1, ts, error: 'engine_stream_interrupted' }
+      if (runId) {
+        await insertEvents([e]).catch(() => {})
+        await updateRun(e).catch(() => {})
+      }
+      send(`data: ${JSON.stringify(e)}\n\n`)
     }
-    send(`data: ${JSON.stringify(e)}\n\n`)
   } finally {
     clearInterval(heartbeat)
+    if (runId && entry && live.get(runId) === entry) live.delete(runId)
+    finishLive()
     res.end()
   }
 }
@@ -121,14 +161,14 @@ const toRun = (r: any): RunSummary => ({
 
 export async function listRuns(mindId: string, limit: number, threadId?: string): Promise<RunSummary[]> {
   const rows = threadId
-    ? await query('select * from runs where mind_id = $1 and thread_id = $2 order by started_at desc limit $3', [mindId, threadId, limit])
-    : await query('select * from runs where mind_id = $1 order by started_at desc limit $2', [mindId, limit])
+    ? await query(`select * from runs r where r.mind_id = $1 and r.thread_id = $2 and ${NOT_DELETED} order by r.started_at desc limit $3`, [mindId, threadId, limit])
+    : await query(`select * from runs r where r.mind_id = $1 and ${NOT_DELETED} order by r.started_at desc limit $2`, [mindId, limit])
   return rows.map(toRun)
 }
 
 // A run of a Mind the user owns, or null.
 export async function getRun(userId: string, runId: string): Promise<(RunSummary & { mindId: string }) | null> {
-  const [row] = await query('select r.* from runs r join minds m on m.id = r.mind_id where r.id = $1 and m.user_id = $2', [runId, userId])
+  const [row] = await query(`select r.* from runs r join minds m on m.id = r.mind_id where r.id = $1 and m.user_id = $2 and ${NOT_DELETED}`, [runId, userId])
   return row ? { ...toRun(row), mindId: row.mind_id } : null
 }
 
@@ -145,6 +185,20 @@ export async function mindEvents(mindId: string, since: Date, limit: number): Pr
      order by e.ts, e.run_id, e.seq limit $3`,
     [mindId, since, limit],
   )).map((r) => r.payload)
+}
+
+// Whether a run still waits for the owner's answer on this tool call: the run is paused and the call's
+// `tool.approval_required` belongs to the current pause. Every paused stream ends with `run.finished`, so an approval of
+// the current pause has at most that one after it; one from an earlier pause (a split bill's first payment, answered
+// already) has two or more and no longer counts. So a stale button or card can never resume the run with a call it went
+// past (#208). Counting pauses, not tool events, keeps parallel tool calls in one step (whose order is not proven) safe.
+export async function isAwaiting(runId: string, toolCallId: string): Promise<boolean> {
+  const [row] = await query(
+    `select 1 from runs r join run_events a on a.run_id = r.id and a.type = 'tool.approval_required' and a.payload->>'toolCallId' = $2
+     where r.id = $1 and r.status = 'awaiting_approval'
+       and (select count(*) from run_events w where w.run_id = r.id and w.seq > a.seq and w.type = 'run.finished') <= 1
+     limit 1`, [runId, toolCallId])
+  return row !== undefined
 }
 
 // The approval inbox (#14): runs paused on a wallet action, with the action waiting for the owner.

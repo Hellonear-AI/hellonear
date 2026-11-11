@@ -4,7 +4,7 @@
 import { z } from 'zod'
 import { newId } from './crypto.ts'
 import { pool, query } from './db.ts'
-import { HttpError } from './http.ts'
+import { HttpError, UPSTREAM_ERROR } from './http.ts'
 import { keyOf, outlayerRaw, toNear, toYocto } from './wallets.ts'
 
 export const sendPaymentSchema = z.object({
@@ -24,7 +24,8 @@ async function finish(id: string, status: PaymentStatus, fields: { txHash?: stri
     [id, status, fields.txHash ?? null, fields.requestId ?? null, fields.message?.slice(0, 500) ?? null])
 }
 
-// `cap` (judge try-out mode, #43): at most `max` payments per user that are sent or still pending. The check and the
+// `cap` (judge try-out mode, #43; Attack Playground, #129): at most `max` payments per user from the shared demo
+// wallet that are sent or still pending. The check and the
 // insert run in one transaction under a per-user advisory lock, so parallel payments cannot both pass the cap.
 export async function sendPayment(mindId: string, body: z.infer<typeof sendPaymentSchema>, opts: { cap?: { userId: string; max: number; message: string } } = {}): Promise<PaymentResult> {
   const { key } = await keyOf(mindId)
@@ -38,7 +39,10 @@ export async function sendPayment(mindId: string, body: z.infer<typeof sendPayme
     if (opts.cap) {
       await client.query('select pg_advisory_xact_lock(4100002, hashtext($1))', [opts.cap.userId])
       const { rows: [{ n }] } = await client.query(
-        `select count(*)::int as n from wallet_payments p join minds m on m.id = p.mind_id where m.user_id = $1 and p.status in ('sent', 'pending')`, [opts.cap.userId])
+        // Only payments from the shared demo wallet count: a try-out user's Minds, or playground Minds (#129), so an
+        // owner's payments from their own wallet do not use up the playground's allowance.
+        `select count(*)::int as n from wallet_payments p join minds m on m.id = p.mind_id join users u on u.id = m.user_id
+          where m.user_id = $1 and p.status in ('sent', 'pending') and (u.is_demo or m.playground_attack is not null)`, [opts.cap.userId])
       if (n >= opts.cap.max) refused = opts.cap.message
     }
     await client.query('insert into wallet_payments (id, mind_id, to_account, amount_yocto, status, message) values ($1, $2, $3, $4, $5, $6)',
@@ -96,7 +100,7 @@ export async function sendPayment(mindId: string, body: z.infer<typeof sendPayme
 export async function walletBalance(mindId: string): Promise<{ address: string; balanceNear: string }> {
   const { address, key } = await keyOf(mindId)
   const out = await outlayerRaw('GET', '/wallet/v1/balance?chain=near', key)
-  if (out.status !== 200) throw new HttpError(502, 'outlayer_error', { outlayerStatus: out.status })
+  if (out.status !== 200) throw new HttpError(UPSTREAM_ERROR, 'outlayer_error', { outlayerStatus: out.status })
   return { address, balanceNear: toNear(out.body?.balance ?? '0') }
 }
 

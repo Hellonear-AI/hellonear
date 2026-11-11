@@ -21,6 +21,9 @@ before(async () => {
   await mastra.startWorkers()
 })
 after(async () => {
+  // A failed test stops before its own DELETE, which once left a per-minute schedule running in the dev database
+  // (10 Nov). Remove every job this run made, whatever happened.
+  for (const id of ['report', 'alert', 'manual', 'mars', 'chain', 'tree']) await call('DELETE', path(id)).catch(() => {})
   await mastra.stopWorkers()
   await new Promise<void>((r) => server.close(() => r()))
 })
@@ -28,8 +31,10 @@ after(async () => {
 type Ev = Record<string, any>
 const call = (method: string, path: string, body?: unknown) =>
   fetch(base + path, { method, headers: { 'content-type': 'application/json', 'x-engine-key': key }, body: body === undefined ? undefined : JSON.stringify(body) })
+// A run is listed as pending before it is running, so wait for an end state, not for "not running" (11 Nov).
+const DONE = new Set(['success', 'failed', 'canceled'])
 const path = (id: string) => `/v1/minds/${mindId}/workflows/${id}`
-const penny = (skills = ['payments', 'near-account']) => ({ templateId: 'payments-mind', name: 'Penny', soul: { identity: 'Always end every reply with "— Penny".' }, skills: skills.map((skillId) => ({ skillId })) })
+const penny = (skills = ['payments', 'near-account']) => ({ templateId: 'payments-mind', name: 'Penny', soul: { identity: 'Your name is Penny. Always end every reply with "[Penny]".' }, skills: skills.map((skillId) => ({ skillId })) })
 const on = (body: Record<string, unknown> = {}) => ({ userId: 'u1', mind: penny(), input: { account }, ...body })
 const json = async (res: Response, status: number) => {
   const text = await res.text()
@@ -41,7 +46,7 @@ describe('autopilot', () => {
   test('refuses what cannot run unattended, and says why', async () => {
     await json(await call('PUT', path('report'), balanceReport()), 200)
     const codes = async (body: unknown, id = 'report') => (await json(await call('PUT', `${path(id)}/autopilot`, body), 409)).issues.map((i: Ev) => i.code)
-    assert.deepEqual(await codes(on({ mind: penny(['payments']) })), ['missing_tools'])
+    assert.deepEqual(await codes(on({ mind: penny(['daily-planner']) })), ['missing_tools'])
     assert.deepEqual(await codes(on({ input: {} })), ['invalid_input'])
     assert.deepEqual(await codes(on({ input: { account: 7 } })), ['invalid_input'])
     // Secrets would be stored in the schedule as plain JSON.
@@ -65,12 +70,16 @@ describe('autopilot', () => {
     assert.equal(autopilot.status, 'active')
     assert.equal(autopilot.timezone, 'UTC')
     assert.ok(Date.parse(autopilot.nextFireAt) - Date.now() <= 60_000, autopilot.nextFireAt)
+    // The stored context names the user (their Composio apps) and the Mind (Email me, #146); never a token.
+    const [stored] = (await mastra.schedules.list({ workflowId: mastraWorkflowId(mindId, 'report') })) as { requestContext?: Record<string, unknown> }[]
+    assert.deepEqual([stored.requestContext?.userId, stored.requestContext?.mindId], ['u1', mindId])
+    assert.doesNotMatch(JSON.stringify(stored.requestContext), /mt_|wt_|secret/i)
 
     // Wait for the cron minute plus the run (one RPC call, one model call).
     let run: Ev | undefined
     for (const deadline = Date.now() + 150_000; !run && Date.now() < deadline; await new Promise((r) => setTimeout(r, 3000))) {
       const { runs } = await json(await call('GET', `${path('report')}/runs`), 200)
-      run = runs.find((r: Ev) => r.trigger === 'autopilot' && r.status !== 'running')
+      run = runs.find((r: Ev) => r.trigger === 'autopilot' && DONE.has(r.status))
     }
     assert.ok(run, 'a scheduled run finished within 150 s')
     assert.equal(run.status, 'success', JSON.stringify(run))
@@ -113,8 +122,68 @@ describe('autopilot', () => {
     await json(await call('PUT', path('report'), balanceReport('*/5 * * * *')), 200)
     assert.equal((await json(await call('PUT', `${path('report')}/autopilot`, on()), 200)).autopilot.status, 'active', 'turned on again')
     // A Mind that lost a tool pauses the running schedule instead of keeping the old config.
-    const lost = await json(await call('PUT', `${path('report')}/autopilot`, on({ mind: penny(['payments']) })), 409)
+    const lost = await json(await call('PUT', `${path('report')}/autopilot`, on({ mind: penny(['daily-planner']) })), 409)
     assert.equal(lost.autopilot.status, 'paused')
+  })
+
+  test('a scheduled fire runs an If way of several steps, with the stored context (#153)', async () => {
+    const chain = {
+      name: 'Chained way',
+      nodes: [
+        { id: 'start', type: 'trigger', data: { schedule: { cron: '* * * * *', timezone: 'Asia/Jakarta' }, inputs: [{ name: 'account', type: 'string' }] } },
+        { id: 'balance', type: 'tool', data: { tool: 'near_view_account', args: { accountId: '{{input.account}}' } } },
+        { id: 'any', type: 'condition', data: { left: '{{steps.balance.balanceNear}}', op: 'gte', right: 0 } },
+        { id: 'clock', type: 'tool', data: { tool: 'get_time', args: {} } },
+        { id: 'say', type: 'agent', data: { prompt: 'In one short sentence, say your own name and that {{input.account}} holds {{steps.balance.balanceNear}} NEAR at {{steps.clock.time}}.' } },
+      ],
+      edges: [{ source: 'start', target: 'balance' }, { source: 'balance', target: 'any' }, { source: 'any', target: 'clock', sourceHandle: 'then' }, { source: 'clock', target: 'say' }],
+    }
+    await json(await call('PUT', path('chain'), chain), 200)
+    assert.equal((await json(await call('PUT', `${path('chain')}/autopilot`, on()), 200)).autopilot.status, 'active')
+    let run: Ev | undefined
+    for (const deadline = Date.now() + 150_000; !run && Date.now() < deadline; await new Promise((r) => setTimeout(r, 3000))) {
+      const { runs } = await json(await call('GET', `${path('chain')}/runs`), 200)
+      run = runs.find((r: Ev) => r.trigger === 'autopilot' && DONE.has(r.status))
+    }
+    assert.ok(run, 'a scheduled run finished within 150 s')
+    assert.equal(run.status, 'success', JSON.stringify(run))
+    // History keeps the way's final output under its last node (the steps inside it are not in the snapshot).
+    assert.deepEqual(run.nodes.map((n: Ev) => [n.node, n.status]), [['balance', 'ok'], ['say', 'ok']])
+    assert.match(run.nodes[1].output.text, /Penny/, 'the persona reached the agent step inside the way')
+    assert.equal((await call('DELETE', path('chain'))).status, 204)
+  })
+
+  test('a scheduled fire runs a tree: an If in the middle, a nested If, End, and steps after the If (#164)', async () => {
+    const tree = {
+      name: 'Tree',
+      nodes: [
+        { id: 'start', type: 'trigger', data: { schedule: { cron: '* * * * *', timezone: 'Asia/Jakarta' }, inputs: [{ name: 'account', type: 'string' }] } },
+        { id: 'balance', type: 'tool', data: { tool: 'near_view_account', args: { accountId: '{{input.account}}' } } },
+        { id: 'any', type: 'condition', data: { left: '{{steps.balance.balanceNear}}', op: 'gte', right: 0 } },
+        { id: 'huge', type: 'condition', data: { left: '{{steps.balance.balanceNear}}', op: 'gt', right: 1000000000 } },
+        { id: 'stop', type: 'end', data: {} },
+        { id: 'clock', type: 'tool', data: { tool: 'get_time', args: {} } },
+        { id: 'say', type: 'agent', data: { prompt: 'In one short sentence, say your own name and that {{input.account}} holds {{steps.balance.balanceNear}} NEAR at {{steps.clock.time}}.' } },
+      ],
+      edges: [
+        { source: 'start', target: 'balance' }, { source: 'balance', target: 'any' },
+        { source: 'any', target: 'huge', sourceHandle: 'then' }, { source: 'huge', target: 'stop', sourceHandle: 'then' },
+        { source: 'any', target: 'clock' }, { source: 'clock', target: 'say' },
+      ],
+    }
+    await json(await call('PUT', path('tree'), tree), 200)
+    assert.equal((await json(await call('PUT', `${path('tree')}/autopilot`, on()), 200)).autopilot.status, 'active')
+    let run: Ev | undefined
+    for (const deadline = Date.now() + 150_000; !run && Date.now() < deadline; await new Promise((r) => setTimeout(r, 3000))) {
+      const { runs } = await json(await call('GET', `${path('tree')}/runs`), 200)
+      run = runs.find((r: Ev) => r.trigger === 'autopilot' && DONE.has(r.status))
+    }
+    assert.ok(run, 'a scheduled run finished within 150 s')
+    assert.equal(run.status, 'success', JSON.stringify(run))
+    // "huge" is false, so its no way (empty) carries on, and the steps after "any" run: every step is in the history.
+    assert.deepEqual(run.nodes.map((n: Ev) => [n.node, n.status]), [['balance', 'ok'], ['clock', 'ok'], ['say', 'ok']])
+    assert.match(run.nodes[2].output.text, /Penny/, 'the persona reached the agent step after the If')
+    assert.equal((await call('DELETE', path('tree'))).status, 204)
   })
 
   test('turning off and deleting the workflow remove the schedule', async () => {
