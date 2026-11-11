@@ -3,7 +3,7 @@
 // recoloured. The row is drawn twice so the loop is seamless; it pauses on hover and stands still for
 // reduced motion. Logos link nowhere.
 // Under it, "Works with": the apps a Mind can use today (the app's Connections list, apps/fe
-// data/apps.tsx, plus Telegram), each logo with its name, sliding the other way.
+// data/apps.tsx, plus Telegram), each logo with its name (plain, like the row above), sliding the other way.
 
 import type { ComponentType } from "react";
 import {
@@ -68,13 +68,10 @@ const APPS: [ComponentType<{ className?: string }>, string][] = [
 
 function AppRow({ hidden }: { hidden?: boolean }) {
   return (
-    <ul className="marquee-row flex shrink-0 items-center gap-3 pr-3" aria-hidden={hidden || undefined}>
+    <ul className="marquee-row flex shrink-0 items-center gap-14 pr-14 md:gap-20 md:pr-20" aria-hidden={hidden || undefined}>
       {APPS.map(([L, name]) => (
-        <li
-          key={name}
-          className="flex h-12 items-center gap-2.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] pl-3 pr-5 text-[15px] font-medium text-[var(--color-text)] md:h-14 md:text-[16px]"
-        >
-          <L className="size-6 md:size-7" />
+        <li key={name} className="flex h-14 items-center gap-3 whitespace-nowrap text-[17px] font-medium text-[var(--color-text)] md:text-[20px]">
+          <L className="size-7 md:size-8" />
           {name}
         </li>
       ))}
