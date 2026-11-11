@@ -71,7 +71,9 @@ export function ChatRow({
       <span
         className={cn(
           "pointer-events-none absolute right-3 flex items-center transition-opacity",
-          "group-hover/chat:opacity-0 group-focus-within/chat:opacity-0 pointer-coarse:opacity-0",
+          // Keyboard focus only: after the menu closes, focus goes back to ⋯ and a plain focus-within
+          // kept the time hidden for good (Ancung, 11 Nov).
+          "group-hover/chat:opacity-0 group-has-[:focus-visible]/chat:opacity-0 pointer-coarse:opacity-0",
           menuOpen && "opacity-0"
         )}
       >

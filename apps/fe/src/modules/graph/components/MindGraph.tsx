@@ -37,6 +37,9 @@ const KEPT = new Map<string, { sim: Sim; view: { x: number; y: number; k: number
 
 /** How long a finished state keeps glowing (ms). */
 const AFTERGLOW = { ok: 1600, error: 4000, denied: 4000 } as const
+// The magnet: a hovered bubble moves a quarter of the way toward the cursor, at most 6 units.
+const MAGNET_PULL = 0.25
+const MAGNET_MAX = 6
 
 export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect, label, trail = [], live = false, run = null, className }: Props) {
   const wrap = useRef<HTMLDivElement>(null)
@@ -59,6 +62,9 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
   // Fit was pressed: glide to the frame until there.
   const fitting = useRef(false)
   const hover = useRef<string | null>(null)
+  // How far each bubble leans toward the cursor right now (drawn only), and whether one is dragged.
+  const magnet = useRef(new Map<string, { x: number; y: number }>())
+  const dragging = useRef(false)
   // Where the cursor is, in graph space, for the torch on the lines.
   const torch = useRef<{ x: number; y: number } | null>(null)
   const images = useRef(new Map<string, HTMLImageElement>())
@@ -229,6 +235,30 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         v0.x += (tx - v0.x) * e
         v0.y += (ty - v0.y) * e
         if (Math.abs(tx - v0.x) < 0.5 && Math.abs(ty - v0.y) < 0.5 && Math.abs(k - v0.k) < 0.005) focus.current = null
+      }
+      // A hovered bubble leans toward the cursor a little, like a magnet (Ancung, 11 Nov), and
+      // eases back when the cursor leaves; its lines follow. Drawn only: the layout never sees it.
+      for (const [id, b] of s.bodies) {
+        const o = magnet.current.get(id) ?? { x: 0, y: 0 }
+        const t = torch.current
+        let tx = 0
+        let ty = 0
+        if (id === hover.current && t && !dragging.current && !still.matches) {
+          const dx = (t.x - b.x) * MAGNET_PULL
+          const dy = (t.y - b.y) * MAGNET_PULL
+          const d = Math.hypot(dx, dy)
+          const m = d > MAGNET_MAX ? MAGNET_MAX / d : 1
+          tx = dx * m
+          ty = dy * m
+        }
+        o.x += (tx - o.x) * 0.2
+        o.y += (ty - o.y) * 0.2
+        if (Math.abs(o.x) < 0.01 && Math.abs(o.y) < 0.01 && tx === 0 && ty === 0) magnet.current.delete(id)
+        else magnet.current.set(id, o)
+      }
+      for (const [id, o] of magnet.current) {
+        const b = s.bodies.get(id)
+        if (b) (b.x += o.x), (b.y += o.y)
       }
       const { w, h, dpr } = size
       const v = view.current
@@ -447,6 +477,10 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         ctx.fillText(n.label, b.x, y)
       }
       ctx.globalAlpha = 1
+      for (const [id, o] of magnet.current) {
+        const b = s.bodies.get(id)
+        if (b) (b.x -= o.x), (b.y -= o.y)
+      }
     }
 
     const loop = (now: number) => {
@@ -470,6 +504,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         const body = s0.bodies.get(drag.id)
         if (body) body.pinned = false
       }
+      dragging.current = false
       drag = null
       v.auto = false
       focus.current = null
@@ -489,6 +524,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         if (touches.size > 2) return
       }
       const id = hit(p.x, p.y)
+      dragging.current = true
       drag = { id, x: p.x, y: p.y, moved: false, vx: view.current.x, vy: view.current.y }
       cv.style.cursor = "grabbing"
     }
@@ -553,6 +589,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         s.alpha = Math.max(s.alpha, 0.7)
       }
       if (!drag.moved) select.current(drag.id)
+      dragging.current = false
       drag = null
       cv.style.cursor = hover.current ? "pointer" : "grab"
     }

@@ -43,7 +43,7 @@ export function SkillInstructions({ skillId, name }: { skillId: string; name: st
         <ChevronDownIcon className={cn("mt-0.5 size-5 shrink-0 text-muted-foreground transition-transform duration-200 ease-out", open && "rotate-180")} />
       </button>
       {open && (
-        <div className="border-t border-border px-5 py-4">
+        <div className="px-5 pb-5">
           {detail.isPending ? (
             <div className="flex flex-col gap-2">
               <Skeleton className="h-4 w-3/4" />

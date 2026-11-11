@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeftIcon, ArrowUpRightIcon, CheckIcon, PlugIcon } from "lucide-react"
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
@@ -39,7 +39,9 @@ export function SkillPage({ mindId, skillId }: { mindId: string; skillId: string
   const copy = skillCopy(skillId)
   const Icon = SKILL_ICON[skillId] ?? PlugIcon
   const added = Boolean(mind?.skills.includes(skillId))
-  const skillsHref = mindHref(mindId, "skills")
+  // Back to the tab and page the owner came from (`?back=tab=apps&page=2`).
+  const back = useSearchParams().get("back")
+  const skillsHref = `${mindHref(mindId, "skills")}${back && /^[\w=&-]+$/.test(back) ? `?${back}` : ""}`
   const rules: SkillLine[] =
     skillId === "payments"
       ? [
