@@ -35,7 +35,13 @@ export function StepRow({ step }: { step: ToolStep }) {
       shimmer={tone === "doing"}
       details={details}
       // How long it took, or a live count while it runs (Ancung, 9 Nov: to see where the time went).
-      after={tone === "doing" ? <Elapsed /> : took ? <span className="text-xs text-tertiary-foreground tabular-nums">{took}</span> : null}
+      after={
+        <span className="flex items-center gap-2">
+          {/* Auto-approve (#167): the owner's rule let it run without a card, and the chat says so. */}
+          {step.approvedByRule && <span className="text-xs text-tertiary-foreground">Approved by your rule</span>}
+          {tone === "doing" ? <Elapsed /> : took ? <span className="text-xs text-tertiary-foreground tabular-nums">{took}</span> : null}
+        </span>
+      }
     />
   )
 }

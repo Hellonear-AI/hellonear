@@ -97,7 +97,7 @@ export function TurnView({
       return null
     }
     if (!payment || step.status === "running" || step.status === "declined" || step.status === "stopped") return <StepRow step={step} />
-    if (step.status === "ok") return <PaymentReceipt payment={payment} policy={policy} />
+    if (step.status === "ok") return <PaymentReceipt payment={payment} policy={policy} byRule={step.approvedByRule} />
     if (step.status === "policy_denied" || step.status === "wallet_frozen") {
       return <PaymentRefused step={step} payment={payment} policy={policy} mindName={name} />
     }

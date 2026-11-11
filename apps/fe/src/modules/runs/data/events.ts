@@ -18,6 +18,8 @@ export type RunEvent = {
   status?: string
   error?: unknown
   verification?: { status: string; level?: string }
+  /** `"rule"` on a `tool.called` the owner's auto-approve rule let run without an approval (#167). */
+  approvedBy?: string
 }
 
 /** `stopped`: still running when the owner pressed Stop (#121); it never got a result. */
@@ -43,6 +45,8 @@ export type ToolStep = {
   /** When the tool was called and when its result came (engine `ts`), for "6s" on its row. */
   startedAt?: string
   endedAt?: string
+  /** Ran without an approval card because the owner's auto-approve rule covered it (#167). */
+  approvedByRule?: boolean
 }
 
 /** One piece of the reply in the order it happened: some text, or a tool (by its call id). */
@@ -154,6 +158,7 @@ export function foldRun(events: RunEvent[]): RunView {
       case "tool.approval_required": {
         if (!e.toolCallId) break
         const step = byCall.get(e.toolCallId) ?? { toolCallId: e.toolCallId, tool: e.tool ?? "", nodeId: e.nodeId, status: "running" as ToolStatus, args: e.args, result: undefined, startedAt: e.ts }
+        if (e.type === "tool.called" && e.approvedBy === "rule") step.approvedByRule = true
         if (e.type === "tool.approval_required") {
           // A new pause after a resume (split bill: the next person's payment): approvals from the earlier
           // pause that never ran were declined, and this one waits like the first did.

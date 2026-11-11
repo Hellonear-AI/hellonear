@@ -11,9 +11,14 @@ export type ApiMind = {
   model: string
   skills: string[]
   outlayerWalletId: string | null
+  /** What the Mind may do without asking (#167). Missing from an older backend: treat as all off. */
+  autoApprove?: AutoApprove
   createdAt: string
   updatedAt: string
 }
+
+/** Auto-approve rules (#167): approval tools that run without a card, and payments up to `maxNear` to listed accounts. */
+export type AutoApprove = { tools: string[]; payment: { maxNear: string } | null }
 
 export type ApiTemplate = {
   templateId: string
@@ -41,7 +46,7 @@ export const mindsApi = {
     (await api<{ mind: ApiMind }>("/minds", { method: "POST", body })).mind,
   list: async () => (await api<{ minds: ApiMind[] }>("/minds")).minds,
   /** Change a Mind's name, persona, model or skills; the backend re-sends it to every Autopilot job. */
-  update: async (mindId: string, body: Partial<Pick<ApiMind, "name" | "soul" | "model" | "skills">>) =>
+  update: async (mindId: string, body: Partial<Pick<ApiMind, "name" | "soul" | "model" | "skills" | "autoApprove">>) =>
     (await api<{ mind: ApiMind }>(`/minds/${encodeURIComponent(mindId)}`, { method: "PATCH", body })).mind,
   /**
    * Delete a Mind, its chats, memory and Autopilot jobs (`204`). While its own wallet holds more
