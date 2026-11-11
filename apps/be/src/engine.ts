@@ -10,6 +10,8 @@ export type MindConfig = {
   skills: { skillId: string }[]
   // Present once the name or soul changed (#116): the engine reads memory as userId:mindId:v{n}.
   personaVersion?: number
+  // Auto-approve rules (#167); `payment.recipients` is the wallet policy's address list, filled per run.
+  autoApprove?: { tools: string[]; payment?: { maxNear: string; recipients: string[] } }
   // Memory switches (#209), present only when one is off; the engine reads absent as on.
   memory?: { enabled: boolean; recall: boolean }
 }

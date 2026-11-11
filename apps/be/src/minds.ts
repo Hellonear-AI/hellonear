@@ -13,6 +13,22 @@ const soulSchema = z.object({
 })
 const skillsSchema = z.array(z.string().min(1).max(64)).max(16)
 
+// Auto-approve rules (#167). The tool ids are the engine's SWITCHABLE_TOOLS (engine/src/autoApprove.ts); the engine
+// checks them again. Payments go only through `payment`: up to `maxNear` (at most the 10 NEAR a per-payment limit can
+// be) and only to the wallet policy's listed accounts, which are added for each run (`runMindConfig` in server.ts).
+export const AUTO_APPROVE_TOOLS = [
+  'googlecalendar_create_event', 'googlecalendar_create_meeting', 'gmail_organize', 'mail_send', 'mail_send_to_owner',
+  'googlesheets_append_row', 'googledocs_create_document', 'notion_create_page', 'notion_add_row', 'slack_send_message',
+  'sell_offer',
+] as const
+export const autoApproveSchema = z.object({
+  tools: z.array(z.enum(AUTO_APPROVE_TOOLS)).max(AUTO_APPROVE_TOOLS.length).default([]).transform((t) => [...new Set(t)]),
+  payment: z.object({
+    maxNear: z.string().regex(/^\d{1,2}(\.\d{1,24})?$/, 'a decimal string, e.g. "0.1"').refine((a) => /[1-9]/.test(a) && Number(a) <= 10, 'more than 0 and at most 10'),
+  }).nullable().default(null),
+})
+export type AutoApprove = z.infer<typeof autoApproveSchema>
+
 export const createMindSchema = z.object({
   templateId: z.string().min(1),
   name: z.string().trim().min(1).max(64),
@@ -25,6 +41,7 @@ export const updateMindSchema = z.object({
   soul: soulSchema.optional(),
   model: z.string().min(1).max(128).optional(),
   skills: skillsSchema.optional(),
+  autoApprove: autoApproveSchema.optional(),
   // Memory switches (#209): either may be sent alone.
   memory: z.object({ enabled: z.boolean().optional(), recall: z.boolean().optional() }).strict().optional(),
 })
@@ -42,13 +59,15 @@ export type Mind = {
   email: string | null
   // Bumped when the name or soul changes (#116); the engine keys memory on it. 0 = never changed.
   personaVersion: number
+  // What the Mind may do without asking (#167). Empty: everything that needs an approval asks.
+  autoApprove: AutoApprove
   // Memory switches (#209): working memory ("Remember things about you") and semantic recall ("Search past chats").
   memory: { enabled: boolean; recall: boolean }
   createdAt: string
   updatedAt: string
 }
 
-const SELECT = `select m.id, m.template_id, m.name, m.soul, m.model, m.outlayer_wallet_id, m.persona_version, m.memory_enabled, m.memory_recall, m.created_at, m.updated_at,
+const SELECT = `select m.id, m.template_id, m.name, m.soul, m.model, m.outlayer_wallet_id, m.persona_version, m.auto_approve, m.memory_enabled, m.memory_recall, m.created_at, m.updated_at,
   coalesce((select array_agg(ms.skill_id order by ms.position) from mind_skills ms where ms.mind_id = m.id), '{}') as skills,
   (select mi.email from mind_inboxes mi where mi.mind_id = m.id) as email,
   (select u.is_demo from users u where u.id = m.user_id) as is_demo
@@ -56,7 +75,7 @@ const SELECT = `select m.id, m.template_id, m.name, m.soul, m.model, m.outlayer_
 
 const toMind = (r: any): Mind => ({
   id: r.id, templateId: r.template_id, name: r.name, soul: r.soul, model: r.model, skills: r.skills,
-  outlayerWalletId: r.outlayer_wallet_id, email: shownEmail(r.is_demo === true, r.skills, r.email ?? null), personaVersion: r.persona_version, memory: { enabled: r.memory_enabled, recall: r.memory_recall }, createdAt: r.created_at.toISOString(), updatedAt: r.updated_at.toISOString(),
+  outlayerWalletId: r.outlayer_wallet_id, email: shownEmail(r.is_demo === true, r.skills, r.email ?? null), personaVersion: r.persona_version, autoApprove: { tools: r.auto_approve?.tools ?? [], payment: r.auto_approve?.payment ?? null }, memory: { enabled: r.memory_enabled, recall: r.memory_recall }, createdAt: r.created_at.toISOString(), updatedAt: r.updated_at.toISOString(),
 })
 
 // The config the engine builds the agent from on every request (docs/api-contract.md §2).
@@ -64,6 +83,8 @@ export const mindConfig = (m: Mind): MindConfig => ({
   templateId: m.templateId, name: m.name, soul: m.soul, ...(m.model ? { model: m.model } : {}), skills: m.skills.map((skillId) => ({ skillId })),
   // Sent only after a change, so a Mind that was never renamed keeps its memory (#116).
   ...(m.personaVersion > 0 ? { personaVersion: m.personaVersion } : {}),
+  // Without the payment rule's recipients: those are read from the wallet policy per run (`runMindConfig`).
+  ...(m.autoApprove.tools.length || m.autoApprove.payment ? { autoApprove: { tools: m.autoApprove.tools, ...(m.autoApprove.payment ? { payment: { maxNear: m.autoApprove.payment.maxNear, recipients: [] } } : {}) } } : {}),
   // Sent only when a switch is off, so a Mind with both on sends what it sent before #209.
   ...(!m.memory.enabled || !m.memory.recall ? { memory: m.memory } : {}),
 })
@@ -140,12 +161,13 @@ export async function updateMind(userId: string, mindId: string, body: z.infer<t
     await client.query(
       // A new name or soul starts a new persona version (#116); the same value sent again does not.
       `update minds set name = coalesce($3, name), soul = coalesce($4, soul), model = coalesce($5, model),
+         auto_approve = coalesce($6, auto_approve),
          persona_version = persona_version + (($3::text is not null and $3 is distinct from name)
            or ($4::jsonb is not null and $4::jsonb is distinct from soul))::int,
-         memory_enabled = coalesce($6, memory_enabled), memory_recall = coalesce($7, memory_recall),
+         memory_enabled = coalesce($7, memory_enabled), memory_recall = coalesce($8, memory_recall),
          updated_at = now()
        where id = $1 and user_id = $2`,
-      [mindId, userId, body.name ?? null, body.soul ?? null, body.model ?? null, body.memory?.enabled ?? null, body.memory?.recall ?? null],
+      [mindId, userId, body.name ?? null, body.soul ?? null, body.model ?? null, body.autoApprove ?? null, body.memory?.enabled ?? null, body.memory?.recall ?? null],
     )
     if (body.skills) await writeSkills(client, mindId, body.skills)
     await client.query('commit')

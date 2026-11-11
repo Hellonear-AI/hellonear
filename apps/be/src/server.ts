@@ -11,7 +11,7 @@ import { TOOLKITS, connect, disconnect, listConnections, toolkitSchema } from '.
 import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, playgroundAttackOf, playgroundMind, requireMind, updateMind, updateMindSchema, type Mind } from './minds.ts'
 import { cancelRun, getRun, isAwaiting, listRuns, mindEvents, pendingApprovals, relayRun, runEvents } from './runs.ts'
 import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema, secretsForRun } from './secrets.ts'
-import { assertWalletEmpty, createWallet, freezeTransaction, getWallet, hasWallet, isDemoMind, policySchema, policyTransaction } from './wallets.ts'
+import { addressRuleOf, assertWalletEmpty, createWallet, freezeTransaction, getWallet, hasWallet, isDemoMind, policySchema, policyTransaction } from './wallets.ts'
 import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
 import { itemSchema, sellerSchema, shop, txHashSchema } from './shop.ts'
 import { buyOffer, offerItemSchema, putOffer, putOfferSchema } from './offers.ts'
@@ -71,6 +71,19 @@ const runExtras = async (user: User, mindId: string) => ({
   ...(user.demo || (await playgroundAttackOf(mindId)) ? { demo: true } : {}),
 })
 
+// The Mind config for an owner's chat run (#167): a payment rule only covers the wallet policy's listed accounts, read
+// here per run, so a list changed in Meteor counts at once. No list (no wallet, no whitelist, OutLayer unreachable)
+// leaves `recipients` empty, and every payment asks. Try-outs and playground Minds never get rules.
+async function runMindConfig(user: User, mind: Mind) {
+  const config = mindConfig(mind)
+  if (!config.autoApprove) return config
+  if (user.demo || (await playgroundAttackOf(mind.id))) return { ...config, autoApprove: undefined }
+  if (!config.autoApprove.payment || !(await hasWallet(mind.id))) return config
+  const rule = await addressRuleOf(mind.id).catch(() => null)
+  const recipients = rule?.mode === 'whitelist' ? rule.list.slice(0, 20) : []
+  return { ...config, autoApprove: { ...config.autoApprove, payment: { ...config.autoApprove.payment, recipients } } }
+}
+
 // A playground run (#129) never gets the owner's secrets: the scenarios are prompt injections.
 const secretsFor = async (userId: string, mindId: string) => ((await playgroundAttackOf(mindId)) ? [] : secretsForRun(userId))
 
@@ -106,7 +119,7 @@ async function resumeRun(user: User, found: { runId: string; mindId: string; thr
     engineRes = await engineFetch(`/v1/runs/${encodeURIComponent(found.runId)}/${action}?mindId=${encodeURIComponent(mind.id)}`, {
       method: 'POST', signal: controller.signal,
       body: {
-        userId: user.id, threadId: found.threadId, mind: mindConfig(mind), secrets: await secretsFor(user.id, mind.id), toolCallId: body.toolCallId, reason: body.reason,
+        userId: user.id, threadId: found.threadId, mind: await runMindConfig(user, mind), secrets: await secretsFor(user.id, mind.id), toolCallId: body.toolCallId, reason: body.reason,
         ...timeZoneOf(body), ...(await runExtras(user, mind.id)), ...attackOf(await playgroundAttackOf(mind.id)),
       },
     })
@@ -170,7 +183,7 @@ export const runTelegramChat: MindRunner['chat'] = async (mindId, threadId, text
   const controller = new AbortController()
   const engineRes = await engineFetch(`/v1/minds/${encodeURIComponent(mind.id)}/chat`, {
     method: 'POST', signal: controller.signal,
-    body: { userId: user.id, threadId: thread, message: text, mind: mindConfig(mind), secrets: await secretsForRun(user.id), ...(await runExtras(user, mind.id)) },
+    body: { userId: user.id, threadId: thread, message: text, mind: await runMindConfig(user, mind), secrets: await secretsForRun(user.id), ...(await runExtras(user, mind.id)) },
   })
   const sink = memorySink(onEvent)
   await relayRun(fakeReq, sink.res, engineRes, { mindId: mind.id, threadId: thread, userMessage: text, controller })
@@ -443,7 +456,10 @@ export const server = createServer(async (req, res) => {
 
       if (sub === '' && req.method === 'GET') return sendJson(res, 200, { mind })
       if (sub === '' && req.method === 'PATCH') {
-        const { mind: updated, inboxError } = await withInbox(user, await updateMind(user.id, mind.id, await readBody(req, updateMindSchema)))
+        const patch = await readBody(req, updateMindSchema)
+        // Rules let a Mind act without the owner (#167): try-outs pay from the shared demo wallet, so never.
+        if (patch.autoApprove) denyDemo(user, 'auto_approve')
+        const { mind: updated, inboxError } = await withInbox(user, await updateMind(user.id, mind.id, patch))
         return sendJson(res, 200, { mind: updated, autopilot: await syncAutopilots(user.id, updated), ...(inboxError ? { inboxError } : {}) })
       }
       if (sub === '' && req.method === 'DELETE') {
@@ -469,7 +485,7 @@ export const server = createServer(async (req, res) => {
         const controller = new AbortController()
         const engineRes = await engineFetch(`/v1/minds/${encodeURIComponent(mind.id)}/chat`, {
           method: 'POST', signal: controller.signal,
-          body: { userId: user.id, threadId, message: body.message, mind: mindConfig(mind), secrets: await secretsForRun(user.id), ...timeZoneOf(body), ...(await runExtras(user, mind.id)) },
+          body: { userId: user.id, threadId, message: body.message, mind: await runMindConfig(user, mind), secrets: await secretsForRun(user.id), ...timeZoneOf(body), ...(await runExtras(user, mind.id)) },
         })
         return relayRun(req, res, engineRes, { mindId: mind.id, threadId, userMessage: body.message, controller })
       }

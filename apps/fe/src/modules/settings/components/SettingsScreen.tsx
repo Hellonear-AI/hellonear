@@ -18,6 +18,7 @@ import { templateLabel } from "@/modules/minds/data/minds"
 import { isValidMindName, NAME_RULE } from "@/modules/minds/data/templates"
 import { mindKeys, useFullMind, useMind, useMindWallet, useTemplates } from "@/modules/minds/hooks/useMinds"
 import { useIsTryOut } from "@/modules/auth/hooks/useSession"
+import { AutoApproveSection } from "@/modules/settings/components/AutoApproveSection"
 import { DeleteMindDialog } from "@/modules/settings/components/DeleteMindDialog"
 import { MemorySection } from "@/modules/settings/components/MemorySection"
 
@@ -128,6 +129,7 @@ export function SettingsScreen({ mindId }: { mindId: string }) {
             </p>
           </section>
 
+          <AutoApproveSection mind={mind} name={name} wallet={wallet} tryOut={tryOut} />
           <MemorySection mind={mind} name={name} tryOut={tryOut} />
 
           <section aria-labelledby="delete-title" className="flex flex-col gap-3 rounded-lg border border-danger/30 bg-surface p-5 sm:flex-row sm:items-center">

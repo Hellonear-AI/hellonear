@@ -7,6 +7,9 @@ import type { ApiTemplate } from "@/modules/minds/api"
 /** The design's card order. Templates the app doesn't know yet go last, in API order. */
 const ORDER = ["general-assistant", "payments-mind", "email-manager"]
 
+/** A template id the landing page may send in `/minds/new?template=` (its Choose buttons); anything else is ignored. */
+export const isKnownTemplate = (id: string | null | undefined): id is string => Boolean(id && ORDER.includes(id))
+
 export function sortTemplates(templates: ApiTemplate[]): ApiTemplate[] {
   const rank = (id: string) => (ORDER.includes(id) ? ORDER.indexOf(id) : ORDER.length)
   return [...templates].sort((a, b) => rank(a.templateId) - rank(b.templateId))
