@@ -2572,3 +2572,63 @@ describe('Telegram approvals (#208)', () => {
     assert.deepEqual(again, { url: `https://api.hellonear.test/v1/telegram/${m.mindId}/webhook`, secret_token: secret, allowed_updates: ['message', 'callback_query'] })
   })
 })
+
+describe('auto-approve rules (#167)', () => {
+  const origin = { origin: 'http://localhost:3000' }
+  const chatBody = (mindId: string) => fake.requests.findLast((r) => r.path.endsWith(`/v1/minds/${mindId}/chat`))!.body
+
+  test('the owner saves rules with PATCH; bad ones are refused; the Mind reads them back', async () => {
+    const a = await signIn()
+    const { mind } = await (await a.call('POST', '/v1/minds', { templateId: 'payments-mind', name: 'Rules' }, origin)).json()
+    assert.deepEqual(mind.autoApprove, { tools: [], payment: null }, 'off by default')
+    for (const bad of [{ tools: ['send_payment'] }, { tools: ['http_request'] }, { payment: { maxNear: '0' } }, { payment: { maxNear: '11' } }, { payment: { maxNear: 0.1 } }]) {
+      const res = await a.call('PATCH', `/v1/minds/${mind.id}`, { autoApprove: bad }, origin)
+      assert.equal(res.status, 400, JSON.stringify(bad))
+    }
+    const rules = { tools: ['googlecalendar_create_event', 'googlecalendar_create_event'], payment: { maxNear: '0.1' } }
+    const res = await a.call('PATCH', `/v1/minds/${mind.id}`, { autoApprove: rules }, origin)
+    assert.equal(res.status, 200, await res.clone().text())
+    const saved = { tools: ['googlecalendar_create_event'], payment: { maxNear: '0.1' } }
+    assert.deepEqual((await res.json()).mind.autoApprove, saved)
+    // Another field alone leaves the rules as they are; personaVersion does not move for rules.
+    const renamed = (await (await a.call('PATCH', `/v1/minds/${mind.id}`, { skills: ['payments'] }, origin)).json()).mind
+    assert.deepEqual(renamed.autoApprove, saved)
+    assert.equal(renamed.personaVersion, 0)
+    // Turning everything off.
+    const off = (await (await a.call('PATCH', `/v1/minds/${mind.id}`, { autoApprove: { tools: [], payment: null } }, origin)).json()).mind
+    assert.deepEqual(off.autoApprove, { tools: [], payment: null })
+  })
+
+  test('a chat run carries the rules, with the wallet policy\'s listed accounts as payment recipients', async () => {
+    const a = await signIn()
+    const { mind } = await (await a.call('POST', '/v1/minds', { templateId: 'payments-mind', name: 'Payer' }, origin)).json()
+    await a.call('PATCH', `/v1/minds/${mind.id}`, { autoApprove: { tools: ['mail_send'], payment: { maxNear: '0.2' } } }, origin)
+
+    // No wallet yet: the payment rule goes with no recipients, so every payment asks.
+    await events(await a.call('POST', `/v1/minds/${mind.id}/chat`, { message: 'hello' }, origin))
+    assert.deepEqual(chatBody(mind.id).mind.autoApprove, { tools: ['mail_send'], payment: { maxNear: '0.2', recipients: [] } })
+
+    await a.call('POST', `/v1/minds/${mind.id}/wallet`, {}, origin)
+    const { transaction } = await (await a.call('POST', `/v1/minds/${mind.id}/wallet/policy`, { perTransactionNear: '0.5', whitelist: ['shop.testnet', 'alice.testnet'] }, origin)).json()
+    fakeOutlayer.store(transaction.actions[0].params.args.encrypted_data)
+    await events(await a.call('POST', `/v1/minds/${mind.id}/chat`, { message: 'hello again' }, origin))
+    assert.deepEqual(chatBody(mind.id).mind.autoApprove, { tools: ['mail_send'], payment: { maxNear: '0.2', recipients: ['shop.testnet', 'alice.testnet'] } })
+
+    // A Mind without rules sends none.
+    const { mind: plain } = await (await a.call('POST', '/v1/minds', { templateId: 'payments-mind', name: 'Plain' }, origin)).json()
+    await events(await a.call('POST', `/v1/minds/${plain.id}/chat`, { message: 'hi' }, origin))
+    assert.equal(chatBody(plain.id).mind.autoApprove, undefined)
+  })
+
+  test('a try-out user cannot turn rules on', async () => {
+    const res = await client()('POST', '/v1/auth/demo', {}, { ...origin, 'cf-connecting-ip': '203.0.113.167' })
+    assert.equal(res.status, 201, await res.clone().text())
+    const call = client(res.headers.get('set-cookie')!.split(';')[0])
+    const h = { ...origin, 'cf-connecting-ip': '203.0.113.167' }
+    const { mind } = await (await call('POST', '/v1/minds', { templateId: 'payments-mind', name: 'Try' }, h)).json()
+    const patched = await call('PATCH', `/v1/minds/${mind.id}`, { autoApprove: { tools: ['mail_send'] } }, h)
+    assert.equal(patched.status, 403)
+    assert.equal((await patched.json()).error, 'demo_not_allowed')
+    assert.deepEqual((await (await call('GET', `/v1/minds/${mind.id}`, undefined, h)).json()).mind.autoApprove, { tools: [], payment: null })
+  })
+})

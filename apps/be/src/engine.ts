@@ -10,6 +10,8 @@ export type MindConfig = {
   skills: { skillId: string }[]
   // Present once the name or soul changed (#116): the engine reads memory as userId:mindId:v{n}.
   personaVersion?: number
+  // Auto-approve rules (#167); `payment.recipients` is the wallet policy's address list, filled per run.
+  autoApprove?: { tools: string[]; payment?: { maxNear: string; recipients: string[] } }
 }
 export type EngineSecret = { name: string; value: string; allowedHosts: string[] }
 export type SkillInfo = { skillId: string; description: string; status: string; connections: string[]; note?: string; title?: string; blurb?: string }
