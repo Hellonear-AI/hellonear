@@ -9,9 +9,9 @@ import { engineFetch, engineJson, skill, skills, templates } from './engine.ts'
 import { HttpError, assertSameOrigin, cors, logServerError, readBody, sendJson, setCookie, isLoopback } from './http.ts'
 import { TOOLKITS, connect, disconnect, listConnections, toolkitSchema } from './connections.ts'
 import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, playgroundAttackOf, playgroundMind, requireMind, updateMind, updateMindSchema, type Mind } from './minds.ts'
-import { cancelRun, getRun, isAwaiting, listRuns, mindEvents, pendingApprovals, relayRun, runEvents } from './runs.ts'
+import { cancelRun, getRun, isAwaiting, listRuns, mindEvents, pendingApprovals, relayRun, runEvents, sweepStuckRuns } from './runs.ts'
 import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema, secretsForRun } from './secrets.ts'
-import { assertWalletEmpty, createWallet, freezeTransaction, getWallet, hasWallet, isDemoMind, policySchema, policyTransaction } from './wallets.ts'
+import { addressRuleOf, assertWalletEmpty, createWallet, freezeTransaction, getWallet, hasWallet, isDemoMind, policySchema, policyTransaction } from './wallets.ts'
 import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
 import { itemSchema, sellerSchema, shop, txHashSchema } from './shop.ts'
 import { buyOffer, offerItemSchema, putOffer, putOfferSchema } from './offers.ts'
@@ -51,6 +51,8 @@ const attackRunSchema = z.object({ timeZone: timeZoneSchema.optional() })
 const attackIdSchema = z.string().regex(/^[a-z0-9-]{1,40}$/)
 type Attack = { attackId: string; title: string; templateId: string; skills: string[]; message: string }
 const runSchema = runWorkflowSchema.extend({ timeZone: timeZoneSchema.optional() })
+// The owner's edit of what a Mind remembers (#209); the engine has the same 20,000-character cap.
+const memoryWriteSchema = z.object({ markdown: z.string().max(20_000) })
 const timeZoneOf = (body: { timeZone?: string }) => (body.timeZone ? { timeZone: body.timeZone } : {})
 const attackOf = (attackId: string | null) => (attackId ? { attackId } : {})
 
@@ -68,6 +70,19 @@ const runExtras = async (user: User, mindId: string) => ({
   ...((await mailEnabled(mindId)) ? { mailToken: issueMailToken(user.id, mindId) } : {}),
   ...(user.demo || (await playgroundAttackOf(mindId)) ? { demo: true } : {}),
 })
+
+// The Mind config for an owner's chat run (#167): a payment rule only covers the wallet policy's listed accounts, read
+// here per run, so a list changed in Meteor counts at once. No list (no wallet, no whitelist, OutLayer unreachable)
+// leaves `recipients` empty, and every payment asks. Try-outs and playground Minds never get rules.
+async function runMindConfig(user: User, mind: Mind) {
+  const config = mindConfig(mind)
+  if (!config.autoApprove) return config
+  if (user.demo || (await playgroundAttackOf(mind.id))) return { ...config, autoApprove: undefined }
+  if (!config.autoApprove.payment || !(await hasWallet(mind.id))) return config
+  const rule = await addressRuleOf(mind.id).catch(() => null)
+  const recipients = rule?.mode === 'whitelist' ? rule.list.slice(0, 20) : []
+  return { ...config, autoApprove: { ...config.autoApprove, payment: { ...config.autoApprove.payment, recipients } } }
+}
 
 // A playground run (#129) never gets the owner's secrets: the scenarios are prompt injections.
 const secretsFor = async (userId: string, mindId: string) => ((await playgroundAttackOf(mindId)) ? [] : secretsForRun(userId))
@@ -104,7 +119,7 @@ async function resumeRun(user: User, found: { runId: string; mindId: string; thr
     engineRes = await engineFetch(`/v1/runs/${encodeURIComponent(found.runId)}/${action}?mindId=${encodeURIComponent(mind.id)}`, {
       method: 'POST', signal: controller.signal,
       body: {
-        userId: user.id, threadId: found.threadId, mind: mindConfig(mind), secrets: await secretsFor(user.id, mind.id), toolCallId: body.toolCallId, reason: body.reason,
+        userId: user.id, threadId: found.threadId, mind: await runMindConfig(user, mind), secrets: await secretsFor(user.id, mind.id), toolCallId: body.toolCallId, reason: body.reason,
         ...timeZoneOf(body), ...(await runExtras(user, mind.id)), ...attackOf(await playgroundAttackOf(mind.id)),
       },
     })
@@ -168,7 +183,7 @@ export const runTelegramChat: MindRunner['chat'] = async (mindId, threadId, text
   const controller = new AbortController()
   const engineRes = await engineFetch(`/v1/minds/${encodeURIComponent(mind.id)}/chat`, {
     method: 'POST', signal: controller.signal,
-    body: { userId: user.id, threadId: thread, message: text, mind: mindConfig(mind), secrets: await secretsForRun(user.id), ...(await runExtras(user, mind.id)) },
+    body: { userId: user.id, threadId: thread, message: text, mind: await runMindConfig(user, mind), secrets: await secretsForRun(user.id), ...(await runExtras(user, mind.id)) },
   })
   const sink = memorySink(onEvent)
   await relayRun(fakeReq, sink.res, engineRes, { mindId: mind.id, threadId: thread, userMessage: text, controller })
@@ -427,9 +442,24 @@ export const server = createServer(async (req, res) => {
       }
       if (sub === '/mail/sent' && req.method === 'GET') return sendJson(res, 200, { sends: await listSends(mind.id, limitOf(url, 20, 100)) })
 
+      // What the Mind remembers about its owner (#209): the engine's working memory for the current persona version.
+      // Try-out users may read it but not change it.
+      if (sub === '/memory') {
+        const key = { userId: user.id, ...(mind.personaVersion > 0 ? { personaVersion: mind.personaVersion } : {}) }
+        const path = `/v1/minds/${encodeURIComponent(mind.id)}/memory`
+        if (req.method === 'GET') return passthrough(res, await engineJson(`${path}?${new URLSearchParams({ userId: user.id, ...(mind.personaVersion > 0 ? { personaVersion: String(mind.personaVersion) } : {}) })}`))
+        if (req.method === 'PUT' || req.method === 'DELETE') denyDemo(user, 'edit_memory')
+        if (req.method === 'PUT') return passthrough(res, await engineJson(path, { method: 'PUT', body: { ...key, markdown: (await readBody(req, memoryWriteSchema)).markdown } }))
+        if (req.method === 'DELETE') return passthrough(res, await engineJson(path, { method: 'DELETE', body: key }))
+        throw new HttpError(405, 'method_not_allowed')
+      }
+
       if (sub === '' && req.method === 'GET') return sendJson(res, 200, { mind })
       if (sub === '' && req.method === 'PATCH') {
-        const { mind: updated, inboxError } = await withInbox(user, await updateMind(user.id, mind.id, await readBody(req, updateMindSchema)))
+        const patch = await readBody(req, updateMindSchema)
+        // Rules let a Mind act without the owner (#167): try-outs pay from the shared demo wallet, so never.
+        if (patch.autoApprove) denyDemo(user, 'auto_approve')
+        const { mind: updated, inboxError } = await withInbox(user, await updateMind(user.id, mind.id, patch))
         return sendJson(res, 200, { mind: updated, autopilot: await syncAutopilots(user.id, updated), ...(inboxError ? { inboxError } : {}) })
       }
       if (sub === '' && req.method === 'DELETE') {
@@ -455,7 +485,7 @@ export const server = createServer(async (req, res) => {
         const controller = new AbortController()
         const engineRes = await engineFetch(`/v1/minds/${encodeURIComponent(mind.id)}/chat`, {
           method: 'POST', signal: controller.signal,
-          body: { userId: user.id, threadId, message: body.message, mind: mindConfig(mind), secrets: await secretsForRun(user.id), ...timeZoneOf(body), ...(await runExtras(user, mind.id)) },
+          body: { userId: user.id, threadId, message: body.message, mind: await runMindConfig(user, mind), secrets: await secretsForRun(user.id), ...timeZoneOf(body), ...(await runExtras(user, mind.id)) },
         })
         return relayRun(req, res, engineRes, { mindId: mind.id, threadId, userMessage: body.message, controller })
       }
@@ -543,6 +573,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const sweep = () => cleanupDemoUsers(async (mindId) => { await deleteAllWorkflows(mindId); await disconnectTelegram(mindId).catch(() => {}) }).then((n) => { if (n) console.log('demo users removed', n) }, (e) => console.error('demo cleanup failed', e instanceof Error ? e.message : e))
   void sweep()
   setInterval(sweep, 24 * 3600_000).unref()
+  // Runs a crash left `running` (#218) end as interrupted, so they can be deleted and stop blocking their chat.
+  const stuckSweep = () => sweepStuckRuns().catch((e) => console.error('stuck run sweep failed', e instanceof Error ? e.message : e))
+  void stuckSweep()
+  setInterval(stuckSweep, 5 * 60_000).unref()
   // Deleted chats (#207): the engine is asked again to forget them, and after 30 days they are purged for good.
   const threadSweep = () => sweepDeletedThreads().then((n) => { if (n.forgotten || n.purged) console.log('deleted threads', n) }, (e) => console.error('thread sweep failed', e instanceof Error ? e.message : e))
   void threadSweep()

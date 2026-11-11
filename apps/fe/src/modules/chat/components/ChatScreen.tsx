@@ -156,7 +156,8 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
           <h1 className="truncate text-[17px] font-semibold text-foreground">{name}</h1>
           <p className="truncate text-xs text-muted-foreground">
             {templateLabel(templateId)}
-            {tryOut ? ", try-out with a shared test wallet" : limit ? `, asks before every payment, up to ${limit} NEAR each` : ""}
+            {/* Not "asks before every payment": an auto-approve rule (#167) can let small ones through. */}
+            {tryOut ? ", try-out with a shared test wallet" : limit ? `, payments up to ${limit} NEAR each` : ""}
           </p>
         </div>
         <Button variant="ghost" size="sm" onClick={toggleLive} aria-pressed={liveOpen} className="shrink-0 text-muted-foreground">

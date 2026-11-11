@@ -1,0 +1,874 @@
+@import "tailwindcss";
+
+/* Tokens from design/landing.pen (Stone & Lime, light mode). */
+@theme {
+  --color-bg: #f3f2ee;
+  --color-surface: #ffffff;
+  --color-text: #161614;
+  --color-text-2: #5c5a54;
+  --color-primary: #161614;
+  --color-on-primary: #ffffff;
+  --color-primary-hover: #33332f;
+  --color-accent: #d8f04a;
+  --color-on-accent: #161614;
+  --color-border: #e0ded6;
+  --color-focus: #5e6b00;
+  --color-surface-muted: #eae8e2;
+  --color-border-strong: #cfccc3;
+  --color-text-3: #696660;
+  --color-accent-soft: #f1f8c9;
+  --color-accent-strong: #5e6b00;
+  --color-warning: #945800;
+  --color-warning-soft: #fbefd9;
+  --color-danger: #bf3220;
+  --color-danger-soft: #fbe6e2;
+  --color-info-soft: #e3ecfb;
+  --color-success: #1a7340;
+  --color-success-soft: #e3f2e8;
+  --color-node-tool: #4c7df0;
+  --color-node-app: #9b6cf0;
+  --color-node-wallet: #f0a93c;
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Motion tokens (design/CLAUDE.md, Motion v0.3). */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- Nav ----------
+   Top of the page: a plain full-width bar on the hero.
+   After scrolling: a white pill across the row (the opposite colour of the
+   dark Open app button). Logo and button keep their colours. */
+
+.nav {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 50;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.nav-shell {
+  --logo-head: var(--color-text);
+  --logo-eye: #ffffff;
+  pointer-events: auto;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  width: 100%;
+  max-width: 1440px;
+  height: 80px;
+  margin-top: 0;
+  padding: 0 120px;
+  border-radius: 0;
+  background-color: transparent;
+  color: var(--color-text);
+  box-shadow: 0 0 0 0 transparent;
+  transition:
+    max-width 420ms var(--ease-drawer),
+    height 420ms var(--ease-drawer),
+    margin-top 420ms var(--ease-drawer),
+    padding 420ms var(--ease-drawer),
+    border-radius 420ms var(--ease-drawer),
+    background-color 300ms ease,
+    color 300ms ease,
+    box-shadow 300ms ease;
+}
+
+.nav[data-scrolled="true"] .nav-shell {
+  max-width: min(1200px, calc(100% - 32px));
+  height: 60px;
+  margin-top: 14px;
+  padding: 0 10px 0 26px;
+  border-radius: 999px;
+  background-color: var(--color-surface);
+  box-shadow:
+    0 0 0 1px var(--color-border),
+    0 10px 30px -14px rgb(22 22 20 / 0.25);
+}
+
+.logo-head {
+  fill: var(--logo-head, var(--color-text));
+  transition: fill 300ms ease;
+}
+.logo-eye {
+  fill: var(--logo-eye, #ffffff);
+  transition: fill 300ms ease;
+}
+
+.nav-logo {
+  justify-self: start;
+  display: flex;
+  border-radius: 8px;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  color: color-mix(in srgb, currentColor 72%, transparent);
+  transition: color 200ms ease;
+}
+
+.nav-letters {
+  display: flex;
+  align-items: baseline;
+  white-space: nowrap;
+}
+
+/* Every letter grows on its own. The delay grows with the distance from the
+   middle of the word, so the growth spreads from the centre to both ends. */
+.nav-ch {
+  display: inline-block;
+  font-size: 15px;
+  line-height: 1;
+  font-weight: 400;
+  transition:
+    font-size 300ms var(--ease-out),
+    font-weight 300ms var(--ease-out);
+  transition-delay: calc(var(--d) * 40ms);
+}
+
+/* Hover only for real pointers (Motion v0.3). */
+@media (hover: hover) and (pointer: fine) {
+  .nav-link:hover {
+    color: inherit;
+  }
+  .nav-link:hover .nav-ch {
+    font-size: 22.5px;
+    font-weight: 600;
+  }
+}
+
+.nav-cta {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 20px;
+  border-radius: 999px;
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: 15px;
+  font-weight: 500;
+  /* A real border (outside the swipe layer) keeps the button's edge when it
+     turns white on the white pill. */
+  border: 1px solid var(--color-primary);
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  transition:
+    color 320ms var(--ease-out),
+    transform 160ms var(--ease-out);
+}
+.nav-cta:active {
+  transform: scale(0.97);
+}
+
+/* Hover swipe: a white layer sweeps in from the left and the colours flip.
+   On leave it keeps going and sweeps out to the right. */
+.nav-cta::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-color: var(--color-surface);
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 420ms var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .nav-cta:hover {
+    color: var(--color-text);
+  }
+  .nav-cta:hover::before {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+}
+
+.nav-cta-arrow {
+  transition: transform 200ms var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .nav-cta:hover .nav-cta-arrow {
+    transform: translate(1px, -1px);
+  }
+}
+
+/* Keyboard focus only: 2 px ring, 2 px outside. */
+.nav a:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+  /* no middle links: the logo on the left, Open app on the right */
+  .nav-shell {
+    grid-template-columns: 1fr auto;
+    padding: 0 20px;
+  }
+  .nav-links {
+    display: none;
+  }
+}
+
+/* Reduced motion: keep colour fades, drop size changes and movement. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .nav-shell {
+    transition:
+      background-color 300ms ease,
+      color 300ms ease,
+      box-shadow 300ms ease;
+  }
+  .nav-ch,
+  .nav-cta-arrow {
+    transition: none;
+  }
+  .nav-cta::before {
+    transform: scaleX(1);
+    opacity: 0;
+    transition: opacity 200ms ease;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .nav-cta:hover::before {
+      opacity: 1;
+    }
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .nav-link:hover .nav-ch {
+      font-size: 15px;
+    }
+  }
+}
+
+/* ---------- Hero ---------- */
+
+.hero-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 22px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 500;
+}
+.hero-btn:active {
+  transform: scale(0.97);
+}
+.hero-btn-lg {
+  height: 54px;
+  font-size: 16px;
+  padding: 0 22px;
+}
+.hero-btn-primary.hero-btn-lg {
+  padding-right: 13px;
+}
+.hero-btn-primary {
+  padding-right: 12px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.hero-btn-dot {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.hero-btn-ghost {
+  background: rgb(255 255 255 / 0.75);
+  color: var(--color-text);
+}
+/* Every button hovers like Open app: a layer of the opposite colour sweeps in from the left and the
+   label flips colour; on leave it sweeps out to the right (.btn-swipe, and the hero/CTA buttons).
+   Dark buttons get a white layer, light ones a dark layer. Reduced motion: a plain colour change. */
+.hero-btn,
+.btn-swipe {
+  --swipe-bg: var(--color-surface);
+  --swipe-fg: var(--color-text);
+  overflow: hidden;
+  isolation: isolate;
+  cursor: pointer;
+  transition:
+    color 320ms var(--ease-out),
+    transform 160ms var(--ease-out);
+}
+.hero-btn-ghost,
+.btn-swipe-dark {
+  --swipe-bg: var(--color-primary);
+  --swipe-fg: var(--color-on-primary);
+}
+/* the swipe layer needs a positioned parent; .btn-swipe elements get it from their own classes
+   (`relative` or `absolute`), so a utility like `absolute` is never overridden here */
+.hero-btn { position: relative; }
+.hero-btn-primary {
+  border: 1px solid var(--color-primary); /* keeps the edge once it turns white on a light page */
+}
+.hero-btn::before,
+.btn-swipe::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background-color: var(--swipe-bg);
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 420ms var(--ease-out);
+}
+.btn-swipe:active {
+  transform: scale(0.97);
+}
+@media (hover: hover) and (pointer: fine) {
+  .hero-btn:hover,
+  .btn-swipe:hover,
+  .group:hover > .btn-swipe-group {
+    color: var(--swipe-fg);
+  }
+  .hero-btn:hover::before,
+  .btn-swipe:hover::before,
+  .group:hover > .btn-swipe-group::before {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-btn::before,
+  .btn-swipe::before { transition: none; }
+}
+
+/* Anything you can click shows the hand cursor (Tailwind's reset gives buttons the arrow). */
+a[href],
+button:not(:disabled),
+[role="button"],
+summary,
+label[for] {
+  cursor: pointer;
+}
+
+/* Clouds drift slowly from side to side. */
+.hero-cloud {
+  animation: cloud-drift 80s ease-in-out infinite alternate;
+}
+@keyframes cloud-drift {
+  from { transform: translateX(-24px); }
+  to { transform: translateX(24px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-cloud {
+    animation: none;
+  }
+}
+
+/* Sun rays from the top-left corner: a few wide, soft beams, slowly breathing. Screen blend so they
+   light whatever is under them (sky, clouds, the Mind, the grass). */
+.hero-rays {
+  left: min(-200px, calc(720px - 50vw - 200px)); /* relative to the 1440 stage */
+  top: -260px;
+  width: max(2200px, 120vw);
+  height: 1500px;
+  background:
+    radial-gradient(circle at 12% 14%, rgb(255 246 214 / 0.5), rgb(255 240 200 / 0.1) 20%, transparent 45%),
+    conic-gradient(
+      from 96deg at 12% 14%,
+      transparent 0deg,
+      rgb(255 244 210 / 0.32) 5deg,
+      transparent 11deg,
+      transparent 17deg,
+      rgb(255 244 210 / 0.24) 24deg,
+      transparent 32deg,
+      transparent 40deg,
+      rgb(255 244 210 / 0.28) 47deg,
+      transparent 56deg,
+      transparent 360deg
+    );
+  -webkit-mask-image: radial-gradient(circle at 12% 14%, #000 15%, rgb(0 0 0 / 0.5) 45%, transparent 78%);
+  mask-image: radial-gradient(circle at 12% 14%, #000 15%, rgb(0 0 0 / 0.5) 45%, transparent 78%);
+  mix-blend-mode: screen;
+  filter: blur(6px);
+  transform-origin: 12% 14%;
+  animation: rays-breathe 14s ease-in-out infinite alternate;
+}
+@keyframes rays-breathe {
+  from { transform: rotate(-1.5deg); opacity: 0.75; }
+  to { transform: rotate(1.5deg); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-rays {
+    animation: none;
+  }
+}
+
+/* ---------- Hero hands (2D) ----------
+   Each gripping hand sits in a box that ends a little under the crest, so while it rises from behind
+   the hill the part below the crest stays hidden. */
+.hero-hand-clip {
+  overflow: hidden;
+  pointer-events: none;
+}
+/* Enter: rise from behind the hill, reach over, grab and squash onto the crest. */
+.hero-hand-enter {
+  animation: hand-enter 640ms cubic-bezier(0.3, 1.3, 0.5, 1) both;
+}
+@keyframes hand-enter {
+  0% { transform: translateY(260px) rotate(-6deg); }
+  45% { transform: translateY(-36px) rotate(4deg) scale(0.96, 1.06); }
+  70% { transform: translateY(6px) scale(1.08, 0.88); }
+  85% { transform: translateY(-2px) scale(0.98, 1.03); }
+  100% { transform: none; }
+}
+/* Back to the crest after waving: drop and squash. */
+.hero-hand-grip {
+  animation: hand-drop 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes hand-drop {
+  0% { opacity: 0; transform: translateY(-40px) scale(0.96, 1.06); }
+  45% { opacity: 1; transform: translateY(3px) scale(1.1, 0.84); }
+  70% { transform: translateY(-2px) scale(0.97, 1.04); }
+  100% { opacity: 1; transform: none; }
+}
+/* Hi: pops up from behind the hill, waves twice, sinks back (1.5 s). */
+.hero-hand-wave {
+  pointer-events: none;
+  z-index: 1;
+  animation: hand-hi 1500ms cubic-bezier(0.34, 1.2, 0.64, 1) both;
+}
+@keyframes hand-hi {
+  0% { transform: translateY(220px) rotate(-8deg); }
+  16% { transform: translateY(-10px) rotate(-12deg); }
+  28% { transform: translateY(0) rotate(14deg); }
+  42% { transform: rotate(-12deg); }
+  56% { transform: rotate(14deg); }
+  70% { transform: rotate(-6deg); }
+  82% { transform: translateY(0) rotate(2deg); }
+  100% { transform: translateY(240px) rotate(8deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-hand-enter,
+  .hero-hand-grip,
+  .hero-hand-wave {
+    animation: none;
+  }
+}
+
+/* ---------- Meet the Minds ---------- */
+
+/* Heading: each word slides up from behind a mask. Subtitle: a plain fade after it. */
+.word-up {
+  animation: word-up 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes word-up {
+  from { transform: translateY(105%); }
+  to { transform: translateY(0); }
+}
+/* The CTA's Mind flies in from the right edge. */
+.cta-fly-in {
+  animation: cta-fly-in 1100ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+/* (transform only; the vertical centring uses Tailwind's separate `translate` property) */
+@keyframes cta-fly-in {
+  from { opacity: 0; transform: translateX(45%) rotate(4deg); }
+  to { opacity: 1; transform: none; }
+}
+/* Blocks rising into place (no mask): up 24 px and in. */
+.rise-in {
+  animation: rise-in 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: none; }
+}
+.fade-in {
+  animation: fade-in 600ms ease both;
+}
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Cards are dealt from below, face down and tilted, then flip over and settle. */
+.mind-card-deal {
+  animation: card-deal 1250ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes card-deal {
+  0% { transform: translateY(130%) rotate(var(--from-tilt)) rotateY(180deg); }
+  45% { transform: translateY(-14px) rotate(calc(var(--from-tilt) * 0.3)) rotateY(180deg); }
+  80% { transform: translateY(0) rotate(0deg) rotateY(-8deg); }
+  100% { transform: translateY(0) rotate(0deg) rotateY(0deg); }
+}
+
+/* Which face shows is switched exactly when the flip passes 90 deg (about 50% of card-deal, with its easing), so it is
+   right in every browser, even where backface-visibility is ignored. */
+.mind-card-deal .mind-face-front {
+  animation: face-front 1250ms step-end both;
+}
+.mind-card-deal .mind-face-back {
+  animation: face-back 1250ms step-end both;
+}
+.mind-card:not(.mind-card-deal) .mind-face-back {
+  opacity: 0;
+}
+@keyframes face-front {
+  0% { opacity: 0; }
+  50% { opacity: 1; }
+  100% { opacity: 1; }
+}
+@keyframes face-back {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+/* Hover: the card pops up with a small random tilt (set per hover in MindCards.tsx). */
+.mind-card-hover {
+  transition: transform 380ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@media (hover: hover) and (pointer: fine) {
+  .mind-card-hover:hover {
+    transform: translateY(-8px) scale(1.04) rotate(var(--tilt));
+  }
+}
+/* Choose: same as Open app in the nav. A white layer sweeps in from the left and the colours flip. */
+.mind-card-cta {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 16px;
+  border: 1px solid var(--color-primary);
+  border-radius: 14px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 320ms var(--ease-out), transform 160ms var(--ease-out);
+}
+.mind-card-cta * {
+  cursor: pointer;
+}
+.mind-card-cta::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--color-surface);
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 420ms var(--ease-out);
+}
+.mind-card-cta:active {
+  transform: scale(0.97);
+}
+.mind-card-cta svg {
+  transition: transform 200ms var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .mind-card-cta:hover {
+    color: var(--color-text);
+  }
+  .mind-card-cta:hover::before {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+  .mind-card-cta:hover svg {
+    transform: translateX(2px);
+  }
+}
+.mind-card-cta:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* Back of the card: brushed platinum (a radial sheen plus fine circular brushing). */
+.mind-card-back {
+  background:
+    repeating-radial-gradient(circle at 50% 50%, rgb(255 255 255 / 0.05) 0 1px, rgb(0 0 0 / 0.035) 1px 2px),
+    conic-gradient(
+      from 0deg at 50% 50%,
+      #d9d9db,
+      #f7f7f8 8%,
+      #b9babd 20%,
+      #eeeef0 32%,
+      #a8a9ad 45%,
+      #f4f4f5 58%,
+      #bdbec1 70%,
+      #fafafa 82%,
+      #c4c5c8 92%,
+      #d9d9db
+    );
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.6),
+    inset 0 -2px 6px rgb(0 0 0 / 0.12),
+    0 24px 60px -28px rgb(22 22 20 / 0.45);
+}
+/* Embossed logo: same colour as the metal, lit from above. */
+.mind-card-emboss {
+  --logo-head: #a9abaf;
+  --logo-eye: #dcdde0;
+  --color-accent: #a9abaf;
+  filter: drop-shadow(0 1.5px 0 rgb(255 255 255 / 0.95)) drop-shadow(0 -1px 0 rgb(0 0 0 / 0.35));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .word-up,
+  .rise-in,
+  .cta-fly-in,
+  .fade-in,
+  .mind-card-deal,
+  .mind-card-deal .mind-face-front {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .mind-card-hover {
+    transition: none;
+  }
+  .mind-card-deal .mind-face-back {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* Gentle idle float for visuals (the approval card). */
+.float-idle {
+  animation: float-idle 6s ease-in-out infinite;
+}
+@keyframes float-idle {
+  0%, 100% { transform: translateY(0) rotate(-0.6deg); }
+  50% { transform: translateY(-12px) rotate(0.6deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .float-idle {
+    animation: none;
+  }
+}
+
+/* Frosted glass panels (on photos). */
+.glass {
+  background: rgb(255 255 255 / 0.55);
+  border: 1px solid rgb(255 255 255 / 0.7);
+  box-shadow:
+    0 20px 50px -24px rgb(22 22 20 / 0.35),
+    inset 0 1px 0 rgb(255 255 255 / 0.8);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  backdrop-filter: blur(18px) saturate(1.3);
+}
+
+/* ---------- Powered by marquee (#99) ---------- */
+.marquee {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+.marquee-track {
+  animation: marquee 45s linear infinite;
+}
+@keyframes marquee {
+  to { transform: translateX(-50%); }
+}
+@media (hover: hover) and (pointer: fine) {
+  .marquee:hover .marquee-track {
+    animation-play-state: paused;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
+  .marquee-track > .marquee-row:last-child {
+    display: none;
+  }
+  .marquee {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
+/* Fine film grain (an SVG noise tile), soft-light blended: hides the smooth, repeated look of
+   generated textures without darkening them. */
+.grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 1.2 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  mix-blend-mode: soft-light;
+  opacity: 0.55;
+}
+/* Frosted glass card floating above the lawn: its shadow falls down-right, away from the sun
+   (upper left), and a little off the ground, so it reads as hovering. */
+.glass-float {
+  position: relative;
+  isolation: isolate;
+  background: rgb(255 255 255 / 0.42);
+  border: 1px solid rgb(255 255 255 / 0.45);
+  -webkit-backdrop-filter: blur(3px) saturate(1.15);
+  backdrop-filter: blur(3px) saturate(1.15);
+  /* Edges: lit on the top-left (towards the sun), a little darker on the bottom-right.
+     Drop shadow: Nabil's, x 18, y 45, blur 10, 45% black. */
+  box-shadow:
+    inset 1.5px 1.5px 0 rgb(255 255 255 / 0.95),
+    inset -1px -1px 0 rgb(0 0 0 / 0.1),
+    18px 45px 10px rgb(0 0 0 / 0.45);
+}
+/* Sunlight on the glass, from the upper left like the scene: a warm glare in the top-left corner
+   that fades out. Screen blend, so it only brightens. */
+.glass-float::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    radial-gradient(120% 90% at 0% 0%, rgb(255 248 228 / 0.55), rgb(255 248 228 / 0.12) 38%, transparent 60%);
+  mix-blend-mode: screen;
+}
+
+/* Dark frosted glass, for panels over the Mind Graph. */
+.glass-dark {
+  background: rgb(30 30 28 / 0.55);
+  border: 1px solid rgb(242 241 236 / 0.12);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  backdrop-filter: blur(12px) saturate(1.2);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 24px 48px -20px rgb(0 0 0 / 0.6);
+}
+
+/* The Mind Graph has no frame: its four edges fade into the night. */
+.graph-fade {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent),
+    linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent),
+    linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
+  mask-composite: intersect;
+}
+
+/* The Mind Graph section: night everywhere; on desktop its top part (which overlaps the end of the
+   approvals scroll) is see-through, so the same night behind it shows. */
+.graph-section { background: var(--night); }
+@media (min-width: 1024px) {
+  .graph-section { background: linear-gradient(transparent calc(50vh - 130px), var(--night) calc(50vh - 130px)); }
+}
+
+/* Footer text on the grass: white, with a soft shadow so it reads on light and dark grass. */
+.footer-on-grass { text-shadow: 0 1px 10px rgb(20 40 10 / 0.45), 0 0 2px rgb(20 40 10 / 0.35); }
+/* the Mind mark keeps its own colours (dark head, white eyes); only the wordmark turns white */
+.footer-logo { --logo-head: #161614; --logo-eye: #ffffff; }
+.footer-logo path:last-child { fill: #fff; }
+.footer-logo svg { filter: drop-shadow(0 1px 6px rgb(20 40 10 / 0.45)); }
+
+/* Very narrow phones: a smaller logo and button so the nav pill never crowds. */
+@media (max-width: 420px) {
+  .nav-logo svg { height: 24px; }
+  .nav[data-scrolled="true"] .nav-shell { padding: 0 8px 0 16px; }
+  .nav-cta { height: 38px; padding: 0 14px; font-size: 14px; }
+}
+
+/* Phones and tablets: a grass backdrop (a small crop of the lawn photo) behind light "glass" panes.
+   No backdrop-filter (too heavy on phones): just a translucent white with a bright top edge. */
+.lawn-box {
+  background: #4f7a2a url("/scenes/lawn-card.webp") center / cover no-repeat;
+}
+.glass-lite {
+  background: rgb(255 255 255 / 0.84);
+  border: 1px solid rgb(255 255 255 / 0.7);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.9),
+    0 10px 24px -10px rgb(15 30 8 / 0.5);
+}
+/* The narrowest phones (360 px): the two hero buttons still fit side by side. */
+@media (max-width: 380px) {
+  .hero .hero-btn { font-size: 12.5px; padding-left: 10px; padding-right: 10px; gap: 5px; min-width: 0; }
+  .hero .hero-btn-primary { padding-right: 6px; }
+  .hero .hero-btn-dot { width: 22px; height: 22px; }
+}
+
+/* CTA: the primary button's text and arrow sit in the middle (even padding on both sides). */
+.cta-btns .hero-btn-primary { padding-right: 22px; }
+/* CTA buttons on phones: the same compact size as the hero's, side by side. */
+@media (max-width: 1023px) {
+  .cta-btns .hero-btn { height: 48px; padding-left: 12px; padding-right: 12px; gap: 6px; font-size: 13.5px; white-space: nowrap; min-width: 0; }
+  .cta-btns .hero-btn svg { flex-shrink: 0; }
+}
+@media (max-width: 380px) {
+  .cta-btns .hero-btn { font-size: 12.5px; padding-left: 10px; padding-right: 10px; gap: 5px; }
+}
+
+/* ---- Page loader (PageLoader.tsx): the Mind mark builds itself ----
+   Only transform and opacity on HTML elements with their own layers, so the compositor runs every
+   animation and it stays smooth while the main thread is busy loading the page. */
+.page-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  background: var(--color-bg);
+  transition: opacity 300ms cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0s;
+}
+.page-loader.is-pre { opacity: 0; transition: none; }
+.page-loader.is-pre .ld-stack { transform: scale(0.94); opacity: 0; transition: none; }
+.page-loader.is-out { opacity: 0; visibility: hidden; transition: opacity 550ms cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 550ms; }
+.page-loader.is-out .ld-stack { transform: scale(1.12); opacity: 0; }
+.ld-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 26px;
+  transition: transform 550ms cubic-bezier(0.4, 0, 0.2, 1), opacity 450ms ease;
+  will-change: transform, opacity;
+}
+.ld-mark { animation: ld-breathe 2.4s ease-in-out 1.15s infinite; will-change: transform; }
+.ld-bubble { transform-origin: center; animation: ld-pop 520ms cubic-bezier(0.34, 1.56, 0.64, 1) both; will-change: transform; }
+.ld-sprout { transform-origin: 50% 100%; animation: ld-grow 520ms cubic-bezier(0.34, 1.56, 0.64, 1) 520ms both; will-change: transform; overflow: visible; }
+.ld-eyes { transform-origin: center; animation: ld-open 260ms ease-out 640ms both, ld-blink 3.4s ease-in-out 1.6s infinite; will-change: transform, opacity; overflow: visible; }
+.ld-track { width: 120px; height: 3px; border-radius: 99px; background: rgb(22 22 20 / 0.08); overflow: hidden; }
+.ld-bar { height: 100%; background: var(--color-accent); border-radius: inherit; transform-origin: left; transform: scaleX(0.08); will-change: transform; }
+.ld-bar.is-creep { animation: ld-creep 6s cubic-bezier(0.1, 0.6, 0.3, 1) both; }
+.ld-bar.is-full { animation: none; transform: scaleX(1); transition: transform 250ms ease-out; }
+.ld-bar.is-sweep { animation: ld-sweep 950ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+@keyframes ld-pop { from { transform: scale(0); } to { transform: scale(1); } }
+@keyframes ld-grow { from { transform: scale(0.2, 0); } to { transform: scale(1); } }
+@keyframes ld-open { from { transform: scaleY(0); opacity: 0; } to { transform: scaleY(1); opacity: 1; } }
+@keyframes ld-blink { 0%, 90%, 100% { transform: scaleY(1); } 94% { transform: scaleY(0.12); } }
+@keyframes ld-breathe { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-5px) scale(1.025); } }
+@keyframes ld-creep { from { transform: scaleX(0.08); } to { transform: scaleX(0.9); } }
+@keyframes ld-sweep { from { transform: scaleX(0.05); } to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .ld-mark, .ld-bubble, .ld-sprout, .ld-eyes, .ld-bar.is-sweep, .ld-bar.is-creep { animation: none; }
+}

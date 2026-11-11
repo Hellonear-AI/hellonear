@@ -12,6 +12,8 @@ export const mindKeys = {
   wallet: (mindId: string) => ["minds", mindId, "wallet"] as const,
   payments: (mindId: string) => ["minds", mindId, "wallet", "payments"] as const,
   recentChats: (mindId: string) => ["minds", mindId, "threads", "recent"] as const,
+  /** What the Mind remembers about its owner (#209, Settings). */
+  memory: (mindId: string) => ["minds", mindId, "memory"] as const,
   /** A try-out's runs across its Minds, counted against its message limit. */
   tryOutRuns: (mindIds: string) => ["minds", "try-out-runs", mindIds] as const,
 }

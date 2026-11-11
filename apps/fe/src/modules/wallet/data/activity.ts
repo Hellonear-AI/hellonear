@@ -39,9 +39,12 @@ export function filterActivity(payments: ApiPayment[], filter: ActivityFilter): 
   return payments
 }
 
-/** "Spent today" (W1): what was sent since local midnight. A count, not a limit. */
+/**
+ * "Spent today" (W1): what was sent since 00:00 UTC, the day OutLayer's daily cap counts (#149: James measured the cap
+ * resetting at 00:00 UTC, not after a rolling 24 h). Local midnight read wrong between 00:00 UTC and local midnight.
+ */
 export function spentToday(payments: ApiPayment[], now: Date = new Date()): { total: string; count: number } {
-  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const midnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
   const today = payments.filter((p) => p.status === "sent" && new Date(p.at).getTime() >= midnight)
   return { total: addNear(today.map((p) => p.amountNear)), count: today.length }
 }
@@ -58,4 +61,24 @@ export function addNear(amounts: string[]): string {
   const whole = digits.slice(0, -24)
   const out = frac ? `${whole}.${frac}` : whole
   return compareNear(out, "0") === 0 ? "0" : out
+}
+
+/** `a - b` for decimal NEAR strings, exactly; never below "0". */
+export function subNear(a: string, b: string): string {
+  const yocto = (v: string) => {
+    const m = /^(\d+)(?:\.(\d{1,24}))?$/.exec(v.trim())
+    return m ? BigInt(m[1] + (m[2] ?? "").padEnd(24, "0")) : BigInt(0)
+  }
+  const d = yocto(a) - yocto(b)
+  if (d <= BigInt(0)) return "0"
+  const digits = d.toString().padStart(25, "0")
+  const frac = digits.slice(-24).replace(/0+$/, "")
+  const whole = digits.slice(0, -24)
+  return frac ? `${whole}.${frac}` : whole
+}
+
+/** When the UTC day starts on this device's clock, e.g. "07:00" in Jakarta. */
+export function utcMidnightLocal(now: Date = new Date(), timeZone?: string): string {
+  const midnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone }).format(midnight)
 }

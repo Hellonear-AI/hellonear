@@ -5,6 +5,7 @@
 import { formatNear } from "@/lib/format"
 import { compareNear } from "@/lib/near"
 import type { ApiWallet } from "@/modules/wallet/api"
+import { addNear, subNear } from "@/modules/wallet/data/activity"
 
 export type Check = { ok: boolean; text: string }
 
@@ -27,6 +28,16 @@ export function approvalChecks(payment: { to: string; amountNear: string }, wall
   if (limit) {
     const over = compareNear(payment.amountNear, limit) === 1
     checks.push(over ? { ok: false, text: `Over your ${limit} NEAR limit: blocked even if you approve` } : { ok: true, text: `Within your ${limit} NEAR limit` })
+    if (over && next === "approve") next = "change_limits"
+  }
+
+  // The daily cap (#149): OutLayer refuses when what it counted today plus this payment is over the cap.
+  const daily = wallet.policy?.dailyNear
+  if (daily && wallet.spentTodayNear !== undefined) {
+    const after = addNear([wallet.spentTodayNear, payment.amountNear])
+    const over = compareNear(after, daily) === 1
+    const left = compareNear(daily, wallet.spentTodayNear) === 1 ? subNear(daily, wallet.spentTodayNear) : "0"
+    checks.push(over ? { ok: false, text: `Over today's ${daily} NEAR limit (${formatNear(left)} left): blocked even if you approve` } : { ok: true, text: `Within today's ${daily} NEAR limit` })
     if (over && next === "approve") next = "change_limits"
   }
 

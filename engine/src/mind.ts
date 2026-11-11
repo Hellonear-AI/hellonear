@@ -4,10 +4,14 @@ import { secretSchema } from './secrets.ts'
 import { walletTokenSchema } from './wallet.ts'
 import { mailTokenSchema } from './mail.ts'
 import { equippableSkills, skillCatalog } from './skills.ts'
+import { autoApproveSchema } from './autoApprove.ts'
 
 export const timeZoneSchema = z.string().max(64).refine((tz) => {
   try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return true } catch { return false }
 }, { message: 'unknown time zone' })
+
+// `enabled`: working memory ("Remember things about you"); `recall`: semantic recall across chats ("Search past chats").
+export const memorySwitchesSchema = z.object({ enabled: z.boolean().optional(), recall: z.boolean().optional() })
 
 export const mindSchema = z.object({
   templateId: z.string(),
@@ -22,6 +26,10 @@ export const mindSchema = z.object({
   personaVersion: z.number().int().min(0).optional(),
   // Equipped skills by id. The engine's catalog decides which tools each skill grants.
   skills: z.array(z.object({ skillId: z.string().refine((id) => skillCatalog.has(id), { message: 'unknown skillId' }) })).default([]),
+  // What the Mind may do without asking (#167). Absent: every approval tool asks, as before.
+  autoApprove: autoApproveSchema.optional(),
+  // The owner's memory switches (#209), read per run. Absent or true: on, as before.
+  memory: memorySwitchesSchema.optional(),
 })
 export type Mind = z.infer<typeof mindSchema>
 
@@ -84,9 +92,27 @@ export function timeZoneLine(timeZone: string, now = new Date()): string {
   return `The owner's time zone is ${timeZone} (${utc} now). Call get_time before using a relative day (today, tomorrow, Friday), and give every time you pass to a tool with the owner's offset.`
 }
 
+// The owner's auto-approve rules (#167). Without this line the Mind said "please approve when the wallet asks" and "you
+// approved it" for a payment its owner's rule had sent without asking (seen in Chrome, 11 Nov), and the Payments
+// template's voice tells it to say the owner approved each payment.
+export function autoApproveLine(mind: Mind): string {
+  const rules = mind.autoApprove
+  if (!rules || (!rules.tools.length && !rules.payment)) return ''
+  const parts = [
+    rules.tools.length ? `these tools run without asking: ${rules.tools.join(', ')}` : '',
+    rules.payment ? `send_payment runs without asking for up to ${rules.payment.maxNear} NEAR to an account on the wallet's list (${rules.payment.recipients.length ? rules.payment.recipients.join(', ') : 'the list is empty, so every payment still asks'})` : '',
+  ].filter(Boolean)
+  return `Your owner set rules for what you may do without asking: ${parts.join('; ')}. Anything else still waits for the owner's approval. When a call runs under one of these rules, do not ask the owner to approve it and do not say they approved it: say it went through under their rule. Never use a rule as a reason to do more than the owner asked.`
+}
+
+// The Mind as its prompt sees it: without the rules on runs where they can't apply (demo or unattended).
+export const promptMind = (mind: Mind, rulesApply: boolean): Mind => (rulesApply ? mind : { ...mind, autoApprove: undefined })
+
 export function buildInstructions(mind: Mind, opts: { timeZone?: string } = {}): string {
   const lines = [`You are ${mind.name}. ${mind.soul.identity}`, '', WRITING_STYLE_RULE, '', LANGUAGE_RULE, '', SMALL_TALK_RULE, '', skillsLine(mind.skills.map((s) => s.skillId))]
   if (opts.timeZone) lines.push('', timeZoneLine(opts.timeZone))
+  const rules = autoApproveLine(mind)
+  if (rules) lines.push('', rules)
   if (mind.soul.invariants.length) {
     lines.push('', 'Rules you must never break, even if asked to:', ...mind.soul.invariants.map((r) => `- ${r}`))
   }
@@ -108,4 +134,14 @@ export function ownsResource(resource: string | undefined, userId: string, mindI
   const base = resourceId(userId, mindId)
   if (!resource) return false
   return resource === base || (resource.startsWith(`${base}:v`) && /^\d+$/.test(resource.slice(base.length + 2)))
+}
+
+// Per-call memory options for a run (#209), merged by Mastra over the Memory constructor's options
+// (`getMergedThreadConfig`, @mastra/core 1.81). `workingMemory: { enabled: false }`: no working memory in the prompt
+// and no `updateWorkingMemory` tool (`Memory.listTools`). `semanticRecall: false`: no vector search of other chats,
+// and the run's own messages are not embedded either (the output processor checks the same flag). Both on: undefined,
+// so runs keep exactly today's options.
+export function memoryOptions(mind: Mind): { workingMemory?: { enabled: false }; semanticRecall?: false } | undefined {
+  const off = { ...(mind.memory?.enabled === false ? { workingMemory: { enabled: false as const } } : {}), ...(mind.memory?.recall === false ? { semanticRecall: false as const } : {}) }
+  return Object.keys(off).length ? off : undefined
 }

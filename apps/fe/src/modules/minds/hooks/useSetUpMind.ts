@@ -54,7 +54,7 @@ export function useSetUpMind() {
       if (!p.signed) {
         // Building the transaction is part of creating it, for the user.
         const transaction = await ownerStep("build", () =>
-          walletApi.policyTransaction(mindId, { perTransactionNear: input.perTransactionNear, whitelist: input.whitelist })
+          walletApi.policyTransaction(mindId, { perTransactionNear: input.perTransactionNear, dailyNear: null, whitelist: input.whitelist })
         )
         setStage("signing")
         await ownerStep("sign", () => signTransaction(transaction))

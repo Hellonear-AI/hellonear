@@ -28,7 +28,7 @@ import { approvalChecks, NOT_LISTED, refusalReasons } from "@/modules/wallet/dat
 type Policy = ApiWallet["policy"]
 
 /** A payment that went out: amount, who, which limit allowed it, and the transaction. */
-export function PaymentReceipt({ payment, policy }: { payment: Payment; policy: Policy }) {
+export function PaymentReceipt({ payment, policy, byRule }: { payment: Payment; policy: Policy; byRule?: boolean }) {
   return (
     <div className="flex w-full flex-col gap-2.5 rounded-lg border border-border bg-surface p-4 md:max-w-[480px]">
       <div className="flex items-center justify-between gap-3">
@@ -41,6 +41,7 @@ export function PaymentReceipt({ payment, policy }: { payment: Payment; policy: 
         </Badge>
       </div>
       <To account={payment.to} />
+      {byRule && <p className="text-xs text-muted-foreground">Approved by your rule, without asking you (Settings)</p>}
       {policy?.perTransactionNear && (
         <p className="text-xs text-muted-foreground">Allowed by: up to {policy.perTransactionNear} NEAR per payment</p>
       )}

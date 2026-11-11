@@ -15,7 +15,7 @@ import { TryOutLockedDialog, useTryOutLock, type LockedAction } from "@/modules/
 import { useIsTryOut } from "@/modules/auth/hooks/useSession"
 import type { ApiWallet } from "@/modules/wallet/api"
 import { useMind, useMindWallet, usePayments } from "@/modules/minds/hooks/useMinds"
-import { activityLine, filterActivity, spentToday, type ActivityFilter } from "@/modules/wallet/data/activity"
+import { activityLine, filterActivity, spentToday, utcMidnightLocal, type ActivityFilter } from "@/modules/wallet/data/activity"
 import { shortAddress } from "@/modules/wallet/data/address"
 import { AddFundsDialog } from "@/modules/wallet/components/AddFundsDialog"
 import { FreezeDialog } from "@/modules/wallet/components/FreezeDialog"
@@ -133,6 +133,7 @@ function Card({ children, className }: { children: ReactNode; className?: string
 function Balance({ mindId, name, wallet }: { mindId: string; name: string; wallet: ApiWallet }) {
   const payments = usePayments(mindId, 50).data
   const today = payments ? spentToday(payments) : null
+  const daily = wallet.policy?.dailyNear ?? null
   const [copied, setCopied] = useState(false)
   const copy = async () => {
     try {
@@ -173,11 +174,16 @@ function Balance({ mindId, name, wallet }: { mindId: string; name: string; walle
           </p>
           <p className="text-xs text-muted-foreground">Nothing can be sent until you unfreeze.</p>
         </div>
-      ) : today && today.count > 0 ? (
+      ) : (today && today.count > 0) || daily ? (
         <div className="rounded-md bg-muted px-3 py-2.5">
-          <p className="text-sm font-semibold text-foreground">Spent today: {formatNear(today.total)} NEAR</p>
+          {/* OutLayer's own counter when the backend sends it (#149), else the sent payments since 00:00 UTC. */}
+          <p className="text-sm font-semibold text-foreground">
+            Spent today: {formatNear(wallet.spentTodayNear ?? today?.total ?? "0")}
+            {daily ? ` of ${daily}` : ""} NEAR
+          </p>
           <p className="text-xs text-muted-foreground">
-            {today.count} {today.count === 1 ? "payment" : "payments"}, each one approved by you. This is a count, not a limit.
+            {today ? `${today.count} ${today.count === 1 ? "payment" : "payments"} since 00:00 UTC (${utcMidnightLocal()} your time). ` : ""}
+            {daily ? "Above the daily limit, payments are blocked until the next UTC day." : "There is no daily limit."}
           </p>
         </div>
       ) : null}
@@ -304,6 +310,7 @@ function LimitsCard({
               )
             )}
           </div>
+          {wallet.policy?.dailyNear && <Row label="Per day" value={`Up to ${wallet.policy.dailyNear} NEAR, from 00:00 UTC`} />}
           <Row
             label={`Who ${name} can pay`}
             value={demo ? "Approved test addresses" : count === 1 ? "1 address you added" : `${count} addresses you added`}

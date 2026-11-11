@@ -7,9 +7,10 @@ import { TokenLimiterProcessor } from '@mastra/core/processors'
 import { PgVector, PostgresStore } from '@mastra/pg'
 import { Memory } from '@mastra/memory'
 import { config } from './config.ts'
-import { buildInstructions, type Mind } from './mind.ts'
+import { buildInstructions, promptMind, type Mind } from './mind.ts'
 import { chatModel, embedder } from './models.ts'
 import { mindSkills } from './skills.ts'
+import { DEMO_KEY } from './email.ts'
 import { TIME_ZONE_KEY, toolRegistry, toolsFor } from './tools.ts'
 
 // Small pools: the local Postgres allows 40 connections.
@@ -48,7 +49,13 @@ export const skillsOf = (ctx: Ctx) => mindSkills(mindOf(ctx).skills.map((s) => s
 export const mindAgent = new Agent({
   id: 'mind',
   name: 'Mind',
-  instructions: (ctx) => buildInstructions(mindOf(ctx), { timeZone: ctx.requestContext.get(TIME_ZONE_KEY) as string | undefined }),
+  // A demo run never skips an approval (#167), and an unattended one (workflow, Autopilot) has no approval tools at all,
+  // so neither prompt mentions rules (James, #236 review: the backend sends the rules with workflow runs too).
+  instructions: (ctx) => {
+    const mind = mindOf(ctx)
+    const rulesApply = ctx.requestContext.get(DEMO_KEY) !== true && ctx.requestContext.get(UNATTENDED_KEY) !== true
+    return buildInstructions(promptMind(mind, rulesApply), { timeZone: ctx.requestContext.get(TIME_ZONE_KEY) as string | undefined })
+  },
   model: (ctx) => chatModel(mindOf(ctx).model ?? config.defaultModel),
   tools: (ctx) => toolsFor(skillsOf(ctx).flatMap((s) => s.tools), { unattended: ctx.requestContext.get(UNATTENDED_KEY) === true }),
   skills: (ctx) => skillsOf(ctx).map((s) => s.skill),

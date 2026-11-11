@@ -8,10 +8,14 @@ export type ApiWallet = {
   address: string
   shared: boolean
   balanceNear: string
+  /** What OutLayer counted as spent today (#149), a NEAR string; its day starts at 00:00 UTC. Missing from an older backend. */
+  spentTodayNear?: string
   frozen: boolean
   /** Fields are null when the policy was set elsewhere (e.g. the OutLayer dashboard) without them. */
   policy: null | {
     perTransactionNear: string | null
+    /** The daily cap (#149), enforced in the TEE and reset at 00:00 UTC; null for none. */
+    dailyNear?: string | null
     whitelist: string[] | null
     transactionTypes: string[] | null
     boundToThisWallet: boolean
@@ -67,7 +71,7 @@ export const walletApi = {
     }
   },
   /** The `store_wallet_policy` transaction for policy v2; the owner signs it. */
-  policyTransaction: async (mindId: string, body: { perTransactionNear: string; whitelist: string[] }) =>
+  policyTransaction: async (mindId: string, body: { perTransactionNear: string; dailyNear: string | null; whitelist: string[] }) =>
     (await api<{ transaction: OwnerTransaction }>(`/minds/${encodeURIComponent(mindId)}/wallet/policy`, { method: "POST", body }))
       .transaction,
   approvals: async (mindId: string) =>

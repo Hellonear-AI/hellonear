@@ -1,7 +1,7 @@
 // The system prompt built from a Mind's config. No network, LLM or database.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { LANGUAGE_RULE, SMALL_TALK_RULE, WRITING_STYLE_RULE, buildInstructions, mindSchema, ownsResource, resourceId, skillsLine } from '../src/mind.ts'
+import { LANGUAGE_RULE, SMALL_TALK_RULE, WRITING_STYLE_RULE, buildInstructions, memoryOptions, mindSchema, ownsResource, resourceId, skillsLine } from '../src/mind.ts'
 
 test('every Mind is told not to use em or en dashes', () => {
   for (const templateId of ['payments-mind', 'email-manager', 'general-assistant']) {
@@ -22,6 +22,17 @@ test('memory is keyed per persona version once the name or soul changed (#116)',
   assert.equal(resourceId('usr_1', 'mnd_1', 2), 'usr_1:mnd_1:v2')
   assert.equal(mindSchema.parse({ templateId: 't', name: 'Rex', soul: { identity: 'x' }, personaVersion: 1 }).personaVersion, 1)
   assert.throws(() => mindSchema.parse({ templateId: 't', name: 'Rex', soul: { identity: 'x' }, personaVersion: -1 }))
+})
+
+test('memory switches (#209): absent or on keeps today\'s options; off maps to Mastra\'s per-call memory options', () => {
+  const mind = (memory?: unknown) => mindSchema.parse({ templateId: 't', name: 'Rex', soul: { identity: 'x' }, ...(memory === undefined ? {} : { memory }) })
+  assert.equal(memoryOptions(mind()), undefined, 'no switches: the constructor options as before')
+  assert.equal(memoryOptions(mind({})), undefined)
+  assert.equal(memoryOptions(mind({ enabled: true, recall: true })), undefined)
+  assert.deepEqual(memoryOptions(mind({ enabled: false })), { workingMemory: { enabled: false } })
+  assert.deepEqual(memoryOptions(mind({ recall: false })), { semanticRecall: false })
+  assert.deepEqual(memoryOptions(mind({ enabled: false, recall: false })), { workingMemory: { enabled: false }, semanticRecall: false })
+  assert.throws(() => mind({ enabled: 'no' }))
 })
 
 test('a chat is only deleted from the caller\'s own memory of that Mind, any persona version (#207)', () => {
