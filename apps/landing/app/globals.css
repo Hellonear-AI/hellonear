@@ -785,7 +785,9 @@ label[for] {
 
 /* The Mind Graph section: night everywhere; on desktop its top part (which overlaps the end of the
    approvals scroll) is see-through, so the same night behind it shows. */
-.graph-section { background: var(--night); }
+/* Phones and tablets have no cloud cover, so the light page fades into the night over the first 280 px
+   (eased, so neither end shows an edge); the title starts below it. */
+.graph-section { background: linear-gradient(color-mix(in oklab, var(--night) 0.0%, var(--color-bg)) 0px, color-mix(in oklab, var(--night) 4.3%, var(--color-bg)) 35px, color-mix(in oklab, var(--night) 15.6%, var(--color-bg)) 70px, color-mix(in oklab, var(--night) 31.6%, var(--color-bg)) 105px, color-mix(in oklab, var(--night) 50.0%, var(--color-bg)) 140px, color-mix(in oklab, var(--night) 68.4%, var(--color-bg)) 175px, color-mix(in oklab, var(--night) 84.4%, var(--color-bg)) 210px, color-mix(in oklab, var(--night) 95.7%, var(--color-bg)) 245px, color-mix(in oklab, var(--night) 100.0%, var(--color-bg)) 280px); }
 @media (min-width: 1024px) {
   .graph-section { background: linear-gradient(transparent calc(50vh - 130px), var(--night) calc(50vh - 130px)); }
 }

@@ -289,10 +289,10 @@ export function SeeInside() {
     // see-through, over that same night), so the graph starts right below the title.
     <section
       id="skills"
-      className="graph-section relative z-10 overflow-hidden text-[#F2F1EC] lg:-mt-[calc(50vh-130px)]"
+      className="graph-section relative z-10 -mt-20 overflow-hidden text-[#F2F1EC] lg:-mt-[calc(50vh-130px)]"
       style={{ "--night": NIGHT_BG } as React.CSSProperties}
     >
-      <div className="relative mx-auto flex max-w-[1200px] flex-col gap-12 px-5 pt-24 lg:pt-0">
+      <div className="relative mx-auto flex max-w-[1200px] flex-col gap-12 px-5 pt-[260px] lg:pt-0">
         <div className="flex flex-col items-center gap-3 text-center lg:hidden">
           <h2 className="max-w-[760px] text-[40px] font-medium leading-[1.05] tracking-[-1.4px]">Watch your Mind think</h2>
           <p className="max-w-[600px] text-[17px] leading-[1.5] text-[#F2F1EC]/70">{GRAPH_SUB}</p>
