@@ -9,7 +9,7 @@ import type { ApiWallet } from "@/modules/wallet/api"
 export type Check = { ok: boolean; text: string }
 
 /** What the main button does: approve, or fix the limit that would block it first. */
-export type NextStep = "approve" | "add_address" | "change_limits" | "unfreeze"
+export type NextStep = "approve" | "add_address" | "change_limits" | "unfreeze" | "fund"
 
 export type ApprovalChecks = { checks: Check[]; next: NextStep }
 
@@ -41,6 +41,9 @@ export function approvalChecks(payment: { to: string; amountNear: string }, wall
   if (enough !== null) {
     const balance = formatNear(wallet.balanceNear)
     checks.push(enough >= 0 ? { ok: true, text: `Enough balance: ${balance} NEAR` } : { ok: false, text: `Not enough balance: ${balance} NEAR` })
+    // Approving can't go through: offer Add funds instead (#228, as apps/be/src/approvals.ts and
+    // Telegram do). An unfunded wallet reads as balance "0", so it counts as not enough.
+    if (enough < 0 && next === "approve") next = "fund"
   }
 
   return { checks, next }

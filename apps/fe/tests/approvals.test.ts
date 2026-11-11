@@ -48,9 +48,13 @@ describe("approvalChecks (A1.1)", () => {
     expect(approvalChecks({ to: "x.testnet", amountNear: "25" }, wallet()).next).toBe("change_limits")
     expect(approvalChecks({ to: "x.testnet", amountNear: "25" }, wallet({ frozen: true })).next).toBe("unfreeze")
   })
-  it("warns about the balance without blocking", () => {
+  it("offers Add funds instead of Approve when the balance can't cover it (#228)", () => {
     const r = approvalChecks({ to: "landlord-rent.testnet", amountNear: "1" }, wallet({ balanceNear: "0.5" }))
-    expect(r.next).toBe("approve")
+    expect(r.next).toBe("fund")
+    // An unfunded wallet reads as "0".
+    expect(approvalChecks({ to: "landlord-rent.testnet", amountNear: "0.01" }, wallet({ balanceNear: "0" })).next).toBe("fund")
+    // A limit or list problem comes first: fixing it is the first step.
+    expect(approvalChecks({ to: "landlord-rent.testnet", amountNear: "50" }, wallet({ balanceNear: "0.5" })).next).toBe("change_limits")
     expect(r.checks.at(-1)).toEqual({ ok: false, text: "Not enough balance: 0.50 NEAR" })
   })
   it("skips checks the policy doesn't have (#79: fields can be null)", () => {
