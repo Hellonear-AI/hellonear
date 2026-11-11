@@ -5,7 +5,7 @@
 import type { SkillCopy } from "@/modules/skills/data/skills"
 
 const limitText = (limit: string | null) => (limit ? `up to ${limit} NEAR per payment` : "inside the limits you set")
-const approvalNote = "No signature needed. Every payment still waits for your approval, and your wallet limits apply."
+const approvalNote = "No signature needed. Payments still wait for your approval unless you set a rule, and your wallet limits apply."
 const readNote = "No signature needed. It only reads."
 
 export const TRACK_SKILLS: Record<string, SkillCopy> = {
@@ -47,7 +47,7 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
     cannot: [],
     needsWallet: true,
     ask: {
-      why: (c) => `${c.name} will split a bill between people and pay each share. Every share asks you first.`,
+      why: (c) => `${c.name} will split a bill between people and pay each share. Each share asks you first unless a rule covers it.`,
       does: () => ["Work out each person's share", "Pay each one, with its own approval"],
       never: () => ["Pay without asking you", "Pay someone off your address list"],
       note: approvalNote,
@@ -62,7 +62,7 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
     cannot: [],
     needsWallet: true,
     ask: {
-      why: (c) => `${c.name} will remember how income is shared and pay each partner their part when you say money came in. Each payment asks you first.`,
+      why: (c) => `${c.name} will remember how income is shared and pay each partner their part when you say money came in. Each payment asks you first unless a rule covers it.`,
       does: () => ["Remember each partner's share", "Pay each share, with its own approval"],
       never: () => ["Pay without asking you", "Change the split unless you tell it to"],
       note: approvalNote,

@@ -52,7 +52,7 @@ export const SKILLS: Record<string, SkillCopy> = {
       note: "No signature needed. Your wallet limits still apply to every payment.",
     },
     added: (c) =>
-      `${c.name} can pay ${c.limit ? `up to ${c.limit} NEAR at a time` : "inside your limits"} from its wallet and asks you before every payment. Every payment shows in Wallet.`,
+      `${c.name} can pay ${c.limit ? `up to ${c.limit} NEAR at a time` : "inside your limits"} from its wallet and asks you first, unless you set a rule for small ones in its settings. Every payment shows in Wallet.`,
     removed: (c) => `${c.name} won't be able to pay bills any more. Past payments stay in Wallet.`,
   },
   "email-triage": {

@@ -52,7 +52,7 @@ function describe(n: GraphNode, mind: string): string {
     case "skill":
       return skillCopy(rest).blurb
     case "wallet":
-      return `${mind}'s NEAR wallet. Every payment waits for you, and your limits are enforced in a TEE before anything is signed.`
+      return `${mind}'s NEAR wallet. Payments wait for you unless you set a rule, and your limits are enforced in a TEE before anything is signed.`
     case "memory":
       return `What ${mind} remembers between chats.`
     case "workflow":
