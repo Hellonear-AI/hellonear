@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { config } from './config.ts'
 import { createNormalizer, createWorkflowNormalizer, type HelloNearEvent } from './events.ts'
 import { MIND_KEY, UNATTENDED_KEY, mastra, storage } from './mastra.ts'
-import { resourceId, runRequestSchema, type Mind } from './mind.ts'
+import { memoryOptions, resourceId, runRequestSchema, type Mind } from './mind.ts'
 import { SECRETS_KEY, redact, type Secret } from './secrets.ts'
 import { TIME_ZONE_KEY } from './tools.ts'
 import { WALLET_KEY, walletContext, walletTokenSchema } from './wallet.ts'
@@ -25,6 +25,7 @@ import { secretSchema } from './secrets.ts'
 import { deleteWorkflow, listWorkflows, loadWorkflow, saveWorkflow } from './workflows.ts'
 import { forgetThread } from './threads.ts'
 import { ruleFor } from './autoApprove.ts'
+import { clearWorkingMemory, readWorkingMemory, writeWorkingMemory } from './memory.ts'
 import { autopilotSchema, deleteAutopilot, getAutopilot, listRuns, setAutopilot } from './autopilot.ts'
 
 // `attackId` (#16): an Attack Playground run; the engine ends it with an `attack.verdict` event.
@@ -43,6 +44,11 @@ const workflowRunSchema = z.object({
 })
 // Deleting a chat (#207): the user id, so only that user's memory of the Mind can be touched.
 const forgetSchema = z.object({ userId: z.string().min(1) })
+// A Mind's working memory (#209): the same key chat runs use. `personaVersion` comes as text in a GET query.
+const memoryKeySchema = z.object({ userId: z.string().min(1), personaVersion: z.coerce.number().int().min(0).optional() })
+// A generous cap: the Mind rewrites the whole document on every update, and it is in every prompt.
+export const MEMORY_MAX_CHARS = 20_000
+const memoryWriteSchema = memoryKeySchema.extend({ markdown: z.string().max(MEMORY_MAX_CHARS) })
 
 // Next event seq per run, so events after an approval continue the run's sequence.
 // In-memory for now: a restarted engine restarts numbering for resumed runs.
@@ -190,7 +196,7 @@ function abortOnClose(res: ServerResponse): AbortSignal {
 
 const agentOptions = (mind: Mind, secrets: Secret[], userId: string, mindId: string, threadId: string, tokens: { walletToken?: string; mailToken?: string; timeZone?: string }, demo?: boolean) => ({
   requestContext: contextFor(mind, secrets, { ...tokens, demo, userId, mindId }),
-  memory: { resource: resourceId(userId, mindId, mind.personaVersion), thread: threadId },
+  memory: { resource: resourceId(userId, mindId, mind.personaVersion), thread: threadId, options: memoryOptions(mind) },
   maxSteps: 8,
   // No automatic retries: each completion must map to one verifiable request (NEAR AI SDK guide).
   modelSettings: { maxOutputTokens: config.maxOutputTokens, maxRetries: 0, timeout: { totalMs: config.runTimeoutMs } },
@@ -238,6 +244,30 @@ export const server = createServer(async (req, res) => {
       const options = { ...agentOptions(mind, secrets, userId, mindId, threadId, { walletToken, mailToken, timeZone }, demo), runId, toolCallId, abortSignal: abortOnClose(res) }
       const stream = resume[2] === 'approve' ? await agent.approveToolCall(options) : await agent.declineToolCall({ ...options, reason })
       return pipeRun(res, stream, { mindId, threadId, model: mind.model ?? config.defaultModel, skills: loadedSkills(mind), secretValues: hiddenValues(secrets, walletToken, mailToken), runId, attack: attackId ? { id: attackId, skills: mind.skills.map((s) => s.skillId) } : undefined, autoApproved: rulesOf(mind, demo) })
+    }
+
+    // The owner's view of what the Mind remembers (#209): the working memory of the current persona version only.
+    const mem = url.pathname.match(/^\/v1\/minds\/([^/]+)\/memory$/)
+    if (mem) {
+      const mindId = decodeURIComponent(mem[1])
+      if (!mindIdSchema.safeParse(mindId).success) return sendJson(res, 400, { error: 'invalid_id' })
+      if (req.method === 'GET') {
+        const parsed = memoryKeySchema.safeParse({ userId: url.searchParams.get('userId') ?? undefined, personaVersion: url.searchParams.get('personaVersion') ?? undefined })
+        if (!parsed.success) return sendJson(res, 400, { error: 'invalid_query', issues: parsed.error.issues })
+        return sendJson(res, 200, { memory: await readWorkingMemory(resourceId(parsed.data.userId, mindId, parsed.data.personaVersion)) })
+      }
+      if (req.method === 'PUT') {
+        const parsed = memoryWriteSchema.safeParse(await readJson(req))
+        if (!parsed.success) return sendJson(res, 400, { error: 'invalid_body', issues: parsed.error.issues })
+        return sendJson(res, 200, { memory: await writeWorkingMemory(resourceId(parsed.data.userId, mindId, parsed.data.personaVersion), parsed.data.markdown) })
+      }
+      if (req.method === 'DELETE') {
+        const parsed = memoryKeySchema.safeParse(await readJson(req))
+        if (!parsed.success) return sendJson(res, 400, { error: 'invalid_body', issues: parsed.error.issues })
+        await clearWorkingMemory(resourceId(parsed.data.userId, mindId, parsed.data.personaVersion))
+        return res.writeHead(204).end()
+      }
+      return sendJson(res, 405, { error: 'method_not_allowed' })
     }
 
     // The owner deleted a chat (#207): its Mastra thread, messages and recall embeddings go now; working memory stays.

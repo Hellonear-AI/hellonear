@@ -10,6 +10,9 @@ export const timeZoneSchema = z.string().max(64).refine((tz) => {
   try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return true } catch { return false }
 }, { message: 'unknown time zone' })
 
+// `enabled`: working memory ("Remember things about you"); `recall`: semantic recall across chats ("Search past chats").
+export const memorySwitchesSchema = z.object({ enabled: z.boolean().optional(), recall: z.boolean().optional() })
+
 export const mindSchema = z.object({
   templateId: z.string(),
   name: z.string().min(1),
@@ -25,6 +28,8 @@ export const mindSchema = z.object({
   skills: z.array(z.object({ skillId: z.string().refine((id) => skillCatalog.has(id), { message: 'unknown skillId' }) })).default([]),
   // What the Mind may do without asking (#167). Absent: every approval tool asks, as before.
   autoApprove: autoApproveSchema.optional(),
+  // The owner's memory switches (#209), read per run. Absent or true: on, as before.
+  memory: memorySwitchesSchema.optional(),
 })
 export type Mind = z.infer<typeof mindSchema>
 
@@ -126,4 +131,14 @@ export function ownsResource(resource: string | undefined, userId: string, mindI
   const base = resourceId(userId, mindId)
   if (!resource) return false
   return resource === base || (resource.startsWith(`${base}:v`) && /^\d+$/.test(resource.slice(base.length + 2)))
+}
+
+// Per-call memory options for a run (#209), merged by Mastra over the Memory constructor's options
+// (`getMergedThreadConfig`, @mastra/core 1.81). `workingMemory: { enabled: false }`: no working memory in the prompt
+// and no `updateWorkingMemory` tool (`Memory.listTools`). `semanticRecall: false`: no vector search of other chats,
+// and the run's own messages are not embedded either (the output processor checks the same flag). Both on: undefined,
+// so runs keep exactly today's options.
+export function memoryOptions(mind: Mind): { workingMemory?: { enabled: false }; semanticRecall?: false } | undefined {
+  const off = { ...(mind.memory?.enabled === false ? { workingMemory: { enabled: false as const } } : {}), ...(mind.memory?.recall === false ? { semanticRecall: false as const } : {}) }
+  return Object.keys(off).length ? off : undefined
 }

@@ -12,6 +12,8 @@ export type MindConfig = {
   personaVersion?: number
   // Auto-approve rules (#167); `payment.recipients` is the wallet policy's address list, filled per run.
   autoApprove?: { tools: string[]; payment?: { maxNear: string; recipients: string[] } }
+  // Memory switches (#209), present only when one is off; the engine reads absent as on.
+  memory?: { enabled: boolean; recall: boolean }
 }
 export type EngineSecret = { name: string; value: string; allowedHosts: string[] }
 export type SkillInfo = { skillId: string; description: string; status: string; connections: string[]; note?: string; title?: string; blurb?: string }
