@@ -89,10 +89,14 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
     }
     lastSelected.current = selected
     const first = sim.current === null
+    const before = sim.current?.bodies.size ?? 0
     sim.current = syncSim(sim.current, nodes, links, mind)
     // The first graph of this Mind on this page shows settled and framed at once: no bounce, no
-    // zoom out (Ancung, 11 Nov). Later, only bubbles that are really new nudge it.
-    if (first && nodes.length > 1) {
+    // zoom out (Ancung, 11 Nov). So does a graph that grows by several bubbles at once: the first
+    // one often holds only the Mind, before its skills and history arrive, and they then piled in
+    // and bounced into place (Ancung, 11 Nov: "too much jiggle"). One or two new ones only nudge it.
+    const grew = sim.current.bodies.size - before
+    if ((first && nodes.length > 1) || grew >= 3) {
       settle(sim.current, new Map(nodes.map((n) => [n.id, n.kind])))
       snap.current = true
     }
