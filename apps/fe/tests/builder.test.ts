@@ -485,3 +485,13 @@ describe("read steps for the track apps (#211)", () => {
     expect(draftProblems(job([sheet])).some((p) => p.text.startsWith("Cells"))).toBe(false)
   })
 })
+
+describe("read steps for #252's tools", () => {
+  it("save a Notion database link as its id", async () => {
+    const { notionIdOf, toolInfo } = await import("@/modules/builder/data/tools")
+    expect(notionIdOf("https://www.notion.so/acme/Tasks-0123456789abcdef0123456789abcdef?v=99")).toBe("0123456789abcdef0123456789abcdef")
+    expect(notionIdOf(" 0123456789abcdef0123456789abcdef ")).toBe("0123456789abcdef0123456789abcdef")
+    expect(toolInfo("googlecalendar_find_free_time")?.args).toEqual([])
+    expect(toolInfo("zoom_list_meetings")?.fields[0].kind).toBe("list")
+  })
+})

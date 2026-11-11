@@ -21,6 +21,9 @@ export type BuilderTool = {
   toArgs?: (args: Record<string, string>) => Record<string, string>
 }
 
+/** The id in a Notion link (the 32 hex characters at the end of its path), or the text as it is. */
+export const notionIdOf = (v: string) => v.match(/([0-9a-f]{32})(?:[?#]|$)/i)?.[1] ?? v.trim()
+
 /** The id in a Google Sheets link (`…/spreadsheets/d/<id>/edit`), or the text as it is. */
 export const sheetIdOf = (v: string) => v.match(/\/spreadsheets\/d\/([\w-]+)/)?.[1] ?? v.trim()
 
@@ -112,6 +115,32 @@ export const TOOLS: BuilderTool[] = [
     args: [{ name: "query", label: "Words in the title", kind: "text", placeholder: "Tasks" }],
     defaults: { query: "" },
     fields: [{ name: "results", label: "Pages found", kind: "list" }],
+  },
+  // Read steps for #252's tools (Ancung, 11 Nov). They read only, so a job may run them.
+  {
+    tool: "notion_query_database",
+    title: "Read a Notion database",
+    line: "The rows of one of your Notion databases",
+    args: [{ name: "databaseId", label: "Database link", kind: "text", placeholder: "https://www.notion.so/…", hint: "Open the database as a full page and paste its link." }],
+    defaults: { databaseId: "" },
+    fields: [{ name: "rows", label: "Rows", kind: "list" }],
+    toArgs: (a) => ({ ...a, databaseId: notionIdOf(a.databaseId ?? "") }),
+  },
+  {
+    tool: "googlecalendar_find_free_time",
+    title: "Find free time",
+    // No fields: the engine's tool takes numbers and a job's arguments are text, so it runs with
+    // its own defaults (gaps of an hour or more, 09:00 to 18:00 on the owner's clock).
+    line: "Free hours in your calendar, 09:00 to 18:00",
+    args: [],
+    fields: [{ name: "slots", label: "Free slots", kind: "list" }],
+  },
+  {
+    tool: "zoom_list_meetings",
+    title: "List Zoom meetings",
+    line: "Your upcoming Zoom meetings",
+    args: [],
+    fields: [{ name: "meetings", label: "Zoom meetings", kind: "list" }],
   },
 ]
 

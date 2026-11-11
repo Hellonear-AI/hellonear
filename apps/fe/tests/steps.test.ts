@@ -19,3 +19,15 @@ describe("Google Sheets step rows say where (#249)", () => {
     expect(stepText(step("googlesheets_find_spreadsheets", { spreadsheets: [{ id: "1" }] })).detail).toBe("1 spreadsheet")
   })
 })
+
+describe("Notion, Docs and Zoom step rows (#252)", () => {
+  it("say what came back or changed", async () => {
+    const { stepText } = await import("@/modules/runs/data/steps")
+    const step = (tool: string, result: unknown) => ({ toolCallId: "t", tool, args: {}, status: "ok" as const, result }) as Parameters<typeof stepText>[0]
+    expect(stepText(step("notion_query_database", { rows: [{}, {}, {}] })).detail).toBe("3 rows")
+    expect(stepText(step("notion_update_row", { status: "updated", updated: ["Status", "Due"] })).detail).toBe("Status, Due")
+    expect(stepText(step("googledocs_append_text", { status: "appended", title: "Weekly notes" })).detail).toBe("Weekly notes")
+    expect(stepText(step("zoom_list_meetings", { meetings: [{}] })).detail).toBe("1 meeting")
+    expect(stepText(step("zoom_create_meeting", { startLocal: "Thu 12 Nov, 10:00", topic: "Sync" })).detail).toBe("Thu 12 Nov, 10:00")
+  })
+})

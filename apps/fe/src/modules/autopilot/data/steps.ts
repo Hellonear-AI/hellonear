@@ -42,6 +42,9 @@ const TOOL: Record<string, (args: Record<string, unknown>) => string> = {
   // The track apps' read steps (#211).
   googlesheets_read_range: (a) => `Read a Google Sheet${typeof a.range === "string" && a.range ? ` (${a.range})` : ""}`,
   googledocs_read_document: () => "Read a Google Doc",
+  notion_query_database: () => "Read a Notion database",
+  googlecalendar_find_free_time: () => "Find free time",
+  zoom_list_meetings: () => "List Zoom meetings",
   notion_search: (a) => `Search Notion${typeof a.query === "string" && a.query ? ` for "${a.query}"` : ""}`,
 }
 

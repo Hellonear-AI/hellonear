@@ -104,6 +104,17 @@ function summary(step: ToolStep): string | null {
       return count(r.slots, "free slot", "free slots")
     case "googlecalendar_move_event":
       return text(r.title) ?? text(a.title)
+    // Notion, Docs and Zoom (#252): what came back or what changed, in a word or two (Ancung, 11 Nov).
+    case "notion_query_database":
+      return count(r.rows, "row", "rows")
+    case "notion_update_row":
+      return r.status === "refused" ? null : Array.isArray(r.updated) && r.updated.length ? (r.updated as string[]).join(", ") : null
+    case "googledocs_append_text":
+      return r.status === "refused" ? null : text(r.title)
+    case "zoom_list_meetings":
+      return count(r.meetings, "meeting", "meetings")
+    case "zoom_create_meeting":
+      return text(r.startLocal) ?? text(r.topic)
     case "googlecalendar_create_meeting":
       // Who was invited matters more than the title here: Google emailed them.
       return Array.isArray(r.attendees) && r.attendees.length
