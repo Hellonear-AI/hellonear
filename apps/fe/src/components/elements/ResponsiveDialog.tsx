@@ -21,6 +21,7 @@ export function ResponsiveDialog({
   children,
   footer,
   top,
+  centered = false,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -31,6 +32,8 @@ export function ResponsiveDialog({
   footer?: ReactNode
   /** Above the title, like an illustration. */
   top?: ReactNode
+  /** Phones: the title and text centred (Welcome); otherwise left, in line with what follows. */
+  centered?: boolean
 }) {
   const wide = useMediaQuery(MEDIA.md, true)
   const change = (next: boolean) => {
@@ -57,13 +60,24 @@ export function ResponsiveDialog({
     <Drawer open={open} onOpenChange={change} showSwipeHandle>
       {/* Roomy on phones (Ancung, 11 Nov: the drawers felt cramped), the same spacing as Welcome. */}
       <DrawerContent className="gap-5 px-5 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        {top}
-        <DrawerHeader className="gap-2 p-0 text-left">
-          <DrawerTitle>{title}</DrawerTitle>
-          {description && <DrawerDescription>{description}</DrawerDescription>}
-        </DrawerHeader>
-        {children}
-        {footer && <div className={cn("flex flex-col-reverse gap-3 pt-2 [&>*]:w-full")}>{footer}</div>}
+        {/* The spacing lives on this wrapper: DrawerContent's own classes go on the outer popup,
+            and its children sit in an inner element with no gap, so a header touched what came
+            after it (Telegram's steps, found in the phone check, 11 Nov). */}
+        <div className="flex min-h-0 flex-col gap-5">
+          {top}
+          <DrawerHeader
+            className={cn(
+              "gap-2 p-0",
+              // The drawer centres its header by default; left keeps it in line with steps and forms.
+              centered ? "text-center" : "text-left group-data-[swipe-axis=y]/drawer-popup:text-left"
+            )}
+          >
+            <DrawerTitle>{title}</DrawerTitle>
+            {description && <DrawerDescription>{description}</DrawerDescription>}
+          </DrawerHeader>
+          {children}
+          {footer && <div className={cn("flex flex-col-reverse gap-3 [&>*]:w-full")}>{footer}</div>}
+        </div>
       </DrawerContent>
     </Drawer>
   )

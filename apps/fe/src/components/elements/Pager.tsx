@@ -24,6 +24,8 @@ export function Pager({ page, pages, onPage, label, className }: { page: number;
           key={n}
           variant={n === page ? "secondary" : "ghost"}
           size="icon-sm"
+          // 36 px, a comfortable tap (the phone check, 11 Nov: 32 px was small next to Previous).
+          className="size-9"
           aria-label={`Page ${n}`}
           aria-current={n === page ? "page" : undefined}
           onClick={() => onPage(n)}
