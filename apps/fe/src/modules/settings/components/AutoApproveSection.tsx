@@ -43,6 +43,15 @@ export function AutoApproveSection({ mind, name, wallet, tryOut }: { mind: ApiMi
   const amountOk = !next.payment || isValidMaxNear(next.payment.maxNear)
   const changed = !sameRules(next, saved)
 
+  const onCount = actions.filter((a) => rules.tools.includes(a.tool)).length
+  const allOn = actions.length > 0 && onCount === actions.length
+  /** Every action's switch on or off; tools no skill of this Mind has are left as they are. */
+  const setAll = (on: boolean) => {
+    const shown = new Set(actions.map((a) => a.tool))
+    const others = rules.tools.filter((t) => !shown.has(t))
+    setDraft({ ...rules, tools: on ? [...others, ...shown] : others })
+  }
+
   const toggle = (tool: string, on: boolean) =>
     setDraft({ ...rules, tools: on ? [...rules.tools, tool] : rules.tools.filter((t) => t !== tool) })
 
@@ -121,6 +130,13 @@ export function AutoApproveSection({ mind, name, wallet, tryOut }: { mind: ApiMi
 
       {actions.length > 0 && (
         <SettingsGroup title="Apps and email" description="Each action asks you first unless you turn it on here.">
+          {/* All at once (Ancung, 11 Nov). Payments stay apart on purpose: money gets its own switch and amount. */}
+          <SettingsRow
+            label="All apps and email"
+            htmlFor="auto-all"
+            description={`${onCount} of ${actions.length} on. Payments stay separate.`}
+            control={<Switch id="auto-all" checked={allOn} disabled={tryOut} onCheckedChange={setAll} />}
+          />
           {actions.map((a) => {
             const on = rules.tools.includes(a.tool)
             const id = `auto-${a.tool}`
