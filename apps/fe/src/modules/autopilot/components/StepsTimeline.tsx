@@ -93,9 +93,12 @@ export function StepsTimeline({ steps, ran = EMPTY, nested = false }: { steps: J
                       {k === 0 && (
                         <span aria-hidden className={cn("absolute inset-y-0 left-0 -ml-px w-0.5", ways.else ? "z-[1] bg-success" : "bg-border-strong")} />
                       )}
+                      {/* A curve is smoothed over its pixels while a straight 2 px line snaps to
+                          whole ones, so on a scaled screen the turn read thinner than the line into
+                          it (Ancung, 11 Nov). Half a pixel more on the turn evens them out. */}
                       <span
                         aria-hidden
-                        className={cn("absolute top-0 left-0 -ml-px h-4 w-3.5 rounded-bl-lg border-b-2 border-l-2", took && "z-[2]", tone(took))}
+                        className={cn("absolute top-0 left-0 -ml-px h-4 w-3.5 rounded-bl-[10px] border-b-[2.5px] border-l-[2.5px]", took && "z-[2]", tone(took))}
                       />
                       {/* Sentence case, no wide caps (UI rules). */}
                       <span className={cn("text-xs leading-4 font-medium", took ? "text-success" : "text-muted-foreground")}>{h === "then" ? "Yes" : "No"}</span>
