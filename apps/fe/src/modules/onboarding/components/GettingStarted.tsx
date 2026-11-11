@@ -40,7 +40,7 @@ export function gettingStartedSteps(
 
 /** "Getting started" at the bottom of the sidebar: progress, and the steps in a popover. */
 export function GettingStarted({ mindId, onNavigate }: { mindId: string; onNavigate?: () => void }) {
-  const hidden = useFlag("hidden")
+  const closed = useFlag("done")
   const live = useFlag("live")
   const attacked = useFlag("attack")
   const tryOut = useIsTryOut()
@@ -52,7 +52,7 @@ export function GettingStarted({ mindId, onNavigate }: { mindId: string; onNavig
   const telegram = useTelegram(mindId).data
   const [open, setOpen] = useState(false)
 
-  if (hidden || !mind) return null
+  if (!mind) return null
   const name = mind.name
   const steps = gettingStartedSteps(mindId, name, {
     tryOut,
@@ -66,6 +66,8 @@ export function GettingStarted({ mindId, onNavigate }: { mindId: string; onNavig
   })
   const done = steps.filter((x) => x.done).length
   const all = done === steps.length
+  // Only closable once everything is checked.
+  if (all && closed) return null
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -122,19 +124,21 @@ export function GettingStarted({ mindId, onNavigate }: { mindId: string; onNavig
             </li>
           ))}
         </ol>
-        <div className="flex justify-end px-1 pt-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground"
-            onClick={() => {
-              setOpen(false)
-              setFlag("hidden")
-            }}
-          >
-            {all ? "Done" : "Hide this"}
-          </Button>
-        </div>
+        {all && (
+          <div className="flex justify-end px-1 pt-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => {
+                setOpen(false)
+                setFlag("done")
+              }}
+            >
+              Done
+            </Button>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   )

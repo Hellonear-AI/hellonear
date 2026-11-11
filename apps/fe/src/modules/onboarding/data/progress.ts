@@ -5,9 +5,11 @@ import { readPref, writePref } from "@/lib/storage"
 
 // Getting started (Ancung, 11 Nov): what the checklist can't read from the backend, kept on this
 // device. Most steps are read from real data (limits, balance, payments, connections); only "tried
-// the live view" and "ran an attack", and hiding the checklist, live here.
+// the live view", "ran an attack" and "closed it when finished" live here.
 
-export type Flag = "live" | "attack" | "hidden"
+// "done": closed after every step was checked (it can't be hidden before: Ancung, 11 Nov, pressed
+// "Hide this" by accident). The older "hidden" key is no longer read.
+export type Flag = "live" | "attack" | "done"
 
 const key = (flag: Flag) => `hellonear.onboarding.${flag}`
 const listeners = new Set<() => void>()

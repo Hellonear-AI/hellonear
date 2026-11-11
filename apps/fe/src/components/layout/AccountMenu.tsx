@@ -35,7 +35,7 @@ export function AccountMenu({ variant }: { variant: "row" | "avatar" | "icon" })
   const { theme = "system", setTheme } = useTheme()
   const router = useRouter()
   const signedAccountId = user?.nearAccountId
-  const hiddenGuide = useFlag("hidden")
+  const hiddenGuide = useFlag("done")
   const account = signedAccountId ?? "Not signed in"
 
   function handleSignOut() {
@@ -98,7 +98,7 @@ export function AccountMenu({ variant }: { variant: "row" | "avatar" | "icon" })
         {hiddenGuide && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="p-2" onClick={() => setFlag("hidden", false)}>
+            <DropdownMenuItem className="p-2" onClick={() => setFlag("done", false)}>
               <ListChecksIcon />
               Show Getting started
             </DropdownMenuItem>
