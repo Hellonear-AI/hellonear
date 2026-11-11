@@ -26,6 +26,23 @@ export function perPaymentError(value: string): string | null {
   return null
 }
 
+export const MAX_DAILY_NEAR = 100
+
+/**
+ * What's wrong with the optional daily cap (#149), or null when it's fine. Empty means no daily cap. Same rule as the
+ * backend: above 0, at most 100 NEAR, and not below the per-payment limit.
+ */
+export function dailyError(value: string, perPayment: string): string | null {
+  const v = value.trim()
+  if (v === "") return null
+  if (!/^\d{1,3}(\.\d{1,24})?$/.test(v)) return "Use a number, like 5 or 0.5."
+  const yocto = toYocto(v)
+  if (yocto === 0n) return "Use more than 0 NEAR, or leave it empty for no daily limit."
+  if (yocto > BigInt(MAX_DAILY_NEAR) * YOCTO) return `The most is ${MAX_DAILY_NEAR} NEAR a day.`
+  if (!perPaymentError(perPayment) && yocto < toYocto(perPayment.trim())) return "Use at least the per payment limit."
+  return null
+}
+
 /** Accounts are compared and sent in lowercase, as NEAR account ids are. */
 export function normalizeAccount(value: string): string {
   return value.trim().toLowerCase()
