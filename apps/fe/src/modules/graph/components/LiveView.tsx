@@ -18,7 +18,7 @@ import { MindGraph } from "@/modules/graph/components/MindGraph"
 import { buildGraph, callNode, callsOf, liveStates, type GraphNode } from "@/modules/graph/data/graph"
 import { skillCopy } from "@/modules/skills/data/skills"
 import { XIcon } from "lucide-react"
-import { templateAvatar } from "@/modules/minds/data/minds"
+import { templateFace } from "@/modules/minds/data/minds"
 import { useApprovals, useMind } from "@/modules/minds/hooks/useMinds"
 import { useSkillCatalog } from "@/modules/skills/hooks/useSkills"
 
@@ -179,7 +179,7 @@ export function LiveView({ mindId, active, className }: { mindId: string; active
         mindId={mindId}
         nodes={graph.nodes}
         links={graph.links}
-        avatarSrc={templateAvatar(mind?.templateId ?? "general-assistant")}
+        avatarSrc={templateFace(mind?.templateId ?? "general-assistant")}
         selected={selected}
         onSelect={setSelected}
         trail={trail}
