@@ -33,3 +33,19 @@ export function fromYocto(yocto: string): string {
   const frac = digits.slice(-YOCTO_DIGITS).replace(/0+$/, "")
   return frac ? `${whole}.${frac}` : whole
 }
+
+/** a + b, exactly; null when either isn't a plain decimal. */
+export function addNear(a: string, b: string): string | null {
+  const x = toYocto(a)
+  const y = toYocto(b)
+  return x === null || y === null ? null : fromYocto((BigInt(x) + BigInt(y)).toString())
+}
+
+/** a - b, never below 0; null when either isn't a plain decimal. */
+export function subNear(a: string, b: string): string | null {
+  const x = toYocto(a)
+  const y = toYocto(b)
+  if (x === null || y === null) return null
+  const d = BigInt(x) - BigInt(y)
+  return fromYocto((d > 0n ? d : 0n).toString())
+}

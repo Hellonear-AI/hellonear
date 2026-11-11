@@ -14,6 +14,7 @@ import {
   XIcon,
 } from "lucide-react"
 import { cn } from "cn"
+import { resetTime } from "@/lib/format"
 import { Spinner } from "@/components/elements/Spinner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -31,6 +32,8 @@ export function SetLimitsStep({
   templateId,
   perPayment,
   onPerPaymentChange,
+  perDay,
+  onPerDayChange,
   rows,
   onRowsChange,
   check,
@@ -43,6 +46,9 @@ export function SetLimitsStep({
   templateId: string
   perPayment: string
   onPerPaymentChange: (value: string) => void
+  /** Empty: no daily limit (#149). */
+  perDay: string
+  onPerDayChange: (value: string) => void
   rows: string[]
   onRowsChange: (rows: string[]) => void
   check: LimitsCheck
@@ -56,6 +62,8 @@ export function SetLimitsStep({
   const busy = stage !== "idle"
   const perPaymentId = useId()
   const perPaymentHelpId = useId()
+  const perDayId = useId()
+  const perDayHelpId = useId()
   const count = check.whitelist.length
 
   return (
@@ -111,6 +119,34 @@ export function SetLimitsStep({
               </div>
               <p id={perPaymentHelpId} aria-live="polite" className={cn("text-xs", check.perPayment ? "text-danger" : "text-tertiary-foreground")}>
                 {check.perPayment ?? `Bigger payments are blocked. The most is ${MAX_PER_PAYMENT_NEAR} NEAR.`}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor={perDayId} className="text-sm font-medium text-foreground">
+                Per day <span className="font-normal text-muted-foreground">(optional)</span>
+              </label>
+              <div
+                className={cn(
+                  "flex h-[52px] items-center gap-2 rounded-md border bg-surface px-3.5 transition-[border-color,box-shadow] duration-150 ease-out focus-within:ring-2 focus-within:ring-focus focus-within:ring-offset-2 focus-within:ring-offset-background",
+                  check.perDay ? "border-danger shadow-[0_0_0_0.5px_var(--danger)]" : "border-input"
+                )}
+              >
+                <input
+                  id={perDayId}
+                  value={perDay}
+                  onChange={(e) => onPerDayChange(e.target.value)}
+                  inputMode="decimal"
+                  autoComplete="off"
+                  placeholder="No daily limit"
+                  aria-invalid={Boolean(check.perDay) || undefined}
+                  aria-describedby={perDayHelpId}
+                  className="min-w-0 flex-1 bg-transparent text-xl font-semibold text-foreground outline-none placeholder:text-base placeholder:font-normal placeholder:text-tertiary-foreground disabled:opacity-60"
+                />
+                <span className="text-sm font-medium text-muted-foreground">NEAR</span>
+              </div>
+              <p id={perDayHelpId} aria-live="polite" className={cn("text-xs", check.perDay ? "text-danger" : "text-tertiary-foreground")}>
+                {check.perDay ?? `All payments in a day together. Past it, payments are blocked until ${resetTime()} your time.`}
               </p>
             </div>
 

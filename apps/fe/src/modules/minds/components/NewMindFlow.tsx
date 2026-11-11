@@ -38,10 +38,12 @@ export function NewMindFlow() {
   const [templateId, setTemplateId] = useState<string | null>(null)
   const [name, setName] = useState("")
   const [perPayment, setPerPayment] = useState(DEFAULT_PER_PAYMENT)
+  // Empty: no daily limit, as before #149; the owner can add one.
+  const [perDay, setPerDay] = useState("")
   const [rows, setRows] = useState<string[]>([""])
   const [notice, setNotice] = useState<Notice | null>(null)
-  const [ready, setReady] = useState<{ mindId: string; perTransactionNear: string } | null>(null)
-  const check = useMemo(() => checkLimits(perPayment, rows), [perPayment, rows])
+  const [ready, setReady] = useState<{ mindId: string; perTransactionNear: string; dailyNear: string | null } | null>(null)
+  const check = useMemo(() => checkLimits(perPayment, rows, perDay), [perPayment, rows, perDay])
 
   const signedOut = session.isSuccess && !session.data
   useEffect(() => {
@@ -65,7 +67,7 @@ export function NewMindFlow() {
   const trimmedName = name.trim()
 
   if (ready && templateId) {
-    return <MindReady mindId={ready.mindId} name={trimmedName} templateId={templateId} perTransactionNear={ready.perTransactionNear} />
+    return <MindReady mindId={ready.mindId} name={trimmedName} templateId={templateId} perTransactionNear={ready.perTransactionNear} dailyNear={ready.dailyNear} />
   }
 
   if (step === "limits" && templateId) {
@@ -75,6 +77,8 @@ export function NewMindFlow() {
         templateId={templateId}
         perPayment={perPayment}
         onPerPaymentChange={setPerPayment}
+        perDay={perDay}
+        onPerDayChange={setPerDay}
         rows={rows}
         onRowsChange={setRows}
         check={check}
@@ -84,10 +88,10 @@ export function NewMindFlow() {
         onSubmit={() => {
           setNotice(null)
           setUp.mutate(
-            { templateId, name: trimmedName, perTransactionNear: perPayment.trim(), whitelist: check.whitelist },
+            { templateId, name: trimmedName, perTransactionNear: perPayment.trim(), dailyNear: perDay.trim() || null, whitelist: check.whitelist },
             {
               onSuccess: ({ mindId, wallet }) =>
-                setReady({ mindId, perTransactionNear: wallet.policy?.perTransactionNear ?? perPayment.trim() }),
+                setReady({ mindId, perTransactionNear: wallet.policy?.perTransactionNear ?? perPayment.trim(), dailyNear: wallet.policy?.dailyNear ?? null }),
               onError: (err) => setNotice(setUpNotice(err, trimmedName)),
             }
           )

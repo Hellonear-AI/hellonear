@@ -47,6 +47,7 @@ export function SkillPage({ mindId, skillId }: { mindId: string; skillId: string
       ? [
           { t: "Asks you before every payment", tone: "ok" },
           { t: ctx.limit ? `Up to ${ctx.limit} NEAR each, from ${name}'s wallet` : "Only inside the limits you set in Wallet", tone: "ok" },
+          ...(wallet?.policy?.dailyNear ? [{ t: `At most ${wallet.policy.dailyNear} NEAR a day`, tone: "ok" as const }] : []),
           { t: "Only to the addresses on your list", tone: "ok" },
         ]
       : skillLines(skillId, ctx)

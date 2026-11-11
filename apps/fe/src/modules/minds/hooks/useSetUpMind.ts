@@ -9,7 +9,7 @@ import { mindKeys } from "@/modules/minds/hooks/useMinds"
 import { OwnerActionError, ownerStep, readWalletUntil } from "@/modules/wallet/data/ownerAction"
 import { useOwnerTransaction } from "@/modules/wallet/hooks/useOwnerTransaction"
 
-export type SetUpInput = { templateId: string; name: string; perTransactionNear: string; whitelist: string[] }
+export type SetUpInput = { templateId: string; name: string; perTransactionNear: string; dailyNear: string | null; whitelist: string[] }
 export type SetUpStage = "idle" | "creating" | "signing" | "checking"
 
 /**
@@ -54,7 +54,7 @@ export function useSetUpMind() {
       if (!p.signed) {
         // Building the transaction is part of creating it, for the user.
         const transaction = await ownerStep("build", () =>
-          walletApi.policyTransaction(mindId, { perTransactionNear: input.perTransactionNear, whitelist: input.whitelist })
+          walletApi.policyTransaction(mindId, { perTransactionNear: input.perTransactionNear, dailyNear: input.dailyNear, whitelist: input.whitelist })
         )
         setStage("signing")
         await ownerStep("sign", () => signTransaction(transaction))

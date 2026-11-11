@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { compareNear } from "@/lib/near"
-import { addressError, DEFAULT_PER_PAYMENT, MAX_ADDRESSES, normalizeAccount, perPaymentError } from "@/modules/minds/data/limits"
+import { addressError, DEFAULT_PER_PAYMENT, MAX_ADDRESSES, normalizeAccount, perDayError, perPaymentError } from "@/modules/minds/data/limits"
+import { resetTime } from "@/lib/format"
 import type { ApiWallet } from "@/modules/wallet/api"
 import { walletActionText } from "@/modules/wallet/data/errors"
 import { useSaveLimits } from "@/modules/wallet/hooks/useWalletActions"
@@ -41,6 +42,10 @@ export function LimitsDialog({
   const before = wallet?.policy?.whitelist ?? []
   const setUp = !wallet || !wallet.policy?.perTransactionNear
   const [perPayment, setPerPayment] = useState(was ?? DEFAULT_PER_PAYMENT)
+  // The daily limit (#149). Every save sends it: leaving it out would remove it.
+  const wasDaily = wallet?.policy?.dailyNear ?? null
+  const [perDay, setPerDay] = useState(wasDaily ?? "")
+  const perDayId = useId()
   const [addresses, setAddresses] = useState<string[]>(before)
   const [draft, setDraft] = useState("")
   const perPaymentId = useId()
@@ -50,8 +55,17 @@ export function LimitsDialog({
   const limitError = perPaymentError(perPayment)
   const draftError = draft.trim() ? addressError(draft, addresses) : null
   const changedLimit = was !== null && !limitError && compareNear(perPayment.trim(), was) !== 0
+  const dailyError = perDayError(perDay, perPayment)
+  const daily = perDay.trim() || null
+  const changedDaily = !setUp && !dailyError && (daily === null || wasDaily === null ? daily !== wasDaily : compareNear(daily, wasDaily) !== 0)
   const count = addresses.length
-  const blocker = limitError ? "Fix the per payment limit first" : count === 0 ? "Add at least one address first" : null
+  const blocker = limitError
+    ? "Fix the per payment limit first"
+    : dailyError
+      ? "Fix the daily limit first"
+      : count === 0
+        ? "Add at least one address first"
+        : null
 
   function addDraft() {
     if (!draft.trim() || draftError || count >= MAX_ADDRESSES) return
@@ -66,13 +80,15 @@ export function LimitsDialog({
 
   function submit() {
     if (blocker || signing) return
-    const limits = { perTransactionNear: perPayment.trim(), whitelist: addresses }
+    const limits = { perTransactionNear: perPayment.trim(), dailyNear: daily, whitelist: addresses }
     save.mutate(
       { limits, createWallet: !wallet },
       {
         onSuccess: () => {
           onOpenChange(false)
-          toast.success("Limits saved", { description: `Up to ${limits.perTransactionNear} NEAR per payment.` })
+          toast.success("Limits saved", {
+            description: `Up to ${limits.perTransactionNear} NEAR per payment${limits.dailyNear ? `, ${limits.dailyNear} NEAR a day` : ""}.`,
+          })
         },
       }
     )
@@ -120,6 +136,36 @@ export function LimitsDialog({
               </div>
               <p className={cn("text-xs", limitError ? "text-danger" : "text-muted-foreground")}>
                 {limitError ?? "Bigger payments are blocked. Every payment asks you first."}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2">
+                <label htmlFor={perDayId} className="text-sm font-medium text-foreground">
+                  Per day <span className="font-normal text-muted-foreground">(optional)</span>
+                </label>
+                {changedDaily && <Badge variant="neutral">{wasDaily ? `Was ${wasDaily}` : "New"}</Badge>}
+              </div>
+              <div
+                className={cn(
+                  "flex h-11 items-center gap-2 rounded-md border bg-surface px-3.5 transition-[border-color,box-shadow] duration-150 ease-out focus-within:ring-2 focus-within:ring-focus focus-within:ring-offset-2 focus-within:ring-offset-background",
+                  dailyError ? "border-danger" : changedDaily ? "border-foreground" : "border-input"
+                )}
+              >
+                <input
+                  id={perDayId}
+                  value={perDay}
+                  onChange={(e) => setPerDay(e.target.value)}
+                  inputMode="decimal"
+                  autoComplete="off"
+                  placeholder="No daily limit"
+                  aria-invalid={Boolean(dailyError) || undefined}
+                  className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-tertiary-foreground md:text-[15px]"
+                />
+                <span className="text-sm font-medium text-muted-foreground">NEAR</span>
+              </div>
+              <p className={cn("text-xs", dailyError ? "text-danger" : "text-muted-foreground")}>
+                {dailyError ?? `All payments in a day together. It starts over at ${resetTime()} your time.`}
               </p>
             </div>
 
@@ -188,7 +234,7 @@ export function LimitsDialog({
 
             <p className="rounded-md bg-brand-soft px-3.5 py-2.5 text-[13px] text-foreground">
               {blocker ??
-                `After saving: ${name} asks before every payment, up to ${perPayment.trim()} NEAR each, only to ${
+                `After saving: ${name} asks before every payment, up to ${perPayment.trim()} NEAR each${daily ? `, at most ${daily} NEAR a day` : ""}, only to ${
                   count === 1 ? "this address" : `these ${count} addresses`
                 }.`}
             </p>

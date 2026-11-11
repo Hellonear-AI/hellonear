@@ -48,10 +48,14 @@ describe("wallet helpers", () => {
     expect(shortAddress("omaga.testnet")).toBe("omaga.testnet")
   })
   it("knows when the saved limits match what was asked", () => {
-    const policy = { perTransactionNear: "3.0", whitelist: ["b.testnet", "a.testnet"], transactionTypes: ["transfer"], boundToThisWallet: true }
-    expect(sameLimits(policy, { perTransactionNear: "3", whitelist: ["a.testnet", "b.testnet"] })).toBe(true)
-    expect(sameLimits(policy, { perTransactionNear: "2", whitelist: ["a.testnet", "b.testnet"] })).toBe(false)
-    expect(sameLimits(null, { perTransactionNear: "2", whitelist: [] })).toBe(false)
+    const policy = { perTransactionNear: "3.0", dailyNear: "10", whitelist: ["b.testnet", "a.testnet"], transactionTypes: ["transfer"], boundToThisWallet: true }
+    expect(sameLimits(policy, { perTransactionNear: "3", dailyNear: "10.0", whitelist: ["a.testnet", "b.testnet"] })).toBe(true)
+    expect(sameLimits(policy, { perTransactionNear: "2", dailyNear: "10", whitelist: ["a.testnet", "b.testnet"] })).toBe(false)
+    // The daily limit counts too (#149): changed, or removed.
+    expect(sameLimits(policy, { perTransactionNear: "3", dailyNear: "5", whitelist: ["a.testnet", "b.testnet"] })).toBe(false)
+    expect(sameLimits(policy, { perTransactionNear: "3", dailyNear: null, whitelist: ["a.testnet", "b.testnet"] })).toBe(false)
+    expect(sameLimits({ ...policy, dailyNear: null }, { perTransactionNear: "3", dailyNear: null, whitelist: ["a.testnet", "b.testnet"] })).toBe(true)
+    expect(sameLimits(null, { perTransactionNear: "2", dailyNear: null, whitelist: [] })).toBe(false)
   })
   it("says what changed when an owner action fails", () => {
     expect(walletActionText(new OwnerActionError("sign", new Error("rejected")), "limits")).toBe("Meteor did not sign the transaction, so the limits were not saved.")

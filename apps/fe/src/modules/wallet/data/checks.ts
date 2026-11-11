@@ -3,7 +3,7 @@
 // they don't replace it, they say in advance what it will do.
 
 import { formatNear } from "@/lib/format"
-import { compareNear } from "@/lib/near"
+import { addNear, compareNear, subNear } from "@/lib/near"
 import type { ApiWallet } from "@/modules/wallet/api"
 
 export type Check = { ok: boolean; text: string }
@@ -27,6 +27,22 @@ export function approvalChecks(payment: { to: string; amountNear: string }, wall
   if (limit) {
     const over = compareNear(payment.amountNear, limit) === 1
     checks.push(over ? { ok: false, text: `Over your ${limit} NEAR limit: blocked even if you approve` } : { ok: true, text: `Within your ${limit} NEAR limit` })
+    if (over && next === "approve") next = "change_limits"
+  }
+
+  // The daily limit (#149): OutLayer refuses when spent today + this payment goes over it
+  // (reaching it exactly goes through). Its counter resets at 00:00 UTC.
+  const daily = wallet.policy?.dailyNear
+  if (daily) {
+    const spent = wallet.spentTodayNear ?? "0"
+    const after = addNear(spent, payment.amountNear)
+    const over = after !== null && compareNear(after, daily) === 1
+    const left = subNear(daily, spent) ?? daily
+    checks.push(
+      over
+        ? { ok: false, text: `Over today's ${daily} NEAR limit (${formatNear(left)} left): blocked even if you approve` }
+        : { ok: true, text: `Within today's ${daily} NEAR limit (${formatNear(left)} left)` }
+    )
     if (over && next === "approve") next = "change_limits"
   }
 
@@ -59,5 +75,7 @@ export function refusalReasons(payment: { to: string; amountNear: string }, poli
   if (policy?.perTransactionNear && compareNear(payment.amountNear, policy.perTransactionNear) === 1) {
     reasons.push(`Over ${policy.perTransactionNear} NEAR per payment`)
   }
+  // The only other rule a policy has is the daily limit, so a refusal nothing else explains is it.
+  if (reasons.length === 0 && policy?.dailyNear) reasons.push(`Over the ${policy.dailyNear} NEAR daily limit`)
   return reasons
 }
