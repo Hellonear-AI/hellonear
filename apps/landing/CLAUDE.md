@@ -25,6 +25,10 @@ Env (`.env.example`): `NEXT_PUBLIC_APP_URL`, the web app's URL for "Open app" an
 
 Assets: the favicon set comes from `design/logo/favicon/` (`app/favicon.ico`, `app/icon.svg`, `app/apple-icon.png`). Tokens in `app/globals.css` are copied from `design/landing.pen`. `public/draco/` is three.js's Draco decoder (for the GLB).
 
+## Buttons and cursor (11 Nov)
+
+Every button hovers like Open app (`.hero-btn`, `.btn-swipe`; `.btn-swipe-dark` for a light button that sweeps dark; `.btn-swipe-group` sweeps when its `.group` parent is hovered): a layer of the opposite colour sweeps in from the left and the label flips colour. `.btn-swipe` does not set `position`, so give it `relative` or `absolute`. Every link and button shows the hand cursor (a global rule in `globals.css`).
+
 ## Page loader (11 Nov)
 
 `components/PageLoader.tsx`, in `app/layout.tsx`, so it is in the server HTML and nobody sees an empty page. The Mind mark from the logo builds itself on the page colour (rebuilt from HTML pieces, round divs and two small SVGs, so every animation is transform/opacity the compositor runs: it stays smooth while the main thread loads three.js and images; the progress line is CSS too): the head's bubbles (separate circles) pop in one by one, the sprout grows, the eyes open and blink, then it breathes; a lime line shows progress. It lifts once the page has loaded and, on desktop, the 3D Mind is in (`hn:mind-loaded` from `MindStage.tsx`), after at least 1.3 s and at most 8 s; then it sends `hn:reveal` and the Mind's entrance plays in view (the model stays hidden until then). In-page links (nav, footer, hero and CTA buttons) don't scroll through the page: the loader covers it for a moment, the page jumps to the target and the loader lifts. On desktop, Safety lands on the Tricked cards (section top + 1700 px) and Skills on the Mind Graph title (+ 3150 px), points inside the pinned approvals scroll. Reduced motion: no building or breathing, a short fade.
@@ -80,6 +84,13 @@ Measured on the production build (`bun run build && bun x next start`), Chrome a
 - Logos stay small (OutLayer is a 64 px tall WebP, 12 KB).
 - Phones: no `backdrop-filter` (the light glass is translucent white); the hero slope is a 1500 px copy (157 KB); the Mind Graph has 18 Minds, a 1.5 device-pixel canvas and draws every other frame unless touched; the demo video loads nothing until it is on screen and pauses when scrolled past. iPhone 13 emulation with a 4x slower CPU: 566 KB first load, no long tasks while scrolling, the graph at 60 fps.
 - Mind Graph on touch screens: a tap opens a card and anything else scrolls the page; "Explore" turns on dragging bubbles and the view with one finger and pinch-zoom with two (`touch-action: none`), until "Done" or the section leaves the screen.
+
+## Deploying to Vercel (checked 11 Nov, not deployed: deploys need Axel's approval)
+
+- Project settings: Root Directory `apps/landing`, framework Next.js (auto). Vercel sees `bun.lock` and installs with Bun.
+- Env: `NEXT_PUBLIC_APP_URL` (default `https://app.hellonear.xyz`) and `NEXT_PUBLIC_DEMO_VIDEO_URL` (the hosted demo video; without it the demo shows a placeholder, since `public/demo/` is gitignored).
+- A build from a clean `git archive` of the branch passes and every asset the page uses is committed (the demo video is the only file that is not, on purpose).
+- The page is fully static; images are plain `<img>` (no Vercel image optimisation needed). `next.config.ts` caches `/hero`, `/scenes`, `/minds`, `/brands` and `/draco` for a day (stale-while-revalidate for a week), since those files keep their names when they change.
 
 ## Copy guidelines
 
