@@ -59,14 +59,20 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
   // not from the event's own time, which comes from the server's clock and can arrive late
   // (Ancung, 10 Nov: a 1 s calendar call never lit up).
   const seen = useRef(new Map<string, { key: string; at: number }>())
-  const view = useRef(KEPT.get(mindId)?.view ?? { x: 0, y: 0, k: 1, auto: true })
+  // The camera kept from the last chat, but always back on automatic framing: a zoom or a click on
+  // a bubble (which zooms to it) used to stick, so every chat opened after it was zoomed into the
+  // Mind (Ancung, 11 Nov). The layout itself is kept, so nothing replays.
+  const view = useRef({ ...(KEPT.get(mindId)?.view ?? { x: 0, y: 0, k: 1 }), auto: true })
   // The node the camera is gliding to after a click (Axel, via Ancung, 10 Nov: zoom to it).
   const focus = useRef<string | null>(null)
   const lastSelected = useRef<string | null>(null)
-  // Frame the layout at once on the next draw, instead of easing toward it.
-  const snap = useRef(false)
+  // Frame the layout at once on the next draw, instead of easing toward it. A page that finds a
+  // kept layout frames it at once too, without a glide.
+  const snap = useRef(KEPT.has(mindId))
   // Fit was pressed: glide to the frame until there.
   const fitting = useRef(false)
+  // How many bubbles the camera last framed, so a change reframes it.
+  const framedCount = useRef(0)
   const hover = useRef<string | null>(null)
   // How far each bubble leans toward the cursor right now (drawn only), and whether one is dragged.
   const magnet = useRef(new Map<string, { x: number; y: number }>())
@@ -201,6 +207,9 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       }
       const to = framing({ x0, y0, x1, y1 }, size)
       const v = view.current
+      // The Mind alone is no frame: zooming to it is what stuck when a chat page opened before the
+      // other bubbles were back (Ancung, 11 Nov). Wait for them, keeping a pending snap.
+      if (bodies.length <= 1) return
       if (snap.current) {
         snap.current = false
         v.k = to.k
@@ -236,6 +245,12 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       if (!s) return
       const kinds = new Map(data.current.nodes.map((n) => [n.id, n.kind]))
       const moving = stepSim(s, kinds)
+      // While the camera is automatic, a change in how many bubbles there are reframes it (gliding),
+      // so bubbles that come back one or two at a time are never left outside it.
+      if (view.current.auto && s.bodies.size !== framedCount.current && s.bodies.size > 1) {
+        framedCount.current = s.bodies.size
+        fitting.current = true
+      }
       if (view.current.auto && (moving || snap.current || fitting.current || now < 1500)) fit()
       // Glide to the picked node and zoom in a little; a jump with reduced motion.
       const f = focus.current ? s.bodies.get(focus.current) : null
