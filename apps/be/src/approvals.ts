@@ -148,6 +148,10 @@ export function whenText(start: unknown, end: unknown, timeZone?: string): strin
   return day.format(e) === day.format(s) ? `${from} to ${time.format(e)}` : `${from} to ${day.format(e)}, ${time.format(e)}`
 }
 
+// A Telegram message holds at most 4096 characters, and a Slack message alone may be 4000 (engine/src/apps.ts), so long
+// values are cut here; the card's "Open in app" shows them whole. The app's card (apps/fe) shows them uncut.
+export const clip = (v: string, max = 1500) => (v.length > max ? `${v.slice(0, max)}… (${v.length.toLocaleString('en')} characters, the rest in the app)` : v)
+
 // Details for tools other than send_payment, from the tool's own arguments (engine/src/tools.ts input schemas).
 // `timeZone` names the clock times are shown on; Telegram sends none, so the caller passes UTC and says so.
 export function approvalDetails(tool: string, args: unknown, timeZone?: string): ApprovalDetails | null {
@@ -194,6 +198,56 @@ export function approvalDetails(tool: string, args: unknown, timeZone?: string):
       const to = list(a.to)
       return { title: `Send "${str(a.subject) ?? 'an email'}"`, lines: [{ label: 'To', value: to.length ? to.join(', ') : 'Nobody yet' }], note: "It goes from your Mind's own email address." }
     }
+    // "Email me" in chat (#225): only ever to the owner's own Gmail.
+    case 'mail_send_to_owner':
+      return {
+        title: `Email you "${str(a.subject) ?? 'a note'}"`,
+        lines: [{ label: 'Length', value: `${(str(a.text) ?? '').length.toLocaleString('en')} characters` }],
+        note: "It goes from your Mind's own email address to the Gmail you connected, and nobody else.",
+      }
+    // The track skills' apps (#195 to #200): what goes where, so the owner approves this exact change.
+    case 'googledocs_create_document':
+      return {
+        title: `Write "${str(a.title) ?? 'a new Doc'}"`,
+        lines: [{ label: 'Length', value: `${(str(a.markdown) ?? '').length.toLocaleString('en')} characters` }],
+        note: 'Creates a new Google Doc in your Drive. Nothing is shared.',
+      }
+    case 'googlesheets_append_row': {
+      const values = Array.isArray(a.values) ? a.values.map((v) => (v === null || v === undefined ? '' : String(v))) : []
+      return {
+        title: `Add a row to "${str(a.sheet) ?? 'a sheet'}"`,
+        lines: [{ label: 'Row', value: values.length ? clip(values.join(', ')) : 'Empty' }],
+        note: 'Adds one row at the end of your Google Sheet. Nothing else changes.',
+      }
+    }
+    case 'notion_create_page': {
+      const length = (str(a.markdown) ?? '').length
+      return {
+        title: `Add the page "${str(a.title) ?? 'Untitled'}" to Notion`,
+        lines: [{ label: 'Length', value: length ? `${length.toLocaleString('en')} characters` : 'Empty page' }],
+        note: 'Creates a new page under the one you shared, with this text. Nothing else changes.',
+      }
+    }
+    case 'notion_add_row': {
+      const props = Array.isArray(a.properties) ? (a.properties as Record<string, unknown>[]) : []
+      return {
+        title: 'Add a row to a Notion database',
+        lines: props.slice(0, 8).map((p, i) => ({ label: str(p.name) ?? `${i + 1}`, value: clip(str(p.value) ?? 'Empty', 300) })),
+        note: "Adds one row. Existing rows don't change.",
+      }
+    }
+    case 'slack_send_message':
+      return {
+        title: `Post to ${str(a.channel)?.replace(/^#?/, '#') ?? 'Slack'}`,
+        lines: [{ label: 'Message', value: clip(str(a.text) ?? '') }],
+        note: 'Posted to Slack as you.',
+      }
+    case 'sell_offer':
+      return {
+        title: `Sell "${str(a.title) ?? 'an offer'}" for ${str(a.priceNear) ?? '?'} NEAR`,
+        lines: [{ label: 'Item', value: clip(str(a.item) ?? '') }],
+        note: "Other Minds can buy it; they pay into this Mind's own wallet.",
+      }
     default:
       return null
   }
