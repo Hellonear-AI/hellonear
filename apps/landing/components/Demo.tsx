@@ -130,7 +130,7 @@ export function Demo() {
           <span className="absolute inset-0 grid place-items-center text-[13px] text-white/50">Placeholder: the demo video goes in public/demo/demo.mp4</span>
         )}
         {/* "Sound on" hint: the video is playing silently; a click opens it full screen with sound */}
-        <span className="absolute bottom-5 left-5 flex items-center gap-2 rounded-full bg-black/55 px-4 py-2 text-[14px] font-medium text-white backdrop-blur-md transition-transform duration-300 group-hover:scale-105">
+        <span className="btn-swipe btn-swipe-group absolute bottom-5 left-5 flex items-center gap-2 rounded-full bg-black/55 px-4 py-2 text-[14px] font-medium text-white backdrop-blur-md">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M7 4.5v15l13-7.5z" />
           </svg>

@@ -766,7 +766,7 @@ export function MindGraph() {
         <button
           type="button"
           onClick={() => setExplore((x) => !x)}
-          className={`glass-dark h-10 whitespace-nowrap rounded-full px-4 text-[13px] font-medium text-[#F2F1EC] [@media(pointer:fine)]:hidden ${explore ? "!bg-[#D8F04A] !text-[#161614]" : ""}`}
+          className={`btn-swipe glass-dark relative h-10 whitespace-nowrap rounded-full px-4 text-[13px] font-medium text-[#F2F1EC] [@media(pointer:fine)]:hidden ${explore ? "!bg-[#D8F04A] !text-[#161614]" : ""}`}
         >
           {explore ? "Done" : "Explore"}
         </button>
@@ -780,12 +780,12 @@ export function MindGraph() {
               type="button"
               aria-label={label as string}
               onClick={fn as () => void}
-              className="grid size-8 place-items-center rounded-full text-[17px] leading-none transition-colors hover:bg-white/10"
+              className="btn-swipe relative grid size-8 place-items-center rounded-full text-[17px] leading-none"
             >
               {t as string}
             </button>
           ))}
-          <button type="button" onClick={() => api.current?.reset()} className="h-8 rounded-full px-3 transition-colors hover:bg-white/10">
+          <button type="button" onClick={() => api.current?.reset()} className="btn-swipe relative h-8 rounded-full px-3">
             Reset
           </button>
         </div>
