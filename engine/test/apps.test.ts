@@ -8,14 +8,19 @@ import type { AddressInfo } from 'node:net'
 import { needsApproval, toolRegistry, toolsFor } from '../src/tools.ts'
 import { USER_KEY, resetComposioSessions } from '../src/composio.ts'
 import { DEMO_KEY } from '../src/email.ts'
-import { docText, htmlText, notionText, notionTitle, sheetRange } from '../src/apps.ts'
+import { docText, htmlText, notionText, notionTitle, sheetRange, startRow } from '../src/apps.ts'
 import { nodeIdFor } from '../src/graph.ts'
 
 const calls: { url: string; body: any }[] = []
 const ok = (data: unknown) => ({ result_type: 'completed', error: null, data })
+const INVOICE_CELLS: Record<string, unknown[][]> = { 'Invoices!D7': [['Unpaid']], 'Invoices!D7:E7': [['Unpaid', '1']] }
 const answers: Record<string, (a: any) => unknown> = {
   GOOGLESHEETS_SEARCH_SPREADSHEETS: () => ok({ spreadsheets: [{ id: 'sh1', name: 'Expenses 2026', modifiedTime: '2026-11-10T01:00:00Z', webViewLink: 'https://docs.google.com/spreadsheets/d/sh1' }], total_found: 1 }),
-  GOOGLESHEETS_BATCH_GET: () => ok({ spreadsheetId: 'sh1', display_url: 'https://docs.google.com/spreadsheets/d/sh1', valueRanges: [{ range: 'Costs!A1:C3', majorDimension: 'ROWS', values: [['Date', 'Item', 'NEAR'], ['2026-11-01', 'Hosting', '0.02']] }] }),
+  // Invoices!… answers the cells an update reads back just before writing (#245); anything else, the Costs table.
+  GOOGLESHEETS_BATCH_GET: (a) => String(a.ranges?.[0]).startsWith('Invoices!')
+    ? ok({ spreadsheetId: 'sh1', valueRanges: [{ range: a.ranges[0], majorDimension: 'ROWS', values: INVOICE_CELLS[a.ranges[0]] ?? [] }] })
+    : ok({ spreadsheetId: 'sh1', display_url: 'https://docs.google.com/spreadsheets/d/sh1', valueRanges: [{ range: a.ranges?.[0] ?? 'Costs!A1:C3', majorDimension: 'ROWS', values: [['Date', 'Item', 'NEAR'], ['2026-11-01', 'Hosting', '0.02']] }] }),
+  GOOGLESHEETS_VALUES_UPDATE: (a) => ok({ spreadsheetId: a.spreadsheet_id, updatedRange: a.range, updatedRows: a.values.length, updatedColumns: a.values[0].length, updatedCells: a.values.flat().length }),
   GOOGLESHEETS_SPREADSHEETS_VALUES_APPEND: (a) => ok({ spreadsheetId: a.spreadsheetId, tableRange: 'Costs!A1:C2', updates: { updatedRange: 'Costs!A3:C3', updatedRows: 1, updatedCells: a.values[0].length } }),
   GOOGLEDRIVE_FIND_FILE: () => ok({ files: [
     { id: 'd1', name: 'Contract', mimeType: 'application/vnd.google-apps.document', modifiedTime: '2026-11-09T00:00:00Z', webViewLink: 'https://docs.google.com/document/d/d1' },
@@ -74,7 +79,7 @@ const ctx = (userId?: string, demo = false) => ({ requestContext: { get: (k: str
 const run = (tool: keyof typeof toolRegistry, input: unknown, c: unknown = ctx('usr_a')) => toolRegistry[tool].execute!(input as any, c as any) as Promise<any>
 const exec = (slug: string) => calls.find((c) => c.body?.tool_slug === slug)!.body.arguments
 
-const WRITES = ['googlesheets_append_row', 'googledocs_create_document', 'slack_send_message', 'notion_create_page', 'notion_add_row'] as const
+const WRITES = ['googlesheets_append_row', 'googlesheets_update_cells', 'googledocs_create_document', 'slack_send_message', 'notion_create_page', 'notion_add_row'] as const
 const READS = ['googlesheets_find_spreadsheets', 'googlesheets_read_range', 'googledrive_find_files', 'googledocs_read_document', 'slack_list_channels', 'notion_search', 'notion_read_page', 'outlook_list_emails', 'outlook_read_email', 'outlook_create_draft'] as const
 
 test('writes and posts wait for approval, reads and drafts do not, and unattended runs never get a write', () => {
@@ -96,6 +101,42 @@ test('sheets: search by name and content, read a range, append one row as RAW te
   })
   assert.deepEqual(added, { source: 'googlesheets', spreadsheetId: 'sh1', updatedRange: 'Costs!A3:C3', updatedCells: 4, status: 'appended' })
   assert.equal(sheetRange('Sheet1'), "'Sheet1'!A1")
+})
+
+test('sheets: change cells as RAW text without growing the sheet; all-empty values are refused before any card (#245)', async () => {
+  const changed = await run('googlesheets_update_cells', { spreadsheetId: 'sh1', range: 'Invoices!D7', newValues: [['Paid']], oldValues: [['Unpaid']] })
+  assert.deepEqual(exec('GOOGLESHEETS_VALUES_UPDATE'), {
+    spreadsheet_id: 'sh1', range: 'Invoices!D7', value_input_option: 'RAW', major_dimension: 'ROWS', values: [['Paid']], auto_expand_sheet: false, include_values_in_response: false,
+  })
+  assert.deepEqual(changed, { source: 'googlesheets', spreadsheetId: 'sh1', updatedRange: 'Invoices!D7', updatedCells: 1, status: 'updated' })
+  // A formula-looking value stays text (RAW), as with append.
+  await run('googlesheets_update_cells', { spreadsheetId: 'sh1', range: 'Invoices!D7:E7', newValues: [['=IMPORTXML("x")', 2]], oldValues: [['Unpaid', 1]] })
+  assert.deepEqual(calls.filter((c) => c.body?.tool_slug === 'GOOGLESHEETS_VALUES_UPDATE').at(-1)!.body.arguments.values, [['=IMPORTXML("x")', 2]])
+  // Clearing: refused by beforeApproval (no card) and again in execute, never sent to Composio.
+  calls.length = 0
+  const tool = (toolRegistry as any).googlesheets_update_cells
+  const before = await tool.beforeApproval({ spreadsheetId: 'sh1', range: 'Invoices!D7', newValues: [[''], [null]], oldValues: [['a'], ['b']] }, {})
+  assert.equal(before.proceed, false)
+  assert.equal(before.output.status, 'refused')
+  assert.equal(await tool.beforeApproval({ spreadsheetId: 'sh1', range: 'Invoices!D7', newValues: [['Paid']], oldValues: [['Unpaid']] }, {}), undefined)
+  const refused = await run('googlesheets_update_cells', { spreadsheetId: 'sh1', range: 'Invoices!D7', newValues: [['  ']], oldValues: [['x']] })
+  assert.equal(refused.status, 'refused')
+  assert.equal(calls.length, 0)
+  // The cells changed since the owner saw them (or the range was wrong and holds something else): nothing is written.
+  calls.length = 0
+  const stale = await run('googlesheets_update_cells', { spreadsheetId: 'sh1', range: 'Invoices!D7', newValues: [['Paid']], oldValues: [['Overdue']] })
+  assert.equal(stale.status, 'refused')
+  assert.match(stale.message, /no longer holds/)
+  assert.ok(!calls.some((c) => c.body?.tool_slug === 'GOOGLESHEETS_VALUES_UPDATE'), 'not written')
+  // Reads give each row's sheet number, so the Mind never counts rows itself.
+  const read = await run('googlesheets_read_range', { spreadsheetId: 'sh1', range: 'Costs!A5:C6' })
+  assert.deepEqual([read.firstRow, read.rowNumbers], [5, [5, 6]])
+  assert.equal(startRow('Costs'), 1)
+  assert.equal(startRow("Q4 o'costs!B12:C20"), 12)
+  // The range must name the tab and be a cell or a block.
+  const schema = tool.inputSchema
+  for (const bad of ['D7', 'Invoices!', 'Invoices!D0', 'Invoices!7D']) assert.equal(schema.safeParse({ spreadsheetId: 's', range: bad, newValues: [['x']], oldValues: [['y']] }).success, false, bad)
+  assert.equal(schema.safeParse({ spreadsheetId: 's', range: "Q4 o'costs!B2:C3", newValues: [['x', 'y']], oldValues: [['a', 'b']] }).success, true)
 })
 
 test('drive and docs: find files (trashed left out), read a doc as plain text, create a doc from Markdown', async () => {
@@ -172,7 +213,7 @@ test('an app the owner has not connected answers "<App> is not connected" for th
 
 test('try-out runs never reach Composio: every app answers that it is not in the try-out', async () => {
   for (const t of [...READS, ...WRITES]) {
-    const input = { googlesheets_append_row: { spreadsheetId: 's', sheet: 'a', values: ['x'] }, googledocs_create_document: { title: 't', markdown: '' }, slack_send_message: { channel: 'c', text: 't' },
+    const input = { googlesheets_append_row: { spreadsheetId: 's', sheet: 'a', values: ['x'] }, googlesheets_update_cells: { spreadsheetId: 's', range: 'a!A1', newValues: [['x']], oldValues: [['y']] }, googledocs_create_document: { title: 't', markdown: '' }, slack_send_message: { channel: 'c', text: 't' },
       notion_create_page: { parentId: 'p', title: 't' }, notion_add_row: { databaseId: 'd', properties: [{ name: 'n', type: 'title', value: 'v' }] }, googlesheets_read_range: { spreadsheetId: 's' },
       googledrive_find_files: { query: 'q' }, googledocs_read_document: { id: 'd' }, notion_read_page: { pageId: 'p' }, outlook_read_email: { id: 'i' }, outlook_create_draft: { replyToId: 'i', body: 'b' } } as Record<string, unknown>
     await assert.rejects(run(t, input[t] ?? {}, ctx('usr_demo', true)), /not available in the try-out/, t)
