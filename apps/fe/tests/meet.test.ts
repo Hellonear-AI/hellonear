@@ -108,3 +108,14 @@ describe("approval cards for the track skills' apps (#211)", () => {
     expect(approvalDetails(step("sell_offer", { title: "Weekly digest", priceNear: "0.5", item: "weekly-digest" }))?.title).toBe('Sell "Weekly digest" for 0.5 NEAR')
   })
 })
+
+describe("Sheets cell change card (#245)", () => {
+  it("shows the cells now and the new value", async () => {
+    const { approvalDetails } = await import("@/modules/runs/data/approvalDetails")
+    const d = approvalDetails({ toolCallId: "c", tool: "googlesheets_update_cells", status: "awaiting_approval", args: { spreadsheetId: "s", range: "Invoices!D3", newValues: [["Paid"]], oldValues: [["Unpaid"]] }, result: undefined })
+    expect(d?.title).toBe("Change Invoices!D3 in your Google Sheet")
+    expect(d?.lines).toEqual([{ label: "Now", value: "Unpaid" }, { label: "New", value: "Paid" }])
+    const blank = approvalDetails({ toolCallId: "c", tool: "googlesheets_update_cells", status: "awaiting_approval", args: { range: "A!B2:C2", newValues: [["x", 2]], oldValues: [["", null]] }, result: undefined })
+    expect(blank?.lines[0]).toEqual({ label: "Now", value: "(empty), (empty)" })
+  })
+})

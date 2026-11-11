@@ -85,6 +85,18 @@ export function approvalDetails(step: ToolStep, timeZone?: string): ApprovalDeta
         lines: [{ label: "Length", value: `${(str(a.markdown) ?? "").length.toLocaleString("en")} characters` }],
         note: "Creates a new Google Doc in your Drive. Nothing is shared.",
       }
+    case "googlesheets_update_cells": {
+      // #245: what is in the cells now (as the Mind read them; the engine checks again before writing) and what replaces it.
+      const flat = (v: unknown) => (Array.isArray(v) ? v.flat().map((x) => (x === null || x === undefined || x === "" ? "(empty)" : String(x))).join(", ") : "")
+      return {
+        title: `Change ${str(a.range) ?? "cells"} in your Google Sheet`,
+        lines: [
+          { label: "Now", value: flat(a.oldValues) || "Not read" },
+          { label: "New", value: flat(a.newValues) || "Empty" },
+        ],
+        note: "Changes only these cells. \"Now\" is what the Mind read; if the cells hold something else when you approve, nothing is changed.",
+      }
+    }
     case "googlesheets_append_row": {
       const values = Array.isArray(a.values) ? a.values.map((v) => (v === null || v === undefined ? "" : String(v))) : []
       return {
