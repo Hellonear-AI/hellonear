@@ -21,13 +21,14 @@ export function AddBlockSheet({ at, line, onClose, onPick }: { at: Place | null;
   return (
     // A drawer from the bottom you can swipe away, like the live view on phones (Ancung, 10 Nov).
     <Drawer open={at !== null} onOpenChange={(open) => !open && onClose()} showSwipeHandle>
-      <DrawerContent className="gap-4 px-5 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      <DrawerContent className="gap-4 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         {/* A margin, not the drawer's gap: its children sit in an inner element without one. */}
-        <DrawerHeader className="mb-4 gap-1.5 p-0 text-left group-data-[swipe-axis=y]/drawer-popup:text-left">
+        <DrawerHeader className="mb-4 gap-1.5 px-5 py-0 text-left group-data-[swipe-axis=y]/drawer-popup:text-left">
           <DrawerTitle>Add a block</DrawerTitle>
           <DrawerDescription>{where}</DrawerDescription>
         </DrawerHeader>
-        <ul className="flex flex-col gap-2 overflow-y-auto">
+        {/* Side padding inside the drawer's clipped content, not on its outer popup (it cut letters). */}
+        <ul className="flex flex-col gap-2 overflow-y-auto px-5">
           {ADD_KINDS.map((kind) => {
             const { tone, Icon, title, long } = KIND_META[kind]
             const why = off(kind)
