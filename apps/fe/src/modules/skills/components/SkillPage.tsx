@@ -45,7 +45,7 @@ export function SkillPage({ mindId, skillId }: { mindId: string; skillId: string
   const rules: SkillLine[] =
     skillId === "payments"
       ? [
-          { t: "Asks you before every payment", tone: "ok" },
+          { t: "Asks you before each payment, unless you set a rule in Settings", tone: "ok" },
           { t: ctx.limit ? `Up to ${ctx.limit} NEAR each, from ${name}'s wallet` : "Only inside the limits you set in Wallet", tone: "ok" },
           { t: "Only to the addresses on your list", tone: "ok" },
         ]

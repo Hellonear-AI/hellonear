@@ -46,13 +46,13 @@ export const SKILLS: Record<string, SkillCopy> = {
     cannot: [],
     needsWallet: true,
     ask: {
-      why: (c) => `${c.name} will pay bills you send in the chat from its wallet, and ask you before every payment.`,
+      why: (c) => `${c.name} will pay bills you send in the chat from its wallet, and ask you first unless you set a rule for small payments in Settings.`,
       does: () => ["Payments and invoices you send in the chat", "Send testnet NEAR to addresses on your list"],
       never: () => ["Change its own limits or add addresses", "Pay without asking you"],
       note: "No signature needed. Your wallet limits still apply to every payment.",
     },
     added: (c) =>
-      `${c.name} can pay ${c.limit ? `up to ${c.limit} NEAR at a time` : "inside your limits"} from its wallet and asks you first, unless you set a rule for small ones in its settings. Every payment shows in Wallet.`,
+      `${c.name} can pay ${c.limit ? `up to ${c.limit} NEAR at a time` : "inside your limits"} from its wallet and asks you first, unless a rule you set in Settings covers it. Every payment shows in Wallet.`,
     removed: (c) => `${c.name} won't be able to pay bills any more. Past payments stay in Wallet.`,
   },
   "email-triage": {

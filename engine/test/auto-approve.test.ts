@@ -74,9 +74,13 @@ for (const [name, message, extra] of [
   test(`a payment ${name} still waits for the owner`, async () => {
     const before = payments.length
     const evs = await chat(message, extra as Record<string, unknown>)
-    const card = evs.find((e) => e.type === 'tool.approval_required' && e.tool === 'send_payment')
-    assert.ok(card, JSON.stringify(evs.filter((e) => e.tool)))
-    assert.equal(evs.find((e) => e.type === 'tool.called' && e.tool === 'send_payment')?.approvedBy, undefined)
+    // What the engine guarantees: no rule lets this one through, and nothing reaches the wallet. The model may put it
+    // on a card (usual) or decline to call send_payment at all (seen about 1 run in 3 for the unlisted account and the
+    // over-limit amount, on main too, 11 Nov); both are safe. A send_payment call must come with a card.
+    const call = evs.find((e) => e.type === 'tool.called' && e.tool === 'send_payment')
+    assert.equal(call?.approvedBy, undefined, 'never approved by a rule')
+    if (call) assert.ok(evs.some((e) => e.type === 'tool.approval_required' && e.tool === 'send_payment'), JSON.stringify(evs.filter((e) => e.tool)))
+    assert.ok(!evs.some((e) => e.type === 'tool.result' && e.tool === 'send_payment'), 'it did not run')
     assert.equal(payments.length, before, 'nothing reached the wallet')
   })
 }
