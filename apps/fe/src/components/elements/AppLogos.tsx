@@ -203,11 +203,32 @@ export function HubSpotLogo({ className }: { className?: string }) {
   )
 }
 
-/** Zoom's logo (#246), from thesvg.org `/icons/zoom/default.svg`, read 11 Nov. */
+/**
+ * Zoom's 2025 app icon: the white "zoom" wordmark on Zoom's blue rounded square (Ancung, 11 Nov:
+ * the lone "Z" from thesvg.org `/icons/zoom/default.svg` read as nothing anyone knew). The SVG
+ * Ancung pasted, copied as is; only the gradient id is made unique per use, as for the others.
+ */
 export function ZoomLogo({ className }: { className?: string }) {
   const id = useSvgId()
   return (
-    <svg preserveAspectRatio="xMidYMid" viewBox="0 0 256 256" role="img" aria-label="Zoom" className={cn("size-5", className)}><defs><linearGradient id={`${id}a`} x1="23.666%" x2="76.334%" y1="95.6118%" y2="4.3882%"><stop offset=".00006%" stopColor="#0845BF"/><stop offset="19.11%" stopColor="#0950DE"/><stop offset="38.23%" stopColor="#0B59F6"/><stop offset="50%" stopColor="#0B5CFF"/><stop offset="67.32%" stopColor="#0E5EFE"/><stop offset="77.74%" stopColor="#1665FC"/><stop offset="86.33%" stopColor="#246FF9"/><stop offset="93.88%" stopColor="#387FF4"/><stop offset="100%" stopColor="#4F90EE"/></linearGradient></defs><path fill={`url(#${id}a)`} d="M256 128c0 13.568-1.024 27.136-3.328 40.192-6.912 43.264-41.216 77.568-84.48 84.48C155.136 254.976 141.568 256 128 256c-13.568 0-27.136-1.024-40.192-3.328-43.264-6.912-77.568-41.216-84.48-84.48C1.024 155.136 0 141.568 0 128c0-13.568 1.024-27.136 3.328-40.192 6.912-43.264 41.216-77.568 84.48-84.48C100.864 1.024 114.432 0 128 0c13.568 0 27.136 1.024 40.192 3.328 43.264 6.912 77.568 41.216 84.48 84.48C254.976 100.864 256 114.432 256 128Z"/><path fill="#FFF" d="M204.032 207.872H75.008c-8.448 0-16.64-4.608-20.48-12.032-4.608-8.704-2.816-19.2 4.096-26.112l89.856-89.856H83.968c-17.664 0-32-14.336-32-32h118.784c8.448 0 16.64 4.608 20.48 12.032 4.608 8.704 2.816 19.2-4.096 26.112l-89.6 90.112h74.496c17.664 0 32 14.08 32 31.744Z"/></svg>
+    <svg viewBox="0 0 512 512" role="img" aria-label="Zoom" className={cn("size-5", className)}>
+      <defs>
+        <linearGradient id={`${id}a`} x1="0" x2="1" y1="0" y2="0" gradientTransform="rotate(-60 88.792 30.85)scale(109.282)" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#0845bf" />
+          <stop offset=".6" stopColor="#0b5cff" />
+          <stop offset="1" stopColor="#4f90ee" />
+        </linearGradient>
+      </defs>
+      <path
+        fill={`url(#${id}a)`}
+        d="M84.06 37.19V52.8c0 17.25-14 31.25-31.25 31.25H37.2c-17.25 0-31.25-14-31.25-31.25V37.2c0-17.25 14-31.25 31.25-31.25h15.6c17.25 0 31.25 14 31.25 31.25"
+        transform="matrix(6.4 0 0 6.4 -32 -32)"
+      />
+      <path
+        fill="#fff"
+        d="M152.08 295.51H88.07c-4.49 0-8.5-2.67-10.22-6.82a11.05 11.05 0 0 1 2.4-12.07l44.33-44.33H92.81a15.8 15.8 0 0 1-15.8-15.8h59.02c4.5 0 8.5 2.68 10.22 6.83a11 11 0 0 1-2.4 12.05l-44.33 44.34h36.75a15.8 15.8 0 0 1 15.81 15.8M435 246.11a30.86 30.86 0 0 0-30.82-30.81 30.8 30.8 0 0 0-22.92 10.24 30.8 30.8 0 0 0-22.92-10.24 30.86 30.86 0 0 0-30.82 30.82v49.4a15.8 15.8 0 0 0 15.8-15.81v-33.6a15.03 15.03 0 0 1 30.03 0v33.6a15.8 15.8 0 0 0 15.81 15.8v-49.4a15.03 15.03 0 0 1 30.04 0v33.6a15.8 15.8 0 0 0 15.8 15.8zm-115.38 9.9a40.7 40.7 0 1 1-81.4-.01 40.7 40.7 0 0 1 81.4 0m-15.8 0a24.9 24.9 0 1 0-49.8-.01 24.9 24.9 0 0 0 49.8 0m-71.92 0a40.7 40.7 0 1 1-81.4 0 40.7 40.7 0 0 1 81.4 0m-15.8 0a24.9 24.9 0 1 0-49.8-.01 24.9 24.9 0 0 0 49.8 0"
+      />
+    </svg>
   )
 }
 
