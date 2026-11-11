@@ -245,6 +245,15 @@ export function approvalDetails(tool: string, args: unknown, timeZone?: string):
         note: "Adds one row. Existing rows don't change.",
       }
     }
+    // Changing a Notion row (#247): each property as the Mind read it and what replaces it, in the app's words.
+    case 'notion_update_row': {
+      const props = Array.isArray(a.properties) ? (a.properties as Record<string, unknown>[]) : []
+      return {
+        title: `Change "${str(a.rowTitle) ?? 'a row'}" in Notion`,
+        lines: props.slice(0, 8).map((p, i) => ({ label: str(p.name) ?? `${i + 1}`, value: `${clip(str(p.oldValue) ?? '(empty)', 300)} → ${clip(str(p.newValue) ?? '(empty)', 300)}` })),
+        note: 'Changes only these properties of this row. The old value is what the Mind read; if the row holds something else when you approve, nothing is changed.',
+      }
+    }
     case 'slack_send_message':
       return {
         title: `Post to ${str(a.channel)?.replace(/^#?/, '#') ?? 'Slack'}`,

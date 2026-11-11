@@ -93,6 +93,11 @@ test('every approval tool the app details also has details on Telegram, in the s
   const row = approvalDetails('notion_add_row', { databaseId: 'db', properties: Array.from({ length: 10 }, (_, i) => ({ name: `P${i}`, type: 'rich_text', value: `v${i}` })) })!
   assert.equal(row.lines.length, 8)
   assert.deepEqual(row.lines[0], { label: 'P0', value: 'v0' })
+  assert.deepEqual(approvalDetails('notion_update_row', { rowId: 'r1', rowTitle: 'Send invoice', properties: [{ name: 'Status', type: 'status', oldValue: 'In progress', newValue: 'Done' }, { name: 'Notes', type: 'rich_text', oldValue: '', newValue: 'sent' }] }), {
+    title: 'Change "Send invoice" in Notion',
+    lines: [{ label: 'Status', value: 'In progress → Done' }, { label: 'Notes', value: '(empty) → sent' }],
+    note: 'Changes only these properties of this row. The old value is what the Mind read; if the row holds something else when you approve, nothing is changed.',
+  })
   assert.equal(approvalDetails('mail_send_to_owner', { subject: 'Today', text: 'hello' })!.title, 'Email you "Today"')
   assert.deepEqual(approvalDetails('sell_offer', { title: 'Weather data', priceNear: '0.01', item: 'Forecast for Jakarta' }), {
     title: 'Sell "Weather data" for 0.01 NEAR', lines: [{ label: 'Item', value: 'Forecast for Jakarta' }], note: "Other Minds can buy it; they pay into this Mind's own wallet.",
