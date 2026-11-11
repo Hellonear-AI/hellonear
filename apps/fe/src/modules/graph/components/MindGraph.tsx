@@ -6,7 +6,7 @@ import { setFlag } from "@/modules/onboarding/data/progress"
 import { wheelPan, wheelPixels, wheelZoomFactor } from "@/modules/builder/hooks/useCanvasView"
 import { APPS } from "@/modules/connections/data/apps"
 import type { GraphLink, GraphNode } from "@/modules/graph/data/graph"
-import { settle, stepSim, syncSim, type Sim } from "@/modules/graph/data/sim"
+import { stepSim, syncSim, type Sim } from "@/modules/graph/data/sim"
 import { MEDIA } from "@/lib/media"
 import { clampZoom, framing, toWorld as worldAt, zoomAround } from "@/modules/graph/data/camera"
 import { readColors, FILL } from "@/modules/graph/data/colors"
@@ -39,6 +39,11 @@ const KEPT = new Map<string, { sim: Sim; view: { x: number; y: number; k: number
 
 /** How long a finished state keeps glowing (ms). */
 const AFTERGLOW = { ok: 1600, error: 4000, denied: 4000 } as const
+// The live view's entrance: from 1.35 times the frame's zoom out to it, over 700 ms, ease-out.
+const ENTER_ZOOM = 1.35
+const ENTER_MS = 700
+/** How long a frame may spend settling a new layout, so the page never freezes for it. */
+const SETTLE_BUDGET_MS = 6
 // The magnet: bubbles within 120 screen px of the cursor move toward it, up to a third of the
 // way when right under it, fading to nothing at the edge, at most 8 units.
 const MAGNET_REACH = 120
@@ -59,14 +64,29 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
   // not from the event's own time, which comes from the server's clock and can arrive late
   // (Ancung, 10 Nov: a 1 s calendar call never lit up).
   const seen = useRef(new Map<string, { key: string; at: number }>())
-  const view = useRef(KEPT.get(mindId)?.view ?? { x: 0, y: 0, k: 1, auto: true })
+  // The camera kept from the last chat, but always back on automatic framing: a zoom or a click on
+  // a bubble (which zooms to it) used to stick, so every chat opened after it was zoomed into the
+  // Mind (Ancung, 11 Nov). The layout itself is kept, so nothing replays.
+  const view = useRef({ ...(KEPT.get(mindId)?.view ?? { x: 0, y: 0, k: 1 }), auto: true })
   // The node the camera is gliding to after a click (Axel, via Ancung, 10 Nov: zoom to it).
   const focus = useRef<string | null>(null)
   const lastSelected = useRef<string | null>(null)
-  // Frame the layout at once on the next draw, instead of easing toward it.
+  // Frame the layout at once on the next draw, instead of easing toward it. A page that finds a
+  // kept layout frames it at once too, without a glide.
   const snap = useRef(false)
   // Fit was pressed: glide to the frame until there.
   const fitting = useRef(false)
+  // How many bubbles the camera last framed, so a change reframes it.
+  const framedCount = useRef(0)
+  // A layout to settle before it is drawn, a slice each frame (see SETTLE_BUDGET_MS).
+  const pendingSettle = useRef(false)
+  // The entrance zoom out: null when none, -1 waiting for the first frame, else when it started.
+  // Every chat page plays it over the kept layout (Ancung, 11 Nov: like stepping into the chat);
+  // the layout itself stays put, so nothing jiggles.
+  const entering = useRef<number | null>(KEPT.has(mindId) ? -1 : null)
+  // No layout kept for this Mind yet: its first real frame on this page gets the entrance, even if
+  // the very first graph held only the Mind.
+  const fresh = useRef(!KEPT.has(mindId))
   const hover = useRef<string | null>(null)
   // How far each bubble leans toward the cursor right now (drawn only), and whether one is dragged.
   const magnet = useRef(new Map<string, { x: number; y: number }>())
@@ -89,12 +109,28 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
     }
     lastSelected.current = selected
     const first = sim.current === null
+    const before = sim.current?.bodies.size ?? 0
     sim.current = syncSim(sim.current, nodes, links, mind)
     // The first graph of this Mind on this page shows settled and framed at once: no bounce, no
-    // zoom out (Ancung, 11 Nov). Later, only bubbles that are really new nudge it.
-    if (first && nodes.length > 1) {
-      settle(sim.current, new Map(nodes.map((n) => [n.id, n.kind])))
-      snap.current = true
+    // zoom out (Ancung, 11 Nov). So does a graph that grows by several bubbles at once: the first
+    // one often holds only the Mind, before its skills and history arrive, and they then piled in
+    // and bounced into place (Ancung, 11 Nov: "too much jiggle"). One or two new ones only nudge it.
+    const grew = sim.current.bodies.size - before
+    if ((first && nodes.length > 1) || grew >= 3) {
+      // Settled in slices by the draw loop (SETTLE_BUDGET_MS a frame), not here at once: 35
+      // bubbles took 23 to 58 ms on a laptop, so a phone would freeze for a few hundred. A graph
+      // that isn't on screen doesn't draw, so it doesn't settle either.
+      pendingSettle.current = true
+      // Frame it at once only while the graph is opening (nothing but the Mind before). Later, the
+      // camera glides to the new frame, and only if the owner hasn't moved it: snapping during a
+      // reply read as the graph zooming by itself (Ancung, 11 Nov).
+      // The very first graph of this Mind on the page comes in with a zoom out (ENTER_MS); a page
+      // that finds the layout kept, or one still opening, frames at once.
+      if (fresh.current) {
+        fresh.current = false
+        entering.current = -1
+      } else if (before <= 1 && entering.current === null) snap.current = true
+      else fitting.current = true
     }
     const now = performance.now()
     for (const n of nodes) {
@@ -193,6 +229,28 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       }
       const to = framing({ x0, y0, x1, y1 }, size)
       const v = view.current
+      // The Mind alone is no frame: zooming to it is what stuck when a chat page opened before the
+      // other bubbles were back (Ancung, 11 Nov). Wait for them, keeping a pending snap.
+      if (bodies.length <= 1) return
+      // The entrance (Ancung, 11 Nov): start a little zoomed in on the frame's middle and ease out
+      // to it, fast at first and slowing at the end. Reduced motion frames at once.
+      if (entering.current !== null && !still.matches) {
+        const now = performance.now()
+        if (entering.current < 0) entering.current = now
+        const p = Math.min(1, (now - entering.current) / ENTER_MS)
+        const e = 1 - (1 - p) ** 4
+        const from = ENTER_ZOOM + (1 - ENTER_ZOOM) * e
+        // Scaling the frame about the panel's middle keeps the same spot in the middle.
+        v.k = to.k * from
+        v.x = to.x * from
+        v.y = to.y * from
+        if (p >= 1) entering.current = null
+        return
+      }
+      if (entering.current !== null) {
+        entering.current = null
+        snap.current = true
+      }
       if (snap.current) {
         snap.current = false
         v.k = to.k
@@ -227,8 +285,26 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       const s = sim.current
       if (!s) return
       const kinds = new Map(data.current.nodes.map((n) => [n.id, n.kind]))
+      if (pendingSettle.current) {
+        const until = now + SETTLE_BUDGET_MS
+        let warm = true
+        while (warm && performance.now() < until) warm = stepSim(s, kinds)
+        // Not still yet: nothing drawn this frame, the rest next frame. Then it appears settled.
+        if (warm) {
+          ctx.setTransform(1, 0, 0, 1, 0, 0)
+          ctx.clearRect(0, 0, cv.width, cv.height)
+          return
+        }
+        pendingSettle.current = false
+      }
       const moving = stepSim(s, kinds)
-      if (view.current.auto && (moving || snap.current || fitting.current || now < 1500)) fit()
+      // While the camera is automatic, a change in how many bubbles there are reframes it (gliding),
+      // so bubbles that come back one or two at a time are never left outside it.
+      if (view.current.auto && s.bodies.size !== framedCount.current && s.bodies.size > 1) {
+        framedCount.current = s.bodies.size
+        fitting.current = true
+      }
+      if (view.current.auto && (moving || snap.current || fitting.current || entering.current !== null || now < 1500)) fit()
       // Glide to the picked node and zoom in a little; a jump with reduced motion.
       const f = focus.current ? s.bodies.get(focus.current) : null
       if (f) {

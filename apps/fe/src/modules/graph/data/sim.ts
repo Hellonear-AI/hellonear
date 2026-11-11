@@ -64,7 +64,9 @@ export function syncSim(prev: Sim | null, nodes: GraphNode[], links: GraphLink[]
   // reply set it bouncing again).
   const seen = new Map(prev?.seen)
   for (const b of prev?.bodies.values() ?? []) seen.set(b.id, { x: b.x, y: b.y })
-  return { bodies, links, alpha: !prev ? 1 : added ? Math.max(prev.alpha, 0.5) : prev.alpha, seen }
+  // A bubble or two joining only nudges it (0.25, was 0.5: Ancung, 11 Nov, the entrance read as
+  // too much jiggle); many at once are settled before drawing (MindGraph).
+  return { bodies, links, alpha: !prev ? 1 : added ? Math.max(prev.alpha, 0.25) : prev.alpha, seen }
 }
 
 /** Run the layout until it is still (or `max` ticks), so a first graph shows settled, without the bounce. */
@@ -77,6 +79,8 @@ export function stepSim(sim: Sim, kinds: Map<string, NodeKind>): boolean {
   if (sim.alpha < 0.004) return false
   const list = [...sim.bodies.values()]
   const a = sim.alpha
+  // The Mind is always pinned; another pinned bubble is one being dragged.
+  const friction = list.filter((b) => b.pinned).length > 1 ? 0.86 : 0.74
   // Every pair pushes apart, more when close.
   for (let i = 0; i < list.length; i++) {
     for (let j = i + 1; j < list.length; j++) {
@@ -128,9 +132,10 @@ export function stepSim(sim: Sim, kinds: Map<string, NodeKind>): boolean {
     // A pull to the centre, and friction.
     b.vx -= b.x * 0.0025 * a
     b.vy -= b.y * 0.0025 * a
-    // A little less friction than a dead stop, so a pulled bubble sways back (Obsidian).
-    b.vx *= 0.86
-    b.vy *= 0.86
+    // While a bubble is dragged, a little less friction than a dead stop, so it sways back on
+    // release (Obsidian). Settling on its own, more, so it comes to rest without bouncing.
+    b.vx *= friction
+    b.vy *= friction
     b.x += b.vx
     b.y += b.vy
   }
