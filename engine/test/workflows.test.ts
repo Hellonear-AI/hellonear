@@ -162,6 +162,32 @@ describe('builder workflows', () => {
     assert.deepEqual(ofType(evs, 'node.finished').map((e) => e.node), ['balance', 'notify'])
   })
 
+  // #264: an If compares one value, so "Number of events > 0" reads the tool's `count`; an array's length is no path.
+  test('an If on a list tool\'s count: events.length is refused, count > 0 takes the then way', async () => {
+    const canvas = (left: string) => ({
+      name: 'Busy today',
+      nodes: [
+        { id: 'start', type: 'trigger', data: { inputs: [] } },
+        { id: 'cal', type: 'tool', data: { tool: 'googlecalendar_list_events', args: {} } },
+        { id: 'busy', type: 'condition', data: { left, op: 'gt', right: 0 } },
+        { id: 'sum', type: 'tool', data: { tool: 'add_numbers', args: { a: 1, b: 2 } } },
+      ],
+      edges: [{ source: 'start', target: 'cal' }, { source: 'cal', target: 'busy' }, { source: 'busy', target: 'sum', sourceHandle: 'then' }],
+    })
+    const length = await call('PUT', path('busy-today'), canvas('{{steps.cal.events.length}}'))
+    assert.equal(length.status, 400)
+    assert.match(JSON.stringify(await length.json()), /stepResults\.cal\.events\.length/)
+
+    const saved = await call('PUT', path('busy-today'), canvas('{{steps.cal.count}}'))
+    assert.equal(saved.status, 200, await saved.clone().text())
+    // Try-out data: the sample calendar, no Composio.
+    const evs = await events(await call('POST', `${path('busy-today')}/runs`, { userId: 'u1', mind: mind(['daily-planner']), demo: true, input: {} }))
+    const cal = ofType(evs, 'node.finished').find((e) => e.node === 'cal')
+    assert.ok(cal && cal.output.count > 0 && cal.output.count === cal.output.events.length, JSON.stringify(cal?.output).slice(0, 300))
+    assert.equal(ofType(evs, 'node.finished').find((e) => e.node === 'sum')?.output?.sum, 3, 'the then way ran')
+    assert.equal((await call('DELETE', path('busy-today'))).status, 204)
+  })
+
   test('delete removes it everywhere', async () => {
     for (const id of ['balance-alert', 'pay']) assert.equal((await call('DELETE', path(id))).status, 204)
     assert.equal((await call('GET', path('balance-alert'))).status, 404)

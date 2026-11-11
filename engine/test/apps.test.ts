@@ -298,7 +298,7 @@ test('notion: change a row after re-reading it; never archives; a changed, wrong
 test('outlook: the same shapes as the Gmail tools; HTML bodies become text; drafts reply to the sender only', async () => {
   const list = await run('outlook_list_emails', { query: 'invoice', maxResults: 3 })
   assert.deepEqual(exec('OUTLOOK_LIST_MESSAGES'), { folder: 'inbox', top: 3, search: 'invoice' })
-  assert.deepEqual(list, { source: 'outlook', emails: [{ id: 'AAMk1', from: 'Lumen Billing <billing@lumenhost.example>', subject: 'Invoice', snippet: 'Please pay by Friday', receivedAt: '2026-11-10T02:00:00Z', unread: true }] })
+  assert.deepEqual(list, { source: 'outlook', emails: [{ id: 'AAMk1', from: 'Lumen Billing <billing@lumenhost.example>', subject: 'Invoice', snippet: 'Please pay by Friday', receivedAt: '2026-11-10T02:00:00Z', unread: true }], count: 1 })
   const read = await run('outlook_read_email', { id: 'AAMk1' })
   assert.deepEqual(exec('OUTLOOK_GET_MESSAGE'), { message_id: 'AAMk1' })
   assert.deepEqual(read, { source: 'outlook', id: 'AAMk1', from: 'billing@lumenhost.example', to: 'Me <me@example.com>', subject: 'Invoice', body: 'Hello & welcome\nPay 0.02 NEAR', receivedAt: '2026-11-10T02:00:00Z' })
