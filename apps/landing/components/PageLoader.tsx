@@ -61,7 +61,7 @@ function targetY(hash: string): number | null {
 }
 
 export function PageLoader() {
-  const [phase, setPhase] = useState<"loading" | "out" | "gone" | "cover">("loading");
+  const [phase, setPhase] = useState<"loading" | "out" | "gone" | "pre" | "cover">("loading");
   const [run, setRun] = useState(0); // re-mounts the mark so it builds again on every cover
   const bar = useRef<HTMLDivElement>(null);
   const busy = useRef(false);
@@ -111,7 +111,10 @@ export function PageLoader() {
       busy.current = true;
       const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       setRun((n) => n + 1);
-      setPhase("cover");
+      // fade in with a transition (from "pre", transparent, to "cover"), so the fade out afterwards is a
+      // transition too, the same as when the page first lifts
+      setPhase("pre");
+      requestAnimationFrame(() => requestAnimationFrame(() => setPhase("cover")));
       setTimeout(() => {
         const y = targetY(hash) ?? 0;
         window.scrollTo({ top: y, behavior: "instant" as ScrollBehavior });
@@ -133,7 +136,7 @@ export function PageLoader() {
   if (phase === "gone") return null;
   return (
     <div
-      className={`page-loader ${phase === "out" ? "is-out" : ""} ${phase === "cover" ? "is-cover" : ""}`}
+      className={`page-loader ${phase === "out" ? "is-out" : ""} ${phase === "pre" ? "is-pre" : ""}`}
       role="status"
       aria-live="polite"
       aria-busy={phase !== "out"}
@@ -142,7 +145,7 @@ export function PageLoader() {
       <div className="ld-stack" key={run}>
         <Mark />
         <div className="ld-track" aria-hidden="true">
-          <div ref={phase === "loading" ? bar : undefined} className={`ld-bar ${phase === "cover" ? "is-sweep" : "is-creep"}`} />
+          <div ref={phase === "loading" ? bar : undefined} className={`ld-bar ${phase === "cover" || phase === "pre" ? "is-sweep" : "is-creep"}`} />
         </div>
       </div>
     </div>

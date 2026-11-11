@@ -782,9 +782,10 @@ body {
   display: grid;
   place-items: center;
   background: var(--color-bg);
-  transition: opacity 550ms cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0s;
+  transition: opacity 300ms cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0s;
 }
-.page-loader.is-cover { animation: ld-cover-in 300ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+.page-loader.is-pre { opacity: 0; transition: none; }
+.page-loader.is-pre .ld-stack { transform: scale(0.94); opacity: 0; transition: none; }
 .page-loader.is-out { opacity: 0; visibility: hidden; transition: opacity 550ms cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 550ms; }
 .page-loader.is-out .ld-stack { transform: scale(1.12); opacity: 0; }
 .ld-stack {
@@ -809,7 +810,6 @@ body {
 @keyframes ld-open { from { transform: scaleY(0); opacity: 0; } to { transform: scaleY(1); opacity: 1; } }
 @keyframes ld-blink { 0%, 90%, 100% { transform: scaleY(1); } 94% { transform: scaleY(0.12); } }
 @keyframes ld-breathe { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-5px) scale(1.025); } }
-@keyframes ld-cover-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes ld-creep { from { transform: scaleX(0.08); } to { transform: scaleX(0.9); } }
 @keyframes ld-sweep { from { transform: scaleX(0.05); } to { transform: scaleX(1); } }
 @media (prefers-reduced-motion: reduce) {
