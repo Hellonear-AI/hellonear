@@ -51,8 +51,6 @@ const APPS: Record<string, [ComponentType<{ className?: string }>, string]> = {
   zoom: [ZoomLogo, "Zoom"],
   outlook: [OutlookLogo, "Outlook"],
 };
-/** What the rest of the world keeps while one bubble is hovered or picked: 20% darker. */
-const DIM = 0.8;
 
 // One line for the card that opens on a click.
 const ABOUT: Record<string, string> = {
@@ -400,7 +398,7 @@ export function MindGraph() {
         // Lines: all the quiet ones in one grey path, then the lit ones.
         ctx.lineWidth = 1 / k;
         ctx.strokeStyle = LINE;
-        ctx.globalAlpha = focus ? DIM : 1;
+        ctx.globalAlpha = 1;
         ctx.beginPath();
         const lit: L[] = [];
         for (const l of links) {
@@ -436,7 +434,7 @@ export function MindGraph() {
         const hot: number[] = [];
         const apps: number[] = [];
         for (const tone of ["tool", "memory", "wallet", "skill"] as const) {
-          ctx.globalAlpha = focus ? DIM : 1;
+          ctx.globalAlpha = 1;
           ctx.fillStyle = FILL[tone];
           ctx.beginPath();
           nodes.forEach((n, i) => {
@@ -458,7 +456,7 @@ export function MindGraph() {
         for (const i of apps) {
           const n = nodes[i];
           const r = Math.max(n.r, 1.2 / k);
-          ctx.globalAlpha = focus && !focus.has(i) ? DIM : 1;
+          ctx.globalAlpha = 1;
           ctx.fillStyle = FILL.app;
           ctx.beginPath();
           ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
@@ -502,7 +500,7 @@ export function MindGraph() {
         nodes.forEach((n, i) => {
           if (n.kind !== "mind" || !seen(n)) return;
           const r = Math.max(n.r, 1.5 / k);
-          ctx.globalAlpha = focus && !focus.has(i) ? DIM : 1;
+          ctx.globalAlpha = 1;
           const img = pics[n.c % pics.length];
           ctx.save();
           ctx.beginPath();
@@ -539,7 +537,7 @@ export function MindGraph() {
           if (a <= 0.01) return;
           const px = (n.kind === "mind" ? (mine ? 14 : 12) : n.tone === "tool" ? 10 : 11) / k;
           ctx.font = `${n.kind === "mind" ? 600 : 500} ${px}px ${font}`;
-          ctx.globalAlpha = a * (focus && !focus.has(i) ? DIM : 1);
+          ctx.globalAlpha = a;
           ctx.strokeStyle = NIGHT;
           ctx.lineWidth = 4 / k;
           const y = n.y + n.r + 4 / k;
