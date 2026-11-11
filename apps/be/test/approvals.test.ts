@@ -89,6 +89,12 @@ test('every approval tool the app details also has details on Telegram, in the s
   assert.deepEqual(approvalDetails('googlesheets_update_cells', { range: 'A!B2:C2', newValues: [['x', 2]], oldValues: [['', null]] })!.lines[0], { label: 'Now', value: '(empty), (empty)' })
   assert.deepEqual(approvalDetails('googlesheets_append_row', { sheet: 'Expenses', values: ['2026-11-11', 12.5, null, 'Hosting'] })!.lines, [{ label: 'Row', value: '2026-11-11, 12.5, , Hosting' }])
   assert.equal(approvalDetails('googledocs_create_document', { title: 'Treasury', markdown: 'a'.repeat(1234) })!.lines[0].value, '1,234 characters')
+  assert.deepEqual(approvalDetails('googledocs_append_text', { documentId: 'd1', title: 'Weekly Notes', text: 'Week 46: shipped.' }), {
+    title: 'Add to "Weekly Notes"',
+    lines: [{ label: 'Where', value: 'At the end' }, { label: 'Length', value: '17 characters' }, { label: 'Text', value: 'Week 46: shipped.' }],
+    note: 'Adds this text at the end of your Google Doc. Nothing already in it changes. If the Doc has another title when you approve, nothing is added.',
+  })
+  assert.match(approvalDetails('googledocs_append_text', { title: 'W', text: 'a'.repeat(2000) })!.lines[2].value, /^a{1500}… \(2,000 characters, the rest in the app\)$/)
   assert.equal(approvalDetails('notion_create_page', { title: 'Notes' })!.lines[0].value, 'Empty page')
   const row = approvalDetails('notion_add_row', { databaseId: 'db', properties: Array.from({ length: 10 }, (_, i) => ({ name: `P${i}`, type: 'rich_text', value: `v${i}` })) })!
   assert.equal(row.lines.length, 8)

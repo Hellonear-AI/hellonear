@@ -212,6 +212,15 @@ export function approvalDetails(tool: string, args: unknown, timeZone?: string):
         lines: [{ label: 'Length', value: `${(str(a.markdown) ?? '').length.toLocaleString('en')} characters` }],
         note: 'Creates a new Google Doc in your Drive. Nothing is shared.',
       }
+    // Adding to an existing Doc (#247): which Doc (its title as the Mind read it), where, and the text itself.
+    case 'googledocs_append_text': {
+      const text = str(a.text) ?? ''
+      return {
+        title: `Add to "${str(a.title) ?? 'a Google Doc'}"`,
+        lines: [{ label: 'Where', value: 'At the end' }, { label: 'Length', value: `${text.length.toLocaleString('en')} characters` }, { label: 'Text', value: clip(text) || 'Empty' }],
+        note: 'Adds this text at the end of your Google Doc. Nothing already in it changes. If the Doc has another title when you approve, nothing is added.',
+      }
+    }
     // Changing cells (#245): the cells now, as the Mind read them, and what replaces them, in the app's words.
     case 'googlesheets_update_cells': {
       const flat = (v: unknown) => (Array.isArray(v) ? v.flat().map((x) => (x === null || x === undefined || x === '' ? '(empty)' : String(x))).join(', ') : '')
