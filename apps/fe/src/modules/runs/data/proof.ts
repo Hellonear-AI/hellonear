@@ -30,7 +30,8 @@ export type AttestationProof = {
 
 export type Proof = { checkedAt: string; steps: StepProof[]; attestations: Record<string, AttestationProof> }
 
-export type RunProofs = { runId: string; proofs: { seq: number; model: string; level: string; proof: Proof }[] }
+/** `model` and `level` are null when a stored `run.verified` lacks them (the backend's `runProofs`; James on #259). */
+export type RunProofs = { runId: string; proofs: { seq: number; model: string | null; level: string | null; proof: Proof }[] }
 
 export const TEE_EXPLORER_URL = "https://proof.t16z.com"
 

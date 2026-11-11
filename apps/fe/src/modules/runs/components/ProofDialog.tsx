@@ -64,7 +64,7 @@ export function ProofDialog({ runId, open, onOpenChange }: { runId: string; open
   )
 }
 
-function ProofBody({ proof, model }: { proof: Proof; model: string }) {
+function ProofBody({ proof, model }: { proof: Proof; model: string | null }) {
   const steps = checkedSteps(proof)
   const attestations = Object.values(proof.attestations)
   const allMatch = steps.length > 0 && steps.every((s) => s.matches)
@@ -91,7 +91,7 @@ function ProofBody({ proof, model }: { proof: Proof; model: string }) {
           ))}
         </ul>
         <p className="text-xs text-muted-foreground">
-          Only hashes of the messages were signed, never the conversation. Model: {model.split("/").pop()}.
+          Only hashes of the messages were signed, never the conversation.{model ? ` Model: ${model.split("/").pop()}.` : ""}
         </p>
       </Section>
 
