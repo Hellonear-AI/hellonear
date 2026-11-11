@@ -124,8 +124,20 @@ export function GettingStarted({ mindId, onNavigate }: { mindId: string; onNavig
             </li>
           ))}
         </ol>
+        <div className="flex items-center justify-between gap-2 px-1 pt-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground"
+            onClick={() => {
+              setOpen(false)
+              setFlag("welcome", false)
+            }}
+          >
+            Watch the intro
+          </Button>
         {all && (
-          <div className="flex justify-end px-1 pt-2">
+          <div className="flex justify-end">
             <Button
               variant="ghost"
               size="sm"
@@ -139,6 +151,7 @@ export function GettingStarted({ mindId, onNavigate }: { mindId: string; onNavig
             </Button>
           </div>
         )}
+        </div>
       </PopoverContent>
     </Popover>
   )

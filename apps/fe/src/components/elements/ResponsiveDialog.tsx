@@ -20,6 +20,7 @@ export function ResponsiveDialog({
   description,
   children,
   footer,
+  top,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -28,6 +29,8 @@ export function ResponsiveDialog({
   description?: ReactNode
   children?: ReactNode
   footer?: ReactNode
+  /** Above the title, like an illustration. */
+  top?: ReactNode
 }) {
   const wide = useMediaQuery(MEDIA.md, true)
   const change = (next: boolean) => {
@@ -39,6 +42,7 @@ export function ResponsiveDialog({
     return (
       <Dialog open={open} onOpenChange={change} disablePointerDismissal={busy}>
         <DialogContent showCloseButton={!busy}>
+          {top}
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
             {description && <DialogDescription>{description}</DialogDescription>}
@@ -52,6 +56,7 @@ export function ResponsiveDialog({
   return (
     <Drawer open={open} onOpenChange={change} showSwipeHandle>
       <DrawerContent className="gap-4 px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        {top}
         <DrawerHeader className="p-0 text-left">
           <DrawerTitle>{title}</DrawerTitle>
           {description && <DrawerDescription>{description}</DrawerDescription>}

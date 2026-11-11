@@ -6,6 +6,7 @@ import { AppRail, AppSidebar } from "@/components/layout/AppSidebar"
 import { MobileHeader } from "@/components/layout/MobileHeader"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { readPref, writePref } from "@/lib/storage"
+import { Welcome } from "@/modules/onboarding/components/Welcome"
 
 const FOLD_KEY = "hellonear.sidebar.folded"
 
@@ -83,6 +84,7 @@ export function AppShell({ mindId, children }: { mindId: string; children: React
         </div>
         <main id="main-content" className="min-w-0 flex-1">
           {children}
+          <Welcome mindId={mindId} />
         </main>
       </div>
     </div>

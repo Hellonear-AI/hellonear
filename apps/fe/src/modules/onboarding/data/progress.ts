@@ -9,7 +9,8 @@ import { readPref, writePref } from "@/lib/storage"
 
 // "done": closed after every step was checked (it can't be hidden before: Ancung, 11 Nov, pressed
 // "Hide this" by accident). The older "hidden" key is no longer read.
-export type Flag = "live" | "attack" | "done"
+// "welcome": the introduction was seen (Welcome).
+export type Flag = "live" | "attack" | "done" | "welcome"
 
 const key = (flag: Flag) => `hellonear.onboarding.${flag}`
 const listeners = new Set<() => void>()
