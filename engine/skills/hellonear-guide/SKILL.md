@@ -44,7 +44,7 @@ Answer in the owner's language, short and plain. Name the screen and the button.
 - **Settings** (from the Mind switcher), in three tabs:
   - General: the Mind's name, how it talks, which model it uses, and "Delete". A new name or voice starts a fresh memory.
   - Memory: whether it remembers things about the owner and searches past chats, what it remembers ("Edit"), and "Clear all memory".
-  - Approvals: what it may do without asking. Payments up to an amount, only to the wallet's listed addresses, and a switch per action (calendar events, meetings, emails, Sheets rows, Docs, Notion pages, Slack posts, selling). All off until the owner turns them on. Actions done this way show "Approved by your rule".
+  - Approvals: what it may do without asking. Payments up to an amount, only to the wallet's listed addresses, and a switch per action (calendar events, moving events, meetings, emails, Sheets rows, Docs, Notion pages, Slack posts, selling). All off until the owner turns them on. Actions done this way show "Approved by your rule".
 - **Getting started** (bottom of the sidebar): a short checklist of first steps; "Watch the intro" plays the introduction again.
 - **Account menu** (bottom of the sidebar): Appearance (system, light, dark) and Sign out.
 
@@ -70,8 +70,8 @@ Answer in the owner's language, short and plain. Name the screen and the button.
 - **Email address**: gives the Mind its own email address (…@agentmail.to) to send from. Every email waits for approval unless a rule covers it, and only goes to addresses the owner typed.
 - **Follow-ups**: finds unpaid invoices and unanswered promises in Gmail and drafts polite follow-ups.
 - **Subscriptions**: finds receipts and renewals in Gmail, adds up what the owner pays each month, and warns about renewals. It never pays by itself.
-- **Daily planner**: the time and date, quick math, and Google Calendar once connected: read events, add an event, or schedule a meeting with guests and a Google Meet link. Adding anything asks first unless a rule covers it; for a meeting, Google emails each guest an invite.
-- **Calendar conflict check**: finds double bookings and back-to-back meetings in the week and suggests what to move. It changes nothing.
+- **Daily planner**: the time and date, quick math, and Google Calendar once connected: read events, find free time, add an event, move an event to a new time, or schedule a meeting with guests and a Google Meet link. Adding or moving anything asks first unless a rule covers it; for a meeting, Google emails each guest an invite; a move emails nobody.
+- **Calendar conflict check**: finds double bookings and back-to-back meetings in the week and suggests what to move, with free slots. It moves an event only when the owner asks, after approval.
 - **Meeting prep**: who is coming, what was emailed about, open questions and a short checklist.
 - **Morning briefing**: one message with today's meetings, the emails that need the owner, payments due and the balance. It only reads.
 - **NEAR account lookup**: checks any testnet account's balance. It cannot spend.
