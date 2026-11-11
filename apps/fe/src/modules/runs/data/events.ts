@@ -17,7 +17,9 @@ export type RunEvent = {
   result?: unknown
   status?: string
   error?: unknown
-  verification?: { status: string; level?: string }
+  verification?: { status: string; level?: string; completionIds?: string[] }
+  /** On run.verified: the model whose steps were checked. */
+  model?: string
   /** `"rule"` on a `tool.called` the owner's auto-approve rule let run without an approval (#167). */
   approvedBy?: string
 }
@@ -68,6 +70,8 @@ export type RunView = {
   status: RunStatus
   /** "gateway_tee" or "model_tee" when every model step was verified; null for no badge (§3). */
   verified: "gateway_tee" | "model_tee" | null
+  /** What was checked for that badge: the model and each step's completion id (run.verified, §3). */
+  proof?: { model: string | null; completionIds: string[] }
   error: string | null
   /** The model is reasoning right now (its last output was reasoning, not text or a tool). */
   thinking: boolean
@@ -217,6 +221,7 @@ export function foldRun(events: RunEvent[]): RunView {
       case "run.verified": {
         const v = e.verification
         view.verified = v?.status === "verified" && (v.level === "gateway_tee" || v.level === "model_tee") ? v.level : null
+        if (view.verified) view.proof = { model: e.model ?? null, completionIds: Array.isArray(v?.completionIds) ? v.completionIds : [] }
         view.status = "finished"
         break
       }

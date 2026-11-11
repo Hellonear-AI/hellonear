@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { clockTime } from "@/lib/format"
 import { paymentOf, type ReplyPart, type RunView, type ToolStep } from "@/modules/runs/data/events"
 import { ReplyText } from "@/modules/runs/components/ReplyText"
+import { VerifiedBadge } from "@/modules/runs/components/VerifiedBadge"
 import { ApprovalCard, PaymentFailed, PaymentReceipt, PaymentRefused } from "@/modules/chat/components/RunCards"
 import { StepRow, StepsSummary, ThoughtRow } from "@/modules/runs/components/ReplySteps"
 import { summaryLabel } from "@/modules/runs/data/steps"
@@ -143,7 +144,7 @@ export function TurnView({
           {working && <Working name={name} />}
           {!live && view.text && (
             <div className="flex flex-wrap items-center gap-2">
-              {view.verified && <VerifiedBadge level={view.verified} />}
+              {view.verified && <VerifiedBadge level={view.verified} proof={view.proof} />}
               {view.at && <span className="text-xs text-muted-foreground">{clockTime(view.at)}</span>}
               {/* Actions under a finished reply, like Claude (Ancung, 10 Nov). */}
               <span className="flex items-center gap-0.5">
@@ -200,10 +201,3 @@ function FailedReply({ name, error, canRetry, onRetry }: { name: string; error: 
   )
 }
 
-function VerifiedBadge({ level }: { level: "gateway_tee" | "model_tee" }) {
-  return (
-    <Badge variant="verified" className="animate-in fade-in-0 duration-200 motion-reduce:animate-none">
-      {level === "model_tee" ? "Verified private (model TEE)" : "Verified via NEAR AI TEE gateway"}
-    </Badge>
-  )
-}
