@@ -1,12 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { ComponentType } from "react";
+import { GmailLogo, GoogleCalendarLogo, GoogleDocsLogo, GoogleDriveLogo, GoogleMeetLogo, GoogleSheetsLogo, NotionLogo, OutlookLogo, SlackLogo, ZoomLogo } from "./AppLogos";
 
 // "Watch your Mind think": a world of Minds drawn like Obsidian's graph view. Penny's graph sits in
 // the middle (its skills, the tools and apps they reach, its memory and wallet, as in Ancung's app
 // live view, PR #154) and dozens of other Minds float around it, each a hub with its skills and many
-// small bubbles. One calm colour for every node; lime is the only accent, for what Penny is doing and
-// for the bubble under the cursor and its links.
+// small bubbles. Drawn like the app's live view now (Ancung, apps/fe graph/MindGraph.tsx, 11 Nov):
+// each kind its own colour (skills lime, tools blue, wallet amber, memory teal), apps as dark
+// bubbles with their own logos, quiet grey lines, Penny's work in blue (amber while it waits on
+// the owner), and under the cursor a magnet that leans nearby bubbles toward it and a lime torch on
+// the lines. Zooming out stops at 40% (the app stops at 35%), so the world never shrinks
+// to a speck.
 //
 // One physics world for every node (springs along the links, a soft push between neighbours, and
 // collisions on a grid, so it stays fast with ~1,500 nodes): drag a bubble into another Mind's graph
@@ -15,16 +21,41 @@ import { useEffect, useRef, useState } from "react";
 // Penny plays a scripted run (paying the internet bill) while in view. Reduced motion: still.
 
 type Kind = "mind" | "skill" | "leaf";
-type N = { x: number; y: number; vx: number; vy: number; r: number; m: number; kind: Kind; label: string; c: number; hx: number; hy: number; pinned: boolean };
+/** What a bubble is, for drawing (the physics only knows `kind`). */
+type Tone = "mind" | "skill" | "tool" | "app" | "wallet" | "memory";
+type N = { x: number; y: number; vx: number; vy: number; r: number; m: number; kind: Kind; tone: Tone; app?: string; label: string; c: number; hx: number; hy: number; pinned: boolean };
 type L = { a: number; b: number; rest: number };
 
-// One tone (the brand's lime) at three strengths, and white for what is lit.
-const SKILL = "#D8F04A";
-const LEAF = "#93A63A";
-const LINE = "rgba(216,240,74,0.15)";
-const LIME = "#FFFFFF";
+// The app's node colours (apps/fe styles/globals.css `--node-*`, dark theme), on the night.
+const FILL: Record<Exclude<Tone, "mind">, string> = { skill: "#D8F04A", tool: "#4C7DF0", app: "#161B2E", wallet: "#F0A93C", memory: "#2FB5A3" };
+const LINE = "rgba(166,163,155,0.2)";
+const APP_RING = "rgba(242,241,236,0.22)";
+const LIME = "#D8F04A";
+/** Penny's work: blue while running (the app's `--info`), amber while it waits on the owner. */
+const INFO = "#6E9BFF";
 const AVATARS = ["/minds/payments-mind.webp", "/minds/general-assistant.webp", "/minds/email-manager.webp"];
-const AMBER = "#F0B43C";
+const AMBER = "#F0A93C";
+// The cursor's magnet and torch, as in the app: bubbles within 120 screen px lean toward it (up to
+// a third of the way, at most 8 units), and the lines within 90 px catch a lime light.
+const MAGNET_REACH = 120;
+const ZOOM_MAX = 3;
+const MAGNET_PULL = 0.35;
+const MAGNET_MAX = 8;
+const TORCH = 90;
+/** The app logos, drawn inside app bubbles (rendered hidden, then turned into images). */
+const APPS: Record<string, [ComponentType<{ className?: string }>, string]> = {
+  gmail: [GmailLogo, "Gmail"],
+  gcal: [GoogleCalendarLogo, "Google Calendar"],
+  gmeet: [GoogleMeetLogo, "Google Meet"],
+  sheets: [GoogleSheetsLogo, "Google Sheets"],
+  docs: [GoogleDocsLogo, "Google Docs"],
+  drive: [GoogleDriveLogo, "Google Drive"],
+  notion: [NotionLogo, "Notion"],
+  slack: [SlackLogo, "Slack"],
+  zoom: [ZoomLogo, "Zoom"],
+  outlook: [OutlookLogo, "Outlook"],
+};
+const APP_KEYS = Object.keys(APPS);
 /** What the rest of the world keeps while one bubble is hovered or picked: 20% darker. */
 const DIM = 0.8;
 
@@ -55,6 +86,14 @@ const ABOUT: Record<string, string> = {
   Clock: "Knows the time in your time zone.",
   Websites: "Opens a web page to read it.",
   "Skill search": "Finds a skill for something new.",
+  Sheets: "Reads a sheet and adds rows, after you approve.",
+  "Google Sheets": "Your spreadsheets.",
+  Notion: "Your Notion pages and databases.",
+  "Google Docs": "Your documents.",
+  "Google Drive": "Your files.",
+  Slack: "Posts in your Slack channels, after you approve.",
+  Zoom: "Creates Zoom meetings.",
+  Outlook: "Your Outlook inbox.",
 };
 export type Picked = { title: string; kind: string; about: string };
 const NIGHT = "#0a0d1c";
@@ -66,26 +105,30 @@ function rng(seed: number) {
 
 // ---- The world --------------------------------------------------------------------------------
 
-const PENNY: [string, Kind, string?][] = [
+// [label, physics kind, parent, tone, app logo]
+const PENNY: [string, Kind, string?, Tone?, string?][] = [
   ["Penny", "mind"],
   ["Daily planner", "skill", "Penny"],
-  ["Google Calendar", "leaf", "Daily planner"],
-  ["Google Meet", "leaf", "Daily planner"],
-  ["Calculator", "leaf", "Daily planner"],
+  ["Google Calendar", "leaf", "Daily planner", "app", "gcal"],
+  ["Google Meet", "leaf", "Daily planner", "app", "gmeet"],
+  ["Calculator", "leaf", "Daily planner", "tool"],
   ["Email helper", "skill", "Penny"],
-  ["Gmail", "leaf", "Email helper"],
+  ["Gmail", "leaf", "Email helper", "app", "gmail"],
   ["Email address", "skill", "Penny"],
-  ["Penny's email", "leaf", "Email address"],
-  ["Memory", "skill", "Penny"],
+  ["Penny's email", "leaf", "Email address", "tool"],
+  ["Memory", "skill", "Penny", "memory"],
   ["Payments", "skill", "Penny"],
-  ["Wallet", "leaf", "Payments"],
-  ["NEAR lookup", "leaf", "Payments"],
-  ["Clock", "leaf", "Payments"],
+  ["Wallet", "leaf", "Payments", "wallet"],
+  ["NEAR lookup", "leaf", "Payments", "tool"],
+  ["Clock", "leaf", "Payments", "tool"],
+  ["Sheets", "skill", "Penny"],
+  ["Google Sheets", "leaf", "Sheets", "app", "sheets"],
   ["NEAR account lookup", "skill", "Penny"],
   ["Other apps", "skill", "Penny"],
-  ["Websites", "leaf", "Other apps"],
+  ["Websites", "leaf", "Other apps", "tool"],
+  ["Notion", "leaf", "Other apps", "app", "notion"],
   ["Wallet watch", "skill", "Penny"],
-  ["Skill search", "leaf", "Penny"],
+  ["Skill search", "leaf", "Penny", "tool"],
 ];
 // Penny's run: which nodes are at work in each step (by label), and whether it waits on the owner.
 const RUN: { on: string[]; trail: string[]; wait?: boolean }[] = [
@@ -117,12 +160,15 @@ function buildWorld(COUNT: number) {
 
   // Penny, in the middle.
   const ids = new Map<string, number>();
-  PENNY.forEach(([label, kind, parent], i) => {
+  PENNY.forEach(([label, kind, parent, tone, app], i) => {
     const p = parent ? nodes[ids.get(parent)!] : null;
     const pos = p ? ring(p.x, p.y, i, 30, kind === "skill" ? 120 : 50) : { x: 0, y: 0 };
-    const id = add({ ...pos, r: kind === "mind" ? 18 : kind === "skill" ? 8 : 6, kind, label, c: 0, hx: 0, hy: 0 });
+    const t: Tone = tone ?? (kind === "mind" ? "mind" : "skill");
+    // sizes after the app's (Mind 26, app 13, wallet 12, skill 11, memory 9, tool 7), scaled down
+    const r = { mind: 18, skill: 8, app: 9, wallet: 8.5, memory: 7, tool: 5 }[t];
+    const id = add({ ...pos, r, kind, tone: t, app, label, c: 0, hx: 0, hy: 0 });
     ids.set(label, id);
-    if (parent) links.push({ a: ids.get(parent)!, b: id, rest: kind === "skill" ? 170 : 85 });
+    if (parent) links.push({ a: ids.get(parent)!, b: id, rest: kind === "skill" ? 200 : 95 });
   });
 
   // The other Minds, packed around Penny on a sunflower (gravity pulls them together into one
@@ -133,11 +179,11 @@ function buildWorld(COUNT: number) {
     const hx = Math.cos(a) * d * 1.15;
     const hy = Math.sin(a) * d * 0.95;
     const big = r() < 0.12;
-    const hub = add({ x: hx, y: hy, r: big ? 11 : 7 + r() * 3, kind: "mind", label: NAMES[k % NAMES.length], c: k, hx, hy });
+    const hub = add({ x: hx, y: hy, r: big ? 11 : 7 + r() * 3, kind: "mind", tone: "mind", label: NAMES[k % NAMES.length], c: k, hx, hy });
     const skills = [...SKILLS].sort(() => r() - 0.5).slice(0, 2 + Math.floor(r() * 4));
     const skillIds = skills.map((label, i) => {
       const pos = ring(hx, hy, i, 18, 40);
-      const id = add({ ...pos, r: 4.5, kind: "skill", label, c: k, hx, hy });
+      const id = add({ ...pos, r: 4.5, kind: "skill", tone: "skill", label, c: k, hx, hy });
       links.push({ a: hub, b: id, rest: 60 });
       return id;
     });
@@ -148,7 +194,11 @@ function buildWorld(COUNT: number) {
       const parent = onHub ? hub : skillIds[Math.floor(r() * skillIds.length)];
       const p = nodes[parent];
       const pos = ring(p.x, p.y, j, 9, 22);
-      const id = add({ ...pos, r: 2.4, kind: "leaf", label: "", c: k, hx, hy });
+      // on the Mind: its memories and tool calls; on a skill: tools, now and then an app or a wallet
+      const roll = r();
+      const tone: Tone = onHub ? (roll < 0.35 ? "memory" : "tool") : roll < 0.14 ? "app" : roll < 0.2 ? "wallet" : "tool";
+      const app = tone === "app" ? APP_KEYS[Math.floor(r() * APP_KEYS.length)] : undefined;
+      const id = add({ ...pos, r: tone === "app" ? 4 : tone === "wallet" ? 3.4 : 2.4, kind: "leaf", tone, app, label: app ? APPS[app][1] : "", c: k, hx, hy });
       links.push({ a: parent, b: id, rest: onHub ? 40 + r() * (big ? 110 : 60) : 22 + r() * 18 });
     }
   }
@@ -208,10 +258,10 @@ function tick(nodes: N[], links: L[], alpha: number) {
             d = Math.hypot(dx, dy);
           }
           // a soft push that spreads bubbles out, stronger between different Minds
-          const push = ((p.c === q.c ? (p.c === 0 ? 400 : 26) : 60) / (d * d + 30)) * alpha;
+          const push = ((p.c === q.c ? (p.c === 0 ? 900 : 26) : 60) / (d * d + 30)) * alpha;
           // and a hard push when they touch
           // Penny's bubbles keep room for their labels
-          const min = p.r + q.r + (p.c === 0 || q.c === 0 ? 46 : p.kind === "leaf" && q.kind === "leaf" ? 5 : 12);
+          const min = p.r + q.r + (p.c === 0 && q.c === 0 ? 62 : p.c === 0 || q.c === 0 ? 46 : p.kind === "leaf" && q.kind === "leaf" ? 5 : 12);
           const hard = d < min ? (min - d) * 0.5 : 0;
           const f = push + hard;
           const wp = q.m / (p.m + q.m);
@@ -234,7 +284,35 @@ function tick(nodes: N[], links: L[], alpha: number) {
     n.x += n.vx;
     n.y += n.vy;
   }
+  // Penny's bubbles always show their labels, so each bubble with its label is a box, and boxes
+  // that overlap are pushed apart along the shorter overlap (as in the app's sim.ts). Labels keep
+  // their size on screen, so their size in the world depends on the zoom Penny is first seen at.
+  const k = LABEL_K;
+  const half = (n: N) => Math.max(n.r, (n.label.length * 6.2 + 8) / k / 2) + 4 / k;
+  const hh = (n: N) => n.r + 9 / k;
+  const cy = (n: N) => n.y + 8 / k;
+  const shove = Math.min(1, alpha * 6) * 0.5;
+  for (let i = 0; i < PENNY.length; i++)
+    for (let j = i + 1; j < PENNY.length; j++) {
+      const p = nodes[i];
+      const q = nodes[j];
+      const ox = half(p) + half(q) - Math.abs(q.x - p.x);
+      const oy = hh(p) + hh(q) - Math.abs(cy(q) - cy(p));
+      if (ox <= 0 || oy <= 0) continue;
+      const mx = ox < oy ? (ox / 2) * shove * (q.x >= p.x ? 1 : -1) : 0;
+      const my = ox < oy ? 0 : (oy / 2) * shove * (cy(q) >= cy(p) ? 1 : -1);
+      if (!p.pinned) {
+        p.x -= mx;
+        p.y -= my;
+      }
+      if (!q.pinned) {
+        q.x += mx;
+        q.y += my;
+      }
+    }
 }
+/** The zoom Penny is first seen at (set by the component), for the size of its labels. */
+let LABEL_K = 0.72;
 
 export function MindGraph() {
   const wrap = useRef<HTMLDivElement>(null);
@@ -249,6 +327,7 @@ export function MindGraph() {
   }, [explore]);
   const [picked, setPicked] = useState<Picked | null>(null);
   const card = useRef<HTMLDivElement>(null);
+  const logoBox = useRef<HTMLDivElement>(null);
   const pickRef = useRef<(i: number) => void>(() => {});
   const run = useRef({ on: new Map<number, { at: number; wait: boolean }>(), trail: new Set<number>(), running: false });
 
@@ -295,7 +374,8 @@ export function MindGraph() {
     let size = { w: 0, h: 0, dpr: 1 };
     const view = { x: 0, y: 0, k: 1 };
     // phones start closer in on Penny, so its labels have room
-    const homeK = () => (phone ? 0.55 : Math.max(0.35, Math.min(0.8, (size.w / 1500) * 0.75)));
+    const zoomMin = 0.4;
+    const homeK = () => (phone ? 0.55 : Math.max(zoomMin, Math.min(0.8, (size.w / 1500) * 0.75)));
     const reset = () => {
       view.k = homeK();
       view.x = 0;
@@ -311,6 +391,7 @@ export function MindGraph() {
     };
     resize();
     reset();
+    LABEL_K = view.k;
     const ro = new ResizeObserver(resize);
     ro.observe(box);
     let visible = false;
@@ -325,7 +406,7 @@ export function MindGraph() {
     nearIo.observe(box);
 
     const zoomAt = (px: number, py: number, f: number) => {
-      const k = Math.min(4, Math.max(0.12, view.k * f));
+      const k = Math.min(ZOOM_MAX, Math.max(zoomMin, view.k * f));
       const wx = (px - size.w / 2 - view.x) / view.k;
       const wy = (py - size.h / 2 - view.y) / view.k;
       view.k = k;
@@ -351,6 +432,22 @@ export function MindGraph() {
 
     let hover = -1;
     let selected = -1;
+    // the cursor in canvas pixels (for the magnet and the torch), and each bubble's lean
+    let torch: { x: number; y: number } | null = null;
+    const magnet = new Map<number, { x: number; y: number }>();
+    // the app logos as images the canvas can draw, from the hidden logos below the canvas
+    const logos = new Map<string, HTMLImageElement>();
+    logoBox.current?.querySelectorAll<HTMLElement>("[data-app]").forEach((el) => {
+      const svg = el.querySelector("svg");
+      if (!svg) return;
+      const c = svg.cloneNode(true) as SVGSVGElement;
+      c.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      c.setAttribute("width", "64");
+      c.setAttribute("height", "64");
+      const im = new Image();
+      im.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(c.outerHTML)}`;
+      logos.set(el.dataset.app!, im);
+    });
     const hubOf = new Map<number, number>();
     nodes.forEach((n, i) => {
       if (n.kind === "mind") hubOf.set(n.c, i);
@@ -366,9 +463,11 @@ export function MindGraph() {
           about: n.c === 0 ? "A Payments Mind. Pays your bills inside your limits and asks you first." : `A Mind with ${skills.length} skills: ${skills.join(", ")}.`,
         };
       }
-      if (n.kind === "skill") return { title: n.label, kind: `Skill · ${mind}`, about: ABOUT[n.label] ?? "A skill this Mind uses." };
-      if (n.label) return { title: n.label, kind: `Tool · ${mind}`, about: ABOUT[n.label] ?? "A tool this Mind can use." };
-      return { title: "A memory", kind: mind, about: `Something ${mind} learned or did for its owner.` };
+      if (n.tone === "skill") return { title: n.label, kind: `Skill · ${mind}`, about: ABOUT[n.label] ?? "A skill this Mind uses." };
+      if (n.tone === "app") return { title: n.label, kind: `App · ${mind}`, about: ABOUT[n.label] ?? "An app this Mind can use." };
+      if (n.tone === "wallet") return { title: n.label || "Wallet", kind: `Wallet · ${mind}`, about: ABOUT[n.label] ?? `${mind}'s NEAR wallet, inside the limits its owner set.` };
+      if (n.tone === "memory") return { title: n.label || "A memory", kind: `Memory · ${mind}`, about: ABOUT[n.label] ?? `Something ${mind} learned or did for its owner.` };
+      return { title: n.label || "A tool call", kind: `Tool · ${mind}`, about: ABOUT[n.label] ?? `A tool ${mind} used for its owner.` };
     };
     pickRef.current = (i: number) => {
       selected = i;
@@ -386,6 +485,37 @@ export function MindGraph() {
       }
       const { w, h, dpr } = size;
       const k = view.k;
+      // The magnet: bubbles near the cursor lean toward it and ease back when it leaves. Drawn
+      // only: the offsets are added here and taken off again after drawing.
+      const tp = torch && !drag ? toWorld(torch.x, torch.y) : null;
+      const field = MAGNET_REACH / k;
+      if (!still) {
+        for (const [i, o] of magnet) {
+          o.x *= 0.8;
+          o.y *= 0.8;
+          if (Math.abs(o.x) < 0.01 && Math.abs(o.y) < 0.01) magnet.delete(i);
+        }
+        if (tp)
+          nodes.forEach((n, i) => {
+            const dx = tp.x - n.x;
+            const dy = tp.y - n.y;
+            if (Math.abs(dx) > field || Math.abs(dy) > field) return;
+            const away = Math.hypot(dx, dy);
+            if (away >= field) return;
+            const pull = MAGNET_PULL * (1 - away / field) ** 2;
+            const d = Math.hypot(dx * pull, dy * pull);
+            const m = d > MAGNET_MAX ? MAGNET_MAX / d : 1;
+            const o = magnet.get(i) ?? { x: 0, y: 0 };
+            // ease toward the pull (the decay above already took 20% off)
+            o.x += dx * pull * m * 0.2;
+            o.y += dy * pull * m * 0.2;
+            magnet.set(i, o);
+          });
+        for (const [i, o] of magnet) {
+          nodes[i].x += o.x;
+          nodes[i].y += o.y;
+        }
+      }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
       ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * (w / 2 + view.x), dpr * (h / 2 + view.y));
@@ -415,7 +545,7 @@ export function MindGraph() {
         for (let i = 0; i < p.length - 1; i++) trailLinks.add(`${p[i]}>${p[i + 1]}`);
       }
 
-      // Lines: all the quiet ones in one path, then the lit ones.
+      // Lines: all the quiet ones in one grey path, then the lit ones.
       ctx.lineWidth = 1 / k;
       ctx.strokeStyle = LINE;
       ctx.globalAlpha = focus ? DIM : 1;
@@ -438,24 +568,51 @@ export function MindGraph() {
         const a = nodes[l.a];
         const b = nodes[l.b];
         const hot = focus && (l.a === lead || l.b === lead);
-        ctx.strokeStyle = LIME;
-        ctx.globalAlpha = hot ? 0.9 : R.running ? 0.75 : 0.45;
-        ctx.lineWidth = (hot ? 1.6 : 1.8) / k;
+        const w = R.on.get(l.b);
+        ctx.strokeStyle = hot ? "#F2F1EC" : w?.wait ? AMBER : INFO;
+        ctx.globalAlpha = hot ? 0.85 : R.running ? 0.9 : 0.55;
+        ctx.lineWidth = (hot ? 1.6 : 2) / k;
         ctx.beginPath();
         ctx.moveTo(a.x, a.y);
         ctx.lineTo(b.x, b.y);
         ctx.stroke();
       }
+      // The torch: the lines near the cursor catch a lime light that fades with distance.
+      if (tp && !still) {
+        const reach = TORCH / k;
+        const g = ctx.createRadialGradient(tp.x, tp.y, 0, tp.x, tp.y, reach);
+        g.addColorStop(0, LIME);
+        g.addColorStop(1, `${LIME}00`);
+        ctx.save();
+        ctx.strokeStyle = g;
+        ctx.lineWidth = 2 / k;
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        for (const l of links) {
+          const a = nodes[l.a];
+          const b = nodes[l.b];
+          // only lines whose box comes within reach, then the exact distance
+          if (Math.min(a.x, b.x) > tp.x + reach || Math.max(a.x, b.x) < tp.x - reach || Math.min(a.y, b.y) > tp.y + reach || Math.max(a.y, b.y) < tp.y - reach) continue;
+          const ex = b.x - a.x;
+          const ey = b.y - a.y;
+          const t = Math.max(0, Math.min(1, ((tp.x - a.x) * ex + (tp.y - a.y) * ey) / (ex * ex + ey * ey || 1)));
+          if (Math.hypot(tp.x - (a.x + ex * t), tp.y - (a.y + ey * t)) > reach) continue;
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
       // dots running from Penny to the node at work
       if (!still)
-        for (const [id, s] of R.on) {
+        for (const [id, st] of R.on) {
           const p = pathTo(id);
-          ctx.fillStyle = s.wait ? AMBER : LIME;
+          ctx.fillStyle = st.wait ? AMBER : INFO;
           for (let i = 0; i < p.length - 1; i++) {
             const a = nodes[p[i]];
             const b = nodes[p[i + 1]];
             for (let j = 0; j < 3; j++) {
-              const q = (now / (s.wait ? 1800 : 900) + j / 3 + i * 0.17) % 1;
+              const q = (now / (st.wait ? 1800 : 900) + j / 3 + i * 0.17) % 1;
               ctx.globalAlpha = Math.sin(q * Math.PI);
               ctx.beginPath();
               ctx.arc(a.x + (b.x - a.x) * q, a.y + (b.y - a.y) * q, 2.2 / k, 0, Math.PI * 2);
@@ -465,15 +622,17 @@ export function MindGraph() {
         }
       ctx.globalAlpha = 1;
 
-      // Bubbles: the quiet ones in one path per tone, then the lit ones, then the Minds.
-      ctx.globalAlpha = focus ? DIM : 1;
+      // Bubbles: one path per colour for the quiet ones, then the apps with their logos, then the
+      // lit ones, then the Minds.
       const hot: number[] = [];
-      for (const kind of ["leaf", "skill"] as const) {
-        ctx.fillStyle = kind === "skill" ? SKILL : LEAF;
+      const apps: number[] = [];
+      for (const tone of ["tool", "memory", "wallet", "skill"] as const) {
+        ctx.globalAlpha = focus ? DIM : 1;
+        ctx.fillStyle = FILL[tone];
         ctx.beginPath();
         nodes.forEach((n, i) => {
-          if (n.kind !== kind || !seen(n)) return;
-          if ((focus && focus.has(i)) || R.on.has(i) || R.trail.has(i)) {
+          if (n.tone !== tone || !seen(n)) return;
+          if ((focus && focus.has(i)) || R.on.has(i)) {
             hot.push(i);
             return;
           }
@@ -484,13 +643,40 @@ export function MindGraph() {
         });
         ctx.fill();
       }
+      nodes.forEach((n, i) => {
+        if (n.tone === "app" && seen(n)) apps.push(i);
+      });
+      for (const i of apps) {
+        const n = nodes[i];
+        const r = Math.max(n.r, 1.2 / k);
+        ctx.globalAlpha = focus && !focus.has(i) ? DIM : 1;
+        ctx.fillStyle = FILL.app;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = (focus && focus.has(i)) || R.on.has(i) ? "#F2F1EC" : APP_RING;
+        ctx.lineWidth = 1 / k;
+        ctx.stroke();
+        const img = n.app ? logos.get(n.app) : undefined;
+        if (img?.complete && img.naturalWidth && r * k > 4) {
+          const s2 = r * 1.15;
+          ctx.drawImage(img, n.x - s2 / 2, n.y - s2 / 2, s2, s2);
+        }
+      }
       ctx.globalAlpha = 1;
       for (const i of hot) {
         const n = nodes[i];
-        const s = R.on.get(i);
-        if (s && !still) {
-          const loop = s.wait ? 0.5 + 0.5 * Math.sin(now / 400) : ((now - s.at) % 1200) / 1200;
-          ctx.strokeStyle = s.wait ? AMBER : LIME;
+        const st = R.on.get(i);
+        if (st && !still) {
+          // a soft halo, then a ring that grows and fades
+          const loop = st.wait ? 0.5 + 0.5 * Math.sin(now / 400) : ((now - st.at) % 1200) / 1200;
+          const c = st.wait ? AMBER : INFO;
+          ctx.fillStyle = c;
+          ctx.globalAlpha = 0.18;
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, n.r + 7, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = c;
           ctx.lineWidth = 1.6 / k;
           ctx.globalAlpha = 0.8 * (1 - loop);
           ctx.beginPath();
@@ -498,11 +684,29 @@ export function MindGraph() {
           ctx.stroke();
           ctx.globalAlpha = 1;
         }
-        ctx.fillStyle = s?.wait ? AMBER : LIME;
+        if (n.tone === "app") continue;
+        ctx.fillStyle = FILL[n.tone as Exclude<Tone, "mind">];
         ctx.beginPath();
         ctx.arc(n.x, n.y, Math.max(n.r, 0.9 / k), 0, Math.PI * 2);
         ctx.fill();
+        if (focus && focus.has(i)) {
+          ctx.strokeStyle = "#F2F1EC";
+          ctx.lineWidth = 1.4 / k;
+          ctx.stroke();
+        }
       }
+      // Penny's trail: a thin blue ring around what this run used
+      ctx.strokeStyle = INFO;
+      ctx.lineWidth = 1.4 / k;
+      ctx.globalAlpha = R.running ? 0.9 : 0.55;
+      for (const i of R.trail) {
+        if (R.on.has(i)) continue;
+        const n = nodes[i];
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.r + 3 / k, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
       // The Minds, as in Ancung's app: the profile picture in a circle with a light ring.
       nodes.forEach((n, i) => {
         if (n.kind !== "mind" || !seen(n)) return;
@@ -542,17 +746,21 @@ export function MindGraph() {
               ? smooth(mine ? 0.15 : 0.45, mine ? 0.3 : 0.75, k)
               : smooth(mine ? 0.3 : 1.1, mine ? 0.5 : 1.5, k);
         if (a <= 0.01) return;
-        const px = (n.kind === "mind" ? (mine ? 14 : 12) : 11) / k;
+        const px = (n.kind === "mind" ? (mine ? 14 : 12) : n.tone === "tool" ? 10 : 11) / k;
         ctx.font = `${n.kind === "mind" ? 600 : 500} ${px}px ${font}`;
         ctx.globalAlpha = a * (focus && !focus.has(i) ? DIM : 1);
         ctx.strokeStyle = NIGHT;
         ctx.lineWidth = 4 / k;
         const y = n.y + n.r + 4 / k;
         ctx.strokeText(n.label, n.x, y);
-        ctx.fillStyle = n.kind === "mind" || i === hover ? "#F2F1EC" : "#A6A39B";
+        ctx.fillStyle = n.kind === "mind" || i === hover ? "#F2F1EC" : n.tone === "tool" ? "#8E8B83" : "#A6A39B";
         ctx.fillText(n.label, n.x, y);
       });
       ctx.globalAlpha = 1;
+      for (const [i, o] of magnet) {
+        nodes[i].x -= o.x;
+        nodes[i].y -= o.y;
+      }
     };
 
     let frame = 0;
@@ -657,6 +865,7 @@ export function MindGraph() {
           return;
         }
       }
+      if (e.pointerType !== "touch") torch = p;
       if (!drag) {
         hover = hit(p.x, p.y);
         cv.style.cursor = hover >= 0 ? "grab" : "default";
@@ -703,6 +912,7 @@ export function MindGraph() {
     };
     window.addEventListener("keydown", esc);
     const leave = () => {
+      torch = null;
       if (!drag) hover = -1;
     };
     const wheel = (e: WheelEvent) => {
@@ -745,6 +955,14 @@ export function MindGraph() {
         aria-label="Penny's Mind Graph among dozens of other Minds, each with its skills, tools and memories. Penny's nodes light up as it pays a bill."
         className={`graph-fade absolute inset-0 size-full ${explore ? "touch-none" : "touch-pan-y"}`}
       />
+      {/* The app logos, hidden: turned into images for the canvas. */}
+      <div ref={logoBox} hidden aria-hidden="true">
+        {Object.entries(APPS).map(([key, [Logo]]) => (
+          <span key={key} data-app={key}>
+            <Logo />
+          </span>
+        ))}
+      </div>
       {/* A small card for the picked bubble; it follows the bubble. */}
       <div ref={card} className="pointer-events-none absolute left-0 top-0" aria-live="polite">
         {picked && (
