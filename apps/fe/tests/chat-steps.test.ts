@@ -129,3 +129,15 @@ describe("streamed replies show whole words (11 Nov)", () => {
     expect(wordEnd(text, 99)).toBe(text.length)
   })
 })
+
+describe("splitBlocks (streaming renders block by block)", () => {
+  it("cuts at blank lines, never inside a code fence", async () => {
+    const { splitBlocks } = await import("@/modules/runs/components/ReplyText")
+    expect(splitBlocks("Hi.\n\n- one\n- two\n\nDone.")).toEqual(["Hi.", "- one\n- two", "Done."])
+    expect(splitBlocks("Code:\n\n```ts\nconst a = 1\n\nconst b = 2\n```\n\nAfter.")).toEqual(["Code:", "```ts\nconst a = 1\n\nconst b = 2\n```", "After."])
+    // A half-streamed fence stays one block, and joining the blocks gives the text back.
+    const text = "A\n\n```\nx\n\ny"
+    expect(splitBlocks(text)).toEqual(["A", "```\nx\n\ny"])
+    expect(splitBlocks("One line")).toEqual(["One line"])
+  })
+})
