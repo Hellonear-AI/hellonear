@@ -51,6 +51,8 @@ const attackRunSchema = z.object({ timeZone: timeZoneSchema.optional() })
 const attackIdSchema = z.string().regex(/^[a-z0-9-]{1,40}$/)
 type Attack = { attackId: string; title: string; templateId: string; skills: string[]; message: string }
 const runSchema = runWorkflowSchema.extend({ timeZone: timeZoneSchema.optional() })
+// The owner's edit of what a Mind remembers (#209); the engine has the same 20,000-character cap.
+const memoryWriteSchema = z.object({ markdown: z.string().max(20_000) })
 const timeZoneOf = (body: { timeZone?: string }) => (body.timeZone ? { timeZone: body.timeZone } : {})
 const attackOf = (attackId: string | null) => (attackId ? { attackId } : {})
 
@@ -426,6 +428,18 @@ export const server = createServer(async (req, res) => {
         return sendJson(res, created ? 201 : 200, { inbox: { email: inbox.email, shared: false } })
       }
       if (sub === '/mail/sent' && req.method === 'GET') return sendJson(res, 200, { sends: await listSends(mind.id, limitOf(url, 20, 100)) })
+
+      // What the Mind remembers about its owner (#209): the engine's working memory for the current persona version.
+      // Try-out users may read it but not change it.
+      if (sub === '/memory') {
+        const key = { userId: user.id, ...(mind.personaVersion > 0 ? { personaVersion: mind.personaVersion } : {}) }
+        const path = `/v1/minds/${encodeURIComponent(mind.id)}/memory`
+        if (req.method === 'GET') return passthrough(res, await engineJson(`${path}?${new URLSearchParams({ userId: user.id, ...(mind.personaVersion > 0 ? { personaVersion: String(mind.personaVersion) } : {}) })}`))
+        if (req.method === 'PUT' || req.method === 'DELETE') denyDemo(user, 'edit_memory')
+        if (req.method === 'PUT') return passthrough(res, await engineJson(path, { method: 'PUT', body: { ...key, markdown: (await readBody(req, memoryWriteSchema)).markdown } }))
+        if (req.method === 'DELETE') return passthrough(res, await engineJson(path, { method: 'DELETE', body: key }))
+        throw new HttpError(405, 'method_not_allowed')
+      }
 
       if (sub === '' && req.method === 'GET') return sendJson(res, 200, { mind })
       if (sub === '' && req.method === 'PATCH') {
