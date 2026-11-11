@@ -51,3 +51,16 @@ test('every approval tool decides per call; without rules it still asks', async 
   assert.equal(await pay({ to: 'alice.testnet', amountNear: '0.01' }, { requestContext: { mind, demo: true } }), true)
   assert.equal(await pay({ to: 'alice.testnet', amountNear: '0.01' }, { requestContext: { mind, wallet: new Map([['failed', '1']]) } }), true, 'after a failed payment it goes to the gate')
 })
+
+test('the prompt tells the Mind its owner\'s rules, and says nothing without them', async () => {
+  const { autoApproveLine, buildInstructions } = await import('../src/mind.ts')
+  const base = { templateId: 'payments-mind', name: 'P', soul: { identity: 'x' } }
+  assert.equal(autoApproveLine(mindSchema.parse(base)), '')
+  const withRules = mindSchema.parse({ ...base, autoApprove: rules })
+  const line = autoApproveLine(withRules)
+  assert.match(line, /up to 0\.1 NEAR/)
+  assert.match(line, /alice\.testnet/)
+  assert.match(line, /googlecalendar_create_event/)
+  assert.match(line, /do not say they approved it/)
+  assert.ok(buildInstructions(withRules).includes(line))
+})

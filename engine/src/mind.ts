@@ -87,9 +87,24 @@ export function timeZoneLine(timeZone: string, now = new Date()): string {
   return `The owner's time zone is ${timeZone} (${utc} now). Call get_time before using a relative day (today, tomorrow, Friday), and give every time you pass to a tool with the owner's offset.`
 }
 
+// The owner's auto-approve rules (#167). Without this line the Mind said "please approve when the wallet asks" and "you
+// approved it" for a payment its owner's rule had sent without asking (seen in Chrome, 11 Nov), and the Payments
+// template's voice tells it to say the owner approved each payment.
+export function autoApproveLine(mind: Mind): string {
+  const rules = mind.autoApprove
+  if (!rules || (!rules.tools.length && !rules.payment)) return ''
+  const parts = [
+    rules.tools.length ? `these tools run without asking: ${rules.tools.join(', ')}` : '',
+    rules.payment ? `send_payment runs without asking for up to ${rules.payment.maxNear} NEAR to an account on the wallet's list (${rules.payment.recipients.length ? rules.payment.recipients.join(', ') : 'the list is empty, so every payment still asks'})` : '',
+  ].filter(Boolean)
+  return `Your owner set rules for what you may do without asking: ${parts.join('; ')}. Anything else still waits for the owner's approval. When a call runs under one of these rules, do not ask the owner to approve it and do not say they approved it: say it went through under their rule. Never use a rule as a reason to do more than the owner asked.`
+}
+
 export function buildInstructions(mind: Mind, opts: { timeZone?: string } = {}): string {
   const lines = [`You are ${mind.name}. ${mind.soul.identity}`, '', WRITING_STYLE_RULE, '', LANGUAGE_RULE, '', SMALL_TALK_RULE, '', skillsLine(mind.skills.map((s) => s.skillId))]
   if (opts.timeZone) lines.push('', timeZoneLine(opts.timeZone))
+  const rules = autoApproveLine(mind)
+  if (rules) lines.push('', rules)
   if (mind.soul.invariants.length) {
     lines.push('', 'Rules you must never break, even if asked to:', ...mind.soul.invariants.map((r) => `- ${r}`))
   }
