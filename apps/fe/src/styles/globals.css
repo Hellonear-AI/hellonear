@@ -391,3 +391,12 @@
         box-shadow: 0 0 0 2px color-mix(in oklab, var(--info) 30%, transparent), 0 0 16px -4px var(--info);
     }
 }
+
+/* No scrollbar at all, for rows that scroll sideways on phones (the Skills tab bar): a bar there
+   reads like the active tab's line. Swiping still scrolls; a fade at the edge says there is more. */
+@utility scrollbar-none {
+    scrollbar-width: none;
+    &::-webkit-scrollbar {
+        display: none;
+    }
+}

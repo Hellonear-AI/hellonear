@@ -4,10 +4,14 @@ import { secretSchema } from './secrets.ts'
 import { walletTokenSchema } from './wallet.ts'
 import { mailTokenSchema } from './mail.ts'
 import { equippableSkills, skillCatalog } from './skills.ts'
+import { autoApproveSchema } from './autoApprove.ts'
 
 export const timeZoneSchema = z.string().max(64).refine((tz) => {
   try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return true } catch { return false }
 }, { message: 'unknown time zone' })
+
+// `enabled`: working memory ("Remember things about you"); `recall`: semantic recall across chats ("Search past chats").
+export const memorySwitchesSchema = z.object({ enabled: z.boolean().optional(), recall: z.boolean().optional() })
 
 export const mindSchema = z.object({
   templateId: z.string(),
@@ -22,6 +26,10 @@ export const mindSchema = z.object({
   personaVersion: z.number().int().min(0).optional(),
   // Equipped skills by id. The engine's catalog decides which tools each skill grants.
   skills: z.array(z.object({ skillId: z.string().refine((id) => skillCatalog.has(id), { message: 'unknown skillId' }) })).default([]),
+  // What the Mind may do without asking (#167). Absent: every approval tool asks, as before.
+  autoApprove: autoApproveSchema.optional(),
+  // The owner's memory switches (#209), read per run. Absent or true: on, as before.
+  memory: memorySwitchesSchema.optional(),
 })
 export type Mind = z.infer<typeof mindSchema>
 
@@ -50,12 +58,12 @@ export const WRITING_STYLE_RULE =
 // before greeting: 4 steps, 37 s (#205). Mastra's own prompt says to activate a matching skill "immediately" and to
 // update working memory "proactively", so a greeting needs an explicit "no tools".
 export const SMALL_TALK_RULE =
-  'Greetings, thanks and small talk ("hi", "halo", "thanks", "how are you?") get one or two short, friendly lines and no tool calls: do not load a skill, check the time, read the calendar or inbox, or update your memory for them. Do not bring up the date, the time or the schedule unasked. Call a tool only when the message asks for something that tool does (the time, the calendar, a plan for the day, a payment), or when the owner tells you something new about themselves to remember.'
+  'Greetings, thanks and small talk ("hi", "thanks", "how are you?") get one or two short, friendly lines and no tool calls: do not load a skill, check the time, read the calendar or inbox, or update your memory for them. Do not bring up the date, the time or the schedule unasked. Call a tool only when the message asks for something that tool does (the time, the calendar, a plan for the day, a payment), or when the owner tells you something new about themselves to remember.'
 
-// Indonesian replies had typos and words that are not Indonesian (#205). The persona is written in English, so the
-// reply language is stated here.
+// Indonesian replies had typos and words that are not Indonesian (#205). The rule names no language: naming Indonesian
+// and KBBI (first version) made English chats get Indonesian replies (11 Nov).
 export const LANGUAGE_RULE =
-  'Language: reply in the language of the owner\'s last message. Use correct standard spelling and only real words of that language; never invent words or mix in words from another language. In Indonesian, use standard words as listed in KBBI with standard spelling, in a friendly, polite tone. Keep sentences short and simple.'
+  'Language: write your reply in the same language as the owner\'s latest message, whatever language your earlier replies, your memory or your instructions use. Use correct, standard spelling and grammar for that language and only real words; never mix in words from another language and never invent words. Never correct yourself in the middle of a reply: if you are not sure of a name, place or fact, leave it out. Keep sentences short and simple.'
 
 // The Mind knows its own skills and the ones the owner could add (#114), by the names on the Skills screen, so it
 // can say "add Email helper in Skills" instead of only saying no.
@@ -84,9 +92,24 @@ export function timeZoneLine(timeZone: string, now = new Date()): string {
   return `The owner's time zone is ${timeZone} (${utc} now). Call get_time before using a relative day (today, tomorrow, Friday), and give every time you pass to a tool with the owner's offset.`
 }
 
+// The owner's auto-approve rules (#167). Without this line the Mind said "please approve when the wallet asks" and "you
+// approved it" for a payment its owner's rule had sent without asking (seen in Chrome, 11 Nov), and the Payments
+// template's voice tells it to say the owner approved each payment.
+export function autoApproveLine(mind: Mind): string {
+  const rules = mind.autoApprove
+  if (!rules || (!rules.tools.length && !rules.payment)) return ''
+  const parts = [
+    rules.tools.length ? `these tools run without asking: ${rules.tools.join(', ')}` : '',
+    rules.payment ? `send_payment runs without asking for up to ${rules.payment.maxNear} NEAR to an account on the wallet's list (${rules.payment.recipients.length ? rules.payment.recipients.join(', ') : 'the list is empty, so every payment still asks'})` : '',
+  ].filter(Boolean)
+  return `Your owner set rules for what you may do without asking: ${parts.join('; ')}. Anything else still waits for the owner's approval. When a call runs under one of these rules, do not ask the owner to approve it and do not say they approved it: say it went through under their rule. Never use a rule as a reason to do more than the owner asked.`
+}
+
 export function buildInstructions(mind: Mind, opts: { timeZone?: string } = {}): string {
   const lines = [`You are ${mind.name}. ${mind.soul.identity}`, '', WRITING_STYLE_RULE, '', LANGUAGE_RULE, '', SMALL_TALK_RULE, '', skillsLine(mind.skills.map((s) => s.skillId))]
   if (opts.timeZone) lines.push('', timeZoneLine(opts.timeZone))
+  const rules = autoApproveLine(mind)
+  if (rules) lines.push('', rules)
   if (mind.soul.invariants.length) {
     lines.push('', 'Rules you must never break, even if asked to:', ...mind.soul.invariants.map((r) => `- ${r}`))
   }
@@ -101,3 +124,21 @@ export function buildInstructions(mind: Mind, opts: { timeZone?: string } = {}):
 // original key, so Minds that never changed keep their memory.
 export const resourceId = (userId: string, mindId: string, personaVersion?: number) =>
   personaVersion ? `${userId}:${mindId}:v${personaVersion}` : `${userId}:${mindId}`
+
+// True when a memory resource is this user's memory of this Mind, under any persona version (#207: deleting a chat
+// only touches threads of the caller's own Mind).
+export function ownsResource(resource: string | undefined, userId: string, mindId: string): boolean {
+  const base = resourceId(userId, mindId)
+  if (!resource) return false
+  return resource === base || (resource.startsWith(`${base}:v`) && /^\d+$/.test(resource.slice(base.length + 2)))
+}
+
+// Per-call memory options for a run (#209), merged by Mastra over the Memory constructor's options
+// (`getMergedThreadConfig`, @mastra/core 1.81). `workingMemory: { enabled: false }`: no working memory in the prompt
+// and no `updateWorkingMemory` tool (`Memory.listTools`). `semanticRecall: false`: no vector search of other chats,
+// and the run's own messages are not embedded either (the output processor checks the same flag). Both on: undefined,
+// so runs keep exactly today's options.
+export function memoryOptions(mind: Mind): { workingMemory?: { enabled: false }; semanticRecall?: false } | undefined {
+  const off = { ...(mind.memory?.enabled === false ? { workingMemory: { enabled: false as const } } : {}), ...(mind.memory?.recall === false ? { semanticRecall: false as const } : {}) }
+  return Object.keys(off).length ? off : undefined
+}

@@ -35,7 +35,13 @@ export function StepRow({ step }: { step: ToolStep }) {
       shimmer={tone === "doing"}
       details={details}
       // How long it took, or a live count while it runs (Ancung, 9 Nov: to see where the time went).
-      after={tone === "doing" ? <Elapsed /> : took ? <span className="text-xs text-tertiary-foreground tabular-nums">{took}</span> : null}
+      after={
+        <span className="flex items-center gap-2">
+          {/* Auto-approve (#167): the owner's rule let it run without a card, and the chat says so. */}
+          {step.approvedByRule && <span className="text-xs text-tertiary-foreground">Approved by your rule</span>}
+          {tone === "doing" ? <Elapsed /> : took ? <span className="text-xs text-tertiary-foreground tabular-nums">{took}</span> : null}
+        </span>
+      }
     />
   )
 }
@@ -60,7 +66,9 @@ export function ThoughtRow({ text, from, to, live }: { text: string; from: strin
   const seconds = Math.max(1, Math.round((new Date(to).getTime() - new Date(from).getTime()) / 1000))
   return (
     <Row
-      icon={null}
+      // While it thinks, the same orb as the chat's other "Thinking..." (Ancung, 11 Nov: one had an orb, one didn't).
+      // A finished thought keeps no icon.
+      icon={live ? <ThinkingOrb state="solving" size={20} aria-hidden className="-m-0.5 shrink-0" /> : null}
       label={live ? "Thinking..." : `Thought for ${seconds}s`}
       detail={null}
       shimmer={live}

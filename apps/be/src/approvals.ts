@@ -5,8 +5,9 @@
 // Keep the words in step with those two files.
 
 export type Check = { ok: boolean; text: string }
-// What the main button does: approve, or fix the limit that would block it first (the app's "fix first" rule).
-export type NextStep = 'approve' | 'add_address' | 'change_limits' | 'unfreeze'
+// What the main button does: approve, or fix what would block it first (the app's "fix first" rule). `fund`: the wallet
+// holds less than the payment, so it would fail even if approved (an unfunded wallet's account isn't on chain yet, #228).
+export type NextStep = 'approve' | 'add_address' | 'change_limits' | 'unfreeze' | 'fund'
 export type Payment = { to: string; amountNear: string }
 // The parts of `getWallet` (src/wallets.ts) the checks read.
 export type WalletView = { balanceNear: string; frozen: boolean; policy: null | { perTransactionNear: string | null; whitelist: string[] | null } }
@@ -60,17 +61,20 @@ export function approvalChecks(payment: Payment, wallet: WalletView | null): { c
     if (!listed && next === 'approve') next = 'add_address'
   }
 
+  // An unfunded wallet reads as balance "0" (OutLayer answers 200 for it, spike 01), so it counts as not enough.
   const enough = compareNear(wallet.balanceNear, payment.amountNear)
   if (enough !== null) {
     const balance = formatNear(wallet.balanceNear)
     checks.push(enough >= 0 ? { ok: true, text: `Enough balance: ${balance} NEAR` } : { ok: false, text: `Not enough balance: ${balance} NEAR` })
+    if (enough < 0 && next === 'approve') next = 'fund'
   }
 
   return { checks, next }
 }
 
 // The app's "fix first" button words.
-export const fixFirstLabel = (next: Exclude<NextStep, 'approve'>) => (next === 'unfreeze' ? 'Unfreeze first' : next === 'add_address' ? 'Add the address first' : 'Change limits first')
+export const fixFirstLabel = (next: Exclude<NextStep, 'approve'>) =>
+  next === 'unfreeze' ? 'Unfreeze first' : next === 'add_address' ? 'Add the address first' : next === 'fund' ? "Add NEAR to this Mind's wallet first" : 'Change limits first'
 
 // Which of the owner's limits a refused payment broke, read against the wallet's stored policy.
 export const NOT_LISTED = 'Not on your list of addresses'

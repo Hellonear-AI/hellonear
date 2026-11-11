@@ -372,19 +372,19 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
             liveOpen ? "opacity-100 delay-50" : "opacity-0"
           )}
         >
-          <LiveView mindId={mindId} className="w-full p-5" />
+          <LiveView mindId={mindId} active={activeHere ?? null} className="w-full p-5" />
         </div>
       </aside>
       <Drawer open={liveDrawer} onOpenChange={setLiveDrawer} showSwipeHandle>
         <DrawerContent style={{ ["--drawer-height" as string]: "85dvh" }} className="md:hidden">
           <DrawerTitle className="sr-only">Live view</DrawerTitle>
-          {liveDrawer && <LiveView mindId={mindId} className="min-h-0 flex-1 px-4 pt-2 pb-4" />}
+          {liveDrawer && <LiveView mindId={mindId} active={activeHere ?? null} className="min-h-0 flex-1 px-4 pt-2 pb-4" />}
         </DrawerContent>
       </Drawer>
       <Sheet open={liveSheet} onOpenChange={setLiveSheet}>
         <SheetContent side="right" className="w-full p-5 pt-12 sm:max-w-[400px]!">
           <SheetTitle className="sr-only">Live view</SheetTitle>
-          {liveSheet && <LiveView mindId={mindId} className="h-full" />}
+          {liveSheet && <LiveView mindId={mindId} active={activeHere ?? null} className="h-full" />}
         </SheetContent>
       </Sheet>
     </div>

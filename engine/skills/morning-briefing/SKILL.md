@@ -16,7 +16,7 @@ metadata:
 1. Call `get_time` first. Every "today", "tomorrow" and "this week" is relative to it, in the owner's time.
 2. Read before you write, each source **once**: `googlecalendar_list_events` for today and tomorrow, `gmail_list_emails` for recent and unread mail, and `get_balance` if this Mind has a wallet. Call them together when you can. Open an email with `gmail_read_email` only when its subject and snippet are not enough, and at most two. A run has a small step budget: then write the briefing. Never invent an event, an email or a balance.
 3. Write one short briefing, in this order, each part at most four bullets:
-   - **Today:** the meetings with their times, and any gap of an hour or more, clash, or back-to-back run.
+   - **Today:** the meetings the calendar returned, with their times exactly as `startLocal` and `endLocal` give them (already in the owner's time zone; never convert `start` yourself), and any gap of an hour or more, clash, or back-to-back run. Never list anything that is not on the calendar as a meeting.
    - **Needs you:** emails that ask the owner for a decision, a reply or a payment, each with who it is from and what they want. Say how many other emails there are in one line instead of listing them.
    - **Money:** payments that emails say are due and when, and the wallet balance if there is a wallet. Never pay anything from the briefing.
    - **Watch out:** anything suspicious, see rule 4.

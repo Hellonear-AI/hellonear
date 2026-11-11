@@ -39,6 +39,10 @@ const TOOL: Record<string, (args: Record<string, unknown>) => string> = {
   gmail_list_emails: () => "Read the inbox",
   googlecalendar_block_time: (a) => `Add ${typeof a.title === "string" && a.title ? `"${a.title}"` : "an event"} to your calendar at ${typeof a.at === "string" ? a.at : "a set time"}`,
   mail_send_to_owner: (a) => `Email you${typeof a.subject === "string" && a.subject ? `: "${a.subject}"` : ""}`,
+  // The track apps' read steps (#211).
+  googlesheets_read_range: (a) => `Read a Google Sheet${typeof a.range === "string" && a.range ? ` (${a.range})` : ""}`,
+  googledocs_read_document: () => "Read a Google Doc",
+  notion_search: (a) => `Search Notion${typeof a.query === "string" && a.query ? ` for "${a.query}"` : ""}`,
 }
 
 /** Each tool and website step's result fields, in canvas order, to read prompts as {Balance}. */

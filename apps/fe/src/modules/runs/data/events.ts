@@ -18,6 +18,8 @@ export type RunEvent = {
   status?: string
   error?: unknown
   verification?: { status: string; level?: string }
+  /** `"rule"` on a `tool.called` the owner's auto-approve rule let run without an approval (#167). */
+  approvedBy?: string
 }
 
 /** `stopped`: still running when the owner pressed Stop (#121); it never got a result. */
@@ -43,6 +45,8 @@ export type ToolStep = {
   /** When the tool was called and when its result came (engine `ts`), for "6s" on its row. */
   startedAt?: string
   endedAt?: string
+  /** Ran without an approval card because the owner's auto-approve rule covered it (#167). */
+  approvedByRule?: boolean
 }
 
 /** One piece of the reply in the order it happened: some text, or a tool (by its call id). */
@@ -93,6 +97,8 @@ export function foldRun(events: RunEvent[]): RunView {
   let joined = false
 
   let prevTs: number | null = null
+  // When the text part being written started, for a thought cut out of it (below).
+  let textFrom: string | null = null
 
   for (const e of sorted) {
     view.runId ??= e.runId ?? null
@@ -126,13 +132,33 @@ export function foldRun(events: RunEvent[]): RunView {
         if (e.text) {
           const last = view.parts.at(-1)
           if (last?.kind === "text") last.text += e.text
-          else view.parts.push({ kind: "text", text: e.text })
+          else {
+            view.parts.push({ kind: "text", text: e.text })
+            textFrom = e.ts
+          }
+          // Some models (GLM) send their thinking as text, ending with "</think>" and with the opening tag
+          // dropped (seen 11 Nov: a reply that was all thinking, "</think>" at its end). Once the closing tag
+          // comes, what came before it is a thought, and only what follows is the reply.
+          const part = view.parts.at(-1)
+          if (part?.kind === "text" && part.text.includes("</think>")) {
+            const cut = part.text.lastIndexOf("</think>")
+            const thought = part.text.slice(0, cut).replace(/<think>/g, "").trim()
+            const rest = part.text.slice(cut + "</think>".length).replace(/^\s+/, "")
+            view.text = view.text.slice(0, view.text.length - part.text.length) + rest
+            view.parts.pop()
+            if (thought) view.parts.push({ kind: "thought", text: thought, from: textFrom ?? e.ts, to: e.ts })
+            if (rest) {
+              view.parts.push({ kind: "text", text: rest })
+              textFrom = e.ts
+            }
+          }
         }
         break
       case "tool.called":
       case "tool.approval_required": {
         if (!e.toolCallId) break
         const step = byCall.get(e.toolCallId) ?? { toolCallId: e.toolCallId, tool: e.tool ?? "", nodeId: e.nodeId, status: "running" as ToolStatus, args: e.args, result: undefined, startedAt: e.ts }
+        if (e.type === "tool.called" && e.approvedBy === "rule") step.approvedByRule = true
         if (e.type === "tool.approval_required") {
           // A new pause after a resume (split bill: the next person's payment): approvals from the earlier
           // pause that never ran were declined, and this one waits like the first did.
@@ -165,6 +191,12 @@ export function foldRun(events: RunEvent[]): RunView {
           step.status = "error"
           const message = (e.result as { message?: unknown }).message
           step.error = typeof message === "string" ? message : undefined
+        }
+        // Mastra answers a skill the Mind doesn't have with a plain result, 'Skill "notion" not found…': it
+        // read "Picked up a skill" with a check (Ancung, 11 Nov). It failed.
+        if (e.type === "tool.result" && (step.tool === "skill" || step.tool === "skill_read") && typeof e.result === "string" && /^Skill ".*" not found/.test(e.result)) {
+          step.status = "error"
+          step.error = "This Mind doesn't have that skill. Add it in Skills."
         }
         break
       }

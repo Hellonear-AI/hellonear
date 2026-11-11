@@ -53,3 +53,14 @@ describe("cleanThreadTitle", () => {
     expect(cleanThreadTitle("Sapaan Awal Halo")).toBe("Sapaan Awal Halo")
   })
 })
+
+describe("landing links (/minds/new?template=)", () => {
+  it("accepts only the three template ids", async () => {
+    const { isKnownTemplate } = await import("@/modules/minds/data/templates")
+    expect(isKnownTemplate("payments-mind")).toBe(true)
+    expect(isKnownTemplate("email-manager")).toBe(true)
+    expect(isKnownTemplate("<script>")).toBe(false)
+    expect(isKnownTemplate("")).toBe(false)
+    expect(isKnownTemplate(undefined)).toBe(false)
+  })
+})

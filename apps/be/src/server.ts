@@ -5,19 +5,19 @@ import { SESSION_COOKIE, createChallenge, login, loginSchema, logout, requireUse
 import { config } from './config.ts'
 import { newId, sameSecret } from './crypto.ts'
 import { migrate, query } from './db.ts'
-import { engineFetch, engineJson, skills, templates } from './engine.ts'
+import { engineFetch, engineJson, skill, skills, templates } from './engine.ts'
 import { HttpError, assertSameOrigin, cors, logServerError, readBody, sendJson, setCookie, isLoopback } from './http.ts'
 import { TOOLKITS, connect, disconnect, listConnections, toolkitSchema } from './connections.ts'
 import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, playgroundAttackOf, playgroundMind, requireMind, updateMind, updateMindSchema, type Mind } from './minds.ts'
 import { cancelRun, getRun, isAwaiting, listRuns, mindEvents, pendingApprovals, relayRun, runEvents, sweepStuckRuns } from './runs.ts'
 import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema, secretsForRun } from './secrets.ts'
-import { assertWalletEmpty, createWallet, freezeTransaction, getWallet, hasWallet, isDemoMind, policySchema, policyTransaction } from './wallets.ts'
+import { addressRuleOf, assertWalletEmpty, createWallet, freezeTransaction, getWallet, hasWallet, isDemoMind, policySchema, policyTransaction } from './wallets.ts'
 import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
 import { itemSchema, sellerSchema, shop, txHashSchema } from './shop.ts'
 import { buyOffer, offerItemSchema, putOffer, putOfferSchema } from './offers.ts'
 import { issueMailToken, issueWalletToken, verifyMailToken, verifyWalletToken } from './walletToken.ts'
 import { EMAIL_SKILL, ensureInbox, inboxOf, listMail, listSends, mailEnabled, messageIdSchema, ownerMailSchema, readMail, releaseInbox, sendMail, sendMailSchema, sendMailToOwner } from './mail.ts'
-import { listThreads, parseCursor, threadExists, threadMessages } from './threads.ts'
+import { deleteThread, listThreads, parseCursor, renameThread, sweepDeletedThreads, threadExists, threadMessages, threadTitleSchema } from './threads.ts'
 import { connectTelegram, disconnectTelegram, outcomeOf, registerTelegramWebhooks, startTelegramPolling, telegramStatus, telegramTokenSchema, telegramWebhook, type MindRunner } from './telegram.ts'
 import { assertDemoRunAllowed, cleanupDemoUsers, createDemoUser, demoPaymentCap, denyDemo } from './demo.ts'
 import type { User } from './auth.ts'
@@ -51,6 +51,8 @@ const attackRunSchema = z.object({ timeZone: timeZoneSchema.optional() })
 const attackIdSchema = z.string().regex(/^[a-z0-9-]{1,40}$/)
 type Attack = { attackId: string; title: string; templateId: string; skills: string[]; message: string }
 const runSchema = runWorkflowSchema.extend({ timeZone: timeZoneSchema.optional() })
+// The owner's edit of what a Mind remembers (#209); the engine has the same 20,000-character cap.
+const memoryWriteSchema = z.object({ markdown: z.string().max(20_000) })
 const timeZoneOf = (body: { timeZone?: string }) => (body.timeZone ? { timeZone: body.timeZone } : {})
 const attackOf = (attackId: string | null) => (attackId ? { attackId } : {})
 
@@ -68,6 +70,19 @@ const runExtras = async (user: User, mindId: string) => ({
   ...((await mailEnabled(mindId)) ? { mailToken: issueMailToken(user.id, mindId) } : {}),
   ...(user.demo || (await playgroundAttackOf(mindId)) ? { demo: true } : {}),
 })
+
+// The Mind config for an owner's chat run (#167): a payment rule only covers the wallet policy's listed accounts, read
+// here per run, so a list changed in Meteor counts at once. No list (no wallet, no whitelist, OutLayer unreachable)
+// leaves `recipients` empty, and every payment asks. Try-outs and playground Minds never get rules.
+async function runMindConfig(user: User, mind: Mind) {
+  const config = mindConfig(mind)
+  if (!config.autoApprove) return config
+  if (user.demo || (await playgroundAttackOf(mind.id))) return { ...config, autoApprove: undefined }
+  if (!config.autoApprove.payment || !(await hasWallet(mind.id))) return config
+  const rule = await addressRuleOf(mind.id).catch(() => null)
+  const recipients = rule?.mode === 'whitelist' ? rule.list.slice(0, 20) : []
+  return { ...config, autoApprove: { ...config.autoApprove, payment: { ...config.autoApprove.payment, recipients } } }
+}
 
 // A playground run (#129) never gets the owner's secrets: the scenarios are prompt injections.
 const secretsFor = async (userId: string, mindId: string) => ((await playgroundAttackOf(mindId)) ? [] : secretsForRun(userId))
@@ -104,7 +119,7 @@ async function resumeRun(user: User, found: { runId: string; mindId: string; thr
     engineRes = await engineFetch(`/v1/runs/${encodeURIComponent(found.runId)}/${action}?mindId=${encodeURIComponent(mind.id)}`, {
       method: 'POST', signal: controller.signal,
       body: {
-        userId: user.id, threadId: found.threadId, mind: mindConfig(mind), secrets: await secretsFor(user.id, mind.id), toolCallId: body.toolCallId, reason: body.reason,
+        userId: user.id, threadId: found.threadId, mind: await runMindConfig(user, mind), secrets: await secretsFor(user.id, mind.id), toolCallId: body.toolCallId, reason: body.reason,
         ...timeZoneOf(body), ...(await runExtras(user, mind.id)), ...attackOf(await playgroundAttackOf(mind.id)),
       },
     })
@@ -127,19 +142,34 @@ async function telegramOwner(mindId: string): Promise<User | null> {
 // (Lin1er's review on #171). The per-user run cap still applies.
 const telegramReq = (user: User, mindId: string) =>
   Object.assign(new EventEmitter(), { headers: { 'cf-connecting-ip': `telegram:${user.id}` }, socket: { remoteAddress: 'telegram' }, url: `/v1/telegram/${mindId}`, method: 'POST' }) as unknown as IncomingMessage
-function memorySink() {
+// `onEvent` (#222) sees each relayed event as it is written, so Telegram can show the reply while the run goes on; the
+// relay itself (storage, threads, live view) is the same as for the app.
+function memorySink(onEvent?: (e: Record<string, any>) => void) {
   const out = { raw: '', status: 200 }
+  let partial = ''
+  const take = (t: string) => {
+    out.raw += t
+    if (!onEvent) return
+    const lines = (partial + t).split('\n')
+    partial = lines.pop() ?? ''
+    for (const l of lines) {
+      if (!l.startsWith('data: ')) continue
+      let e: Record<string, any> | null = null
+      try { e = JSON.parse(l.slice(6)) } catch { /* not an event */ }
+      if (e) { try { onEvent(e) } catch { /* the relay must go on */ } }
+    }
+  }
   const res = {
     writeHead(code: number) { out.status = code; return res },
-    write(t: string) { out.raw += t; return true },
-    end(t?: string) { if (t) out.raw += t; return res },
+    write(t: string) { take(t); return true },
+    end(t?: string) { if (t) take(t); return res },
   }
   return { out, res: res as unknown as ServerResponse }
 }
 const failedRun = (threadId: string, error: string) => ({ threadId, text: '', asked: [], outcomes: [], error })
 
 // One owner message, run like a chat from the app.
-export const runTelegramChat: MindRunner['chat'] = async (mindId, threadId, text) => {
+export const runTelegramChat: MindRunner['chat'] = async (mindId, threadId, text, onEvent) => {
   const thread = threadId ?? `thr_${newId('x').slice(2)}`
   const user = await telegramOwner(mindId)
   if (!user) return failedRun(thread, 'mind_not_found')
@@ -153,9 +183,9 @@ export const runTelegramChat: MindRunner['chat'] = async (mindId, threadId, text
   const controller = new AbortController()
   const engineRes = await engineFetch(`/v1/minds/${encodeURIComponent(mind.id)}/chat`, {
     method: 'POST', signal: controller.signal,
-    body: { userId: user.id, threadId: thread, message: text, mind: mindConfig(mind), secrets: await secretsForRun(user.id), ...(await runExtras(user, mind.id)) },
+    body: { userId: user.id, threadId: thread, message: text, mind: await runMindConfig(user, mind), secrets: await secretsForRun(user.id), ...(await runExtras(user, mind.id)) },
   })
-  const sink = memorySink()
+  const sink = memorySink(onEvent)
   await relayRun(fakeReq, sink.res, engineRes, { mindId: mind.id, threadId: thread, userMessage: text, controller })
   return outcomeOf(thread, sink.out.status, sink.out.raw)
 }
@@ -306,6 +336,9 @@ export const server = createServer(async (req, res) => {
     if (route('GET', /^\/v1\/me$/)) return sendJson(res, 200, { user })
     if (route('GET', /^\/v1\/templates$/)) return sendJson(res, 200, { templates: await templates() })
     if (route('GET', /^\/v1\/skills$/)) return sendJson(res, 200, { skills: await skills() })
+    const skillRoute = route('GET', /^\/v1\/skills\/([^/]+)$/)
+    // Skill ids are [a-z0-9-] in the engine; anything else is unknown and never reaches it.
+    if (skillRoute) return /^[a-z0-9-]{1,64}$/.test(skillRoute[1]) ? sendJson(res, 200, { skill: await skill(skillRoute[1]) }) : sendJson(res, 404, { error: 'unknown_skill' })
 
     // Secrets (#18): names and hosts only ever leave the backend, never values.
     if (route('GET', /^\/v1\/secrets$/)) return sendJson(res, 200, { secrets: await listSecrets(user.id) })
@@ -409,9 +442,24 @@ export const server = createServer(async (req, res) => {
       }
       if (sub === '/mail/sent' && req.method === 'GET') return sendJson(res, 200, { sends: await listSends(mind.id, limitOf(url, 20, 100)) })
 
+      // What the Mind remembers about its owner (#209): the engine's working memory for the current persona version.
+      // Try-out users may read it but not change it.
+      if (sub === '/memory') {
+        const key = { userId: user.id, ...(mind.personaVersion > 0 ? { personaVersion: mind.personaVersion } : {}) }
+        const path = `/v1/minds/${encodeURIComponent(mind.id)}/memory`
+        if (req.method === 'GET') return passthrough(res, await engineJson(`${path}?${new URLSearchParams({ userId: user.id, ...(mind.personaVersion > 0 ? { personaVersion: String(mind.personaVersion) } : {}) })}`))
+        if (req.method === 'PUT' || req.method === 'DELETE') denyDemo(user, 'edit_memory')
+        if (req.method === 'PUT') return passthrough(res, await engineJson(path, { method: 'PUT', body: { ...key, markdown: (await readBody(req, memoryWriteSchema)).markdown } }))
+        if (req.method === 'DELETE') return passthrough(res, await engineJson(path, { method: 'DELETE', body: key }))
+        throw new HttpError(405, 'method_not_allowed')
+      }
+
       if (sub === '' && req.method === 'GET') return sendJson(res, 200, { mind })
       if (sub === '' && req.method === 'PATCH') {
-        const { mind: updated, inboxError } = await withInbox(user, await updateMind(user.id, mind.id, await readBody(req, updateMindSchema)))
+        const patch = await readBody(req, updateMindSchema)
+        // Rules let a Mind act without the owner (#167): try-outs pay from the shared demo wallet, so never.
+        if (patch.autoApprove) denyDemo(user, 'auto_approve')
+        const { mind: updated, inboxError } = await withInbox(user, await updateMind(user.id, mind.id, patch))
         return sendJson(res, 200, { mind: updated, autopilot: await syncAutopilots(user.id, updated), ...(inboxError ? { inboxError } : {}) })
       }
       if (sub === '' && req.method === 'DELETE') {
@@ -429,7 +477,7 @@ export const server = createServer(async (req, res) => {
       if (sub === '/chat' && req.method === 'POST') {
         const body = await readBody(req, chatSchema)
         // Engine memory is keyed by thread id, so a thread id from another Mind (or user) must never pass.
-        if (body.threadId && !(await query('select 1 from runs where mind_id = $1 and thread_id = $2 limit 1', [mind.id, body.threadId])).length) {
+        if (body.threadId && !(await threadExists(mind.id, body.threadId))) {
           throw new HttpError(404, 'thread_not_found')
         }
         const threadId = body.threadId ?? `thr_${newId('x').slice(2)}`
@@ -437,7 +485,7 @@ export const server = createServer(async (req, res) => {
         const controller = new AbortController()
         const engineRes = await engineFetch(`/v1/minds/${encodeURIComponent(mind.id)}/chat`, {
           method: 'POST', signal: controller.signal,
-          body: { userId: user.id, threadId, message: body.message, mind: mindConfig(mind), secrets: await secretsForRun(user.id), ...timeZoneOf(body), ...(await runExtras(user, mind.id)) },
+          body: { userId: user.id, threadId, message: body.message, mind: await runMindConfig(user, mind), secrets: await secretsForRun(user.id), ...timeZoneOf(body), ...(await runExtras(user, mind.id)) },
         })
         return relayRun(req, res, engineRes, { mindId: mind.id, threadId, userMessage: body.message, controller })
       }
@@ -462,6 +510,15 @@ export const server = createServer(async (req, res) => {
         const before = raw === null ? undefined : parseCursor(raw)
         if (before === null) throw new HttpError(400, 'invalid_before')
         return sendJson(res, 200, await threadMessages(mind.id, thread[1], limitOf(url, 50, 200), before))
+      }
+      const one = sub.match(/^\/threads\/(thr_[a-f0-9]{24})$/)
+      if (one && req.method === 'PATCH') {
+        const body = await readBody(req, threadTitleSchema).catch((e) => { throw e instanceof HttpError && e.message === 'invalid_body' ? new HttpError(400, 'invalid_title') : e })
+        return sendJson(res, 200, { thread: await renameThread(mind.id, one[1], body.title) })
+      }
+      if (one && req.method === 'DELETE') {
+        await deleteThread(mind.id, one[1])
+        return res.writeHead(204).end()
       }
       if (sub.startsWith('/threads')) throw new HttpError(req.method === 'GET' ? 404 : 405, req.method === 'GET' ? 'thread_not_found' : 'method_not_allowed')
       if (sub === '/approvals' && req.method === 'GET') return sendJson(res, 200, { approvals: await pendingApprovals(mind.id) })
@@ -520,6 +577,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const stuckSweep = () => sweepStuckRuns().catch((e) => console.error('stuck run sweep failed', e instanceof Error ? e.message : e))
   void stuckSweep()
   setInterval(stuckSweep, 5 * 60_000).unref()
+  // Deleted chats (#207): the engine is asked again to forget them, and after 30 days they are purged for good.
+  const threadSweep = () => sweepDeletedThreads().then((n) => { if (n.forgotten || n.purged) console.log('deleted threads', n) }, (e) => console.error('thread sweep failed', e instanceof Error ? e.message : e))
+  void threadSweep()
+  setInterval(threadSweep, 3600_000).unref()
   // Local dev without a public URL (#168): poll Telegram instead of waiting for webhooks.
   if (config.telegramPolling && !config.telegramWebhookBase) { startTelegramPolling(telegramRunner); console.log('telegram polling on') }
   // Every bot's webhook again, so bots connected before #208 also get button presses (callback_query).

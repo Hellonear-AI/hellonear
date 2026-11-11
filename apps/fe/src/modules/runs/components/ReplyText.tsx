@@ -9,37 +9,59 @@ import { prefersReducedMotion } from "@/lib/media"
 // Chat streaming (design/CLAUDE.md, Motion): chunks are buffered and revealed at a steady pace,
 // each new word fades in over about 150 ms, no fake cursor. A finished reply renders as Markdown.
 
-const BASE_CHARS_PER_SECOND = 70
+// Whole words at a steady pace, like the AI SDK's smoothStream and Streamdown (Ancung, 11 Nov: 140
+// characters a second still felt slow, and the reply stuttered). About 40 words a second, faster
+// when text is waiting: a backlog drains in roughly a tenth of a second.
+const BASE_CHARS_PER_SECOND = 220
+const CATCH_UP = 10
+// React renders the reply (a full Markdown parse) at most this often, not every frame: at 60 a
+// second a long reply dropped frames, which read as stutter.
+const COMMIT_MS = 33
+
+/** The next word boundary at or after `at`, so a word never shows half typed. */
+export function wordEnd(text: string, at: number): number {
+  if (at >= text.length) return text.length
+  const next = text.slice(at).search(/\s/)
+  return next < 0 ? text.length : at + next
+}
 
 /** How much of `text` to show: all of it at once for history, a steady reveal while streaming. */
 function useRevealed(text: string, live: boolean): number {
   const [shown, setShown] = useState(live ? 0 : text.length)
   const shownRef = useRef(shown)
-  const target = useRef(text.length)
+  const target = useRef(text)
 
   useEffect(() => {
-    target.current = text.length
-    if (shownRef.current >= target.current) return
+    target.current = text
+    if (shownRef.current >= text.length) return
     if (prefersReducedMotion()) {
-      shownRef.current = target.current
-      setShown(target.current)
+      shownRef.current = text.length
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reduced motion: show the new text at once
+      setShown(text.length)
       return
     }
     let frame = 0
     let last = performance.now()
+    let budget = 0
+    let committed = last
     const tick = (now: number) => {
-      const behind = target.current - shownRef.current
-      // Catch up faster when far behind, so a long reply never lags seconds after it arrived.
-      const speed = Math.max(BASE_CHARS_PER_SECOND, behind * 4)
-      const step = Math.max(1, Math.floor(((now - last) / 1000) * speed))
+      const full = target.current
+      const behind = full.length - shownRef.current
+      // Catch up faster when far behind, so a long reply never lags after it arrived.
+      budget += ((now - last) / 1000) * Math.max(BASE_CHARS_PER_SECOND, behind * CATCH_UP)
       last = now
-      shownRef.current = Math.min(target.current, shownRef.current + step)
-      setShown(shownRef.current)
-      if (shownRef.current < target.current) frame = requestAnimationFrame(tick)
+      if (now - committed >= COMMIT_MS && budget >= 1) {
+        const next = wordEnd(full, Math.min(full.length, shownRef.current + Math.floor(budget)))
+        budget = Math.max(0, budget - (next - shownRef.current))
+        shownRef.current = next
+        committed = now
+        setShown(next)
+      }
+      if (shownRef.current < target.current.length) frame = requestAnimationFrame(tick)
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [text.length])
+  }, [text])
 
   return shown
 }

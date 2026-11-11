@@ -16,6 +16,7 @@ import { useDeleteSecret, useSaveSecret } from "@/modules/connections/hooks/useK
 import { useDisconnect } from "@/modules/connections/hooks/useConnections"
 import type { ApiConnection } from "@/modules/connections/api"
 import { TOOLKIT_NAME } from "@/modules/skills/data/skills"
+import { appInfo } from "@/modules/connections/data/apps"
 
 function Field({ label, help, error, children, id }: { label: string; help: string; error: string | null; children: ReactNode; id: string }) {
   return (
@@ -242,22 +243,7 @@ export function DisconnectDialog({
   const disconnect = useDisconnect()
   const busy = disconnect.isPending
   const app = TOOLKIT_NAME[toolkit]
-  const items =
-    toolkit === "gmail"
-      ? [
-          { ok: false, t: "Email helper can't read or sort your mail" },
-          { ok: false, t: `${mindName} can't save new drafts` },
-          { ok: true, t: "Drafts already in Gmail stay there" },
-        ]
-      : toolkit === "googlemeet"
-        ? [
-            { ok: false, t: "Daily planner can't add video links to new meetings" },
-            { ok: true, t: "Meetings already scheduled keep their links" },
-          ]
-        : [
-            { ok: false, t: "Daily planner can't read or add events" },
-            { ok: true, t: "Events already in your calendar stay there" },
-          ]
+  const items = appInfo(toolkit)?.disconnect(mindName) ?? [{ ok: false, t: `${mindName} can't use ${app} any more` }]
   return (
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)} disablePointerDismissal={busy}>
       <DialogContent showCloseButton={!busy}>

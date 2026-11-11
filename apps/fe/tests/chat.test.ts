@@ -256,3 +256,28 @@ describe("a reply never vanishes", () => {
     expect(turns[0].view.parts).toEqual([{ kind: "text", text: "Hello!" }])
   })
 })
+
+describe("thinking sent as text (GLM, 11 Nov)", () => {
+  it("moves what came before </think> into a thought, and keeps only the reply as text", () => {
+    const ev = (seq: number, text: string): RunEvent => ({ type: "text.delta", runId: "r", seq, ts: `2026-11-11T00:00:0${seq}Z`, text }) as RunEvent
+    const view = foldRun([ev(1, "Let me plan the trip. "), ev(2, "Bandung first.</think>"), ev(3, "Here is your plan.")])
+    expect(view.parts.map((p) => p.kind)).toEqual(["thought", "text"])
+    expect(view.parts[0]).toMatchObject({ kind: "thought", text: "Let me plan the trip. Bandung first." })
+    expect(view.text).toBe("Here is your plan.")
+  })
+  it("leaves ordinary text alone", () => {
+    const view = foldRun([{ type: "text.delta", runId: "r", seq: 1, ts: "2026-11-11T00:00:01Z", text: "Hi Ancung." } as RunEvent])
+    expect(view.text).toBe("Hi Ancung.")
+    expect(view.parts).toEqual([{ kind: "text", text: "Hi Ancung." }])
+  })
+})
+
+describe("a skill the Mind doesn't have (11 Nov)", () => {
+  it("reads as failed, not as picked up", () => {
+    const view = foldRun([
+      { type: "tool.called", runId: "r", seq: 1, ts: "2026-11-11T00:00:01Z", toolCallId: "c", tool: "skill", args: { name: "notion" } },
+      { type: "tool.result", runId: "r", seq: 2, ts: "2026-11-11T00:00:02Z", toolCallId: "c", result: 'Skill "notion" not found. Available skills: payments (inline/payments)' },
+    ] as RunEvent[])
+    expect(view.tools[0]).toMatchObject({ status: "error", error: "This Mind doesn't have that skill. Add it in Skills." })
+  })
+})

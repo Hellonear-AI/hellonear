@@ -13,11 +13,16 @@ export type BuilderTool = {
   title: string
   line: string
   /** account: a NEAR account; text: one line; time: HH:MM today; minutes: a length; note: text with the Mind's notes as chips. */
-  args: { name: string; label: string; kind: "account" | "text" | "time" | "minutes" | "note"; placeholder?: string }[]
+  args: { name: string; label: string; kind: "account" | "text" | "time" | "minutes" | "note"; placeholder?: string; optional?: boolean; hint?: string }[]
   /** Values for a new step of this tool. */
   defaults?: Record<string, string>
   fields: { name: string; label: string; kind: FieldKind }[]
+  /** Turn what the owner typed into what the tool takes (a Sheets link into its id), on save. */
+  toArgs?: (args: Record<string, string>) => Record<string, string>
 }
+
+/** The id in a Google Sheets link (`…/spreadsheets/d/<id>/edit`), or the text as it is. */
+export const sheetIdOf = (v: string) => v.match(/\/spreadsheets\/d\/([\w-]+)/)?.[1] ?? v.trim()
 
 export const TOOLS: BuilderTool[] = [
   {
@@ -74,6 +79,39 @@ export const TOOLS: BuilderTool[] = [
     ],
     defaults: { subject: "", text: "" },
     fields: [{ name: "status", label: "Email status", kind: "text" }],
+  },
+  // Read-only tools of the track skills' apps (#211): they run unattended, so a job can read them.
+  // Writing (a new Doc, a row, a Notion page, a Slack post) needs the owner's approval and can't.
+  {
+    tool: "googlesheets_read_range",
+    title: "Read a Google Sheet",
+    line: "Rows from one of your spreadsheets",
+    args: [
+      { name: "spreadsheetId", label: "Sheet link", kind: "text", placeholder: "https://docs.google.com/spreadsheets/d/…", hint: "Paste its link from the address bar." },
+      { name: "range", label: "Cells", kind: "text", placeholder: "Sheet1!A1:D20", optional: true, hint: "Leave empty for the first sheet." },
+    ],
+    defaults: { spreadsheetId: "", range: "" },
+    fields: [{ name: "values", label: "Rows", kind: "list" }],
+    toArgs: (a) => ({ ...a, spreadsheetId: sheetIdOf(a.spreadsheetId ?? "") }),
+  },
+  {
+    tool: "googledocs_read_document",
+    title: "Read a Google Doc",
+    line: "The text of one of your Docs",
+    args: [{ name: "id", label: "Doc link", kind: "text", placeholder: "https://docs.google.com/document/d/…", hint: "Paste its link from the address bar." }],
+    defaults: { id: "" },
+    fields: [
+      { name: "title", label: "Doc title", kind: "text" },
+      { name: "text", label: "Doc text", kind: "list" },
+    ],
+  },
+  {
+    tool: "notion_search",
+    title: "Search Notion",
+    line: "Pages you shared with HelloNear, by title",
+    args: [{ name: "query", label: "Words in the title", kind: "text", placeholder: "Tasks" }],
+    defaults: { query: "" },
+    fields: [{ name: "results", label: "Pages found", kind: "list" }],
   },
 ]
 

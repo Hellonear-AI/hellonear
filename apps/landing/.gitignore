@@ -1,0 +1,8 @@
+node_modules
+.next
+next-env.d.ts
+*.tsbuildinfo
+.env
+
+# the demo video is large: host it (NEXT_PUBLIC_DEMO_VIDEO_URL) or add it on purpose
+public/demo/

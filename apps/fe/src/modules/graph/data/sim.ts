@@ -10,7 +10,12 @@ export type Body = { id: string; x: number; y: number; vx: number; vy: number; r
 /** About how wide a label is at 11.5 px (Geist averages near 6.2 px a character). */
 const labelWidth = (label: string) => label.length * 6.2 + 8
 
-export type Sim = { bodies: Map<string, Body>; links: GraphLink[]; alpha: number }
+/**
+ * `seen`: where every bubble this Mind has shown last sat, so one that drops out for a moment (a
+ * chat page mounting before its data) comes back to its place instead of warming the layout up
+ * (Ancung, 11 Nov: switching chats replayed the settling).
+ */
+export type Sim = { bodies: Map<string, Body>; links: GraphLink[]; alpha: number; seen: Map<string, { x: number; y: number }> }
 
 /** Node radius in world units: the Mind largest, skills next, then by how often it was used. */
 export function radiusOf(n: Pick<GraphNode, "kind" | "uses">): number {
@@ -33,6 +38,12 @@ export function syncSim(prev: Sim | null, nodes: GraphNode[], links: GraphLink[]
       bodies.set(n.id, { ...old, r: radiusOf(n), lw: labelWidth(n.label) })
       return
     }
+    // Back after a moment away: its old place, still, and nothing to warm up.
+    const was = prev?.seen.get(n.id)
+    if (was) {
+      bodies.set(n.id, { id: n.id, x: was.x, y: was.y, vx: 0, vy: 0, r: radiusOf(n), lw: labelWidth(n.label), pinned: n.id === mindId })
+      return
+    }
     added += 1
     const p = bodies.get(parent.get(n.id) ?? "") ?? prev?.bodies.get(parent.get(n.id) ?? "")
     const a = (i / Math.max(1, nodes.length)) * Math.PI * 2 + i * 0.7
@@ -51,7 +62,14 @@ export function syncSim(prev: Sim | null, nodes: GraphNode[], links: GraphLink[]
   // Warm up only for new bubbles: a whole new graph settles from 1, a node joining nudges it.
   // A change of state or count alone keeps the layout still (Ancung, 10 Nov: every event of a
   // reply set it bouncing again).
-  return { bodies, links, alpha: !prev ? 1 : added ? Math.max(prev.alpha, 0.5) : prev.alpha }
+  const seen = new Map(prev?.seen)
+  for (const b of prev?.bodies.values() ?? []) seen.set(b.id, { x: b.x, y: b.y })
+  return { bodies, links, alpha: !prev ? 1 : added ? Math.max(prev.alpha, 0.5) : prev.alpha, seen }
+}
+
+/** Run the layout until it is still (or `max` ticks), so a first graph shows settled, without the bounce. */
+export function settle(sim: Sim, kinds: Map<string, NodeKind>, max = 600): void {
+  for (let i = 0; i < max && stepSim(sim, kinds); i++);
 }
 
 /** One tick. Returns false once it has cooled down and nothing needs drawing for the layout. */

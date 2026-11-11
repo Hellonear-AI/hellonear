@@ -7,19 +7,9 @@ import { connectionStatus } from "@/modules/connections/hooks/useConnections"
 afterEach(() => vi.unstubAllGlobals())
 
 describe("skill words (S1)", () => {
-  it("has the engine's ten skills, in plain words, with no dot separators", () => {
-    expect(Object.keys(SKILLS).sort()).toEqual([
-      "daily-planner",
-      "email-address",
-      "email-triage",
-      "http-request",
-      "meeting-prep",
-      "morning-briefing",
-      "near-account",
-      "paid-data",
-      "payments",
-      "subscriptions",
-    ])
+  it("has every skill in plain words, with no dot separators", () => {
+    // Which skills exist is checked against engine/skills below.
+    expect(Object.keys(SKILLS).length).toBeGreaterThan(30)
     for (const id of Object.keys(SKILLS)) expect(JSON.stringify(skillCopy(id).blurb)).not.toContain("·")
   })
   it("puts the wallet limit into Payments when there is one", () => {
@@ -94,5 +84,47 @@ describe("try-out skill lines", () => {
     const briefing = skillLines("morning-briefing", ctx)
     expect(briefing.some((l) => l.connect)).toBe(false)
     expect(briefing.map((l) => l.t)).toContain("A sample calendar for the try-out")
+  })
+})
+
+describe("every engine skill has words on its card (#211)", () => {
+  it("knows each skill in engine/skills, except the built-in guide", async () => {
+    const { readdirSync } = await import("node:fs")
+    const { join } = await import("node:path")
+    const { SKILLS } = await import("@/modules/skills/data/skills")
+    const ids = readdirSync(join(__dirname, "../../../engine/skills"), { withFileTypes: true })
+      .filter((d) => d.isDirectory() && d.name !== "hellonear-guide")
+      .map((d) => d.name)
+    expect(ids.length).toBeGreaterThan(20)
+    expect(ids.filter((id) => !SKILLS[id])).toEqual([])
+  })
+
+  it("says what a track skill needs, in plain words", async () => {
+    const { skillCopy, skillLines } = await import("@/modules/skills/data/skills")
+    expect(skillCopy("split-bill").title).toBe("Split bill")
+    expect(skillCopy("docs").needs).toBe("googledocs")
+    const lines = skillLines("docs", { name: "Omaga", limit: "2", apps: { googledrive: "connected" } })
+    expect(lines.map((l) => l.t)).toContain("Your Google Drive, connected")
+    expect(skillLines("calendar-conflicts", { name: "Omaga", limit: null, tryOut: true }).map((l) => l.t)).toContain("A sample calendar for the try-out")
+  })
+})
+
+describe("skill groups (Ancung, 11 Nov)", () => {
+  it("puts every known skill in exactly one group, in page order", async () => {
+    const { SKILLS } = await import("@/modules/skills/data/skills")
+    const { CATEGORIES, byCategory, categoryOf } = await import("@/modules/skills/data/categories")
+    const placed = CATEGORIES.flatMap((c) => c.skills)
+    expect(new Set(placed).size).toBe(placed.length)
+    expect(Object.keys(SKILLS).filter((id) => !placed.includes(id))).toEqual([])
+    expect(categoryOf("something-new")).toBe("apps")
+    const groups = byCategory([{ skillId: "slack" }, { skillId: "split-bill" }, { skillId: "payments" }])
+    expect(groups.map((g) => [g.id, g.skills.map((s) => s.skillId)])).toEqual([["money", ["payments", "split-bill"]], ["apps", ["slack"]]])
+  })
+})
+
+describe("skill pages", () => {
+  it("fits nine a page, and never fewer than one page", async () => {
+    const { pageCount } = await import("@/components/elements/Pager")
+    expect([pageCount(0, 9), pageCount(9, 9), pageCount(10, 9), pageCount(32, 9)]).toEqual([1, 1, 2, 4])
   })
 })

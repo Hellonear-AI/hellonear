@@ -9,6 +9,7 @@ Source of truth for HelloNear's visual design: design tokens, app screens, Mind 
 | Path | What |
 |---|---|
 | `hellonear.pen` | Main design file (pen.dev / Pencil). Frames: `0 · Start here` (how to read the file), Design Reference, Font Reference, Design Tokens · Light/Dark, `HelloNear · Atomic Components`, `HelloNear · States & Interactions`, `HelloNear · Product map`, sections `3 · Start` to `8 · Attack Playground`, and `Archive · v0.1 screens` |
+| `brands/` | Logos of the services HelloNear runs on, from each company's own brand kit or site, with sources and usage notes in `brands/README.md`. Used by the landing's "Powered by" strip (#99) |
 | `hellonear-assets/` | Reference images (third-party, from Pinterest) used by the Design Reference and Font Reference frames. **Gitignored and kept on Nabil's machine only**, so those two frames look empty for everyone else. Never commit or ship them |
 
 Open `.pen` files in pen.dev or through the Pencil MCP tools. `hellonear.pen` is plain JSON on disk, but edit it only through pen.dev / Pencil so ids and layout stay valid. pen.dev keeps edits in memory until you press Ctrl+S; check `git diff` before committing.

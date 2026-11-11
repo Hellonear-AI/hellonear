@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
+import { isKnownTemplate } from "@/modules/minds/data/templates"
 import { toast } from "sonner"
 import { ErrorRetry } from "@/components/elements/ErrorRetry"
 import { mindHref } from "@/components/layout/nav"
@@ -25,7 +26,17 @@ type Notice = { text: string; retry: string }
  * Try-out users have no wallet to sign with: their Minds pay from the shared demo wallet,
  * so they skip the limits step (docs/api-contract.md, try-out users).
  */
-export function NewMindFlow() {
+// A template picked on the landing page by someone not signed in yet survives the trip through sign-in (this tab only).
+const PICK_KEY = "hellonear.pickTemplate"
+function rememberedPick(): string | null {
+  try {
+    return sessionStorage.getItem(PICK_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function NewMindFlow({ template }: { template?: string } = {}) {
   const router = useRouter()
   const session = useSession()
   const createMind = useCreateMind()
@@ -35,7 +46,10 @@ export function NewMindFlow() {
   const signOut = useSignOut()
 
   const [step, setStep] = useState<"choose" | "limits">("choose")
-  const [templateId, setTemplateId] = useState<string | null>(null)
+  const [templateId, setTemplateId] = useState<string | null>(() => {
+    const id = template ?? (typeof window === "undefined" ? null : rememberedPick())
+    return isKnownTemplate(id) ? id : null
+  })
   const [name, setName] = useState("")
   const [perPayment, setPerPayment] = useState(DEFAULT_PER_PAYMENT)
   const [rows, setRows] = useState<string[]>([""])
@@ -44,9 +58,26 @@ export function NewMindFlow() {
   const check = useMemo(() => checkLimits(perPayment, rows), [perPayment, rows])
 
   const signedOut = session.isSuccess && !session.data
+  // Read once on the first render (above), so a later visit doesn't pick it again.
   useEffect(() => {
-    if (signedOut) router.replace("/")
-  }, [signedOut, router])
+    if (!session.data) return
+    try {
+      sessionStorage.removeItem(PICK_KEY)
+    } catch {
+      // Storage blocked: nothing was kept.
+    }
+  }, [session.data])
+  useEffect(() => {
+    if (!signedOut) return
+    if (isKnownTemplate(templateId)) {
+      try {
+        sessionStorage.setItem(PICK_KEY, templateId)
+      } catch {
+        // Storage blocked: the visitor picks the card again after signing in.
+      }
+    }
+    router.replace("/")
+  }, [signedOut, router, templateId])
 
   // Tell the user where to look while the wallet window is open (L3.3).
   useEffect(() => {

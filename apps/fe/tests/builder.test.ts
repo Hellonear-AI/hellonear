@@ -471,3 +471,17 @@ describe("ways that carry on after their If (a job saved through the API, #165)"
     expect(carriesOn(line, [])).toBe(false)
   })
 })
+
+describe("read steps for the track apps (#211)", () => {
+  it("saves a Sheets link as its id, leaves out empty optional cells, and needs the link", async () => {
+    const { toCanvas, draftProblems } = await import("@/modules/builder/data/draft")
+    const { sheetIdOf } = await import("@/modules/builder/data/tools")
+    expect(sheetIdOf("https://docs.google.com/spreadsheets/d/1AbC-xyz_9/edit#gid=0")).toBe("1AbC-xyz_9")
+    expect(sheetIdOf(" 1AbC ")).toBe("1AbC")
+    const sheet = { id: "s", kind: "tool" as const, tool: "googlesheets_read_range", args: { spreadsheetId: "https://docs.google.com/spreadsheets/d/1AbC/edit", range: "" } }
+    const node = toCanvas(job([sheet]), "w").nodes.find((n) => n.id === "s")
+    expect(node?.data).toEqual({ tool: "googlesheets_read_range", args: { spreadsheetId: "1AbC" } })
+    expect(draftProblems(job([{ ...sheet, args: { spreadsheetId: "", range: "" } }])).map((p) => p.text)).toContain("Sheet link is required.")
+    expect(draftProblems(job([sheet])).some((p) => p.text.startsWith("Cells"))).toBe(false)
+  })
+})
