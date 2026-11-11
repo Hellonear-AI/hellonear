@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import { GmailLogo, GoogleSheetsLogo, TelegramLogo } from "../AppLogos";
 import type { MindClip } from "./MindStage";
 // three.js is loaded on its own, only on screens wide enough for the 3D Mind (phones never fetch it).
 const MindStage = dynamic(() => import("./MindStage").then((m) => m.MindStage), { ssr: false });
@@ -197,17 +198,21 @@ function HeroCopy() {
             {/* Quiet on purpose: small grey text and icons, no pill backgrounds, so the buttons lead. */}
             <ul className="flex items-center gap-4 whitespace-nowrap text-[13px] text-[#3E4A55]/80">
               <li>Works with</li>
-              {[
-                ["gmail.svg", "Gmail"],
-                ["meteor-wallet.png", "Meteor Wallet"],
-                ["google-calendar.png", "Google Calendar"],
-              ].map(([f, name]) => (
+              {(
+                [
+                  [TelegramLogo, "Telegram"],
+                  [GmailLogo, "Gmail"],
+                  [GoogleSheetsLogo, "Sheets"],
+                ] as const
+              ).map(([L, name]) => (
                 <li key={name} className="flex items-center gap-1.5">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={`/brands/${f}`} alt="" aria-hidden="true" className="h-3.5 w-auto opacity-80 grayscale-[0.35]" />
+                  <span aria-hidden="true" className="flex opacity-80 grayscale-[0.35]">
+                    <L className="size-3.5" />
+                  </span>
                   {name}
                 </li>
               ))}
+              <li>+8 more</li>
             </ul>
           </div>
     </>
@@ -228,7 +233,7 @@ function HeroMobile() {
       <div className="absolute top-0 h-full w-[1440px]" style={{ left: "max(-80px, calc(50% - 720px))" }}>
         <Sky />
       </div>
-      <div className="relative z-10 flex flex-col items-start gap-4 px-5 pt-[104px] [&_.hero-btn]:h-12 [&_.hero-btn]:gap-1.5 [&_.hero-btn]:px-3 [&_.hero-btn]:text-[13.5px] [&_.hero-btn_svg]:shrink-0 [&_.hero-btn-dot]:shrink-0 [&_.hero-btn]:whitespace-nowrap [&_.hero-btn-primary]:pr-2 [&_h1]:text-[34px] [&_ul]:flex-nowrap [&_ul]:gap-2 [&_ul]:text-[11px] [&_ul_img]:h-3">
+      <div className="relative z-10 flex flex-col items-start gap-4 px-5 pt-[104px] [&_.hero-btn]:h-12 [&_.hero-btn]:gap-1.5 [&_.hero-btn]:px-3 [&_.hero-btn]:text-[13.5px] [&_.hero-btn_svg]:shrink-0 [&_.hero-btn-dot]:shrink-0 [&_.hero-btn]:whitespace-nowrap [&_.hero-btn-primary]:pr-2 [&_h1]:text-[34px] [&_ul]:flex-nowrap [&_ul]:gap-2 [&_ul]:text-[11px] [&_ul_svg]:size-3">
         <HeroCopy />
       </div>
       <div className="relative mt-4 h-[420px]">
