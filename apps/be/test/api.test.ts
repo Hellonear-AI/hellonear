@@ -1857,7 +1857,7 @@ describe('Mind email addresses through AgentMail (#96)', () => {
     assert.deepEqual([sent.status, sent.from, sent.to], ['sent', email, ['owner@gmail.example']])
     const req = fakeAgentmail.requests.findLast((r) => r.path.endsWith('/messages/send'))!
     assert.deepEqual(req.body.to, ['owner@gmail.example'])
-    assert.match(req.body.text, /^Two meetings today\.\n\n--\nSent by Asisten, your HelloNear Mind, from an Autopilot job\./)
+    assert.match(req.body.text, /^Two meetings today\.\n\n--\nSent by Asisten, your HelloNear Mind\. It can quote/)
     assert.equal(fakeComposio.requests.findLast((r) => r.path === '/tools/execute/GMAIL_GET_PROFILE')!.body.user_id, userId)
 
     // A recipient in the body is not part of the schema: refused, never used.
