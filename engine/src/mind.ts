@@ -105,6 +105,9 @@ export function autoApproveLine(mind: Mind): string {
   return `Your owner set rules for what you may do without asking: ${parts.join('; ')}. Anything else still waits for the owner's approval. When a call runs under one of these rules, do not ask the owner to approve it and do not say they approved it: say it went through under their rule. Never use a rule as a reason to do more than the owner asked.`
 }
 
+// The Mind as its prompt sees it: without the rules on runs where they can't apply (demo or unattended).
+export const promptMind = (mind: Mind, rulesApply: boolean): Mind => (rulesApply ? mind : { ...mind, autoApprove: undefined })
+
 export function buildInstructions(mind: Mind, opts: { timeZone?: string } = {}): string {
   const lines = [`You are ${mind.name}. ${mind.soul.identity}`, '', WRITING_STYLE_RULE, '', LANGUAGE_RULE, '', SMALL_TALK_RULE, '', skillsLine(mind.skills.map((s) => s.skillId))]
   if (opts.timeZone) lines.push('', timeZoneLine(opts.timeZone))
