@@ -52,6 +52,8 @@ Every button hovers like Open app (`.hero-btn`, `.btn-swipe`; `.btn-swipe-dark` 
 
 `components/PoweredBy.tsx`, right under the hero: a "Powered by" label and one row of logos sliding left in a loop (45 s), drawn twice for a seamless loop, edges faded, paused on hover, static for reduced motion. Logos are in `public/brands/powered/` (copied from `design/brands/`, sources in its README); each has its own height so they look the same size. Only services that really run (checked in the code); Google is left out by its brand rules.
 
+Under it, "Works with": the apps a Mind can use today, as pills (logo and name) sliding the other way (55 s): Telegram, Gmail, Google Calendar, Sheets, Notion, Meet, Slack, Docs, Zoom, Drive, Outlook (the app's Connections list, apps/fe `data/apps.tsx`, plus Telegram; Discord and HubSpot are left out like in the app, since no skill uses them). Logos come from `components/AppLogos.tsx`, copied as is from apps/fe's `AppLogos.tsx`; keep the two in step. The hero's quiet "Works with" line names three of them (Telegram, Gmail, Sheets) and "+8 more"; change that number with the list.
+
 ## Sections under the hero (first pass, 8 Nov)
 
 Order follows "Landing v0.2" in `design/landing.pen`: Meet the Minds, Every payment asks you first, Tricked? Still can't spend it., Watch your Mind think, Two minutes with a Mind (demo), CTA, footer.
