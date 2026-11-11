@@ -62,6 +62,14 @@ function summary(step: ToolStep): string | null {
       return r.coversAmount === true ? "Paid in full" : r.status === "succeeded" ? "Paid, but not the full amount" : r.status === "failed" ? "Not paid" : null
     case "near_view_account":
       return text(r.accountId) ?? text(a.accountId)
+    // Google Sheets (#195, #249): which cells, so "Changed cells" says where (Ancung, 11 Nov).
+    case "googlesheets_find_spreadsheets":
+      return count(r.spreadsheets, "spreadsheet", "spreadsheets")
+    case "googlesheets_read_range":
+      return count(r.values, "row", "rows")
+    case "googlesheets_append_row":
+    case "googlesheets_update_cells":
+      return r.status === "refused" ? null : text(r.updatedRange)
     case "http_request": {
       // Which site, the useful part (Ancung, 9 Nov: "it answered" said nothing).
       let host: string | null = null
@@ -96,6 +104,17 @@ function summary(step: ToolStep): string | null {
       return count(r.slots, "free slot", "free slots")
     case "googlecalendar_move_event":
       return text(r.title) ?? text(a.title)
+    // Notion, Docs and Zoom (#252): what came back or what changed, in a word or two (Ancung, 11 Nov).
+    case "notion_query_database":
+      return count(r.rows, "row", "rows")
+    case "notion_update_row":
+      return r.status === "refused" ? null : Array.isArray(r.updated) && r.updated.length ? (r.updated as string[]).join(", ") : null
+    case "googledocs_append_text":
+      return r.status === "refused" ? null : text(r.title)
+    case "zoom_list_meetings":
+      return count(r.meetings, "meeting", "meetings")
+    case "zoom_create_meeting":
+      return text(r.startLocal) ?? text(r.topic)
     case "googlecalendar_create_meeting":
       // Who was invited matters more than the title here: Google emailed them.
       return Array.isArray(r.attendees) && r.attendees.length

@@ -12,6 +12,7 @@ import { KIND_META } from "@/modules/builder/data/blocks"
 import type { Result, Step, ToolStep } from "@/modules/builder/data/draft"
 import { toolInfo, TOOLS } from "@/modules/builder/data/tools"
 import { skillCopy } from "@/modules/skills/data/skills"
+import { builderToolIcon } from "@/modules/builder/components/panels/toolIcon"
 
 export function ToolPanel({
   step,
@@ -39,7 +40,7 @@ export function ToolPanel({
           aria-label="Tool"
           value={step.tool}
           onChange={(tool) => onChange({ tool, args: tool === "near_view_account" ? { accountId: address } : { ...(toolInfo(tool)?.defaults ?? {}) } })}
-          options={TOOLS.map((t) => ({ value: t.tool, label: t.title }))}
+          options={TOOLS.map((t) => ({ value: t.tool, label: t.title, icon: builderToolIcon(t.tool) }))}
         />
         {/* Rendered even when empty, so the field keeps its spacing. */}
         <span className="text-xs text-muted-foreground">{info?.line}</span>

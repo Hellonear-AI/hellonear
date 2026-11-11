@@ -1,22 +1,24 @@
 "use client"
 
-import { Children, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { Children, memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import ReactMarkdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { CopyButton } from "@/components/elements/CopyButton"
 import { prefersReducedMotion } from "@/lib/media"
 
 // Chat streaming (design/CLAUDE.md, Motion): chunks are buffered and revealed at a steady pace,
-// each new word fades in over about 150 ms, no fake cursor. A finished reply renders as Markdown.
+// each new word fades in over about 200 ms, no fake cursor. A finished reply renders as Markdown.
 
-// Whole words at a steady pace, like the AI SDK's smoothStream and Streamdown (Ancung, 11 Nov: 140
-// characters a second still felt slow, and the reply stuttered). About 40 words a second, faster
-// when text is waiting: a backlog drains in roughly a tenth of a second.
+// Whole words at a steady pace (Ancung, 11 Nov: 140 characters a second felt slow). The speed
+// follows the backlog smoothly: it aims to show what has arrived within about 0.8 s, and eases
+// toward that instead of jumping. Before, it leapt to ten times the base whenever text piled up
+// and dropped back when it ran out; text arrives in bursts, so the reply sped up and stalled,
+// which read as choppy (Ancung, 11 Nov).
 const BASE_CHARS_PER_SECOND = 220
-const CATCH_UP = 10
-// React renders the reply (a full Markdown parse) at most this often, not every frame: at 60 a
-// second a long reply dropped frames, which read as stutter.
-const COMMIT_MS = 33
+/** How long a backlog may take to show, at most. */
+const DRAIN_SECONDS = 0.8
+/** How quickly the speed follows its target each frame (0 to 1). */
+const SPEED_EASE = 0.12
 
 /** The next word boundary at or after `at`, so a word never shows half typed. */
 export function wordEnd(text: string, at: number): number {
@@ -25,11 +27,35 @@ export function wordEnd(text: string, at: number): number {
   return next < 0 ? text.length : at + next
 }
 
+/**
+ * The reply cut into blocks at blank lines, never inside a fenced code block. While streaming,
+ * only the last block still changes, so the ones before it keep their rendered Markdown and
+ * aren't parsed again on every frame (like Vercel's Streamdown). A long reply re-parsed whole each
+ * update dropped frames.
+ */
+export function splitBlocks(text: string): string[] {
+  const blocks: string[] = []
+  let current: string[] = []
+  let fenced = false
+  for (const line of text.split("\n")) {
+    if (/^\s*(```|~~~)/.test(line)) fenced = !fenced
+    if (!fenced && line.trim() === "" && current.length && current.some((l) => l.trim() !== "")) {
+      blocks.push(current.join("\n"))
+      current = []
+      continue
+    }
+    current.push(line)
+  }
+  if (current.length) blocks.push(current.join("\n"))
+  return blocks
+}
+
 /** How much of `text` to show: all of it at once for history, a steady reveal while streaming. */
 function useRevealed(text: string, live: boolean): number {
   const [shown, setShown] = useState(live ? 0 : text.length)
   const shownRef = useRef(shown)
   const target = useRef(text)
+  const speed = useRef(BASE_CHARS_PER_SECOND)
 
   useEffect(() => {
     target.current = text
@@ -43,18 +69,20 @@ function useRevealed(text: string, live: boolean): number {
     let frame = 0
     let last = performance.now()
     let budget = 0
-    let committed = last
     const tick = (now: number) => {
       const full = target.current
       const behind = full.length - shownRef.current
-      // Catch up faster when far behind, so a long reply never lags after it arrived.
-      budget += ((now - last) / 1000) * Math.max(BASE_CHARS_PER_SECOND, behind * CATCH_UP)
+      const dt = Math.min(0.1, (now - last) / 1000)
       last = now
-      if (now - committed >= COMMIT_MS && budget >= 1) {
-        const next = wordEnd(full, Math.min(full.length, shownRef.current + Math.floor(budget)))
+      // Ease toward the speed that shows the backlog in DRAIN_SECONDS, never below the base.
+      const want = Math.max(BASE_CHARS_PER_SECOND, behind / DRAIN_SECONDS)
+      speed.current += (want - speed.current) * SPEED_EASE
+      budget += dt * speed.current
+      const next = wordEnd(full, Math.min(full.length, shownRef.current + Math.floor(budget)))
+      if (next > shownRef.current) {
         budget = Math.max(0, budget - (next - shownRef.current))
         shownRef.current = next
-        committed = now
+        // Every frame: only the last block re-renders now, so this stays cheap.
         setShown(next)
       }
       if (shownRef.current < target.current.length) frame = requestAnimationFrame(tick)
@@ -71,24 +99,37 @@ export function ReplyText({ text, live }: { text: string; live: boolean }) {
   const streaming = live || shown < text.length
   // Markdown from the first word (Ancung, 9 Nov: "**" showed while streaming). While text still
   // arrives, a marker that isn't closed yet is closed for now, so it never shows as a symbol.
-  const source = streaming ? closeOpenMarks(text.slice(0, shown)) : text
-  // Made once per streaming state, not on every render: new component functions each frame made
-  // React remount the whole reply as it grew, so every word restarted its fade from nothing and
-  // a streaming reply showed only its list bullets (Ancung, 10 Nov).
-  const components = useMemo(() => markdownParts(streaming), [streaming])
+  const source = streaming ? text.slice(0, shown) : text
+  const blocks = useMemo(() => splitBlocks(source), [source])
 
   return (
     <div className="flex flex-col gap-2.5 text-[15px] leading-[22px] break-words text-foreground [&_a]:font-medium [&_a]:underline [&_code]:rounded-sm [&_code]:bg-muted [&_code]:px-1 [&_code]:text-[13px] [&_ol]:list-decimal [&_ol]:pl-5 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-5 [&_del]:text-muted-foreground [&_input]:mr-1.5 [&_li:has(input)]:list-none">
-      {/* GFM: tables, strikethrough, task lists and bare links, as models write them (Ancung, 9 Nov: a table showed as pipes). */}
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={components}
-      >
-        {source}
-      </ReactMarkdown>
+      {blocks.map((block, i) => {
+        const open = streaming && i === blocks.length - 1
+        return <Block key={i} text={open ? closeOpenMarks(block) : block} streaming={open} />
+      })}
     </div>
   )
 }
+
+/**
+ * One block of the reply. Memoised on its text: a block that is done doesn't render again while
+ * the next one streams. Blocks sit in a `contents` box, so the wrapper's spacing applies to the
+ * paragraphs, lists and tables inside as before.
+ */
+const Block = memo(function Block({ text, streaming }: { text: string; streaming: boolean }) {
+  // Made once per streaming state, not on every render: new component functions each frame made
+  // React remount the block as it grew, so every word restarted its fade (Ancung, 10 Nov).
+  const components = useMemo(() => markdownParts(streaming), [streaming])
+  return (
+    <div className="contents">
+      {/* GFM: tables, strikethrough, task lists and bare links, as models write them (Ancung, 9 Nov: a table showed as pipes). */}
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+        {text}
+      </ReactMarkdown>
+    </div>
+  )
+})
 
 /** The Markdown elements, words fading in while it streams. */
 function markdownParts(streaming: boolean): Components {
@@ -117,7 +158,7 @@ function markdownParts(streaming: boolean): Components {
   }
 }
 
-/** Each new word fades in over 150 ms; index keys keep words already shown from fading again. */
+/** Each new word fades in over 200 ms; index keys keep words already shown from fading again. */
 function fadeWords(children: ReactNode): ReactNode {
   return Children.map(children, (child) =>
     typeof child === "string"
@@ -125,7 +166,7 @@ function fadeWords(children: ReactNode): ReactNode {
           /^\s*$/.test(word) ? (
             word
           ) : (
-            <span key={i} className="animate-in fade-in-0 duration-150 ease-out motion-reduce:animate-none">
+            <span key={i} className="animate-in fade-in-0 duration-200 ease-out motion-reduce:animate-none">
               {word}
             </span>
           )

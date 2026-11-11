@@ -10,6 +10,7 @@ import { PanelHead } from "@/modules/builder/components/panels/PanelHead"
 import { KIND_META } from "@/modules/builder/data/blocks"
 import { OPS } from "@/modules/builder/data/conditions"
 import { comparable, INVERT, resultsOf, type IfBlock, type Op, type Step } from "@/modules/builder/data/draft"
+import { builderToolIcon } from "@/modules/builder/components/panels/toolIcon"
 
 export function IfPanel({ branch, steps, onChange, onDelete }: { branch: IfBlock; steps: Step[]; onChange: (p: Partial<IfBlock>) => void; onDelete: () => void }) {
   const { name, self } = useBuilder()
@@ -30,7 +31,8 @@ export function IfPanel({ branch, steps, onChange, onDelete }: { branch: IfBlock
             const r = results.find((x) => x.stepId === stepId && x.name === f)
             onChange({ stepId, field: f, op: r?.kind === "number" ? "lt" : "eq", right: "" })
           }}
-          options={results.map((r) => ({ value: `${r.stepId}|${r.name}`, label: r.label, hint: r.source }))}
+          // Each result carries its step's icon, so it's clear where a value comes from (Ancung, 11 Nov).
+          options={results.map((r) => ({ value: `${r.stepId}|${r.name}`, label: r.label, hint: r.source, icon: resultIcon(steps.find((x) => x.id === r.stepId)) }))}
         />
       </Field>
       <Field label="Is">
@@ -51,4 +53,12 @@ export function IfPanel({ branch, steps, onChange, onDelete }: { branch: IfBlock
       <DeleteBlock onClick={onDelete} />
     </>
   )
+}
+
+/** A tool step's own icon (an app's logo), else its block kind's (a website, the Mind). */
+function resultIcon(step: Step | undefined) {
+  if (!step) return null
+  if (step.kind === "tool") return builderToolIcon(step.tool)
+  const { Icon } = KIND_META[step.kind]
+  return <Icon />
 }

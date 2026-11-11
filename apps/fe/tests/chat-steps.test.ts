@@ -129,3 +129,33 @@ describe("streamed replies show whole words (11 Nov)", () => {
     expect(wordEnd(text, 99)).toBe(text.length)
   })
 })
+
+describe("splitBlocks (streaming renders block by block)", () => {
+  it("cuts at blank lines, never inside a code fence", async () => {
+    const { splitBlocks } = await import("@/modules/runs/components/ReplyText")
+    expect(splitBlocks("Hi.\n\n- one\n- two\n\nDone.")).toEqual(["Hi.", "- one\n- two", "Done."])
+    expect(splitBlocks("Code:\n\n```ts\nconst a = 1\n\nconst b = 2\n```\n\nAfter.")).toEqual(["Code:", "```ts\nconst a = 1\n\nconst b = 2\n```", "After."])
+    // A half-streamed fence stays one block, and joining the blocks gives the text back.
+    const text = "A\n\n```\nx\n\ny"
+    expect(splitBlocks(text)).toEqual(["A", "```\nx\n\ny"])
+    expect(splitBlocks("One line")).toEqual(["One line"])
+  })
+})
+
+describe("the verified badge's proof (#19)", () => {
+  it("keeps the model and the checked step ids from run.verified", async () => {
+    const { foldRun } = await import("@/modules/runs/data/events")
+    const base = { v: 1 as const, runId: "r", mindId: "m", ts: "2026-11-11T00:00:00Z" }
+    const view = foldRun([
+      { ...base, seq: 1, type: "run.started" },
+      { ...base, seq: 2, type: "run.finished" },
+      { ...base, seq: 3, type: "run.verified", model: "zai-org/GLM-4.6", verification: { status: "verified", level: "gateway_tee", completionIds: ["chatcmpl-1", "chatcmpl-2"] } },
+    ])
+    expect(view.verified).toBe("gateway_tee")
+    expect(view.proof).toEqual({ model: "zai-org/GLM-4.6", completionIds: ["chatcmpl-1", "chatcmpl-2"] })
+    // No badge, no proof.
+    const none = foldRun([{ ...base, seq: 1, type: "run.verified", verification: { status: "not_applicable" } }])
+    expect(none.verified).toBeNull()
+    expect(none.proof).toBeUndefined()
+  })
+})
