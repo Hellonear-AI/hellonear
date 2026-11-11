@@ -14,6 +14,7 @@ export const ACTION_RULES: ActionRule[] = [
   { tool: "mail_send", label: "Send an email from its own address", warning: "A sent email can't be taken back." },
   { tool: "mail_send_to_owner", label: "Email you" },
   { tool: "googlesheets_append_row", label: "Add a row to a Google Sheet" },
+  { tool: "googlesheets_update_cells", label: "Change cells in a Google Sheet", warning: "The old value is replaced; Google Sheets keeps its version history." },
   { tool: "googledocs_create_document", label: "Create a Google Doc" },
   { tool: "notion_create_page", label: "Add a Notion page" },
   { tool: "notion_add_row", label: "Add a row to a Notion database" },

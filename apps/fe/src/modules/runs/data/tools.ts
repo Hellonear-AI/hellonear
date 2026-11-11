@@ -88,6 +88,7 @@ export const TOOLS: Record<string, ToolWords> = {
   outlook_create_draft: { doing: "Saving a draft in Outlook", done: "Saved a draft in Outlook", orb: "composing", node: "Outlook draft" },
   slack_send_message: { doing: "Posting to Slack", done: "Posted to Slack", orb: "composing", node: "Slack post", thing: "the Slack message" },
   // Acting on something.
+  googlesheets_update_cells: { doing: "Changing cells in a spreadsheet", done: "Changed cells in a spreadsheet", orb: "working", node: "Sheets cells", thing: "the cell change" },
   googlesheets_append_row: { doing: "Adding a row to a spreadsheet", done: "Added a row to a spreadsheet", orb: "working", node: "Sheets row", thing: "the new row" },
   notion_add_row: { doing: "Adding a row in Notion", done: "Added a row in Notion", orb: "working", node: "Notion row", thing: "the new Notion row" },
   sell_offer: { doing: "Setting what it sells", done: "Set what it sells", orb: "working", node: "Offers", thing: "the offer" },
