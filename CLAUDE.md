@@ -70,6 +70,7 @@ Each folder has its own workflow in `.github/workflows/`. It runs on pull reques
 | `engine` | `engine` | typecheck, `test:unit` (the NEAR AI integration tests stay local) |
 | `fe` | `apps/fe` | lint, typecheck, `next build` |
 | `sc` | `sc` | unit tests, sandbox tests (incl. upgrades from the fixtures), clippy |
+| `landing` | `apps/landing` | typecheck, `next build` |
 
 CI does not replace the local integration and load tests required by the rules below. Nothing deploys from CI itself. A merged `main` is deployed to the hosted demo after its CI passes, by a poller on James's always-on LAN machine that comments the result on the merged PR (rule 3, `deploy/README.md`).
 
