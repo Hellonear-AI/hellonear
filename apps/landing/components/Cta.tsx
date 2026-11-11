@@ -47,11 +47,15 @@ export function Cta() {
           <p className={`text-[18px] leading-[1.5] text-[var(--color-text-2)] ${seen ? "rise-in" : "opacity-0"}`} style={{ animationDelay: "380ms" }}>
             Free to try on NEAR testnet. No real money involved.
           </p>
-          <div className={`mt-3 flex flex-wrap gap-2.5 ${seen ? "rise-in" : "opacity-0"}`} style={{ animationDelay: "480ms" }}>
-            <a href="#minds" className="hero-btn hero-btn-primary hero-btn-lg">
+          {/* two buttons side by side, the same width, on every screen */}
+          <div
+            className={`cta-btns mt-3 grid grid-cols-2 gap-2.5 lg:w-fit ${seen ? "rise-in" : "opacity-0"}`}
+            style={{ animationDelay: "480ms" }}
+          >
+            <a href="#minds" className="hero-btn hero-btn-primary hero-btn-lg justify-between">
               Meet your Mind <I d={Icon.arrow} size={16} />
             </a>
-            <a href="https://github.com/Hellonear-AI/hellonear" className="hero-btn hero-btn-ghost hero-btn-lg">
+            <a href="https://github.com/Hellonear-AI/hellonear" className="hero-btn hero-btn-ghost hero-btn-lg justify-center">
               <I d={Icon.github} size={16} /> View on GitHub
             </a>
           </div>
