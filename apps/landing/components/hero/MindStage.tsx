@@ -151,8 +151,18 @@ export function MindStage({ crestY, centerX, onClip }: { crestY: number; centerX
       const p = CREST.clone().project(camera);
       setTop(crestY - ((1 - p.y) / 2) * H);
 
-      if (reduced) play("idle", 0);
-      else play("enter", 0);
+      // The page loader (PageLoader) covers the hero until the assets are in; the Mind stays hidden and
+      // its entrance waits for the loader to lift, so the visitor sees it climb up.
+      const start = () => {
+        if (disposed || !model) return;
+        model.visible = true;
+        if (reduced) play("idle", 0);
+        else play("enter", 0);
+      };
+      model.visible = false;
+      window.dispatchEvent(new Event("hn:mind-loaded"));
+      if ((window as unknown as { __hnRevealed?: boolean }).__hnRevealed) start();
+      else window.addEventListener("hn:reveal", start, { once: true });
     });
 
     const play = (name: Clip, fade: number) => {

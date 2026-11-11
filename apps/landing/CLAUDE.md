@@ -25,6 +25,10 @@ Env (`.env.example`): `NEXT_PUBLIC_APP_URL`, the web app's URL for "Open app" an
 
 Assets: the favicon set comes from `design/logo/favicon/` (`app/favicon.ico`, `app/icon.svg`, `app/apple-icon.png`). Tokens in `app/globals.css` are copied from `design/landing.pen`. `public/draco/` is three.js's Draco decoder (for the GLB).
 
+## Page loader (11 Nov)
+
+`components/PageLoader.tsx`, in `app/layout.tsx`, so it is in the server HTML and nobody sees an empty page. The Mind mark from the logo builds itself on the page colour: the head's bubbles (separate circles) pop in one by one, the sprout grows, the eyes open and blink, then it breathes; a lime line shows progress. It lifts once the page has loaded and, on desktop, the 3D Mind is in (`hn:mind-loaded` from `MindStage.tsx`), after at least 1.3 s and at most 8 s; then it sends `hn:reveal` and the Mind's entrance plays in view (the model stays hidden until then). In-page links (nav, footer, hero and CTA buttons) don't scroll through the page: the loader covers it for a moment, the page jumps to the target and the loader lifts. On desktop, Safety lands on the Tricked cards (section top + 1700 px) and Skills on the Mind Graph title (+ 3150 px), points inside the pinned approvals scroll. Reduced motion: no building or breathing, a short fade.
+
 ## Nav (built, 7 Nov)
 
 - On the hero it is a plain transparent bar (logo, links in the middle, Open app). After 24 px of scroll it becomes a white pill across the row (the opposite colour of the dark Open app button); the logo and the button keep their colours. The button icon is Lucide `arrow-up-right`, as in the design. On hover a white layer sweeps in from the left and the button flips to white with dark text (420 ms); on leave it sweeps out to the right. Reduced motion: a plain fade.
