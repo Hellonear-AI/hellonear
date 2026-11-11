@@ -9,7 +9,7 @@ import { engineFetch, engineJson, skill, skills, templates } from './engine.ts'
 import { HttpError, assertSameOrigin, cors, logServerError, readBody, sendJson, setCookie, isLoopback } from './http.ts'
 import { TOOLKITS, connect, disconnect, listConnections, toolkitSchema } from './connections.ts'
 import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, playgroundAttackOf, playgroundMind, requireMind, updateMind, updateMindSchema, type Mind } from './minds.ts'
-import { cancelRun, getRun, isAwaiting, listRuns, mindEvents, pendingApprovals, relayRun, runEvents } from './runs.ts'
+import { cancelRun, getRun, isAwaiting, listRuns, mindEvents, pendingApprovals, relayRun, runEvents, sweepStuckRuns } from './runs.ts'
 import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema, secretsForRun } from './secrets.ts'
 import { addressRuleOf, assertWalletEmpty, createWallet, freezeTransaction, getWallet, hasWallet, isDemoMind, policySchema, policyTransaction } from './wallets.ts'
 import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
@@ -573,6 +573,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const sweep = () => cleanupDemoUsers(async (mindId) => { await deleteAllWorkflows(mindId); await disconnectTelegram(mindId).catch(() => {}) }).then((n) => { if (n) console.log('demo users removed', n) }, (e) => console.error('demo cleanup failed', e instanceof Error ? e.message : e))
   void sweep()
   setInterval(sweep, 24 * 3600_000).unref()
+  // Runs a crash left `running` (#218) end as interrupted, so they can be deleted and stop blocking their chat.
+  const stuckSweep = () => sweepStuckRuns().catch((e) => console.error('stuck run sweep failed', e instanceof Error ? e.message : e))
+  void stuckSweep()
+  setInterval(stuckSweep, 5 * 60_000).unref()
   // Deleted chats (#207): the engine is asked again to forget them, and after 30 days they are purged for good.
   const threadSweep = () => sweepDeletedThreads().then((n) => { if (n.forgotten || n.purged) console.log('deleted threads', n) }, (e) => console.error('thread sweep failed', e instanceof Error ? e.message : e))
   void threadSweep()

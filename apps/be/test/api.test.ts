@@ -592,6 +592,36 @@ describe('chat and runs (#14, #17)', () => {
   })
 })
 
+describe('runs a crash left running (#218)', () => {
+  test('a run stuck in running is ended as interrupted on the second sweep; a recent one is left alone', async () => {
+    const { sweepStuckRuns, STUCK_AFTER_MS } = await import('../src/runs.ts')
+    const alice = await signIn()
+    const { mind } = await (await alice.call('POST', '/v1/minds', { templateId: 'payments-mind', name: 'Stuck' })).json()
+    // A paused run whose approval was claimed (running) by a backend that then died: no new event since the pause.
+    const paused = await events(await alice.call('POST', `/v1/minds/${mind.id}/chat`, { message: 'pay the bill' }))
+    const stuck = paused[0].runId
+    const old = new Date(Date.now() - STUCK_AFTER_MS - 60_000)
+    await query(`update runs set status = 'running', started_at = $2 where id = $1`, [stuck, old])
+    await query('update run_events set ts = $2 where run_id = $1', [stuck, old])
+    // A run claimed just now, with old events, is not ended on one sweep: its resumed stream may still be starting.
+    const fresh = (await events(await alice.call('POST', `/v1/minds/${mind.id}/chat`, { message: 'pay the bill' })))[0].runId
+    await query(`update runs set status = 'running' where id = $1`, [fresh])
+
+    await sweepStuckRuns()
+    assert.equal((await query<{ status: string }>('select status from runs where id = $1', [stuck]))[0].status, 'running', 'not on the first sweep')
+    await sweepStuckRuns()
+    assert.equal((await query<{ status: string }>('select status from runs where id = $1', [stuck]))[0].status, 'error')
+    assert.equal((await query<{ status: string }>('select status from runs where id = $1', [fresh]))[0].status, 'running', 'recent events: left alone')
+    const last = (await (await alice.call('GET', `/v1/runs/${stuck}`)).json()).events.at(-1)
+    assert.deepEqual([last.type, last.error, last.seq], ['run.error', 'run_interrupted', paused.length])
+    // It no longer waits for anything, and a new sweep does not touch it again.
+    assert.equal((await alice.call('POST', `/v1/runs/${stuck}/approve`, { toolCallId: 'call_1' })).status, 409)
+    await sweepStuckRuns()
+    assert.equal((await query('select 1 from run_events where run_id = $1 and type = $2', [stuck, 'run.error'])).length, 1)
+    await query(`update runs set status = 'finished' where id = $1`, [fresh])
+  })
+})
+
 describe('workflows and Autopilot (#20, #21)', () => {
   const canvas = { name: 'Low balance', nodes: [{ id: 'start', type: 'trigger' }], edges: [] }
 
