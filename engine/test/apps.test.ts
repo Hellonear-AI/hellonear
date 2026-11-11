@@ -59,7 +59,7 @@ const answers: Record<string, (a: any) => unknown> = {
   NOTION_INSERT_ROW_DATABASE: () => ok({ id: 'row1', url: 'https://www.notion.so/row1' }),
   // #247: a task list, as Notion's page objects (the latest output schema); r3 is archived and must not show.
   NOTION_QUERY_DATABASE_WITH_FILTER: () => ok({ object: 'list', type: 'page_or_database', has_more: true, results: [TASK, { ...TASK, id: 'r3', archived: true }] }),
-  NOTION_RETRIEVE_PAGE: (a) => ok(a.page_id === 'gone' ? { ...TASK, id: 'gone', in_trash: true } : a.page_id === 'pg' ? { ...TASK, id: 'pg', parent: { type: 'page_id', page_id: 'x' } } : { ...TASK, id: a.page_id }),
+  NOTION_RETRIEVE_PAGE: (a) => a.page_id === 'made-up' ? { result_type: 'failed', error: 'object_not_found', data: {} } : ok(a.page_id === 'gone' ? { ...TASK, id: 'gone', in_trash: true } : a.page_id === 'pg' ? { ...TASK, id: 'pg', parent: { type: 'page_id', page_id: 'x' } } : { ...TASK, id: a.page_id }),
   NOTION_UPDATE_ROW_DATABASE: (a) => ok({ object: 'page', id: a.row_id, url: `https://www.notion.so/${a.row_id}` }),
   OUTLOOK_LIST_MESSAGES: () => ok({ value: [{ id: 'AAMk1', subject: 'Invoice', bodyPreview: 'Please  pay\nby Friday', receivedDateTime: '2026-11-10T02:00:00Z', isRead: false, from: { emailAddress: { name: 'Lumen Billing', address: 'billing@lumenhost.example' } } }] }),
   OUTLOOK_GET_MESSAGE: (a) => ok({ id: a.message_id, subject: 'Invoice', receivedDateTime: '2026-11-10T02:00:00Z', from: { emailAddress: { address: 'billing@lumenhost.example' } },
@@ -274,9 +274,19 @@ test('notion: change a row after re-reading it; never archives; a changed, wrong
   // Clearing: refused by beforeApproval (no card) and again in execute, before Composio is called at all.
   calls.length = 0
   const tool = (toolRegistry as any).notion_update_row
-  const before = await tool.beforeApproval(one({ newValue: '  ' }), {})
+  const view = { requestContext: { [USER_KEY]: 'usr_a' } }
+  const before = await tool.beforeApproval(one({ newValue: '  ' }), view)
   assert.deepEqual([before.proceed, before.output.status], [false, 'refused'])
-  assert.equal(await tool.beforeApproval(one({}), {}), undefined)
+  assert.equal(calls.length, 0, 'a clear is refused before Composio is called')
+  assert.equal(await tool.beforeApproval(one({}), view), undefined)
+  // An invented row id, a wrong title or a changed value gets no card at all (11 Nov: the model once passed
+  // "row-renew-domain" and the owner saw a card for a row that doesn't exist).
+  for (const [input, why] of [[one({}, { rowId: 'made-up' }), /not changed/], [one({}, { rowTitle: 'Something else' }), /not "Something else"/], [one({ oldValue: 'Done' }), /no longer holds/]] as const) {
+    const r = await tool.beforeApproval(input, view)
+    assert.equal(r?.proceed, false, JSON.stringify(input))
+    assert.match(r.output.message, why)
+  }
+  calls.length = 0
   assert.equal((await run('notion_update_row', one({ newValue: '' }))).status, 'refused')
   assert.equal(calls.length, 0)
   // Read-only types and archive-like fields are not in the schema.

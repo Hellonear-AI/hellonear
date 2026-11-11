@@ -377,7 +377,9 @@ describe('engine HTTP API', () => {
 
     test('a try-out run reads the sample calendar on the googlecalendar App node', async () => {
       const evs = await events(await post('/v1/minds/cal/chat', { userId, threadId: randomUUID(), demo: true, mind: planner, message: 'What is on my calendar this week? Use googlecalendar_list_events.' }))
-      const listed = evs.find((e) => e.type === 'tool.result' && e.tool === 'googlecalendar_list_events')
+      // The model sometimes sends arguments that fail validation first and calls again (Mastra answers `{ error: true }`
+      // as a tool.result; seen once in the full suite, 11 Nov): the call that ran is the one to check.
+      const listed = evs.find((e) => e.type === 'tool.result' && e.tool === 'googlecalendar_list_events' && e.result?.error !== true)
       assert.ok(listed, JSON.stringify(evs.filter((e) => e.tool)))
       assert.equal(listed.nodeId, 'app:googlecalendar')
       assert.equal(listed.result.source, 'sample_calendar')

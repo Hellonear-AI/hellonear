@@ -414,6 +414,28 @@ type RowUpdate = { rowId: string; rowTitle: string; properties: { name: string; 
 const refusedRow = (rowId: string, message: string) => ({ source: 'notion', rowId, url: '', updated: [] as string[], status: 'refused' as const, message })
 const clearsSomething = ({ properties }: RowUpdate) => properties.some((p) => !p.newValue.trim())
 
+// The checks a row change must pass, before the card and again just before writing: the row must still be the one,
+// and hold what, the owner sees on the card. Returns the page when it passes.
+async function rowRefusal(context: Ctx, input: RowUpdate): Promise<{ page: any } | { message: string }> {
+  const { rowId, rowTitle, properties } = input
+  if (clearsSomething(input)) return { message: NOTION_CLEAR_REFUSED }
+  if (new Set(properties.map((p) => p.name)).size !== properties.length) return { message: 'not changed: each property may be listed once.' }
+  const page = unwrap(await appCall(context, 'notion', 'NOTION_RETRIEVE_PAGE', { page_id: rowId }))
+  if (!page?.id && !page?.properties) return { message: `not changed: there is no row with the id "${rowId}". Use the id notion_query_database returned.` }
+  if (page.archived === true || page.in_trash === true) return { message: 'not changed: that row is archived or in the trash.' }
+  if (page.parent?.type && !['database_id', 'data_source_id'].includes(page.parent.type)) return { message: 'not changed: that page is not a row of a database.' }
+  const title = notionTitle(page)
+  if (!sameText(title, rowTitle)) return { message: `not changed: that row is "${title}", not "${rowTitle}". Read the database again and ask the owner once more.` }
+  for (const p of properties) {
+    const current = page.properties?.[p.name]
+    if (!current) return { message: `not changed: the row has no property "${p.name}". Use the exact names notion_query_database returned.` }
+    if (current.type !== p.type) return { message: `not changed: "${p.name}" is a ${current.type} property, not ${p.type}.` }
+    const now = notionValue(current)
+    if (!sameValue(p.type, now, p.oldValue)) return { message: `not changed: "${p.name}" no longer holds the value shown for approval (now ${JSON.stringify(now)}). Read the row again and ask the owner once more.` }
+  }
+  return { page }
+}
+
 const notionUpdateRow = createTool({
   id: 'notion_update_row',
   description: 'Change properties of one existing row in a Notion database (e.g. mark a task Done, move its due date). Waits for the owner to approve, unless one of the owner\'s rules covers it. First read the row with notion_query_database, then pass its id as rowId, its title as rowTitle, and for each property you change its name, type, oldValue exactly as read, and newValue as text in the same form ("Done", "2026-11-14", "True"). Only the listed properties change. It cannot clear a property, archive or delete a row.',
@@ -430,24 +452,18 @@ const notionUpdateRow = createTool({
   outputSchema: z.object({ source: z.string(), rowId: z.string(), url: z.string(), updated: z.array(z.string()), status: z.enum(['updated', 'refused']), message: z.string().optional() }),
   requireApproval: true,
   // Refused before the owner ever sees a card: an empty new value is a clear.
-  beforeApproval: (input) => clearsSomething(input) ? { proceed: false, output: refusedRow(input.rowId, NOTION_CLEAR_REFUSED) } : undefined,
+  // No card for a change that can't happen: checked before the card (an invented row id once got a card, 11 Nov, full
+  // suite: the model passed "row-renew-domain" for r14) and again in execute (the row may change while the card waits).
+  beforeApproval: async (input, { requestContext }) => {
+    const view = requestContext as Record<string, unknown> | undefined
+    const refusal = await rowRefusal({ requestContext: { get: (k: string) => view?.[k] } } as Ctx, input).catch((e) => ({ message: `not changed: ${e instanceof Error ? e.message : String(e)}` }))
+    return 'message' in refusal ? { proceed: false, output: refusedRow(input.rowId, refusal.message) } : undefined
+  },
   execute: async (input, context) => {
-    const { rowId, rowTitle, properties } = input
-    if (clearsSomething(input)) return refusedRow(rowId, NOTION_CLEAR_REFUSED)
-    if (new Set(properties.map((p) => p.name)).size !== properties.length) return refusedRow(rowId, 'not changed: each property may be listed once.')
-    // The row must still be the one, and hold what, the owner saw on the card.
-    const page = unwrap(await appCall(context, 'notion', 'NOTION_RETRIEVE_PAGE', { page_id: rowId }))
-    if (page.archived === true || page.in_trash === true) return refusedRow(rowId, 'not changed: that row is archived or in the trash.')
-    if (page.parent?.type && !['database_id', 'data_source_id'].includes(page.parent.type)) return refusedRow(rowId, 'not changed: that page is not a row of a database.')
-    const title = notionTitle(page)
-    if (!sameText(title, rowTitle)) return refusedRow(rowId, `not changed: that row is "${title}", not "${rowTitle}". Read the database again and ask the owner once more.`)
-    for (const p of properties) {
-      const current = page.properties?.[p.name]
-      if (!current) return refusedRow(rowId, `not changed: the row has no property "${p.name}". Use the exact names notion_query_database returned.`)
-      if (current.type !== p.type) return refusedRow(rowId, `not changed: "${p.name}" is a ${current.type} property, not ${p.type}.`)
-      const now = notionValue(current)
-      if (!sameValue(p.type, now, p.oldValue)) return refusedRow(rowId, `not changed: "${p.name}" no longer holds the value shown for approval (now ${JSON.stringify(now)}). Read the row again and ask the owner once more.`)
-    }
+    const { rowId, properties } = input
+    const checked = await rowRefusal(context, input)
+    if ('message' in checked) return refusedRow(rowId, checked.message)
+    const page = checked.page
     const data = unwrap(await appCall(context, 'notion', 'NOTION_UPDATE_ROW_DATABASE', {
       row_id: rowId, properties: properties.map(({ name, type, newValue }) => ({ name, type, value: newValue })), delete_row: false,
     }))
