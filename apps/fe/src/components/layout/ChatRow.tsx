@@ -2,7 +2,7 @@
 
 import { EllipsisIcon, PencilIcon, Trash2Icon } from "lucide-react"
 import Link from "next/link"
-import { useRef, useState, type CSSProperties, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { prefersReducedMotion } from "@/lib/media"
 import { cn } from "cn"
 import { Spinner } from "@/components/elements/Spinner"
@@ -166,28 +166,69 @@ function RenameField({ initial, onDone }: { initial: string; onDone: (title: str
   )
 }
 
-/** Pixels a second while a cut-off title scrolls. */
-const MARQUEE_SPEED = 40
+/** Pixels a second while a cut-off title runs, and the space before it comes round again. */
+const MARQUEE_SPEED = 28
+const MARQUEE_GAP = 32
+/** It waits this long under the pointer before it starts, so passing over a row moves nothing. */
+const MARQUEE_DELAY = 100
+/** When the pointer leaves, the title glides home this fast, then "…" comes back. */
+const MARQUEE_HOME = 350
 
 /**
  * The chat's title, cut off with "…" at rest. While the row is hovered (or focused from the
- * keyboard), a title too long for the row scrolls to its end, rests, and comes back, until the
- * pointer leaves (Ancung, 11 Nov). A title that fits never moves; reduced motion keeps it still.
+ * keyboard), a title too long for the row waits a moment, then runs like a ticker and loops: as
+ * its end passes, its start follows again after a short gap (Ancung, 11 Nov). Leaving glides it to
+ * whichever start is nearer instead of jumping back. A title that fits never moves; reduced
+ * motion keeps it still.
  */
 function MarqueeTitle({ title, shimmer }: { title: string; shimmer: boolean }) {
   const box = useRef<HTMLSpanElement>(null)
-  const text = useRef<HTMLSpanElement>(null)
-  const [shift, setShift] = useState(0)
+  const track = useRef<HTMLSpanElement>(null)
+  const loop = useRef<Animation | null>(null)
+  // The title's full width while it runs, 0 when it is still.
+  const [width, setWidth] = useState(0)
+  const lap = width + MARQUEE_GAP
+
+  // Start the loop once the two copies are on screen.
+  useEffect(() => {
+    const t = track.current
+    if (!width || !t) return
+    const a = t.animate([{ transform: "translateX(0)" }, { transform: `translateX(-${lap}px)` }], {
+      duration: (lap / MARQUEE_SPEED) * 1000,
+      delay: MARQUEE_DELAY,
+      iterations: Infinity,
+      easing: "linear",
+    })
+    loop.current = a
+    return () => a.cancel()
+  }, [width, lap])
+
   const start = () => {
     const b = box.current
-    const t = text.current
-    if (!b || !t || prefersReducedMotion()) return
-    const over = t.scrollWidth - b.clientWidth
-    setShift(over > 2 ? over : 0)
+    if (!b || prefersReducedMotion() || width) return
+    // The box's own scroll width: the inline text inside reports 0.
+    if (b.scrollWidth - b.clientWidth > 2) setWidth(b.scrollWidth)
   }
-  const stop = () => setShift(0)
-  // Rests at each end for about a fifth of the loop, so the start and the end can be read.
-  const seconds = Math.max(2, (shift / MARQUEE_SPEED) * 1.6)
+  const stop = () => {
+    const t = track.current
+    const a = loop.current
+    if (!t || !a || !width) return setWidth(0)
+    // Where it is now, then home to the nearer start: back to 0, or on to one lap (the second
+    // copy sits where the first began, so both read the same).
+    const x = new DOMMatrixReadOnly(getComputedStyle(t).transform).m41
+    a.cancel()
+    loop.current = null
+    const home = -x > lap / 2 ? -lap : 0
+    t.animate([{ transform: `translateX(${x}px)` }, { transform: `translateX(${home}px)` }], {
+      duration: MARQUEE_HOME,
+      easing: "cubic-bezier(0.23, 1, 0.32, 1)",
+      fill: "forwards",
+    }).finished.then(
+      () => setWidth(0),
+      () => setWidth(0)
+    )
+  }
+
   return (
     <span
       ref={box}
@@ -197,16 +238,21 @@ function MarqueeTitle({ title, shimmer }: { title: string; shimmer: boolean }) {
       onBlur={stop}
       className={cn(
         "min-w-0 flex-1 overflow-hidden text-[13px] whitespace-nowrap",
-        shift ? "[mask-image:linear-gradient(to_right,black_calc(100%_-_12px),transparent)]" : "text-ellipsis"
+        width
+          ? "[mask-image:linear-gradient(to_right,transparent,black_10px,black_calc(100%_-_10px),transparent)]"
+          : cn("text-ellipsis", shimmer && "text-shimmer")
       )}
     >
-      <span
-        ref={text}
-        className={cn(shift ? "inline-block animate-[hn-marquee_var(--marquee-time)_ease-in-out_infinite_alternate]" : "", shimmer && "text-shimmer")}
-        style={shift ? ({ "--marquee": `-${shift}px`, "--marquee-time": `${seconds}s` } as CSSProperties) : undefined}
-      >
-        {title}
-      </span>
+      {width ? (
+        // Two copies one gap apart; moving one lap left lands the second where the first began,
+        // so the loop has no seam.
+        <span ref={track} className={cn("inline-flex", shimmer && "text-shimmer")} style={{ gap: MARQUEE_GAP }}>
+          <span>{title}</span>
+          <span aria-hidden>{title}</span>
+        </span>
+      ) : (
+        title
+      )}
     </span>
   )
 }
