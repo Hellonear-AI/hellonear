@@ -5,7 +5,7 @@ import { parseSkillMd, skillCatalog, skillCatalogSummaries, skillDetail, usableS
 import { needsApproval } from '../src/tools.ts'
 
 test('every SKILL.md in engine/skills parses and only uses registered tools', () => {
-  assert.deepEqual([...skillCatalog.keys()], ['best-price', 'calendar-conflicts', 'confidential-reader', 'daily-planner', 'docs', 'email-address', 'email-triage', 'follow-ups', 'freeze-advisor', 'health-journal', 'hellonear-guide', 'http-request', 'invoice', 'meeting-prep', 'mind-seller', 'morning-briefing', 'near-account', 'notion', 'outlook', 'paid-data', 'payments', 'phishing-detector', 'price-watch', 'recipient-guard', 'redact-before-send', 'revenue-split', 'sheets', 'slack', 'spending-audit', 'spending-tracker', 'split-bill', 'subscriptions', 'treasury-report'])
+  assert.deepEqual([...skillCatalog.keys()], ['best-price', 'calendar-conflicts', 'confidential-reader', 'daily-planner', 'docs', 'email-address', 'email-triage', 'follow-ups', 'freeze-advisor', 'health-journal', 'hellonear-guide', 'http-request', 'invoice', 'meeting-prep', 'mind-seller', 'morning-briefing', 'near-account', 'notion', 'outlook', 'paid-data', 'payments', 'phishing-detector', 'price-watch', 'recipient-guard', 'redact-before-send', 'revenue-split', 'sheets', 'slack', 'spending-audit', 'spending-tracker', 'split-bill', 'subscriptions', 'treasury-report', 'zoom'])
   assert.deepEqual(skillCatalog.get('daily-planner')?.tools, ['get_time', 'add_numbers', 'googlecalendar_list_events', 'googlecalendar_create_event', 'googlecalendar_create_meeting', 'googlecalendar_block_time'])
   assert.deepEqual(skillCatalog.get('daily-planner')?.connections, ['googlecalendar', 'googlemeet'])
   assert.equal(skillCatalog.get('payments')?.status, 'available')
@@ -154,13 +154,14 @@ test('one small skill per connected app (#194): its own tools and connection, wr
     slack: [['slack_list_channels', 'slack_send_message'], ['slack']],
     notion: [['notion_search', 'notion_read_page', 'notion_create_page', 'notion_add_row'], ['notion']],
     outlook: [['outlook_list_emails', 'outlook_read_email', 'outlook_create_draft'], ['outlook']],
+    zoom: [['zoom_list_meetings', 'zoom_create_meeting', 'zoom_meeting_summary'], ['zoom']],
   }
   for (const [id, [tools, connections]] of Object.entries(apps)) {
     const s = skillCatalog.get(id)!
     assert.deepEqual([s.tools, s.connections, s.status], [tools, connections, 'available'], id)
     assert.ok(s.title && s.blurb, id)
   }
-  for (const t of ['googlesheets_append_row', 'googlesheets_update_cells', 'googledocs_create_document', 'slack_send_message', 'notion_create_page', 'notion_add_row']) assert.equal(needsApproval(t), true, t)
+  for (const t of ['googlesheets_append_row', 'googlesheets_update_cells', 'googledocs_create_document', 'slack_send_message', 'notion_create_page', 'notion_add_row', 'zoom_create_meeting']) assert.equal(needsApproval(t), true, t)
   // Outlook is drafts only, like Gmail: none of its tools sends.
   assert.ok(!skillCatalog.get('outlook')!.tools.some((t) => needsApproval(t) || /send/.test(t)))
 })

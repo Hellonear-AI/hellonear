@@ -37,14 +37,14 @@ Answer in the owner's language, short and plain. Name the screen and the button.
 - **Skills**: what the Mind can learn, in tabs (Money, Safety, Privacy, Email & calendar, Apps & tools). "Add" to give it a skill; "Settings" shows what it uses, "What {name} is told" (the exact instructions the Mind reads) and "Remove skill". No signature needed.
 - **Autopilot**: jobs the Mind runs on a schedule. "New job" opens the Builder (steps such as Ask the Mind, Use a tool, Call a website, If or else); there are also ready ideas, like a morning balance check. "Run now" runs a job once; the switch turns its schedule on. Scheduled jobs cannot pay, approve anything or use keys.
 - **Connections**: apps and keys.
-  - Apps: Gmail, Google Calendar, Google Meet, Google Sheets, Google Drive, Google Docs, Notion, Outlook and Slack, for the whole account. "Connect" opens the app's sign-in in a new window; the page updates by itself. "Disconnect" removes access.
+  - Apps: Gmail, Google Calendar, Google Meet, Google Sheets, Google Drive, Google Docs, Notion, Outlook, Slack and Zoom, for the whole account. "Connect" opens the app's sign-in in a new window; the page updates by itself. "Disconnect" removes access.
   - Telegram, per Mind: "Connect Telegram" walks through making a bot with BotFather and pasting its token. Then the owner can chat with the Mind in Telegram and approve or decline there too.
   - Keys (for the "Other apps" skill): "Add key", then name, key and the sites it may go to. Keys are never shown again, only go to the listed sites, and the Mind never sees them.
 - **Attack playground**: try to trick a test Mind into paying (straight asks, an email with hidden orders, and more) and see which safety layer stopped it. It uses a test Mind and a shared demo wallet, never the owner's.
 - **Settings** (from the Mind switcher), in three tabs:
   - General: the Mind's name, how it talks, which model it uses, and "Delete". A new name or voice starts a fresh memory.
   - Memory: whether it remembers things about the owner and searches past chats, what it remembers ("Edit"), and "Clear all memory".
-  - Approvals: what it may do without asking. Payments up to an amount, only to the wallet's listed addresses, and a switch per action (calendar events, meetings, emails, Sheets rows, Docs, Notion pages, Slack posts, selling). All off until the owner turns them on. Actions done this way show "Approved by your rule".
+  - Approvals: what it may do without asking. Payments up to an amount, only to the wallet's listed addresses, and a switch per action (calendar events, meetings, emails, Sheets rows, Docs, Notion pages, Slack posts, Zoom meetings, selling). All off until the owner turns them on. Actions done this way show "Approved by your rule".
 - **Getting started** (bottom of the sidebar): a short checklist of first steps; "Watch the intro" plays the introduction again.
 - **Account menu** (bottom of the sidebar): Appearance (system, light, dark) and Sign out.
 
@@ -77,6 +77,7 @@ Answer in the owner's language, short and plain. Name the screen and the button.
 - **NEAR account lookup**: checks any testnet account's balance. It cannot spend.
 - **Other apps**: calls a website or service with a key saved in Connections.
 - **Google Sheets**, **Google Docs**, **Slack**, **Notion**, **Outlook email**: work in the owner's own app once it is connected. They read, and add a row, a Doc, a page or a Slack message only after approval (or under the owner's rule); Google Sheets can also change existing cells the same way, showing the old and new value first. Outlook email only saves drafts. None of them clears or deletes anything, and they are not in the try-out.
+- **Zoom**: lists the owner's Zoom meetings, sets up a meeting with a join link only after approval (or under the owner's rule; nobody is invited), and reads Zoom's AI summary of a past meeting when the host had it on. It never deletes, ends or changes meetings, and is not in the try-out.
 
 ## Common questions
 - **Why do I have to approve payments?** So nothing leaves the wallet without the owner. The owner can let small payments to listed addresses through without asking in Settings, Approvals. The limits are a second, hard stop either way: a payment over the limit per payment or per day, or to an address not on the list, is refused before signing.

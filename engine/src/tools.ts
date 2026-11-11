@@ -10,6 +10,7 @@ import { ruleFor } from './autoApprove.ts'
 import type { Mind } from './mind.ts'
 import { addressOf, composioTool, gmail, toListed, toRead } from './composio.ts'
 import { appTools } from './apps.ts'
+import { zoomTools } from './zoom.ts'
 import {
   ISO_WITH_OFFSET, MAX_ATTENDEES, MAX_RANGE_DAYS, checkAttendees, composioTiming, createSampleEvent, createSampleMeeting, listSampleCalendar, listedEvents, withLocalTimes, type CalendarEvent,
   meetLinkOf, rangeOf, withMeetLink,
@@ -676,6 +677,7 @@ export const toolRegistry = {
   googlecalendar_create_meeting: calendarCreateMeeting, googlecalendar_block_time: calendarBlockTime,
   mail_send: mailSend, mail_list: mailList, mail_read: mailRead, mail_send_to_owner: mailSendToOwner,
   ...appTools,
+  ...zoomTools,
 } as const
 export type ToolKey = keyof typeof toolRegistry
 
