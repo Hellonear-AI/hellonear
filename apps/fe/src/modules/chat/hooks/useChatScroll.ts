@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { MEDIA, matches, prefersReducedMotion } from "@/lib/media"
+import { prefersReducedMotion } from "@/lib/media"
 
 /**
- * Room above a pinned message: past the top fade, and on phones past the round Live view button
- * too (Ancung, 10 Nov). The last turn's min-height leaves the same room, so scrolling to the very
- * end puts the message where pinning put it, not under the fade. Read in the browser only.
+ * Room above a pinned message: past the top fade. Phones needed 60 px to clear a round Live view
+ * button floating there; it moved to the top bar on 11 Nov. The last turn's min-height leaves the
+ * same room, so scrolling to the very end puts the message where pinning put it, not under the fade.
  */
 export function pinGap(): number {
-  return matches(MEDIA.md) ? 24 : 60
+  return 24
 }
 
 /**

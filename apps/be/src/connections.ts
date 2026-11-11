@@ -15,7 +15,9 @@ import { HttpError, UPSTREAM_ERROR, fetchFailure } from './http.ts'
 // 11 Nov (GET /api/v3/toolkits/<slug>: 200, Composio-managed OAUTH2) and a Connect Link made for a throwaway user
 // (session 201, link 201, then deleted), so owners connect with one sign-in and we create no OAuth app. The backend
 // only connects, lists and disconnects them; which actions a Mind may run is decided in the engine.
-export const TOOLKITS = ['gmail', 'googlecalendar', 'googlemeet', 'googlesheets', 'googledrive', 'googledocs', 'slack', 'discord', 'notion', 'outlook', 'hubspot'] as const
+// zoom (#246): Composio-managed OAUTH2 too (GET /api/v3/toolkits/zoom read 11 Nov: 200, 92 tools, version 20261105_00).
+// No Connect Link was made for it yet.
+export const TOOLKITS = ['gmail', 'googlecalendar', 'googlemeet', 'googlesheets', 'googledrive', 'googledocs', 'slack', 'discord', 'notion', 'outlook', 'hubspot', 'zoom'] as const
 export const toolkitSchema = z.enum(TOOLKITS)
 export type Toolkit = z.infer<typeof toolkitSchema>
 

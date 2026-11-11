@@ -18,7 +18,7 @@ import { MindGraph } from "@/modules/graph/components/MindGraph"
 import { buildGraph, callNode, callsOf, liveStates, type GraphNode } from "@/modules/graph/data/graph"
 import { skillCopy } from "@/modules/skills/data/skills"
 import { XIcon } from "lucide-react"
-import { templateAvatar } from "@/modules/minds/data/minds"
+import { templateFace } from "@/modules/minds/data/minds"
 import { useApprovals, useMind } from "@/modules/minds/hooks/useMinds"
 import { useSkillCatalog } from "@/modules/skills/hooks/useSkills"
 
@@ -52,7 +52,7 @@ function describe(n: GraphNode, mind: string): string {
     case "skill":
       return skillCopy(rest).blurb
     case "wallet":
-      return `${mind}'s NEAR wallet. Every payment waits for you, and your limits are enforced in a TEE before anything is signed.`
+      return `${mind}'s NEAR wallet. Payments wait for you unless a rule you set covers them, and your limits are enforced in a TEE before anything is signed.`
     case "memory":
       return `What ${mind} remembers between chats.`
     case "workflow":
@@ -179,7 +179,7 @@ export function LiveView({ mindId, active, className }: { mindId: string; active
         mindId={mindId}
         nodes={graph.nodes}
         links={graph.links}
-        avatarSrc={templateAvatar(mind?.templateId ?? "general-assistant")}
+        avatarSrc={templateFace(mind?.templateId ?? "general-assistant")}
         selected={selected}
         onSelect={setSelected}
         trail={trail}

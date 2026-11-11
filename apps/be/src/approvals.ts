@@ -10,7 +10,13 @@ export type Check = { ok: boolean; text: string }
 export type NextStep = 'approve' | 'add_address' | 'change_limits' | 'unfreeze' | 'fund'
 export type Payment = { to: string; amountNear: string }
 // The parts of `getWallet` (src/wallets.ts) the checks read.
-export type WalletView = { balanceNear: string; frozen: boolean; policy: null | { perTransactionNear: string | null; whitelist: string[] | null } }
+// `spentTodayNear` and `dailyNear` (#149) are optional so a wallet read without them simply skips the daily check.
+export type WalletView = {
+  balanceNear: string
+  spentTodayNear?: string
+  frozen: boolean
+  policy: null | { perTransactionNear: string | null; dailyNear?: string | null; whitelist: string[] | null }
+}
 
 const DECIMAL = /^\d+(\.\d+)?$/
 
@@ -26,6 +32,30 @@ export function compareNear(a: string, b: string): -1 | 0 | 1 | null {
   if (aw.length !== bw.length) return aw.length > bw.length ? 1 : -1
   if (aw !== bw) return aw > bw ? 1 : -1
   return af === bf ? 0 : af > bf ? 1 : -1
+}
+
+// Exact sum and difference of decimal NEAR strings (24 decimals), like the app's `addNear` / `subNear`; a difference
+// below 0 is "0". Callers check DECIMAL first.
+const toYocto = (v: string) => {
+  const [whole = '0', frac = ''] = v.trim().split('.')
+  return BigInt(whole + frac.padEnd(24, '0').slice(0, 24))
+}
+const fromYocto = (y: bigint) => {
+  const digits = (y < 0n ? 0n : y).toString().padStart(25, '0')
+  const frac = digits.slice(-24).replace(/0+$/, '')
+  return frac ? `${digits.slice(0, -24)}.${frac}` : digits.slice(0, -24)
+}
+export const addNear = (a: string, b: string) => fromYocto(toYocto(a) + toYocto(b))
+export const subNear = (a: string, b: string) => fromYocto(toYocto(a) - toYocto(b))
+
+// The daily cap (#149): OutLayer refuses when what it counted today plus this payment is over the cap (a payment that
+// lands exactly on it goes through, testnet 10 Nov). Its day starts at 00:00 UTC (testnet 11 Nov). null: no cap set, or
+// a value that isn't a plain decimal, so there is nothing to say in advance.
+export function dailyCheck(payment: Payment, wallet: Pick<WalletView, 'spentTodayNear' | 'policy'> | null): { over: boolean; daily: string; left: string } | null {
+  const daily = wallet?.policy?.dailyNear
+  const spent = wallet?.spentTodayNear
+  if (!daily || spent === undefined || ![daily, spent, payment.amountNear].every((v) => DECIMAL.test(v.trim()))) return null
+  return { over: compareNear(addNear(spent, payment.amountNear), daily) === 1, daily, left: subNear(daily, spent) }
 }
 
 // "1234.5" -> "1,234.50", like the app's balance.
@@ -54,6 +84,12 @@ export function approvalChecks(payment: Payment, wallet: WalletView | null): { c
     if (over && next === 'approve') next = 'change_limits'
   }
 
+  const day = dailyCheck(payment, wallet)
+  if (day) {
+    checks.push(day.over ? { ok: false, text: `Over today's ${day.daily} NEAR limit (${formatNear(day.left)} left): blocked even if you approve` } : { ok: true, text: `Within today's ${day.daily} NEAR limit` })
+    if (day.over && next === 'approve') next = 'change_limits'
+  }
+
   const list = wallet.policy?.whitelist
   if (list) {
     const listed = list.includes(payment.to.toLowerCase())
@@ -78,10 +114,13 @@ export const fixFirstLabel = (next: Exclude<NextStep, 'approve'>) =>
 
 // Which of the owner's limits a refused payment broke, read against the wallet's stored policy.
 export const NOT_LISTED = 'Not on your list of addresses'
-export function refusalReasons(payment: Payment, policy: WalletView['policy']): string[] {
+// A refused payment doesn't count toward today's total, so the daily check still holds after the refusal.
+export function refusalReasons(payment: Payment, wallet: Pick<WalletView, 'spentTodayNear' | 'policy'> | null): string[] {
   const reasons: string[] = []
+  const policy = wallet?.policy ?? null
   if (policy?.whitelist && !policy.whitelist.includes(payment.to.toLowerCase())) reasons.push(NOT_LISTED)
   if (policy?.perTransactionNear && compareNear(payment.amountNear, policy.perTransactionNear) === 1) reasons.push(`Over ${policy.perTransactionNear} NEAR per payment`)
+  if (dailyCheck(payment, wallet)?.over) reasons.push(`Over today's ${policy?.dailyNear} NEAR limit`)
   return reasons
 }
 
@@ -109,6 +148,10 @@ export function whenText(start: unknown, end: unknown, timeZone?: string): strin
   return day.format(e) === day.format(s) ? `${from} to ${time.format(e)}` : `${from} to ${day.format(e)}, ${time.format(e)}`
 }
 
+// A Telegram message holds at most 4096 characters, and a Slack message alone may be 4000 (engine/src/apps.ts), so long
+// values are cut here; the card's "Open in app" shows them whole. The app's card (apps/fe) shows them uncut.
+export const clip = (v: string, max = 1500) => (v.length > max ? `${v.slice(0, max)}… (${v.length.toLocaleString('en')} characters, the rest in the app)` : v)
+
 // Details for tools other than send_payment, from the tool's own arguments (engine/src/tools.ts input schemas).
 // `timeZone` names the clock times are shown on; Telegram sends none, so the caller passes UTC and says so.
 export function approvalDetails(tool: string, args: unknown, timeZone?: string): ApprovalDetails | null {
@@ -135,6 +178,13 @@ export function approvalDetails(tool: string, args: unknown, timeZone?: string):
           : 'Adds it to your Google Calendar.',
       }
     }
+    // Moving an event (#247): the time it has now, as the Mind listed it, and the new one, in the app's words.
+    case 'googlecalendar_move_event':
+      return {
+        title: `Move "${str(a.title) ?? 'an event'}"`,
+        lines: [{ label: 'From', value: whenText(a.oldStart, a.oldEnd, timeZone) ?? 'Not read' }, { label: 'To', value: whenText(a.newStart, a.newEnd, timeZone) ?? 'Not given' }],
+        note: 'Only the time changes, in your Google Calendar. Nobody is emailed, so tell any guests yourself. If the event has moved since the Mind read it, nothing is changed.',
+      }
     case 'gmail_organize': {
       const emails = Array.isArray(a.emails) ? (a.emails as Record<string, unknown>[]) : []
       const n = emails.length
@@ -155,6 +205,98 @@ export function approvalDetails(tool: string, args: unknown, timeZone?: string):
       const to = list(a.to)
       return { title: `Send "${str(a.subject) ?? 'an email'}"`, lines: [{ label: 'To', value: to.length ? to.join(', ') : 'Nobody yet' }], note: "It goes from your Mind's own email address." }
     }
+    // "Email me" in chat (#225): only ever to the owner's own Gmail.
+    case 'mail_send_to_owner':
+      return {
+        title: `Email you "${str(a.subject) ?? 'a note'}"`,
+        lines: [{ label: 'Length', value: `${(str(a.text) ?? '').length.toLocaleString('en')} characters` }],
+        note: "It goes from your Mind's own email address to the Gmail you connected, and nobody else.",
+      }
+    // The track skills' apps (#195 to #200): what goes where, so the owner approves this exact change.
+    case 'googledocs_create_document':
+      return {
+        title: `Write "${str(a.title) ?? 'a new Doc'}"`,
+        lines: [{ label: 'Length', value: `${(str(a.markdown) ?? '').length.toLocaleString('en')} characters` }],
+        note: 'Creates a new Google Doc in your Drive. Nothing is shared.',
+      }
+    // Adding to an existing Doc (#247): which Doc (its title as the Mind read it), where, and the text itself.
+    case 'googledocs_append_text': {
+      const text = str(a.text) ?? ''
+      return {
+        title: `Add to "${str(a.title) ?? 'a Google Doc'}"`,
+        lines: [{ label: 'Where', value: 'At the end' }, { label: 'Length', value: `${text.length.toLocaleString('en')} characters` }, { label: 'Text', value: clip(text) || 'Empty' }],
+        note: 'Adds this text at the end of your Google Doc. Nothing already in it changes. If the Doc has another title when you approve, nothing is added.',
+      }
+    }
+    // Changing cells (#245): the cells now, as the Mind read them, and what replaces them, in the app's words.
+    case 'googlesheets_update_cells': {
+      const flat = (v: unknown) => (Array.isArray(v) ? v.flat().map((x) => (x === null || x === undefined || x === '' ? '(empty)' : String(x))).join(', ') : '')
+      return {
+        title: `Change ${str(a.range) ?? 'cells'} in your Google Sheet`,
+        lines: [{ label: 'Now', value: clip(flat(a.oldValues)) || 'Not read' }, { label: 'New', value: clip(flat(a.newValues)) || 'Empty' }],
+        note: 'Changes only these cells. "Now" is what the Mind read; if the cells hold something else when you approve, nothing is changed.',
+      }
+    }
+    case 'googlesheets_append_row': {
+      const values = Array.isArray(a.values) ? a.values.map((v) => (v === null || v === undefined ? '' : String(v))) : []
+      return {
+        title: `Add a row to "${str(a.sheet) ?? 'a sheet'}"`,
+        lines: [{ label: 'Row', value: values.length ? clip(values.join(', ')) : 'Empty' }],
+        note: 'Adds one row at the end of your Google Sheet. Nothing else changes.',
+      }
+    }
+    case 'notion_create_page': {
+      const length = (str(a.markdown) ?? '').length
+      return {
+        title: `Add the page "${str(a.title) ?? 'Untitled'}" to Notion`,
+        lines: [{ label: 'Length', value: length ? `${length.toLocaleString('en')} characters` : 'Empty page' }],
+        note: 'Creates a new page under the one you shared, with this text. Nothing else changes.',
+      }
+    }
+    case 'notion_add_row': {
+      const props = Array.isArray(a.properties) ? (a.properties as Record<string, unknown>[]) : []
+      return {
+        title: 'Add a row to a Notion database',
+        lines: props.slice(0, 8).map((p, i) => ({ label: str(p.name) ?? `${i + 1}`, value: clip(str(p.value) ?? 'Empty', 300) })),
+        note: "Adds one row. Existing rows don't change.",
+      }
+    }
+    // Changing a Notion row (#247): each property as the Mind read it and what replaces it, in the app's words.
+    case 'notion_update_row': {
+      const props = Array.isArray(a.properties) ? (a.properties as Record<string, unknown>[]) : []
+      return {
+        title: `Change "${str(a.rowTitle) ?? 'a row'}" in Notion`,
+        lines: props.slice(0, 8).map((p, i) => ({ label: str(p.name) ?? `${i + 1}`, value: `${clip(str(p.oldValue) ?? '(empty)', 300)} → ${clip(str(p.newValue) ?? '(empty)', 300)}` })),
+        note: 'Changes only these properties of this row. The old value is what the Mind read; if the row holds something else when you approve, nothing is changed.',
+      }
+    }
+    case 'slack_send_message':
+      return {
+        title: `Post to ${str(a.channel)?.replace(/^#?/, '#') ?? 'Slack'}`,
+        lines: [{ label: 'Message', value: clip(str(a.text) ?? '') }],
+        note: 'Posted to Slack as you.',
+      }
+    // Zoom (#246): a meeting with a join link in the owner's Zoom; nobody is invited.
+    case 'zoom_create_meeting': {
+      const minutes = typeof a.minutes === 'number' && a.minutes > 0 ? a.minutes : null
+      const start = str(a.start) ? Date.parse(a.start as string) : NaN
+      const when = whenText(a.start, minutes && !Number.isNaN(start) ? new Date(start + minutes * 60_000).toISOString() : null, timeZone)
+      const lines: ApprovalDetails['lines'] = []
+      if (when) lines.push({ label: 'When', value: when })
+      if (minutes) lines.push({ label: 'Length', value: `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}` })
+      lines.push({ label: 'Guests', value: 'Nobody is invited' })
+      return {
+        title: `Schedule the Zoom meeting "${str(a.topic) ?? 'a meeting'}"`,
+        lines,
+        note: 'Creates the meeting in your Zoom with a join link. Nobody is emailed; share the link yourself.',
+      }
+    }
+    case 'sell_offer':
+      return {
+        title: `Sell "${str(a.title) ?? 'an offer'}" for ${str(a.priceNear) ?? '?'} NEAR`,
+        lines: [{ label: 'Item', value: clip(str(a.item) ?? '') }],
+        note: "Other Minds can buy it; they pay into this Mind's own wallet.",
+      }
     default:
       return null
   }

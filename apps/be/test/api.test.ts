@@ -1325,7 +1325,7 @@ describe('judge try-out mode (#43)', () => {
 
 describe('app connections through Composio (#13)', () => {
   // #195–#201: listed after the Google three, not connected unless a test connects them.
-  const MORE_APPS = ['googlesheets', 'googledrive', 'googledocs', 'slack', 'discord', 'notion', 'outlook', 'hubspot'].map((t) => [t, 'not_connected'])
+  const MORE_APPS = ['googlesheets', 'googledrive', 'googledocs', 'slack', 'discord', 'notion', 'outlook', 'hubspot', 'zoom'].map((t) => [t, 'not_connected'])
 
   test('the apps added for #194 connect, list and disconnect like Gmail (#195–#201)', async () => {
     const a = await signIn()
@@ -1337,7 +1337,7 @@ describe('app connections through Composio (#13)', () => {
     assert.equal(fakeComposio.requests.findLast((r) => r.path.endsWith('/link'))!.body.callback_url, 'http://localhost:3000/connections?toolkit=slack')
     fakeComposio.activate(user.id, 'slack')
     const list = (await (await a.call('GET', '/v1/connections')).json()).connections
-    assert.deepEqual(list.map((c: any) => c.toolkit), ['gmail', 'googlecalendar', 'googlemeet', 'googlesheets', 'googledrive', 'googledocs', 'slack', 'discord', 'notion', 'outlook', 'hubspot'])
+    assert.deepEqual(list.map((c: any) => c.toolkit), ['gmail', 'googlecalendar', 'googlemeet', 'googlesheets', 'googledrive', 'googledocs', 'slack', 'discord', 'notion', 'outlook', 'hubspot', 'zoom'])
     assert.equal(list.find((c: any) => c.toolkit === 'slack').status, 'connected')
     assert.equal((await a.call('DELETE', '/v1/connections/slack', undefined, origin)).status, 204)
     // Still only the listed slugs: anything else is refused before Composio is asked.
@@ -1857,7 +1857,7 @@ describe('Mind email addresses through AgentMail (#96)', () => {
     assert.deepEqual([sent.status, sent.from, sent.to], ['sent', email, ['owner@gmail.example']])
     const req = fakeAgentmail.requests.findLast((r) => r.path.endsWith('/messages/send'))!
     assert.deepEqual(req.body.to, ['owner@gmail.example'])
-    assert.match(req.body.text, /^Two meetings today\.\n\n--\nSent by Asisten, your HelloNear Mind, from an Autopilot job\./)
+    assert.match(req.body.text, /^Two meetings today\.\n\n--\nSent by Asisten, your HelloNear Mind\. It can quote/)
     assert.equal(fakeComposio.requests.findLast((r) => r.path === '/tools/execute/GMAIL_GET_PROFILE')!.body.user_id, userId)
 
     // A recipient in the body is not part of the schema: refused, never used.

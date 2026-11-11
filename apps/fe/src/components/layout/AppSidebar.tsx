@@ -7,6 +7,7 @@ import { AccountMenu } from "@/components/layout/AccountMenu"
 import { MindSwitcher } from "@/components/layout/MindSwitcher"
 import { NavList, RailNav, RecentChats, SidebarScroll, useActiveSegment } from "@/components/layout/SidebarParts"
 import { Button } from "@/components/ui/button"
+import { GettingStarted } from "@/modules/onboarding/components/GettingStarted"
 
 /** Full sidebar (256 px): design AuOSf. `onFold` shows the fold button (desktop), `onNavigate` closes an overlay. */
 export function AppSidebar({
@@ -38,6 +39,7 @@ export function AppSidebar({
         <NavList mindId={mindId} onNavigate={onNavigate} />
         <RecentChats mindId={mindId} onNavigate={onNavigate} />
       </SidebarScroll>
+      <GettingStarted mindId={mindId} onNavigate={onNavigate} />
       <AccountMenu variant="row" />
     </div>
   )

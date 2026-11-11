@@ -17,8 +17,10 @@ const skillsSchema = z.array(z.string().min(1).max(64)).max(16)
 // checks them again. Payments go only through `payment`: up to `maxNear` (at most the 10 NEAR a per-payment limit can
 // be) and only to the wallet policy's listed accounts, which are added for each run (`runMindConfig` in server.ts).
 export const AUTO_APPROVE_TOOLS = [
-  'googlecalendar_create_event', 'googlecalendar_create_meeting', 'gmail_organize', 'mail_send', 'mail_send_to_owner',
-  'googlesheets_append_row', 'googledocs_create_document', 'notion_create_page', 'notion_add_row', 'slack_send_message',
+  'googlecalendar_create_event', 'googlecalendar_create_meeting', 'googlecalendar_move_event', 'gmail_organize', 'mail_send', 'mail_send_to_owner',
+  'googlesheets_append_row', 'googlesheets_update_cells', 'googledocs_create_document', 'googledocs_append_text', 'notion_create_page', 'notion_add_row', 'slack_send_message',
+  'zoom_create_meeting',
+  'notion_update_row',
   'sell_offer',
 ] as const
 export const autoApproveSchema = z.object({

@@ -18,7 +18,7 @@ metadata:
 3. Never pay more in all than the total the owner gave. When the owner gave exact amounts, check them with `add_numbers` against the total first.
 4. Restate the plan in one or two lines before paying: each person, their share, and the total (e.g. "0.01 NEAR to alice.testnet and 0.01 NEAR to bob.testnet, 0.02 NEAR in all").
 5. Check every recipient with `near_view_account` first. If one does not exist or is not a plain `.testnet` name, say so and pay nobody until the owner answers.
-6. Then call `send_payment` once per person, one at a time, with exactly that person's share. Every payment waits for the owner's approval. A decline skips that person only; go on with the others and say who was not paid.
+6. Then call `send_payment` once per person, one at a time, with exactly that person's share. Every payment waits for the owner's approval unless one of the owner's rules covers it. A decline skips that person only; go on with the others and say who was not paid.
 7. A payment refused by the wallet policy (`policy_denied`, `wallet_frozen`) was refused before signing: report its `message`, never call it "rejected on-chain", never give a tx link for it, and never resend it as smaller amounts or to another account. If the wallet is frozen, stop paying the rest.
 8. End with one line per person: paid (amount and `txHash`), declined, refused (reason) or failed (error). Never call `send_payment` twice for the same person in one request.
 9. If a tool says this Mind has no wallet yet, tell the owner to create one on the Wallet screen.

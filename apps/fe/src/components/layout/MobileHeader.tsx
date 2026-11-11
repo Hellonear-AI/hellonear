@@ -1,8 +1,10 @@
 "use client"
 
-import { MenuIcon } from "lucide-react"
+import { MenuIcon, NetworkIcon } from "lucide-react"
+import { openLiveDrawer } from "@/modules/graph/data/liveDrawer"
 import { useState } from "react"
 import { AccountMenu } from "@/components/layout/AccountMenu"
+import { GettingStarted } from "@/modules/onboarding/components/GettingStarted"
 import { Logo } from "@/components/elements/Logo"
 import { MindSwitcher } from "@/components/layout/MindSwitcher"
 import { NavList, RecentChats, SidebarScroll, useActiveSegment } from "@/components/layout/SidebarParts"
@@ -42,13 +44,22 @@ export function MobileHeader({ mindId }: { mindId: string }) {
             <NavList mindId={mindId} onNavigate={close} />
             <RecentChats mindId={mindId} onNavigate={close} />
           </SidebarScroll>
+          <GettingStarted mindId={mindId} onNavigate={close} />
             </SheetContent>
       </Sheet>
 
       <MindSwitcher mindId={mindId} variant="header" segment={segment} />
 
       {/* Keeps the Mind switcher centred. */}
-      <span aria-hidden className="size-10 shrink-0" />
+      {/* The chat's Live view on phones (it floated over the messages before, 11 Nov); elsewhere
+          an empty slot keeps the Mind switcher centred. */}
+      {segment === "chat" ? (
+        <Button variant="ghost" size="icon" aria-label="Live view" onClick={openLiveDrawer} className="shrink-0">
+          <NetworkIcon />
+        </Button>
+      ) : (
+        <span aria-hidden className="size-10 shrink-0" />
+      )}
     </header>
   )
 }

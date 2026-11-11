@@ -64,3 +64,10 @@ test('the prompt tells the Mind its owner\'s rules, and says nothing without the
   assert.match(line, /do not say they approved it/)
   assert.ok(buildInstructions(withRules).includes(line))
 })
+
+test('demo and unattended runs (workflows, Autopilot) never see the rules in their prompt', async () => {
+  const { autoApproveLine, buildInstructions, promptMind } = await import('../src/mind.ts')
+  const mind = mindSchema.parse({ templateId: 'payments-mind', name: 'P', soul: { identity: 'x' }, autoApprove: rules })
+  assert.ok(buildInstructions(promptMind(mind, true)).includes(autoApproveLine(mind)))
+  assert.ok(!buildInstructions(promptMind(mind, false)).includes('without asking'))
+})

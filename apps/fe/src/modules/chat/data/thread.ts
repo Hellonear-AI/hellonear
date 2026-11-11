@@ -7,8 +7,21 @@ import { shortWhen } from "@/lib/format"
  */
 export function dayLabel(at: string, previous: string | null, now: Date = new Date()): string | null {
   const day = shortWhen(at, now)
-  if (previous === null) return day === "Today" ? null : day
-  return day === shortWhen(previous, now) ? null : day
+  const shown = day === "Today" || day === "Yesterday" ? day : longDay(at, now)
+  if (previous === null) return day === "Today" ? null : shown
+  return day === shortWhen(previous, now) ? null : shown
+}
+
+/**
+ * The day spelled out above a turn: "Monday, 9 Nov", with the year when it isn't this one. Recent
+ * chats keeps the short "Mon", but alone above a chat it read like a code (Ancung, 11 Nov).
+ */
+function longDay(iso: string, now: Date): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ""
+  const weekday = date.toLocaleDateString("en-GB", { weekday: "long" })
+  const rest = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", ...(date.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}) })
+  return `${weekday}, ${rest}`
 }
 
 export function failureText(name: string, error: unknown): string {

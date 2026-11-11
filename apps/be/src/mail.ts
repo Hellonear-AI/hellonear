@@ -206,8 +206,10 @@ export const ownerMailSchema = z.object({
   text: z.string().min(1).max(10_000),
   idempotencyKey: z.string().regex(/^[A-Za-z0-9._~-]{1,128}$/).optional(),
 }).strict() // a `to` field is refused, not ignored
+// No source named: "Email me" runs from a chat too since #225, and an email from a chat said it came
+// from an Autopilot job (Ancung, 11 Nov).
 export const ownerMailFooter = (name: string) =>
-  `\n\n--\nSent by ${name}, your HelloNear Mind, from an Autopilot job. It can quote emails or web pages, so check before you act on anything in it.`
+  `\n\n--\nSent by ${name}, your HelloNear Mind. It can quote emails or web pages, so check before you act on anything in it.`
 
 export async function sendMailToOwner(body: z.infer<typeof ownerMailSchema>): Promise<SendResult> {
   const info = await mindInfo(body.mindId)

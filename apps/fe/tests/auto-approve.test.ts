@@ -40,3 +40,19 @@ describe("auto-approve rules (#167)", () => {
     expect(plain.tools[0].approvedByRule).toBeUndefined()
   })
 })
+
+describe("results that are failures", () => {
+  it("a validation error or a refused change is an error step, not done", () => {
+    const view = foldRun([
+      ev(0, "run.started"),
+      ev(1, "tool.called", { toolCallId: "a", tool: "googlesheets_update_cells", args: {} }),
+      ev(2, "tool.result", { toolCallId: "a", tool: "googlesheets_update_cells", result: { error: true, message: "Tool input validation failed" }, status: "ok" }),
+      ev(3, "tool.called", { toolCallId: "b", tool: "googlesheets_update_cells", args: {} }),
+      ev(4, "tool.result", { toolCallId: "b", tool: "googlesheets_update_cells", result: { status: "refused", message: "not changed" }, status: "ok" }),
+      ev(5, "tool.called", { toolCallId: "c", tool: "googlesheets_update_cells", args: {} }),
+      ev(6, "tool.result", { toolCallId: "c", tool: "googlesheets_update_cells", result: { status: "updated" }, status: "ok" }),
+    ])
+    expect(view.tools.map((t) => t.status)).toEqual(["error", "error", "ok"])
+    expect(view.tools[0].error).toBe("Tool input validation failed")
+  })
+})

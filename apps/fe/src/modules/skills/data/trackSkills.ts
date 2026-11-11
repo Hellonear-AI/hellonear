@@ -5,7 +5,8 @@
 import type { SkillCopy } from "@/modules/skills/data/skills"
 
 const limitText = (limit: string | null) => (limit ? `up to ${limit} NEAR per payment` : "inside the limits you set")
-const approvalNote = "No signature needed. Every payment still waits for your approval, and your wallet limits apply."
+// "Unless you set a rule": auto-approve rules (#167) can let small payments skip the card.
+const approvalNote = "No signature needed. Payments still wait for your approval unless you set a rule in Settings, and your wallet limits apply."
 const readNote = "No signature needed. It only reads."
 
 export const TRACK_SKILLS: Record<string, SkillCopy> = {
@@ -43,11 +44,11 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
   "split-bill": {
     title: "Split bill",
     blurb: "Works out each person's share of a bill and pays each one, one approval each.",
-    canUse: (c) => [`${c.name}'s wallet, ${limitText(c.limit)}`, "Exact shares, worked out to the last digit"],
+    canUse: (c) => [`${c.name}'s wallet, ${limitText(c.limit)}`, "Exact shares, rounded down to 4 decimals"],
     cannot: [],
     needsWallet: true,
     ask: {
-      why: (c) => `${c.name} will split a bill between people and pay each share. Every share asks you first.`,
+      why: (c) => `${c.name} will split a bill between people and pay each share. Each share asks you first unless a rule you set covers it.`,
       does: () => ["Work out each person's share", "Pay each one, with its own approval"],
       never: () => ["Pay without asking you", "Pay someone off your address list"],
       note: approvalNote,
@@ -62,7 +63,7 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
     cannot: [],
     needsWallet: true,
     ask: {
-      why: (c) => `${c.name} will remember how income is shared and pay each partner their part when you say money came in. Each payment asks you first.`,
+      why: (c) => `${c.name} will remember how income is shared and pay each partner their part when you say money came in. Each payment asks you first unless a rule you set covers it.`,
       does: () => ["Remember each partner's share", "Pay each share, with its own approval"],
       never: () => ["Pay without asking you", "Change the split unless you tell it to"],
       note: approvalNote,
@@ -91,7 +92,7 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
     cannot: ["Not in the try-out: try-out Minds share one wallet"],
     needsWallet: true,
     ask: {
-      why: (c) => `${c.name} will sell reports it made to other Minds, paid into its own wallet, and buy theirs. Every sale and purchase asks you first.`,
+      why: (c) => `${c.name} will sell reports it made to other Minds, paid into its own wallet, and buy theirs. Every sale and purchase asks you first unless a rule you set covers it.`,
       does: () => ["Put something up for sale, after you approve", "Buy from another Mind, after you approve"],
       never: () => ["Sell or buy without asking you", "Pay a Mind your wallet doesn't list"],
       note: approvalNote,
@@ -252,14 +253,14 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
   },
   "calendar-conflicts": {
     title: "Calendar conflict check",
-    blurb: "Finds double bookings and back-to-back meetings in your week and suggests what to move.",
+    blurb: "Finds double bookings and back-to-back meetings in your week, suggests what to move, and moves it when you approve.",
     canUse: () => ["The time and date"],
-    cannot: ["Can't move or delete events"],
+    cannot: ["Can't delete events or change guests"],
     uses: "googlecalendar",
     ask: {
-      why: (c) => `${c.name} will check your week for clashes and meetings with no break, and suggest what to move.`,
-      does: () => ["Find clashes and back-to-back meetings", "Suggest what to move", "Add a buffer, after you approve"],
-      never: () => ["Move or delete your events"],
+      why: (c) => `${c.name} will check your week for clashes and meetings with no break, suggest what to move, and move it after you approve.`,
+      does: () => ["Find clashes and back-to-back meetings", "Suggest a free slot to move to", "Move an event or add a buffer, after you approve"],
+      never: () => ["Move anything without asking you", "Delete your events or email your guests"],
       note: "No signature needed. Anything it adds waits for your approval.",
     },
     added: (c) => `${c.name} can check your calendar for clashes now. Ask it in the chat, for example "Any conflicts this week?"`,
@@ -267,15 +268,15 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
   },
   docs: {
     title: "Google Docs",
-    blurb: "Finds files in your Google Drive, reads Google Docs and writes a new Doc when you approve.",
+    blurb: "Finds files in your Google Drive, reads Google Docs, and writes a new Doc or adds to the end of one when you approve.",
     canUse: () => [],
-    cannot: ["Never shares, edits or deletes a file", "Not in the try-out"],
+    cannot: ["Never shares or deletes a file, or changes what a Doc already says", "Not in the try-out"],
     needs: "googledocs",
     uses: "googledrive",
     ask: {
-      why: (c) => `${c.name} will find and read your Google Docs when you ask, and write a new Doc after you approve.`,
-      does: () => ["Find files in your Drive", "Read and sum up a Doc", "Write a new Doc, after you approve"],
-      never: () => ["Share, edit or delete your files"],
+      why: (c) => `${c.name} will find and read your Google Docs when you ask, and write a new Doc or add to the end of one after you approve.`,
+      does: () => ["Find files in your Drive", "Read and sum up a Doc", "Write a new Doc, after you approve", "Add text to the end of a Doc, showing the text first"],
+      never: () => ["Share or delete your files", "Change or remove what a Doc already says"],
       note: "No signature needed. You can disconnect Google Docs any time in Connections.",
     },
     added: (c) => `${c.name} can work with your Google Docs now. Ask it in the chat, for example "What does the contract say about payment terms?"`,
@@ -283,14 +284,14 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
   },
   sheets: {
     title: "Google Sheets",
-    blurb: "Finds and reads your spreadsheets, and adds a row when you approve.",
+    blurb: "Finds and reads your spreadsheets, and adds a row or changes cells when you approve.",
     canUse: () => ["Simple math"],
-    cannot: ["Never edits or deletes cells", "Not in the try-out"],
+    cannot: ["Never clears or deletes cells", "Not in the try-out"],
     needs: "googlesheets",
     ask: {
-      why: (c) => `${c.name} will look things up in your Google Sheets and add a row after you approve.`,
-      does: () => ["Look things up in a sheet", "Add a row, after you approve"],
-      never: () => ["Edit or delete cells"],
+      why: (c) => `${c.name} will look things up in your Google Sheets, and add a row or change cells after you approve.`,
+      does: () => ["Look things up in a sheet", "Add a row, after you approve", "Change cells, showing the old and new value first"],
+      never: () => ["Clear or delete cells, rows or tabs"],
       note: "No signature needed. You can disconnect Google Sheets any time in Connections.",
     },
     added: (c) => `${c.name} can use your Google Sheets now. Ask it in the chat, for example "Log 50,000 for hosting in my Expenses sheet."`,
@@ -298,14 +299,14 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
   },
   notion: {
     title: "Notion",
-    blurb: "Searches and reads your Notion pages, and adds a page or a database row when you approve.",
+    blurb: "Searches and reads your Notion pages and databases, and adds a page or a row, or changes a row, when you approve.",
     canUse: () => ["Only pages you shared when connecting"],
-    cannot: ["Never edits or deletes", "Not in the try-out"],
+    cannot: ["Never clears, archives or deletes", "Not in the try-out"],
     needs: "notion",
     ask: {
-      why: (c) => `${c.name} will search and read your Notion when you ask, and add a page or a row after you approve.`,
-      does: () => ["Search and read your pages", "Add a page or a database row, after you approve"],
-      never: () => ["Edit or delete your pages"],
+      why: (c) => `${c.name} will search and read your Notion when you ask, and add a page or a row, or change a row, after you approve.`,
+      does: () => ["Search and read your pages and databases", "Add a page or a database row, after you approve", "Change a row (mark a task done, move a date), showing the old and new value first"],
+      never: () => ["Clear, archive or delete your pages or rows"],
       note: "No signature needed. You can disconnect Notion any time in Connections.",
     },
     added: (c) => `${c.name} can use your Notion now. Ask it in the chat, for example "Save these notes as a Notion page."`,
@@ -340,5 +341,21 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
     },
     added: (c) => `${c.name} can post to Slack now. Ask it in the chat, for example "Post this summary to #finance."`,
     removed: (c) => `${c.name} won't post to Slack any more.`,
+  },
+  // Zoom (#246).
+  zoom: {
+    title: "Zoom",
+    blurb: "Lists your Zoom meetings, schedules one with a join link when you approve, and reads Zoom's AI summary of a past call.",
+    canUse: () => ["Summaries only when Zoom's AI summary was on"],
+    cannot: ["Never invites anyone, deletes or ends meetings", "Not in the try-out"],
+    needs: "zoom",
+    ask: {
+      why: (c) => `${c.name} will check your Zoom meetings when you ask, schedule one after you approve, and tell you what Zoom's AI summary says about a past call.`,
+      does: () => ["List your upcoming meetings", "Schedule a meeting with a join link, after you approve", "Read Zoom's AI summary of a past meeting"],
+      never: () => ["Invite or email anyone", "Delete, change or end meetings", "Delete recordings"],
+      note: "No signature needed. You can disconnect Zoom any time in Connections.",
+    },
+    added: (c) => `${c.name} can use your Zoom now. Ask it in the chat, for example "Set up a Zoom call tomorrow at 10:00 for 30 minutes."`,
+    removed: (c) => `${c.name} won't use your Zoom any more. Meetings it scheduled stay.`,
   },
 }

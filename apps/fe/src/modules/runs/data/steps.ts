@@ -91,6 +91,11 @@ function summary(step: ToolStep): string | null {
       return count(r.events, "event", "events")
     case "googlecalendar_create_event":
       return text(r.title)
+    // #247: how many free slots; the moved event's title.
+    case "googlecalendar_find_free_time":
+      return count(r.slots, "free slot", "free slots")
+    case "googlecalendar_move_event":
+      return text(r.title) ?? text(a.title)
     case "googlecalendar_create_meeting":
       // Who was invited matters more than the title here: Google emailed them.
       return Array.isArray(r.attendees) && r.attendees.length
@@ -103,12 +108,22 @@ function summary(step: ToolStep): string | null {
     case "skill":
     case "skill_read": {
       // The skill's name people know ("Daily planner"), not its id ("daily-planner").
-      const id = text(a.name) ?? text(a.skillName)
+      const id = skillIdOf(text(a.name) ?? text(a.skillName))
       return id ? skillCopy(id).title : null
     }
     default:
       return null
   }
+}
+
+/**
+ * A skill's id from what the model passed: sometimes Mastra's path (`inline/best-price/SKILL.md`)
+ * instead of the id (Axel on #227; the engine side is #232).
+ */
+export function skillIdOf(name: string | null | undefined): string | null {
+  if (!name) return null
+  const id = name.replace(/^inline\//, "").replace(/\/SKILL\.md$/i, "").split("/").pop() ?? ""
+  return id || null
 }
 
 /** "8s", "1m 05s": short and plain, for step rows and the summary. */

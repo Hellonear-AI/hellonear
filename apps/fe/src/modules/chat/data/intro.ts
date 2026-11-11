@@ -34,3 +34,69 @@ export function introFor(templateId: string, limit: string | null, fallbackQuote
 export function composerNote(name: string, frozen: boolean): string {
   return frozen ? `Your wallet is frozen. ${name} can chat, but can't send money.` : `${name} can make mistakes. Check important details before you approve.`
 }
+
+/**
+ * The first chat's heading, picked at random from the Mind's own lines each time a new chat opens
+ * (Ancung, 11 Nov, like Claude's and Gemini's changing hellos), so it isn't always "Hi, I'm Omaga."
+ * Some follow the owner's clock. Each template has twelve lines in its own voice (more on Ancung's
+ * ask, the same day); unknown ones get the General Assistant's.
+ */
+const GREETINGS: Record<string, ((name: string, hello: string) => string)[]> = {
+  "payments-mind": [
+    (name) => `Hi, I'm ${name}.`,
+    (_, hello) => `${hello}. Any bills today?`,
+    () => "What should we pay today?",
+    () => "Money stuff? I'm on it.",
+    (name, hello) => `${hello}. ${name} here.`,
+    () => "Got a bill for me?",
+    () => "Who are we paying today?",
+    () => "Your wallet, your rules. What's next?",
+    (_, hello) => `${hello}. Ready to settle up?`,
+    () => "Let's keep the money tidy.",
+    () => "Anything due soon?",
+    (name) => `${name} at your service.`,
+  ],
+  "email-manager": [
+    (name) => `Hi, I'm ${name}.`,
+    (_, hello) => `${hello}. Inbox check?`,
+    () => "What's waiting in your inbox?",
+    () => "Let's tame that inbox.",
+    (name, hello) => `${hello}. ${name} here.`,
+    () => "Anything worth replying to?",
+    () => "Shall we clear some mail?",
+    () => "Who wrote to you today?",
+    (_, hello) => `${hello}. Let's see your mail.`,
+    () => "Inbox zero, or close to it?",
+    () => "Need a draft for someone?",
+    (name) => `${name}, sorting your mail.`,
+  ],
+  "general-assistant": [
+    (name) => `Hi, I'm ${name}.`,
+    (_, hello) => `${hello}. What's on today?`,
+    () => "Where should we start?",
+    () => "What can I help with?",
+    (name, hello) => `${hello}. ${name} here.`,
+    () => "What's on your mind?",
+    () => "Ready when you are.",
+    () => "What are we doing today?",
+    (_, hello) => `${hello}. How can I help?`,
+    () => "Let's plan something.",
+    () => "Ask me anything.",
+    (name) => `${name}, at your side.`,
+  ],
+}
+
+/** "Good morning" and so on by the owner's clock; late at night a plain "Hello". */
+export function helloFor(hour: number): string {
+  if (hour >= 5 && hour < 12) return "Good morning"
+  if (hour >= 12 && hour < 18) return "Good afternoon"
+  if (hour >= 18 && hour < 23) return "Good evening"
+  return "Hello"
+}
+
+/** One greeting; `pick` is a number from 0 up to 1 (Math.random), `hour` the owner's hour. */
+export function greetingFor(templateId: string, name: string, pick: number, hour: number): string {
+  const lines = GREETINGS[templateId] ?? GREETINGS["general-assistant"]
+  const line = lines[Math.min(lines.length - 1, Math.floor(pick * lines.length))]
+  return line(name, helloFor(hour))
+}

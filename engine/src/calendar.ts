@@ -187,3 +187,83 @@ export function createSampleMeeting(input: { title: string; start: string; end: 
     meetLink: input.meet ? SAMPLE_MEET_LINK : '', attendees, invitesSent: false, status: 'created' as const,
   }
 }
+
+// Free time (#247 item 3). GOOGLECALENDAR_FIND_FREE_SLOTS (schema read live 11 Nov 2026, version 20261110_00) answers
+// `data.calendars[<id>].busy[]` / `.free[]` (`{ start, end }`) and `is_reliable: false` when a calendar errored (then
+// `free` is empty). It does not filter by length or by time of day, so its `free` gaps include nights. We take its busy
+// periods and work out the gaps here, inside the owner's hours on each day, so a try-out (busy periods from
+// SAMPLE_CALENDAR) and a real calendar give the same kind of answer.
+export type Interval = { start: string; end: string }
+export type FreeSlot = { start: string; end: string; minutes: number }
+const HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/
+
+// The UTC offset ("+07:00") of a time zone at an instant, from Intl (no zone library in the engine).
+function offsetAt(t: number, timeZone: string): string {
+  const name = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longOffset' }).formatToParts(t).find((p) => p.type === 'timeZoneName')?.value ?? 'GMT'
+  return name === 'GMT' ? '+00:00' : name.replace('GMT', '')
+}
+function localDate(t: number, timeZone: string): string {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(t).map((x) => [x.type, x.value]))
+  return `${p.year}-${p.month}-${p.day}`
+}
+// The instant of a wall-clock time on a date in a time zone ("2026-11-12", "09:00", "Asia/Jakarta" → 02:00Z). The offset
+// is read at a first guess and once more at the result, which settles it outside the hour a clock change skips.
+export function zonedInstant(date: string, hhmm: string, timeZone: string): number {
+  const guess = Date.parse(`${date}T${hhmm}:00Z`)
+  const first = Date.parse(`${date}T${hhmm}:00${offsetAt(guess, timeZone)}`)
+  return Date.parse(`${date}T${hhmm}:00${offsetAt(first, timeZone)}`)
+}
+const nextDate = (date: string) => new Date(Date.parse(`${date}T00:00:00Z`) + DAY_MS).toISOString().slice(0, 10)
+
+// Gaps of at least `minutes` between busy periods, inside `dayStart` to `dayEnd` (owner's clock) on each day of
+// [timeMin, timeMax], soonest first.
+export function freeSlots(busy: Interval[], opts: { timeMin: string; timeMax: string; minutes: number; dayStart: string; dayEnd: string; timeZone: string }): FreeSlot[] {
+  if (!HHMM.test(opts.dayStart) || !HHMM.test(opts.dayEnd) || opts.dayEnd <= opts.dayStart) throw new Error('dayEnd must be after dayStart, both like 09:00')
+  const min = Date.parse(opts.timeMin)
+  const max = Date.parse(opts.timeMax)
+  const taken = busy.map((b) => [Date.parse(b.start), Date.parse(b.end)] as const).filter(([s, e]) => e > s).sort((a, b) => a[0] - b[0])
+  const out: FreeSlot[] = []
+  for (let date = localDate(min, opts.timeZone); zonedInstant(date, opts.dayStart, opts.timeZone) < max; date = nextDate(date)) {
+    let from = Math.max(min, zonedInstant(date, opts.dayStart, opts.timeZone))
+    const to = Math.min(max, zonedInstant(date, opts.dayEnd, opts.timeZone))
+    for (const [s, e] of taken) {
+      if (e <= from || s >= to) continue
+      if (s - from >= opts.minutes * 60_000) out.push({ start: new Date(from).toISOString(), end: new Date(s).toISOString(), minutes: Math.round((s - from) / 60_000) })
+      from = Math.max(from, e)
+    }
+    if (to - from >= opts.minutes * 60_000) out.push({ start: new Date(from).toISOString(), end: new Date(to).toISOString(), minutes: Math.round((to - from) / 60_000) })
+  }
+  return out
+}
+
+// Composio's free/busy answer → busy periods. A calendar Google could not read is an error, never "all free".
+export function busyOf(data: any): Interval[] {
+  const d = data?.response_data ?? data ?? {}
+  const cals = (d.calendars ?? {}) as Record<string, { busy?: Interval[]; is_reliable?: boolean; errors?: unknown }>
+  const cal = cals.primary ?? Object.values(cals)[0]
+  if (!cal) throw new Error('Google Calendar did not return free/busy times')
+  if (cal.is_reliable === false || cal.errors) throw new Error('Google Calendar could not read the calendar\'s free/busy times; try again later')
+  return (cal.busy ?? []).filter((b) => b && typeof b.start === 'string' && typeof b.end === 'string')
+}
+
+export const sampleBusy = (now = Date.now()): Interval[] => SAMPLE_CALENDAR.map((e) => sampleEvent(e, now)).map(({ start, end }) => ({ start, end }))
+
+// Moving an event (#247 item 3). The same instant written two ways ("10:00Z", "17:00+07:00") is the same time.
+export const sameInstant = (a: string, b: string) => {
+  const x = Date.parse(a)
+  return !Number.isNaN(x) && x === Date.parse(b)
+}
+
+// A try-out move: the event must be in the sample calendar at the time the card showed; nothing is saved.
+export function moveSampleEvent(input: { eventId: string; oldStart: string; oldEnd: string; newStart: string; newEnd: string }, now = Date.now()) {
+  checkNewEvent(input.newStart, input.newEnd)
+  const e = SAMPLE_CALENDAR.find((s) => s.id === input.eventId)
+  const current = e && sampleEvent(e, now)
+  if (!current || !sameInstant(current.start, input.oldStart) || !sameInstant(current.end, input.oldEnd)) {
+    return {
+      source: 'sample_calendar' as const, eventId: input.eventId, title: current?.title ?? '', start: current?.start ?? input.oldStart, end: current?.end ?? input.oldEnd, link: '',
+      status: 'refused' as const, message: 'not moved: that event is not in the sample calendar at the time shown. List the events again.',
+    }
+  }
+  return { source: 'sample_calendar' as const, eventId: input.eventId, title: current.title, start: input.newStart, end: input.newEnd, link: '', status: 'moved' as const }
+}

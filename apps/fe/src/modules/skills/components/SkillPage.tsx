@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeftIcon, ArrowUpRightIcon, CheckIcon, PlugIcon } from "lucide-react"
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
@@ -14,6 +14,7 @@ import { useConnections } from "@/modules/connections/hooks/useConnections"
 import { useSession } from "@/modules/auth/hooks/useSession"
 import { RemoveSkillDialog } from "@/modules/skills/components/SkillDialogs"
 import { SKILL_ICON } from "@/modules/skills/data/icons"
+import { SkillInstructions } from "@/modules/skills/components/SkillInstructions"
 
 /**
  * One skill's settings (S3.1): what it does and the rules it follows, then Remove at the bottom.
@@ -38,11 +39,13 @@ export function SkillPage({ mindId, skillId }: { mindId: string; skillId: string
   const copy = skillCopy(skillId)
   const Icon = SKILL_ICON[skillId] ?? PlugIcon
   const added = Boolean(mind?.skills.includes(skillId))
-  const skillsHref = mindHref(mindId, "skills")
+  // Back to the tab and page the owner came from (`?back=tab=apps&page=2`).
+  const back = useSearchParams().get("back")
+  const skillsHref = `${mindHref(mindId, "skills")}${back && /^[\w=&-]+$/.test(back) ? `?${back}` : ""}`
   const rules: SkillLine[] =
     skillId === "payments"
       ? [
-          { t: "Asks you before every payment", tone: "ok" },
+          { t: "Asks you before each payment, unless you set a rule in Settings", tone: "ok" },
           { t: ctx.limit ? `Up to ${ctx.limit} NEAR each, from ${name}'s wallet` : "Only inside the limits you set in Wallet", tone: "ok" },
           { t: "Only to the addresses on your list", tone: "ok" },
         ]
@@ -62,13 +65,11 @@ export function SkillPage({ mindId, skillId }: { mindId: string; skillId: string
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <h1 className="text-[26px] font-medium tracking-[-0.8px] text-foreground md:text-[32px]">{copy.title}</h1>
           <p className="text-sm text-muted-foreground md:text-[15px]">{copy.blurb}</p>
+          {/* Phones: under the text, so the blurb gets the width (beside the title it squeezed the
+              blurb into a 190 px column; the phone check, 11 Nov). */}
+          {mind && <AddedBadge added={added} className="mt-1 w-fit md:hidden" />}
         </div>
-        {mind && (
-          <Badge variant={added ? "success" : "neutral"}>
-            {added && <CheckIcon />}
-            {added ? "Added" : "Not added"}
-          </Badge>
-        )}
+        {mind && <AddedBadge added={added} className="max-md:hidden" />}
       </div>
 
       {rules.length > 0 && (
@@ -83,6 +84,8 @@ export function SkillPage({ mindId, skillId }: { mindId: string; skillId: string
           )}
         </section>
       )}
+
+      <SkillInstructions skillId={skillId} name={name} />
 
       {added ? (
         <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5 md:flex-row md:items-center md:justify-between">
@@ -122,5 +125,14 @@ export function SkillPage({ mindId, skillId }: { mindId: string; skillId: string
         />
       )}
     </div>
+  )
+}
+
+function AddedBadge({ added, className }: { added: boolean; className?: string }) {
+  return (
+    <Badge variant={added ? "success" : "neutral"} className={className}>
+      {added && <CheckIcon />}
+      {added ? "Added" : "Not added"}
+    </Badge>
   )
 }

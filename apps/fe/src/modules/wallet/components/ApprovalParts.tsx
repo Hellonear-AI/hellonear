@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { CheckIcon, SnowflakeIcon, XIcon } from "lucide-react"
+import { CheckIcon, PlusIcon, SnowflakeIcon, XIcon } from "lucide-react"
 import { cn } from "cn"
 import { Spinner } from "@/components/elements/Spinner"
 import { Button } from "@/components/ui/button"
@@ -42,6 +42,7 @@ export function ApprovalActions({
   onApprove,
   onDecline,
   onUnfreeze,
+  onFund,
   className,
 }: {
   mindId: string
@@ -54,6 +55,8 @@ export function ApprovalActions({
   onDecline: () => void
   /** Opens the freeze dialog; without it, Unfreeze links to Wallet (a shared demo wallet). */
   onUnfreeze?: () => void
+  /** Opens Add funds; without it, the button links to Wallet (a shared demo wallet). */
+  onFund?: () => void
   className?: string
 }) {
   const size = small ? "sm" : "default"
@@ -73,11 +76,16 @@ export function ApprovalActions({
           <SnowflakeIcon />
           Unfreeze first
         </Button>
+      ) : next === "fund" && onFund ? (
+        <Button size={size} onClick={onFund} disabled={busy}>
+          <PlusIcon />
+          Add funds first
+        </Button>
       ) : (
         // Approving would be refused before signing, so send the owner to fix it (a change that
         // needs their signature) instead of offering a button that can't work.
         <Button size={size} disabled={busy} nativeButton={false} render={<Link href={mindHref(mindId, "wallet")} />}>
-          {next === "unfreeze" ? "Unfreeze first" : next === "add_address" ? "Add the address first" : "Change limits first"}
+          {next === "unfreeze" ? "Unfreeze first" : next === "add_address" ? "Add the address first" : next === "fund" ? "Add funds first" : "Change limits first"}
         </Button>
       )}
     </div>

@@ -8,14 +8,31 @@ import type { AddressInfo } from 'node:net'
 import { needsApproval, toolRegistry, toolsFor } from '../src/tools.ts'
 import { USER_KEY, resetComposioSessions } from '../src/composio.ts'
 import { DEMO_KEY } from '../src/email.ts'
-import { docText, htmlText, notionText, notionTitle, sheetRange } from '../src/apps.ts'
+import { appendText, docId, docText, htmlText, notionRow, notionText, notionTitle, notionValue, sheetRange, startRow } from '../src/apps.ts'
 import { nodeIdFor } from '../src/graph.ts'
 
 const calls: { url: string; body: any }[] = []
 const ok = (data: unknown) => ({ result_type: 'completed', error: null, data })
+const TASK = {
+  object: 'page', id: 'r1', url: 'https://www.notion.so/r1', last_edited_time: '2026-11-10T00:00:00Z', parent: { type: 'database_id', database_id: 'db1' },
+  properties: {
+    Name: { id: 't', type: 'title', title: [{ plain_text: 'Send ' }, { plain_text: 'invoice' }] },
+    Status: { id: 's', type: 'status', status: { id: 'o1', name: 'In progress', color: 'blue' } },
+    Due: { id: 'd', type: 'date', date: { start: '2026-11-12', end: null } },
+    Tags: { id: 'g', type: 'multi_select', multi_select: [{ name: 'Money' }, { name: 'Clients' }] },
+    Done: { id: 'c', type: 'checkbox', checkbox: false },
+    Hours: { id: 'h', type: 'number', number: 1.5 },
+    Related: { id: 'r', type: 'relation', relation: [{ id: 'x' }] },
+  },
+}
+const INVOICE_CELLS: Record<string, unknown[][]> = { 'Invoices!D7': [['Unpaid']], 'Invoices!D7:E7': [['Unpaid', '1']] }
 const answers: Record<string, (a: any) => unknown> = {
   GOOGLESHEETS_SEARCH_SPREADSHEETS: () => ok({ spreadsheets: [{ id: 'sh1', name: 'Expenses 2026', modifiedTime: '2026-11-10T01:00:00Z', webViewLink: 'https://docs.google.com/spreadsheets/d/sh1' }], total_found: 1 }),
-  GOOGLESHEETS_BATCH_GET: () => ok({ spreadsheetId: 'sh1', display_url: 'https://docs.google.com/spreadsheets/d/sh1', valueRanges: [{ range: 'Costs!A1:C3', majorDimension: 'ROWS', values: [['Date', 'Item', 'NEAR'], ['2026-11-01', 'Hosting', '0.02']] }] }),
+  // Invoices!… answers the cells an update reads back just before writing (#245); anything else, the Costs table.
+  GOOGLESHEETS_BATCH_GET: (a) => String(a.ranges?.[0]).startsWith('Invoices!')
+    ? ok({ spreadsheetId: 'sh1', valueRanges: [{ range: a.ranges[0], majorDimension: 'ROWS', values: INVOICE_CELLS[a.ranges[0]] ?? [] }] })
+    : ok({ spreadsheetId: 'sh1', display_url: 'https://docs.google.com/spreadsheets/d/sh1', valueRanges: [{ range: a.ranges?.[0] ?? 'Costs!A1:C3', majorDimension: 'ROWS', values: [['Date', 'Item', 'NEAR'], ['2026-11-01', 'Hosting', '0.02']] }] }),
+  GOOGLESHEETS_VALUES_UPDATE: (a) => ok({ spreadsheetId: a.spreadsheet_id, updatedRange: a.range, updatedRows: a.values.length, updatedColumns: a.values[0].length, updatedCells: a.values.flat().length }),
   GOOGLESHEETS_SPREADSHEETS_VALUES_APPEND: (a) => ok({ spreadsheetId: a.spreadsheetId, tableRange: 'Costs!A1:C2', updates: { updatedRange: 'Costs!A3:C3', updatedRows: 1, updatedCells: a.values[0].length } }),
   GOOGLEDRIVE_FIND_FILE: () => ok({ files: [
     { id: 'd1', name: 'Contract', mimeType: 'application/vnd.google-apps.document', modifiedTime: '2026-11-09T00:00:00Z', webViewLink: 'https://docs.google.com/document/d/d1' },
@@ -25,6 +42,7 @@ const answers: Record<string, (a: any) => unknown> = {
     { paragraph: { elements: [{ textRun: { content: 'Payment terms: ' } }, { textRun: { content: '30 days.\n' } }] } },
     { table: { tableRows: [{ tableCells: [{ content: [{ paragraph: { elements: [{ textRun: { content: 'Fee\n' } }] } }] }] }] } },
   ] } }),
+  GOOGLEDOCS_INSERT_TEXT_ACTION: (a) => ok({ document_id: a.document_id, display_url: `https://docs.google.com/document/d/${a.document_id}/edit`, replies: [{}] }),
   GOOGLEDOCS_CREATE_DOCUMENT_MARKDOWN: (a) => ok({ documentId: 'newdoc', title: a.title, display_url: 'https://docs.google.com/document/d/newdoc/edit' }),
   SLACK_LIST_ALL_CHANNELS: () => ok({ ok: true, channels: [{ id: 'C1', name: 'finance', is_private: false, is_member: true }, { id: 'C2', name: 'founders', is_private: true }] }),
   SLACK_SEND_MESSAGE: (a) => (a.channel === 'gone' ? ok({ ok: false, error: 'channel_not_found' }) : ok({ ok: true, channel: 'C1', ts: '1731300000.000100' })),
@@ -39,6 +57,10 @@ const answers: Record<string, (a: any) => unknown> = {
   ] }),
   NOTION_CREATE_NOTION_PAGE: () => ok({ id: 'np1', url: 'https://www.notion.so/np1' }),
   NOTION_INSERT_ROW_DATABASE: () => ok({ id: 'row1', url: 'https://www.notion.so/row1' }),
+  // #247: a task list, as Notion's page objects (the latest output schema); r3 is archived and must not show.
+  NOTION_QUERY_DATABASE_WITH_FILTER: () => ok({ object: 'list', type: 'page_or_database', has_more: true, results: [TASK, { ...TASK, id: 'r3', archived: true }] }),
+  NOTION_RETRIEVE_PAGE: (a) => ok(a.page_id === 'gone' ? { ...TASK, id: 'gone', in_trash: true } : a.page_id === 'pg' ? { ...TASK, id: 'pg', parent: { type: 'page_id', page_id: 'x' } } : { ...TASK, id: a.page_id }),
+  NOTION_UPDATE_ROW_DATABASE: (a) => ok({ object: 'page', id: a.row_id, url: `https://www.notion.so/${a.row_id}` }),
   OUTLOOK_LIST_MESSAGES: () => ok({ value: [{ id: 'AAMk1', subject: 'Invoice', bodyPreview: 'Please  pay\nby Friday', receivedDateTime: '2026-11-10T02:00:00Z', isRead: false, from: { emailAddress: { name: 'Lumen Billing', address: 'billing@lumenhost.example' } } }] }),
   OUTLOOK_GET_MESSAGE: (a) => ok({ id: a.message_id, subject: 'Invoice', receivedDateTime: '2026-11-10T02:00:00Z', from: { emailAddress: { address: 'billing@lumenhost.example' } },
     toRecipients: [{ emailAddress: { name: 'Me', address: 'me@example.com' } }], body: { contentType: 'html', content: '<p>Hello &amp; welcome</p><p>Pay <b>0.02 NEAR</b></p>' } }),
@@ -74,8 +96,8 @@ const ctx = (userId?: string, demo = false) => ({ requestContext: { get: (k: str
 const run = (tool: keyof typeof toolRegistry, input: unknown, c: unknown = ctx('usr_a')) => toolRegistry[tool].execute!(input as any, c as any) as Promise<any>
 const exec = (slug: string) => calls.find((c) => c.body?.tool_slug === slug)!.body.arguments
 
-const WRITES = ['googlesheets_append_row', 'googledocs_create_document', 'slack_send_message', 'notion_create_page', 'notion_add_row'] as const
-const READS = ['googlesheets_find_spreadsheets', 'googlesheets_read_range', 'googledrive_find_files', 'googledocs_read_document', 'slack_list_channels', 'notion_search', 'notion_read_page', 'outlook_list_emails', 'outlook_read_email', 'outlook_create_draft'] as const
+const WRITES = ['googlesheets_append_row', 'googlesheets_update_cells', 'googledocs_create_document', 'googledocs_append_text', 'slack_send_message', 'notion_create_page', 'notion_add_row', 'notion_update_row'] as const
+const READS = ['googlesheets_find_spreadsheets', 'googlesheets_read_range', 'googledrive_find_files', 'googledocs_read_document', 'slack_list_channels', 'notion_search', 'notion_read_page', 'outlook_list_emails', 'outlook_read_email', 'outlook_create_draft', 'notion_query_database'] as const
 
 test('writes and posts wait for approval, reads and drafts do not, and unattended runs never get a write', () => {
   for (const t of WRITES) assert.equal(needsApproval(t), true, t)
@@ -98,6 +120,42 @@ test('sheets: search by name and content, read a range, append one row as RAW te
   assert.equal(sheetRange('Sheet1'), "'Sheet1'!A1")
 })
 
+test('sheets: change cells as RAW text without growing the sheet; all-empty values are refused before any card (#245)', async () => {
+  const changed = await run('googlesheets_update_cells', { spreadsheetId: 'sh1', range: 'Invoices!D7', newValues: [['Paid']], oldValues: [['Unpaid']] })
+  assert.deepEqual(exec('GOOGLESHEETS_VALUES_UPDATE'), {
+    spreadsheet_id: 'sh1', range: 'Invoices!D7', value_input_option: 'RAW', major_dimension: 'ROWS', values: [['Paid']], auto_expand_sheet: false, include_values_in_response: false,
+  })
+  assert.deepEqual(changed, { source: 'googlesheets', spreadsheetId: 'sh1', updatedRange: 'Invoices!D7', updatedCells: 1, status: 'updated' })
+  // A formula-looking value stays text (RAW), as with append.
+  await run('googlesheets_update_cells', { spreadsheetId: 'sh1', range: 'Invoices!D7:E7', newValues: [['=IMPORTXML("x")', 2]], oldValues: [['Unpaid', 1]] })
+  assert.deepEqual(calls.filter((c) => c.body?.tool_slug === 'GOOGLESHEETS_VALUES_UPDATE').at(-1)!.body.arguments.values, [['=IMPORTXML("x")', 2]])
+  // Clearing: refused by beforeApproval (no card) and again in execute, never sent to Composio.
+  calls.length = 0
+  const tool = (toolRegistry as any).googlesheets_update_cells
+  const before = await tool.beforeApproval({ spreadsheetId: 'sh1', range: 'Invoices!D7', newValues: [[''], [null]], oldValues: [['a'], ['b']] }, {})
+  assert.equal(before.proceed, false)
+  assert.equal(before.output.status, 'refused')
+  assert.equal(await tool.beforeApproval({ spreadsheetId: 'sh1', range: 'Invoices!D7', newValues: [['Paid']], oldValues: [['Unpaid']] }, {}), undefined)
+  const refused = await run('googlesheets_update_cells', { spreadsheetId: 'sh1', range: 'Invoices!D7', newValues: [['  ']], oldValues: [['x']] })
+  assert.equal(refused.status, 'refused')
+  assert.equal(calls.length, 0)
+  // The cells changed since the owner saw them (or the range was wrong and holds something else): nothing is written.
+  calls.length = 0
+  const stale = await run('googlesheets_update_cells', { spreadsheetId: 'sh1', range: 'Invoices!D7', newValues: [['Paid']], oldValues: [['Overdue']] })
+  assert.equal(stale.status, 'refused')
+  assert.match(stale.message, /no longer holds/)
+  assert.ok(!calls.some((c) => c.body?.tool_slug === 'GOOGLESHEETS_VALUES_UPDATE'), 'not written')
+  // Reads give each row's sheet number, so the Mind never counts rows itself.
+  const read = await run('googlesheets_read_range', { spreadsheetId: 'sh1', range: 'Costs!A5:C6' })
+  assert.deepEqual([read.firstRow, read.rowNumbers], [5, [5, 6]])
+  assert.equal(startRow('Costs'), 1)
+  assert.equal(startRow("Q4 o'costs!B12:C20"), 12)
+  // The range must name the tab and be a cell or a block.
+  const schema = tool.inputSchema
+  for (const bad of ['D7', 'Invoices!', 'Invoices!D0', 'Invoices!7D']) assert.equal(schema.safeParse({ spreadsheetId: 's', range: bad, newValues: [['x']], oldValues: [['y']] }).success, false, bad)
+  assert.equal(schema.safeParse({ spreadsheetId: 's', range: "Q4 o'costs!B2:C3", newValues: [['x', 'y']], oldValues: [['a', 'b']] }).success, true)
+})
+
 test('drive and docs: find files (trashed left out), read a doc as plain text, create a doc from Markdown', async () => {
   const found = await run('googledrive_find_files', { query: 'contract', maxResults: 5 })
   assert.deepEqual(exec('GOOGLEDRIVE_FIND_FILE'), { q: 'contract', pageSize: 5 })
@@ -109,6 +167,30 @@ test('drive and docs: find files (trashed left out), read a doc as plain text, c
   assert.deepEqual(exec('GOOGLEDOCS_CREATE_DOCUMENT_MARKDOWN'), { title: 'Invoice 7', markdown_text: '# Invoice 7' })
   assert.deepEqual(made, { source: 'googledocs', documentId: 'newdoc', title: 'Invoice 7', link: 'https://docs.google.com/document/d/newdoc/edit', status: 'created' })
   assert.equal(docText({ a: [{ textRun: { content: 'x' } }, { b: { textRun: { content: 'y' } } }] }), 'xy')
+})
+
+test('docs: add text only at the end of an existing Doc, after reading its title again (#247)', async () => {
+  const added = await run('googledocs_append_text', { documentId: 'https://docs.google.com/document/d/d1/edit', title: 'Contract', text: 'Week 46: shipped the Docs tool.' })
+  // The title is checked against the Doc right before writing, by its bare id.
+  assert.deepEqual(exec('GOOGLEDOCS_GET_DOCUMENT_BY_ID'), { id: 'd1' })
+  // Exactly these arguments: text at the end, no index, segment, tab, or anything that deletes or replaces.
+  assert.deepEqual(exec('GOOGLEDOCS_INSERT_TEXT_ACTION'), { document_id: 'd1', text_to_insert: '\nWeek 46: shipped the Docs tool.', append_to_end: true })
+  assert.deepEqual(added, { source: 'googledocs', documentId: 'd1', title: 'Contract', characters: 31, link: 'https://docs.google.com/document/d/d1/edit', status: 'appended' })
+  // No call ever goes to an action that replaces or deletes.
+  assert.ok(!calls.some((c) => /UPDATE_DOCUMENT|REPLACE|DELETE/.test(String(c.body?.tool_slug))), JSON.stringify(calls.map((c) => c.body?.tool_slug)))
+  // Another title than the card showed: nothing is added.
+  calls.length = 0
+  const other = await run('googledocs_append_text', { documentId: 'd1', title: 'Weekly Notes', text: 'x' })
+  assert.equal(other.status, 'refused')
+  assert.match(other.message, /now titled "Contract"/)
+  assert.ok(!calls.some((c) => c.body?.tool_slug === 'GOOGLEDOCS_INSERT_TEXT_ACTION'), 'not written')
+  // Empty text and text over the limit fail validation (Mastra answers instead of running the tool).
+  calls.length = 0
+  assert.equal((await run('googledocs_append_text', { documentId: 'd1', title: 'Contract', text: '' })).error, true)
+  assert.equal((await run('googledocs_append_text', { documentId: 'd1', title: 'Contract', text: 'a'.repeat(10_001) })).error, true)
+  assert.equal(calls.length, 0)
+  assert.equal(docId(' 1AbC_d-9xyz '), '1AbC_d-9xyz')
+  assert.equal(appendText('\nalready'), '\nalready')
 })
 
 test('slack: list channels with an explicit limit, post Markdown without the #, and a Slack refusal is an error', async () => {
@@ -142,6 +224,67 @@ test('notion: search titles (archived left out), read blocks as text, create a p
   assert.equal(notionText([{ type: 'paragraph', paragraph: { rich_text: [{ text: { content: 'raw' } }] } }]), 'raw')
 })
 
+test('notion: query a database as text values (archived left out); a filter and sorts are passed as given (#247)', async () => {
+  const all = await run('notion_query_database', { databaseId: 'db1' })
+  assert.deepEqual(exec('NOTION_QUERY_DATABASE_WITH_FILTER'), { database_id: 'db1', page_size: 25 })
+  assert.equal(all.more, true)
+  assert.deepEqual(all.rows, [{ id: 'r1', title: 'Send invoice', url: 'https://www.notion.so/r1', editedAt: '2026-11-10T00:00:00Z', properties: {
+    Name: { type: 'title', value: 'Send invoice' }, Status: { type: 'status', value: 'In progress' }, Due: { type: 'date', value: '2026-11-12' },
+    Tags: { type: 'multi_select', value: 'Money, Clients' }, Done: { type: 'checkbox', value: 'False' }, Hours: { type: 'number', value: '1.5' },
+  } }])
+  calls.length = 0
+  const filter = { and: [{ property: 'Status', status: { does_not_equal: 'Done' } }, { property: 'Due', date: { on_or_before: '2026-11-15' } }] }
+  await run('notion_query_database', { databaseId: 'db1', filter, sorts: [{ property: 'Due', direction: 'ascending' }], maxResults: 10 })
+  assert.deepEqual(exec('NOTION_QUERY_DATABASE_WITH_FILTER'), { database_id: 'db1', page_size: 10, filter, sorts: [{ property: 'Due', direction: 'ascending' }] })
+  assert.equal(notionValue({ type: 'date', date: { start: '2026-11-12', end: '2026-11-14' } }), '2026-11-12/2026-11-14')
+  assert.equal(notionValue({ type: 'unique_id', unique_id: { prefix: 'TASK', number: 7 } }), 'TASK-7')
+  assert.equal(notionValue({ type: 'formula', formula: { type: 'number', number: 3 } }), '3')
+  assert.equal(notionValue({ type: 'number', number: null }), '')
+  assert.deepEqual(notionRow({}).properties, {})
+})
+
+test('notion: change a row after re-reading it; never archives; a changed, wrong or archived row is refused (#247)', async () => {
+  const change = { rowId: 'r1', rowTitle: 'Send invoice', properties: [{ name: 'Status', type: 'status', oldValue: 'In progress', newValue: 'Done' }, { name: 'Due', type: 'date', oldValue: '2026-11-12', newValue: '2026-11-13' }] }
+  const done = await run('notion_update_row', change)
+  assert.deepEqual(exec('NOTION_RETRIEVE_PAGE'), { page_id: 'r1' })
+  assert.deepEqual(exec('NOTION_UPDATE_ROW_DATABASE'), { row_id: 'r1', properties: [{ name: 'Status', type: 'status', value: 'Done' }, { name: 'Due', type: 'date', value: '2026-11-13' }], delete_row: false })
+  assert.deepEqual(done, { source: 'notion', rowId: 'r1', url: 'https://www.notion.so/r1', updated: ['Status', 'Due'], status: 'updated' })
+  // Values compare as Notion shows them: multi_select order, checkbox case and number form don't matter.
+  calls.length = 0
+  const loose = await run('notion_update_row', { rowId: 'r1', rowTitle: ' send  INVOICE', properties: [
+    { name: 'Tags', type: 'multi_select', oldValue: 'Clients,Money', newValue: 'Money' }, { name: 'Done', type: 'checkbox', oldValue: 'false', newValue: 'True' }, { name: 'Hours', type: 'number', oldValue: '1.50', newValue: '2' },
+  ] })
+  assert.equal(loose.status, 'updated', loose.message)
+  const writes = () => calls.filter((c) => c.body?.tool_slug === 'NOTION_UPDATE_ROW_DATABASE').length
+  const refusedFor = async (input: unknown, re: RegExp) => {
+    calls.length = 0
+    const r = await run('notion_update_row', input)
+    assert.equal(r.status, 'refused', JSON.stringify(r))
+    assert.match(r.message, re)
+    assert.equal(writes(), 0, 'not written')
+  }
+  const one = (p: object, extra: object = {}) => ({ rowId: 'r1', rowTitle: 'Send invoice', properties: [{ name: 'Status', type: 'status', oldValue: 'In progress', newValue: 'Done', ...p }], ...extra })
+  await refusedFor(one({ oldValue: 'Not started' }), /no longer holds the value shown.*In progress/)
+  await refusedFor(one({}, { rowTitle: 'Send invoice to Dimas' }), /that row is "Send invoice", not "Send invoice to Dimas"/)
+  await refusedFor(one({ type: 'select' }), /"Status" is a status property, not select/)
+  await refusedFor(one({ name: 'Owner' }), /no property "Owner"/)
+  await refusedFor(one({}, { rowId: 'gone' }), /archived or in the trash/)
+  await refusedFor(one({}, { rowId: 'pg' }), /not a row of a database/)
+  await refusedFor({ ...one({}), properties: [one({}).properties[0], one({}).properties[0]] }, /listed once/)
+  // Clearing: refused by beforeApproval (no card) and again in execute, before Composio is called at all.
+  calls.length = 0
+  const tool = (toolRegistry as any).notion_update_row
+  const before = await tool.beforeApproval(one({ newValue: '  ' }), {})
+  assert.deepEqual([before.proceed, before.output.status], [false, 'refused'])
+  assert.equal(await tool.beforeApproval(one({}), {}), undefined)
+  assert.equal((await run('notion_update_row', one({ newValue: '' }))).status, 'refused')
+  assert.equal(calls.length, 0)
+  // Read-only types and archive-like fields are not in the schema.
+  assert.equal(tool.inputSchema.safeParse(one({ type: 'formula' })).success, false)
+  assert.equal(tool.inputSchema.safeParse(one({ type: 'relation' })).success, false)
+  assert.equal('delete_row' in tool.inputSchema.shape, false)
+})
+
 test('outlook: the same shapes as the Gmail tools; HTML bodies become text; drafts reply to the sender only', async () => {
   const list = await run('outlook_list_emails', { query: 'invoice', maxResults: 3 })
   assert.deepEqual(exec('OUTLOOK_LIST_MESSAGES'), { folder: 'inbox', top: 3, search: 'invoice' })
@@ -172,8 +315,9 @@ test('an app the owner has not connected answers "<App> is not connected" for th
 
 test('try-out runs never reach Composio: every app answers that it is not in the try-out', async () => {
   for (const t of [...READS, ...WRITES]) {
-    const input = { googlesheets_append_row: { spreadsheetId: 's', sheet: 'a', values: ['x'] }, googledocs_create_document: { title: 't', markdown: '' }, slack_send_message: { channel: 'c', text: 't' },
-      notion_create_page: { parentId: 'p', title: 't' }, notion_add_row: { databaseId: 'd', properties: [{ name: 'n', type: 'title', value: 'v' }] }, googlesheets_read_range: { spreadsheetId: 's' },
+    const input = { googlesheets_append_row: { spreadsheetId: 's', sheet: 'a', values: ['x'] }, googlesheets_update_cells: { spreadsheetId: 's', range: 'a!A1', newValues: [['x']], oldValues: [['y']] }, googledocs_create_document: { title: 't', markdown: '' }, googledocs_append_text: { documentId: 'd', title: 't', text: 'x' }, slack_send_message: { channel: 'c', text: 't' },
+      notion_create_page: { parentId: 'p', title: 't' }, notion_add_row: { databaseId: 'd', properties: [{ name: 'n', type: 'title', value: 'v' }] }, notion_query_database: { databaseId: 'd' },
+      notion_update_row: { rowId: 'r', rowTitle: 't', properties: [{ name: 'Status', type: 'status', oldValue: 'a', newValue: 'b' }] }, googlesheets_read_range: { spreadsheetId: 's' },
       googledrive_find_files: { query: 'q' }, googledocs_read_document: { id: 'd' }, notion_read_page: { pageId: 'p' }, outlook_read_email: { id: 'i' }, outlook_create_draft: { replyToId: 'i', body: 'b' } } as Record<string, unknown>
     await assert.rejects(run(t, input[t] ?? {}, ctx('usr_demo', true)), /not available in the try-out/, t)
   }

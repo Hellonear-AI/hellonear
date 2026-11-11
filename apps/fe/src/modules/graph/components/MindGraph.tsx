@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react"
 import { cn } from "cn"
+import { setFlag } from "@/modules/onboarding/data/progress"
+import { wheelPan, wheelPixels, wheelZoomFactor } from "@/modules/builder/hooks/useCanvasView"
 import { APPS } from "@/modules/connections/data/apps"
 import type { GraphLink, GraphNode } from "@/modules/graph/data/graph"
 import { settle, stepSim, syncSim, type Sim } from "@/modules/graph/data/sim"
@@ -37,6 +39,13 @@ const KEPT = new Map<string, { sim: Sim; view: { x: number; y: number; k: number
 
 /** How long a finished state keeps glowing (ms). */
 const AFTERGLOW = { ok: 1600, error: 4000, denied: 4000 } as const
+// The magnet: bubbles within 120 screen px of the cursor move toward it, up to a third of the
+// way when right under it, fading to nothing at the edge, at most 8 units.
+const MAGNET_REACH = 120
+// One + or - key press.
+const KEY_ZOOM = 1.25
+const MAGNET_PULL = 0.35
+const MAGNET_MAX = 8
 
 export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect, label, trail = [], live = false, run = null, className }: Props) {
   const wrap = useRef<HTMLDivElement>(null)
@@ -59,6 +68,9 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
   // Fit was pressed: glide to the frame until there.
   const fitting = useRef(false)
   const hover = useRef<string | null>(null)
+  // How far each bubble leans toward the cursor right now (drawn only), and whether one is dragged.
+  const magnet = useRef(new Map<string, { x: number; y: number }>())
+  const dragging = useRef(false)
   // Where the cursor is, in graph space, for the torch on the lines.
   const torch = useRef<{ x: number; y: number } | null>(null)
   const images = useRef(new Map<string, HTMLImageElement>())
@@ -229,6 +241,34 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         v0.x += (tx - v0.x) * e
         v0.y += (ty - v0.y) * e
         if (Math.abs(tx - v0.x) < 0.5 && Math.abs(ty - v0.y) < 0.5 && Math.abs(k - v0.k) < 0.005) focus.current = null
+      }
+      // The cursor is a magnet anywhere on the canvas (Ancung, 11 Nov): every bubble within its
+      // reach leans toward it, the nearer the stronger, and eases back when it leaves; the lines
+      // follow their bubbles. Drawn only: the layout never sees it.
+      const field = MAGNET_REACH / view.current.k
+      for (const [id, b] of s.bodies) {
+        const o = magnet.current.get(id) ?? { x: 0, y: 0 }
+        const t = torch.current
+        let tx = 0
+        let ty = 0
+        const away = t ? Math.hypot(t.x - b.x, t.y - b.y) : Infinity
+        if (t && away < field && !dragging.current && !still.matches) {
+          const pull = MAGNET_PULL * (1 - away / field) ** 2
+          const dx = (t.x - b.x) * pull
+          const dy = (t.y - b.y) * pull
+          const d = Math.hypot(dx, dy)
+          const m = d > MAGNET_MAX ? MAGNET_MAX / d : 1
+          tx = dx * m
+          ty = dy * m
+        }
+        o.x += (tx - o.x) * 0.2
+        o.y += (ty - o.y) * 0.2
+        if (Math.abs(o.x) < 0.01 && Math.abs(o.y) < 0.01 && tx === 0 && ty === 0) magnet.current.delete(id)
+        else magnet.current.set(id, o)
+      }
+      for (const [id, o] of magnet.current) {
+        const b = s.bodies.get(id)
+        if (b) (b.x += o.x), (b.y += o.y)
       }
       const { w, h, dpr } = size
       const v = view.current
@@ -447,6 +487,10 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         ctx.fillText(n.label, b.x, y)
       }
       ctx.globalAlpha = 1
+      for (const [id, o] of magnet.current) {
+        const b = s.bodies.get(id)
+        if (b) (b.x -= o.x), (b.y -= o.y)
+      }
     }
 
     const loop = (now: number) => {
@@ -470,6 +514,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         const body = s0.bodies.get(drag.id)
         if (body) body.pinned = false
       }
+      dragging.current = false
       drag = null
       v.auto = false
       focus.current = null
@@ -488,7 +533,10 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         if (touches.size === 2) return startPinch()
         if (touches.size > 2) return
       }
-      const id = hit(p.x, p.y)
+      setFlag("live")
+      const id = space || e.button === 1 ? null : hit(p.x, p.y)
+      if (e.button === 1) e.preventDefault()
+      dragging.current = true
       drag = { id, x: p.x, y: p.y, moved: false, vx: view.current.x, vy: view.current.y }
       cv.style.cursor = "grabbing"
     }
@@ -553,6 +601,7 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
         s.alpha = Math.max(s.alpha, 0.7)
       }
       if (!drag.moved) select.current(drag.id)
+      dragging.current = false
       drag = null
       cv.style.cursor = hover.current ? "pointer" : "grab"
     }
@@ -560,19 +609,41 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       torch.current = null
       if (!drag) hover.current = null
     }
+    // The wheel works like the Builder's canvas (Ancung, 11 Nov): scroll or two fingers pan,
+    // Shift + scroll pans sideways, Ctrl/Cmd + scroll or a trackpad pinch (sent as Ctrl + wheel)
+    // zooms around the pointer.
     const wheel = (e: WheelEvent) => {
       e.preventDefault()
-      const p = local(e)
       const v = view.current
-      const k = clampZoom(v.k * Math.exp(-Math.max(-60, Math.min(60, e.deltaY)) * 0.003))
-      // Zoom around the pointer.
-      const next = zoomAround(v, size, p, p, k)
-      v.k = next.k
-      v.x = next.x
-      v.y = next.y
+      const { dx, dy } = wheelPixels(e)
+      if (e.ctrlKey || e.metaKey) {
+        const p = local(e)
+        const next = zoomAround(v, size, p, p, clampZoom(v.k * wheelZoomFactor(dy)))
+        v.k = next.k
+        v.x = next.x
+        v.y = next.y
+      } else {
+        const pan = wheelPan({ dx, dy, shift: e.shiftKey })
+        v.x -= pan.x
+        v.y -= pan.y
+      }
       v.auto = false
       focus.current = null
     }
+    // Space + drag or the middle button pans even over a bubble, as in the Builder.
+    let space = false
+    const keyDown = (e: KeyboardEvent) => {
+      if (e.code === "Space" && cv.matches(":hover") && !isTyping(e.target)) {
+        e.preventDefault()
+        space = true
+        cv.style.cursor = "grab"
+      }
+    }
+    const keyUp = (e: KeyboardEvent) => {
+      if (e.code === "Space") space = false
+    }
+    window.addEventListener("keydown", keyDown)
+    window.addEventListener("keyup", keyUp)
     cv.addEventListener("pointerdown", down)
     cv.addEventListener("pointermove", move)
     cv.addEventListener("pointerup", up)
@@ -593,11 +664,39 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       cv.removeEventListener("pointercancel", up)
       cv.removeEventListener("pointerleave", leave)
       cv.removeEventListener("wheel", wheel)
+      window.removeEventListener("keydown", keyDown)
+      window.removeEventListener("keyup", keyUp)
     }
   }, [mind, mindId])
 
   return (
-    <div ref={wrap} className={cn("relative touch-none overflow-hidden", className)}>
+    <div
+      ref={wrap}
+      tabIndex={0}
+      aria-label={`${label}. Plus and minus zoom, 0 shows it at 100%, 1 fits it.`}
+      onKeyDown={(e) => {
+        if (e.ctrlKey || e.metaKey || e.altKey) return
+        const v = view.current
+        const zoomTo = (k: number) => {
+          const box = wrap.current?.getBoundingClientRect()
+          if (!box) return
+          const mid = { x: box.width / 2, y: box.height / 2 }
+          const next = zoomAround(v, { w: box.width, h: box.height }, mid, mid, clampZoom(k))
+          Object.assign(v, next, { auto: false })
+          focus.current = null
+        }
+        if (e.key === "+" || e.key === "=") zoomTo(v.k * KEY_ZOOM)
+        else if (e.key === "-" || e.key === "_") zoomTo(v.k / KEY_ZOOM)
+        else if (e.key === "0") zoomTo(1)
+        else if (e.key === "1" || e.key === "f") {
+          focus.current = null
+          v.auto = true
+          fitting.current = true
+        } else return
+        e.preventDefault()
+      }}
+      className={cn("relative touch-none overflow-hidden rounded-[inherit] outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset", className)}
+    >
       <canvas ref={canvas} role="img" aria-label={label} className="absolute inset-0 size-full" />
       {/* The apps' own logos (AppLogos), read once into images for the canvas. */}
       <div ref={logos} aria-hidden className="hidden">
@@ -622,4 +721,9 @@ export function MindGraph({ mindId, nodes, links, avatarSrc, selected, onSelect,
       </button>
     </div>
   )
+}
+
+/** Typing in a field: Space is a space there, not a pan. */
+function isTyping(t: EventTarget | null): boolean {
+  return t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))
 }

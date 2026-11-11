@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { CheckIcon, PlugIcon, SearchIcon } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useRef, useState } from "react"
 import { ErrorRetry } from "@/components/elements/ErrorRetry"
 import { cn } from "cn"
@@ -44,9 +45,23 @@ export function SkillsScreen({ mindId }: { mindId: string }) {
   const connections = useConnections({ watching }).data
   const [query, setQuery] = useState("")
   const [filter, setFilter] = useState<Filter>("all")
-  const [category, setCategory] = useState<CategoryId | "all">("all")
-  // Nine a page, a 3 by 3 grid on desktop (Ancung, 11 Nov); a new tab, filter or search starts at page 1.
-  const [page, setPage] = useState(1)
+  // The tab and the page live in the URL (?tab=apps&page=2), so coming back from a skill's
+  // Settings lands where the owner was (Ancung, 11 Nov). Nine a page, a 3 by 3 grid on desktop; a
+  // new tab, filter or search starts at page 1.
+  const router = useRouter()
+  const params = useSearchParams()
+  const tab = params.get("tab")
+  const category: CategoryId | "all" = CATEGORIES.some((c) => c.id === tab) ? (tab as CategoryId) : "all"
+  const page = Math.max(1, Number(params.get("page")) || 1)
+  const setView = (next: { category?: CategoryId | "all"; page?: number }) => {
+    const c = next.category ?? category
+    const p = next.page ?? page
+    const qs = new URLSearchParams({ ...(c !== "all" ? { tab: c } : {}), ...(p > 1 ? { page: String(p) } : {}) }).toString()
+    router.replace(qs ? `?${qs}` : mindHref(mindId, "skills"), { scroll: false })
+  }
+  const setPage = (p: number) => setView({ page: p })
+  const setCategory = (c: CategoryId | "all") => setView({ category: c, page: 1 })
+  const backQuery = params.toString()
   const listTop = useRef<HTMLDivElement>(null)
   const [adding, setAdding] = useState<string | null>(null)
   const [opened, setOpened] = useState(0)
@@ -104,7 +119,7 @@ export function SkillsScreen({ mindId }: { mindId: string }) {
 
       {/* What a skill is for: a line tab bar, so it reads as the page's sections and the Added /
           Not added pills below read as a filter inside them (Ancung, 11 Nov). Scrolls sideways on phones. */}
-      <Tabs value={category} onValueChange={(v) => (setCategory(v as CategoryId | "all"), setPage(1))}>
+      <Tabs value={category} onValueChange={(v) => setCategory(v as CategoryId | "all")}>
         <div className="relative -mx-4 md:mx-0">
           {/* Phones: no scrollbar under the tabs (it read like the active line), a fade at the right
               edge says more tabs are a swipe away (Ancung, 11 Nov). */}
@@ -166,6 +181,7 @@ export function SkillsScreen({ mindId }: { mindId: string }) {
                 added={equipped.includes(s.skillId)}
                 needsConnecting={needsConnecting(s)}
                 ctx={ctx}
+                backQuery={backQuery}
                 onAdd={() => {
                   setOpened((n) => n + 1)
                   setAdding(s.skillId)
@@ -200,9 +216,12 @@ function SkillCard({
   added,
   needsConnecting,
   ctx,
+  backQuery,
   onAdd,
 }: {
   mindId: string
+  /** Where the list was (tab and page), for the skill page's way back. */
+  backQuery: string
   skill: ApiSkill
   added: boolean
   needsConnecting: boolean
@@ -247,7 +266,7 @@ function SkillCard({
           <Badge variant="neutral">Not added</Badge>
         )}
         {blocked ? null : added ? (
-          <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`${mindHref(mindId, "skills")}/${skill.skillId}`} />}>
+          <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`${mindHref(mindId, "skills")}/${skill.skillId}${backQuery ? `?back=${encodeURIComponent(backQuery)}` : ""}`} />}>
             Settings
           </Button>
         ) : (

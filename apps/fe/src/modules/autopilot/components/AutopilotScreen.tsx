@@ -6,7 +6,8 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { useState } from "react"
+import { useRef, useState } from "react"
+import { matches, MEDIA, prefersReducedMotion } from "@/lib/media"
 import { PageTitle } from "@/components/elements/PageTitle"
 import { mindHref } from "@/components/layout/nav"
 import { Button } from "@/components/ui/button"
@@ -33,6 +34,14 @@ export function AutopilotScreen({ mindId }: { mindId: string }) {
   const locked = useTryOutLock()
   // Back from the Builder with ?job=… opens the job just saved.
   const [picked, setPicked] = useState<string | null>(useSearchParams().get("job"))
+  // Below 1280 px the detail sits under every job card and idea, so picking a job scrolls to it;
+  // before, a tap on a phone seemed to do nothing (Ancung's phone check, 11 Nov).
+  const detail = useRef<HTMLDivElement>(null)
+  const pick = (id: string) => {
+    setPicked(id)
+    if (matches(MEDIA.xl)) return
+    requestAnimationFrame(() => detail.current?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "start" }))
+  }
   const selected = picked && jobs.data?.some((j) => j.workflowId === picked) ? picked : (jobs.data?.[0]?.workflowId ?? null)
 
   return (
@@ -77,14 +86,18 @@ export function AutopilotScreen({ mindId }: { mindId: string }) {
                 name={name}
                 job={j}
                 active={j.workflowId === selected}
-                onPick={() => setPicked(j.workflowId)}
+                onPick={() => pick(j.workflowId)}
                 onLocked={() => locked.lock("autopilot")}
                 demo={demo}
               />
             ))}
             <Ideas mindId={mindId} name={name} demo={demo} taken={jobs.data.map((j) => j.workflowId)} onAdded={setPicked} compact />
           </ul>
-          {selected && <JobDetail key={selected} mindId={mindId} name={name} workflowId={selected} />}
+          {selected && (
+            <div ref={detail} className="min-w-0 flex-1 scroll-mt-20">
+              <JobDetail key={selected} mindId={mindId} name={name} workflowId={selected} />
+            </div>
+          )}
         </div>
       )}
 

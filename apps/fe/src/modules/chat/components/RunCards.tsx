@@ -18,6 +18,7 @@ import { toolLabel } from "@/modules/runs/data/steps"
 import type { ApiWallet } from "@/modules/wallet/api"
 import { FreezeDialog } from "@/modules/wallet/components/FreezeDialog"
 import { ApprovalActions, ApprovalCheckList, ApprovalDetailLines } from "@/modules/wallet/components/ApprovalParts"
+import { AddFundsDialog } from "@/modules/wallet/components/AddFundsDialog"
 import { approvalChecks, NOT_LISTED, refusalReasons } from "@/modules/wallet/data/checks"
 
 // What a run did, in the chat (design C1.1, C1.3, C1.4, C1.7): a pill per tool, a receipt for a
@@ -137,6 +138,7 @@ export function ApprovalCard({
   const details = payment ? null : approvalDetails(step)
   // Unfreeze opens the freeze dialog right here.
   const [unfreeze, setUnfreeze] = useState({ open: false, key: 0 })
+  const [funds, setFunds] = useState({ open: false, key: 0 })
   const { checks, next } = payment ? approvalChecks(payment, wallet) : { checks: [], next: "approve" as const }
   return (
     <div className="flex w-full flex-col gap-3 rounded-lg bg-warning-soft p-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-out motion-reduce:animate-none md:max-w-[480px]">
@@ -160,7 +162,11 @@ export function ApprovalCard({
         onApprove={() => onAnswer("approve")}
         onDecline={() => onAnswer("decline")}
         onUnfreeze={wallet?.shared ? undefined : () => setUnfreeze((u) => ({ open: true, key: u.key + 1 }))}
+        onFund={wallet && !wallet.shared ? () => setFunds((f) => ({ open: true, key: f.key + 1 })) : undefined}
       />
+      {wallet && funds.key > 0 && (
+        <AddFundsDialog key={funds.key} mindId={mindId} name={name} wallet={wallet} open={funds.open} onOpenChange={(open) => setFunds((f) => ({ ...f, open }))} />
+      )}
       {unfreeze.key > 0 && <FreezeDialog key={unfreeze.key} mindId={mindId} name={name} freeze={false} open={unfreeze.open} onOpenChange={(open) => setUnfreeze((u) => ({ ...u, open }))} />}
     </div>
   )

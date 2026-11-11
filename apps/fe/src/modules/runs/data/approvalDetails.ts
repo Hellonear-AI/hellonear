@@ -46,6 +46,16 @@ export function approvalDetails(step: ToolStep, timeZone?: string): ApprovalDeta
           : "Adds it to your Google Calendar.",
       }
     }
+    case "googlecalendar_move_event":
+      // #247: the time it has now (as the Mind listed it; the engine checks again before moving) and the new one.
+      return {
+        title: `Move "${str(a.title) ?? "an event"}"`,
+        lines: [
+          { label: "From", value: whenText(a.oldStart, a.oldEnd, timeZone) ?? "Not read" },
+          { label: "To", value: whenText(a.newStart, a.newEnd, timeZone) ?? "Not given" },
+        ],
+        note: "Only the time changes, in your Google Calendar. Nobody is emailed, so tell any guests yourself. If the event has moved since the Mind read it, nothing is changed.",
+      }
     case "gmail_organize": {
       // #106: the card lists every email, as the Mind listed them, so the owner approves exactly this batch.
       const emails = Array.isArray(a.emails) ? (a.emails as Record<string, unknown>[]) : []
@@ -71,6 +81,13 @@ export function approvalDetails(step: ToolStep, timeZone?: string): ApprovalDeta
         note: "It goes from your Mind's own email address.",
       }
     }
+    // "Email me" in chat (#225): only ever to the owner's own Gmail.
+    case "mail_send_to_owner":
+      return {
+        title: `Email you "${str(a.subject) ?? "a note"}"`,
+        lines: [{ label: "Length", value: `${(str(a.text) ?? "").length.toLocaleString("en")} characters` }],
+        note: "It goes from your Mind's own email address to the Gmail you connected, and nobody else.",
+      }
     // The track skills' apps (#195 to #200, Axel's #211): what goes where, so the owner approves this exact change.
     case "googledocs_create_document":
       return {
@@ -78,6 +95,31 @@ export function approvalDetails(step: ToolStep, timeZone?: string): ApprovalDeta
         lines: [{ label: "Length", value: `${(str(a.markdown) ?? "").length.toLocaleString("en")} characters` }],
         note: "Creates a new Google Doc in your Drive. Nothing is shared.",
       }
+    case "googledocs_append_text": {
+      // #247: which Doc (its title as the Mind read it; the engine checks it again before writing), where, and the text.
+      const text = str(a.text) ?? ""
+      return {
+        title: `Add to "${str(a.title) ?? "a Google Doc"}"`,
+        lines: [
+          { label: "Where", value: "At the end" },
+          { label: "Length", value: `${text.length.toLocaleString("en")} characters` },
+          { label: "Text", value: text || "Empty" },
+        ],
+        note: "Adds this text at the end of your Google Doc. Nothing already in it changes. If the Doc has another title when you approve, nothing is added.",
+      }
+    }
+    case "googlesheets_update_cells": {
+      // #245: what is in the cells now (as the Mind read them; the engine checks again before writing) and what replaces it.
+      const flat = (v: unknown) => (Array.isArray(v) ? v.flat().map((x) => (x === null || x === undefined || x === "" ? "(empty)" : String(x))).join(", ") : "")
+      return {
+        title: `Change ${str(a.range) ?? "cells"} in your Google Sheet`,
+        lines: [
+          { label: "Now", value: flat(a.oldValues) || "Not read" },
+          { label: "New", value: flat(a.newValues) || "Empty" },
+        ],
+        note: "Changes only these cells. \"Now\" is what the Mind read; if the cells hold something else when you approve, nothing is changed.",
+      }
+    }
     case "googlesheets_append_row": {
       const values = Array.isArray(a.values) ? a.values.map((v) => (v === null || v === undefined ? "" : String(v))) : []
       return {
@@ -103,12 +145,36 @@ export function approvalDetails(step: ToolStep, timeZone?: string): ApprovalDeta
         note: "Adds one row. Existing rows don't change.",
       }
     }
+    case "notion_update_row": {
+      // #247: each property as the Mind read it (the engine checks again before writing) and what replaces it.
+      const props = Array.isArray(a.properties) ? (a.properties as Record<string, unknown>[]) : []
+      return {
+        title: `Change "${str(a.rowTitle) ?? "a row"}" in Notion`,
+        lines: props.slice(0, 8).map((p, i) => ({ label: str(p.name) ?? `${i + 1}`, value: `${str(p.oldValue) ?? "(empty)"} → ${str(p.newValue) ?? "(empty)"}` })),
+        note: "Changes only these properties of this row. The old value is what the Mind read; if the row holds something else when you approve, nothing is changed.",
+      }
+    }
     case "slack_send_message":
       return {
         title: `Post to ${str(a.channel)?.replace(/^#?/, "#") ?? "Slack"}`,
         lines: [{ label: "Message", value: str(a.text) ?? "" }],
         note: "Posted to Slack as you.",
       }
+    // Zoom (#246): when on the owner's clock, how long, and that nobody is invited (the tool can't invite).
+    case "zoom_create_meeting": {
+      const minutes = typeof a.minutes === "number" && a.minutes > 0 ? a.minutes : null
+      const start = str(a.start) ? Date.parse(a.start as string) : NaN
+      const when = whenText(a.start, minutes && !Number.isNaN(start) ? new Date(start + minutes * 60_000).toISOString() : null, timeZone)
+      const lines: ApprovalDetails["lines"] = []
+      if (when) lines.push({ label: "When", value: when })
+      if (minutes) lines.push({ label: "Length", value: `${minutes} ${minutes === 1 ? "minute" : "minutes"}` })
+      lines.push({ label: "Guests", value: "Nobody is invited" })
+      return {
+        title: `Schedule the Zoom meeting "${str(a.topic) ?? "a meeting"}"`,
+        lines,
+        note: "Creates the meeting in your Zoom with a join link. Nobody is emailed; share the link yourself.",
+      }
+    }
     case "sell_offer":
       return {
         title: `Sell "${str(a.title) ?? "an offer"}" for ${str(a.priceNear) ?? "?"} NEAR`,
