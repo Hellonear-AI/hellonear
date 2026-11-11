@@ -36,6 +36,7 @@ export const TOOLS: Record<string, ToolWords> = {
   gmail_list_emails: { doing: "Reading your inbox", done: "Read your inbox", orb: "searching" },
   gmail_read_email: { doing: "Reading an email", done: "Read an email", orb: "searching" },
   googlecalendar_list_events: { doing: "Checking your calendar", done: "Checked your calendar", orb: "searching" },
+  googlecalendar_find_free_time: { doing: "Looking for free time", done: "Looked for free time", orb: "searching" },
   mail_list: { doing: "Checking its inbox", done: "Checked its inbox", orb: "searching" },
   mail_read: { doing: "Reading an email", done: "Read an email", orb: "searching" },
   skill: { doing: "Picking up a skill", done: "Picked up a skill", orb: "searching" },
@@ -64,6 +65,7 @@ export const TOOLS: Record<string, ToolWords> = {
   googlecalendar_create_event: { doing: "Adding to your calendar", done: "Added to your calendar", orb: "working", thing: "the event" },
   googlecalendar_create_meeting: { doing: "Scheduling a meeting", done: "Scheduled a meeting", orb: "working", thing: "the meeting" },
   googlecalendar_block_time: { doing: "Blocking time in your calendar", done: "Blocked time in your calendar", orb: "working" },
+  googlecalendar_move_event: { doing: "Moving an event", done: "Moved an event", orb: "working", thing: "the move" },
   gmail_organize: { doing: "Tidying your inbox", done: "Tidied your inbox", orb: "working", thing: "the inbox clean-up" },
   // Paid data (#150): the first call gets a price, the second the report.
   buy_data: { doing: "Buying a report", done: "Asked for a report" },
