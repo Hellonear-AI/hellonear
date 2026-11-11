@@ -62,6 +62,14 @@ function summary(step: ToolStep): string | null {
       return r.coversAmount === true ? "Paid in full" : r.status === "succeeded" ? "Paid, but not the full amount" : r.status === "failed" ? "Not paid" : null
     case "near_view_account":
       return text(r.accountId) ?? text(a.accountId)
+    // Google Sheets (#195, #249): which cells, so "Changed cells" says where (Ancung, 11 Nov).
+    case "googlesheets_find_spreadsheets":
+      return count(r.spreadsheets, "spreadsheet", "spreadsheets")
+    case "googlesheets_read_range":
+      return count(r.values, "row", "rows")
+    case "googlesheets_append_row":
+    case "googlesheets_update_cells":
+      return r.status === "refused" ? null : text(r.updatedRange)
     case "http_request": {
       // Which site, the useful part (Ancung, 9 Nov: "it answered" said nothing).
       let host: string | null = null
