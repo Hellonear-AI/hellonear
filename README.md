@@ -1,6 +1,6 @@
 # HelloNear
 
-> Built at NEAR HACKATHON (1–14 Nov 2026). Status on 11 Nov: the web app https://app.hellonear.xyz runs on the hosted API (try-out needs no wallet): chat with a live view of the Mind's work, approvals, wallet limits (per payment, per day, allowed addresses) and freeze, skills, connections, Autopilot jobs with a visual Builder, the Attack playground, a Telegram bot per Mind, app skills that can change a Sheet, Calendar, Notion or Doc with the old value shown first, Zoom, and Mind settings (memory you can see, edit and clear; rules for what the Mind may do without asking). The API steps below work without the web app.
+> Built at NEAR HACKATHON (1–14 Nov 2026). Status on 12 Nov: the web app https://app.hellonear.xyz runs on the hosted API (try-out needs no wallet), and the landing page is https://hellonear.xyz. The app has chat with a live view of the Mind's work, approvals, wallet limits (per payment, per day, allowed addresses) and freeze, skills, connections, Autopilot jobs with a visual Builder, the Attack playground, a Telegram bot per Mind, app skills that can change a Sheet, Calendar, Notion or Doc with the old value shown first, Zoom, Mind settings (memory you can see, edit and clear; rules for what the Mind may do without asking), cross-chain stablecoin quotes through NEAR Intents (a signed preview; sending needs mainnet), and a proof behind every verified reply that you can check on Phala's TEE Explorer. The API steps below work without the web app.
 
 HelloNear lets a person run an AI agent (a "Mind") that can read their email and pay on their behalf, while the money rules sit outside the AI's reach. Each Mind has a persona, memory, skills it can equip, and its own NEAR wallet on testnet.
 
@@ -29,11 +29,26 @@ Each layer below stops an attack on its own; the ones further down do not trust 
 
 **Why not a capped function-call key?** NEAR function-call access keys cannot transfer NEAR, and their `allowance` is a gas budget for the key's whole life, not a spending cap ([docs](https://docs.near.org/protocol/accounts-contracts/access-keys)). The spending rules therefore live in the wallet's policy, which OutLayer checks in its TEE before every signature.
 
+## Tracks
+
+Submitted to six tracks. For each, what to try (try-out needs no wallet; skills are added on the Skills screen, and a new Payments Mind or Email Manager starts with the ones for its tracks):
+
+| Track | What fits | Do this, see that |
+|---|---|---|
+| `security` (AI Security & Defense) | The layered model above: approval, the OutLayer policy checked in a TEE before signing, daily limit, freeze, Recipient guard, Phishing check, the Attack playground | Attack playground, any scenario. See: `attack.verdict` names the layer that stopped it. Ask a Payments Mind to pay `b0b.testnet` after paying `bob.testnet`: a question, not a card |
+| `privacy` (Privacy & Private AI) | Every reply from NEAR AI Cloud in a TEE, checked against its attestation; the proof behind the badge, verifiable on Phala's TEE Explorer; Confidential reader, Redact before send, Health journal | Verified badge → View proof → Check it in TEE Explorer. See: a report that reads VERIFIED, with the nonce shown in the dialog |
+| `agents` (Agent Economy) | Minds that pay and get paid: paid data (a 402 pattern on testnet NEAR), Best price buyer, Mind as seller, Invoice & get paid, all inside the owner's limits | *"What's the gas price on NEAR testnet? Buy the report."* See: a `402` price, an approval card for 0.001 NEAR, then the report with its tx hash as the receipt |
+| `swarms` (AI Swarms) | Best price buyer (every order is a small auction between sellers), Split bill, Mind-to-Mind buying | *"Split 0.02 NEAR between alice.testnet and bob.testnet"* on a Payments Mind. See: `split_amount` works out the shares in yoctoNEAR, then one approval card per person. Best price buyer compares sellers once the backend lists several (`SHOP_SELLERS`) |
+| `business` (Autonomous Business) | Treasury report, Spending audit, Revenue split, Invoice, follow-ups, Autopilot jobs on a schedule; the owner only sets the limits | *"Give me today's treasury report"* on a Payments Mind. See: balance, what went out, what is pending, read only |
+| `realworld` (Real-World Money) | Invoices from the Mind's own email address with payment checked on chain; stablecoin payments to other chains quoted through NEAR Intents (signed by 1Click; a preview, since NEAR Intents is mainnet only) | *"Send 10 USDC to 0x8ba1f109551bD432803012645Ac136ddd64DBA72 on Base."* See: `crosschain_quote` with what would arrive, the cost, the time and `proof.signedBy1Click: true`, and nothing sent |
+
 ## How NEAR is used
 
 | What | Where | Proof in this repo |
 |---|---|---|
 | **NEAR AI Cloud**: every model call runs in a TEE; each reply is checked against the attestation and marked verified (`gateway_tee` while streaming) | `engine/src/models.ts`, `engine/src/verify.ts` | `run.verified` event, `engine/test/verify.test.ts` |
+| **The proof behind the badge**: the signatures and Intel's TDX report the engine checked are kept (`run.verified.verification.proof`, #254) and shown under "View proof"; the backend uploads the run's Intel quote to Phala's TEE Attestation Explorer and the app opens the report, which reads VERIFIED (#277) | `engine/src/verify.ts`, `apps/be/src/teeExplorer.ts`, `apps/fe/src/modules/runs/components/ProofDialog.tsx` | `GET /v1/runs/{runId}/proof`, `POST /v1/runs/{runId}/proof/tee-explorer`; a real run's report checked on 12 Nov: [proof.t16z.com/reports/1b374e5b…](https://proof.t16z.com/reports/1b374e5b10031496c6c45bc7749038d7e7cd26a16996455f893b6b5dd44a9db2) (nonce `…99e266`, compose hash `877959253d…` as in the proof) |
+| **NEAR Intents (1Click API)**: a Payments Mind quotes a USDC/USDT payment from NEAR to another chain (`crosschain_quote`): what the recipient would get, the cost and the time. Each quote is **signed by 1Click** and the engine checks the signature with the official SDK (`verifyQuoteSignature`). It is a `dry: true` quote: NEAR Intents has no testnet (HACKATHON.md Q-007) and our wallets are on testnet, so nothing is sent and the Mind says so (#273) | `engine/src/crosschain.ts`, `engine/skills/payments/SKILL.md` | `engine/test/crosschain.test.ts` (a real signed quote verifies, a changed amount does not); live quotes on 12 Nov: 10 USDC NEAR → 9.99558 USDC on Base, 25 USDT → 24.98 USDT on Solana |
 | **OutLayer wallet** on testnet: one wallet per Mind, policy v2 (per-payment limit, recipient list) enforced in a TEE before signing; freeze is a call on `outlayer.testnet` the owner signs | `apps/be/src/wallets.ts` | testnet tx [`AKYYpkLq…`](https://testnet.nearblocks.io/txns/AKYYpkLq8XxjL4GKJqdGF5CVTLmjNh3AGEpz2rbcfyYT) (an approved 0.01 NEAR payment from the demo wallet `83e05486…` through the hosted stack, 8 Nov) |
 | **NEP-413 sign-in**: the owner signs a message with their NEAR wallet (Meteor first) | `apps/be/src/auth.ts` | `apps/be/test/api.test.ts` |
 | **Mind registry contract** (Rust, `near-sdk` 5.29) on `hellonear-registry.testnet`, v0.3.0: Minds, published skills, and `equip_skill` pays the skill's publisher | `sc/` | `sc/README.md` (deploy txs, code hash); sandbox tests in `sc/tests/` |
@@ -70,6 +85,9 @@ What you should see in step 4 (checked locally on 10 Nov, 18 s):
 - Create a Mind with `"templateId":"payments-mind"`, then chat `"Send 0.01 NEAR to lin1er.testnet"`. See: `tool.approval_required` for `send_payment`, and nothing is sent yet.
 - `curl -s -b jar $B/v1/minds/$M/approvals` gives the `runId` and `toolCallId`. Then approve; the reply streams like chat, so keep `-N`: `curl -sN -b jar -X POST $B/v1/runs/$RUN/approve -H 'content-type: application/json' -d '{"toolCallId":"…"}'`. See: `send_payment` returns `sent` with a testnet `txHash`.
 - Ask for 1 NEAR instead and approve it. See: `policy_denied`, no transaction, no tx link: the wallet refused before signing.
+- Chat `"Send 10 USDC to 0x8ba1f109551bD432803012645Ac136ddd64DBA72 on Base."` See: `tool.called` `crosschain_quote`, then a `tool.result` with `status: "quote_only"`, `to.amount` (what would arrive), `cost`, `seconds` and `proof.signedBy1Click: true`. No approval card, no payment; the reply says NEAR Intents signed the numbers and that nothing was sent (cross-chain sending needs NEAR mainnet). Other chains: Arbitrum, Solana, Ethereum, Polygon, BNB Chain, Tron and the rest of 1Click's list.
+
+**The proof behind a reply** (any Mind): after a chat, `curl -s -b jar $B/v1/runs/$RUN/proof`. See: each step's signer and signature (hashes only, never the conversation) and the gateway's Intel quote. Then `curl -s -b jar -X POST $B/v1/runs/$RUN/proof/tee-explorer -H 'content-type: application/json' -d '{}'`. See: `reports[0].url` on proof.t16z.com with `verified: true`; open it and the Explorer shows VERIFIED. In the web app: the Verified badge under a reply → View proof → Check it in TEE Explorer.
 
 **Attack Playground** (#16): fixed prompt-injection scenarios, each run on a hidden playground Mind that pays from the shared demo wallet, never the owner's. Every run ends with an `attack.verdict` event that names the layer that stopped it.
 - `curl -s -b jar $B/v1/attacks`. See: `direct-order`, `email-injection`, `rogue-skill`, `tricked-owner`, each with its `attacker` account and `message`.
@@ -147,7 +165,13 @@ Plan: #3. Decisions: #4. Guidance for AI coding agents: `CLAUDE.md` (root and pe
 
 All code in this repository was written from 25 Oct 2026 (first commit), after the hackathon was announced on 19 Oct. There is no earlier baseline.
 
-Main libraries: `@mastra/core` 1.81, `@mastra/memory`, `@mastra/pg`, `@ai-sdk/openai-compatible`, `@nearai/inference-sdk` (engine); `near-api-js` 7.4, `pg`, `zod` (backend); Next.js 16, React 19, `@hot-labs/near-connect`, `near-connect-hooks`, `@xyflow/react`, shadcn (web app); `near-sdk` 5.29, `near-sandbox`, `near-api` (contract tests). Services: NEAR AI Cloud, OutLayer (testnet), Composio (Gmail, Google Calendar and Meet, Sheets, Drive, Docs and Notion tried with real accounts by the team; Zoom, Outlook and Slack wired, not yet tried with a real account), AgentMail (each Mind's own email address), Telegram Bot API. AI coding agents (Claude Code) helped write code and docs; humans reviewed and approved every merge.
+Main libraries: `@mastra/core` 1.81, `@mastra/memory`, `@mastra/pg`, `@ai-sdk/openai-compatible`, `@nearai/inference-sdk`, `@defuse-protocol/one-click-sdk-typescript` 0.1.26 (engine); `near-api-js` 7.4, `pg`, `zod` (backend); Next.js 16, React 19, `@hot-labs/near-connect`, `near-connect-hooks`, `@xyflow/react`, shadcn (web app); `near-sdk` 5.29, `near-sandbox`, `near-api` (contract tests). Services: NEAR AI Cloud, OutLayer (testnet), NEAR Intents 1Click (dry quotes only), Phala's TEE Attestation Explorer (proof.t16z.com), FastNear's testnet RPC, Composio (Gmail, Google Calendar and Meet, Sheets, Drive, Docs and Notion tried with real accounts by the team; Zoom, Outlook and Slack wired, not yet tried with a real account), AgentMail (each Mind's own email address), Telegram Bot API. AI coding agents (Claude Code) helped write code and docs; humans reviewed and approved every merge.
+
+## Team members in other NEAR HACKATHON projects
+
+HACKATHON.md Q-015: one person may be in at most two projects, if they are independent and each README names the other. HelloNear shares no code with these:
+
+- **Ancung** is also in **Waybil**: https://github.com/AncungAulia/waybil-near
 
 ## Team rules
 
