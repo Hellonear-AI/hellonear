@@ -8,7 +8,7 @@ metadata:
     status: available
     title: HelloNear guide
     builtin: true
-    note: Built into every Mind (#114). Draft by Ancung (FE), so screen and button names match the app; rewritten on 11 Nov for the app as it is now (Settings tabs, auto-approve rules, daily limit, Telegram, Autopilot, Attack playground).
+    note: Built into every Mind (#114). Draft by Ancung (FE), so screen and button names match the app; rewritten on 11 Nov for the app as it is now (Settings tabs, auto-approve rules, daily limit, Telegram, Autopilot, Attack playground); updated 12 Nov for cross-chain quotes, View proof and If on a number of items.
 ---
 
 # HelloNear guide
@@ -20,7 +20,7 @@ Answer in the owner's language, short and plain. Name the screen and the button.
 - The owner sets the Mind's limits: how much per payment, optionally how much per day, and which addresses it may pay. The limits are stored on-chain and checked inside a TEE (OutLayer) before anything is signed. The Mind cannot change them, even if someone tricks it.
 - Payments and other actions wait for the owner's approval, unless the owner turned on a rule for them in Settings, Approvals. Either way the limits still apply.
 - It runs on NEAR testnet: no real money.
-- Replies come from NEAR AI Cloud. "Verified via NEAR AI TEE gateway" under a reply means the reply was checked to come through NEAR AI's secure (TEE) gateway.
+- Replies come from NEAR AI Cloud. "Verified via NEAR AI TEE gateway" under a reply means the reply was checked to come through NEAR AI's secure (TEE) gateway. Clicking it, then "View proof", shows the evidence: every step signed by the key the hardware vouches for, and Intel's report on that hardware. The owner can copy the Intel quote or the whole proof, or check it on Phala's TEE Explorer, which shows "Verified" when the hardware report is genuine.
 
 ## Where things are (left sidebar; on phones, the menu at the top left)
 - **Mind switcher** (top of the sidebar): switch between Minds, the Mind's settings, or "Create another Mind".
@@ -35,7 +35,7 @@ Answer in the owner's language, short and plain. Name the screen and the button.
   - With a limit per day, Wallet shows what was spent today. The day starts over at 00:00 UTC.
   - "Freeze wallet": the emergency stop. Nothing can leave the wallet until "Unfreeze". Both need a Meteor signature.
 - **Skills**: what the Mind can learn, in tabs (Money, Safety, Privacy, Email & calendar, Apps & tools). "Add" to give it a skill; "Settings" shows what it uses, "What {name} is told" (the exact instructions the Mind reads) and "Remove skill". No signature needed.
-- **Autopilot**: jobs the Mind runs on a schedule. "New job" opens the Builder (steps such as Ask the Mind, Use a tool, Call a website, If or else); there are also ready ideas, like a morning balance check. "Run now" runs a job once; the switch turns its schedule on. Scheduled jobs cannot pay, approve anything or use keys.
+- **Autopilot**: jobs the Mind runs on a schedule. "New job" opens the Builder (steps such as Ask the Mind, Use a tool, Call a website, If or else); there are also ready ideas, like a morning balance check. An If compares a number or a text from an earlier step; after a list (calendar events, emails, rows) it compares how many there are, like "If number of events is more than 0". "Run now" runs a job once; the switch turns its schedule on. Scheduled jobs cannot pay, approve anything or use keys.
 - **Connections**: apps and keys.
   - Apps: Gmail, Google Calendar, Google Meet, Google Sheets, Google Drive, Google Docs, Notion, Outlook, Slack and Zoom, for the whole account. "Connect" opens the app's sign-in in a new window; the page updates by itself. "Disconnect" removes access.
   - Telegram, per Mind: "Connect Telegram" walks through making a bot with BotFather and pasting its token. Then the owner can chat with the Mind in Telegram and approve or decline there too.
@@ -49,7 +49,7 @@ Answer in the owner's language, short and plain. Name the screen and the button.
 - **Account menu** (bottom of the sidebar): Appearance (system, light, dark) and Sign out.
 
 ## Skills (names as on the Skills screen)
-- **Payments**: pays bills and sends testnet NEAR, inside the limits, after the owner approves (or under the owner's payment rule).
+- **Payments**: pays bills and sends testnet NEAR, inside the limits, after the owner approves (or under the owner's payment rule). It can also quote a USDC or USDT payment from NEAR to another chain (Base, Arbitrum, Solana, Ethereum and others) through NEAR Intents: what the recipient would get, the cost and the time, with NEAR Intents' signature checked. That is a quote only: NEAR Intents runs on NEAR mainnet and the Mind's wallet is on testnet, so it cannot send cross-chain yet.
 - **Paid data**: buys small live NEAR reports, like the network status or the gas price, and pays only after approval.
 - **Best price buyer**: asks every seller of a data report for a price and buys the cheapest one the wallet may pay.
 - **Price watch**: buys a data report only at or under the price the owner set.
@@ -89,6 +89,8 @@ Answer in the owner's language, short and plain. Name the screen and the button.
 - **Where do I get testnet NEAR?** The NEAR testnet faucet (docs.near.org/getting-started/faucet), or "Add funds" in Wallet from Meteor.
 - **What's that long address?** The Mind's own wallet on NEAR testnet (an implicit account). It can be copied in Wallet.
 - **How do I see a payment on chain?** The receipt in the chat links to NearBlocks (testnet).
+- **Can you pay someone on another chain?** Not yet. A Payments Mind can quote it through NEAR Intents (amount received, cost, time, signed by NEAR Intents), but sending needs NEAR mainnet and the wallet is on testnet.
+- **How do I know a reply really came from the TEE?** Click the "Verified via NEAR AI TEE gateway" badge, then "View proof": it shows the signatures and Intel's hardware report, and links to Phala's TEE Explorer to check the report yourself.
 
 ## Try-out (signed in without a wallet)
 - 20 messages in all.
