@@ -1,0 +1,38 @@
+# Trust Center CI: typecheck, unit tests (content rules, links, llms.txt, proxy) and a production build. No secrets.
+name: trust
+
+on:
+  pull_request:
+    paths: ['apps/trust/**', '.github/workflows/trust.yml']
+  push:
+    branches: [main]
+    paths: ['apps/trust/**', '.github/workflows/trust.yml']
+
+concurrency:
+  group: trust-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/trust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.22.1
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.9
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run test
+      - run: bun run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'

@@ -1,5 +1,0 @@
-import { llmsTxt } from "@/lib/content";
-
-export const dynamic = "force-static";
-
-export const GET = () => new Response(llmsTxt(), { headers: { "content-type": "text/plain; charset=utf-8" } });
