@@ -46,7 +46,8 @@ HelloNear is an AI agent persona platform on NEAR, built for NEAR HACKATHON (1â€
 | `apps/be` | Backend API, Postgres + pgvector, NEP-413 login, OutLayer + Composio | James |
 | `engine` | AI engine (Mastra + NEAR AI Cloud) | Axel |
 | `sc` | Mind registry contract (Rust `near-sdk`) | Axel |
-| `apps/docs` | Docs site (docs.hellonear.xyz) and Trust Center (trust.hellonear.xyz), with llms.txt, Markdown export and an MCP server; Vercel | Axel |
+| `apps/docs` | Docs site, docs.hellonear.xyz: a Mintlify project deployed from `main` (Endpoints tab from `docs/openapi.json`; llms.txt, Markdown, skill.md and MCP from Mintlify) | Axel |
+| `apps/trust` | Trust Center, trust.hellonear.xyz (Vercel): what protects users' data and funds, each claim linked to its proof | Axel |
 | `docs` | Shared technical docs, incl. `api-contract.md` | James + Axel |
 | `design` | Design tokens, screens, Mind characters (`hellonear.pen`, pen.dev) | Nabil |
 | `deploy` | Hosted demo: systemd units + `deploy.sh` for one Proxmox LXC, and the automatic deploy after a merge (`deploy/autodeploy/`) (#22) | James |
@@ -73,7 +74,8 @@ Each folder has its own workflow in `.github/workflows/`. It runs on pull reques
 | `fe` | `apps/fe` | lint, typecheck, `next build` |
 | `sc` | `sc` | unit tests, sandbox tests (incl. upgrades from the fixtures), clippy |
 | `landing` | `apps/landing` | typecheck, `next build` |
-| `docs` | `apps/docs` (and `docs/openapi.json`) | typecheck, unit tests, `next build` |
+| `docs` | `apps/docs` (and `docs/openapi.json`) | Mintlify `validate`, `broken-links --check-anchors` |
+| `trust` | `apps/trust` | typecheck, unit tests, `next build` |
 | `status` | `apps/status` | typecheck, unit tests, `next build` |
 
 CI does not replace the local integration and load tests required by the rules below. Nothing deploys from CI itself. A merged `main` is deployed to the hosted demo after its CI passes, by a poller on James's always-on LAN machine that comments the result on the merged PR (rule 3, `deploy/README.md`).
