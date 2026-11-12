@@ -158,13 +158,38 @@ export function MindStage({ crestY, centerX, onClip }: { crestY: number; centerX
       const start = () => {
         if (disposed || !model) return;
         model.visible = true;
-        if (reduced) play("idle", 0);
-        else play("enter", 0);
+        // Draw the body once before the clip starts: play() also starts the 2D hands (CSS, which keep
+        // moving while the main thread is busy), so any stall on the body's first draw happens before
+        // the hands rise, not while they wait on the grass without a body (#290).
+        rBack.render(scene, camera);
+        requestAnimationFrame(() => {
+          if (disposed) return;
+          if (reduced) play("idle", 0);
+          else play("enter", 0);
+        });
       };
-      model.visible = false;
-      window.dispatchEvent(new Event("hn:mind-loaded"));
-      if ((window as unknown as { __hnRevealed?: boolean }).__hnRevealed) start();
-      else window.addEventListener("hn:reveal", start, { once: true });
+      // Warm up before telling the loader we're ready (#290: on a fresh load the hands rose and the body
+      // popped in about 5 s later). The hands are CSS, so they animate even while the page's main
+      // thread is busy; the body's first draw has to compile its skinned, morphing shaders and upload
+      // its textures, which can take seconds on some GPUs (Windows, through ANGLE). Doing that here,
+      // under the page loader, means the first visible frame is cheap. Posed at the entrance's start,
+      // so a frame drawn meanwhile shows nothing out of place. The cause is likely, not proven.
+      actions.enter?.reset().play();
+      mixer.update(0);
+      const ready = () => {
+        if (disposed || !model) return;
+        model.visible = false;
+        window.dispatchEvent(new Event("hn:mind-loaded"));
+        if ((window as unknown as { __hnRevealed?: boolean }).__hnRevealed) start();
+        else window.addEventListener("hn:reveal", start, { once: true });
+      };
+      rBack
+        .compileAsync(scene, camera)
+        .then(() => {
+          if (!disposed) rBack.render(scene, camera); // uploads the textures too
+        })
+        .catch(() => undefined)
+        .finally(ready);
     });
 
     const play = (name: Clip, fade: number) => {
