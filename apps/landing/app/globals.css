@@ -39,6 +39,10 @@
 
 html {
   scroll-behavior: smooth;
+  /* The page loader locks scrolling (overflow: hidden on html). Keep the scrollbar's room while it does,
+     so the page doesn't shift sideways when it lifts and GSAP measures the real width (with a classic
+     scrollbar the approvals pin was measured 17 px too wide, and the page scrolled sideways). */
+  scrollbar-gutter: stable;
 }
 
 body {
@@ -46,6 +50,42 @@ body {
   color: var(--color-text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  /* The page never scrolls sideways. Wide art (hills, sky, rays) is meant to be cut by the screen
+     edge, and with a classic scrollbar (Windows) 100vw and GSAP's pin width are wider than the page.
+     `clip` (not `hidden`) so it is not a scroll container and sticky/pinned parts keep working. */
+  overflow-x: clip;
+}
+
+/* Quiet scrollbars, the same as apps/fe (src/styles/globals.css): a thin rounded thumb, no arrows,
+   no track. Chrome and Safari use ::-webkit-scrollbar. Don't set scrollbar-width or scrollbar-color
+   for them: Chrome then falls back to the system bar, which has arrows on Windows. Firefox only gets those. */
+:root {
+  --scrollbar-thumb: color-mix(in oklab, var(--color-text) 22%, transparent);
+  --scrollbar-thumb-hover: color-mix(in oklab, var(--color-text) 38%, transparent);
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-button {
+  display: none;
+}
+::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: var(--scrollbar-thumb);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+@supports (-moz-appearance: none) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
 }
 
 /* ---------- Nav ----------
@@ -210,15 +250,6 @@ body {
   }
 }
 
-.nav-cta-arrow {
-  transition: transform 200ms var(--ease-out);
-}
-@media (hover: hover) and (pointer: fine) {
-  .nav-cta:hover .nav-cta-arrow {
-    transform: translate(1px, -1px);
-  }
-}
-
 /* Keyboard focus only: 2 px ring, 2 px outside. */
 .nav a:focus-visible {
   outline: 2px solid var(--color-focus);
@@ -247,8 +278,7 @@ body {
       color 300ms ease,
       box-shadow 300ms ease;
   }
-  .nav-ch,
-  .nav-cta-arrow {
+  .nav-ch {
     transition: none;
   }
   .nav-cta::before {
@@ -717,7 +747,8 @@ label[for] {
     justify-content: center;
     width: 100%;
   }
-  .marquee-track > .marquee-row:last-child {
+  .marquee-track > .marquee-row:last-child,
+  .marquee-dup {
     display: none;
   }
   .marquee {
@@ -787,7 +818,9 @@ label[for] {
    approvals scroll) is see-through, so the same night behind it shows. */
 .graph-section { background: var(--night); }
 @media (min-width: 1024px) {
-  .graph-section { background: linear-gradient(transparent calc(50vh - 130px), var(--night) calc(50vh - 130px)); }
+  /* the night starts 2 px above the approvals scroll's bottom edge, so the two overlap: meeting exactly,
+     a scaled screen (Windows at 125%) can round them apart and leave a 1 px light line across the page */
+  .graph-section { background: linear-gradient(transparent calc(50vh - 132px), var(--night) calc(50vh - 132px)); }
 }
 
 /* Footer text on the grass: white, with a soft shadow so it reads on light and dark grass. */
@@ -816,6 +849,11 @@ label[for] {
     inset 0 1px 0 rgb(255 255 255 / 0.9),
     0 10px 24px -10px rgb(15 30 8 / 0.5);
 }
+/* Phone hero (.hero-m, under 1024 px): two buttons side by side and the same width, a little smaller
+   than on desktop so "Meet your Mind" and its dot never touch the edge. */
+.hero-m .hero-btn { height: 48px; padding-left: 14px; padding-right: 14px; gap: 8px; font-size: 14.5px; white-space: nowrap; min-width: 0; }
+.hero-m .hero-btn-primary { padding-right: 8px; padding-left: 18px; }
+.hero-m .hero-btn svg, .hero-m .hero-btn-dot { flex-shrink: 0; }
 /* The narrowest phones (360 px): the two hero buttons still fit side by side. */
 @media (max-width: 380px) {
   .hero .hero-btn { font-size: 12.5px; padding-left: 10px; padding-right: 10px; gap: 5px; min-width: 0; }

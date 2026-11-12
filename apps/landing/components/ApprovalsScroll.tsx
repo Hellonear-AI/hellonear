@@ -166,8 +166,12 @@ export function ApprovalsScroll() {
     });
     const ro = new ResizeObserver(render);
     ro.observe(visual);
+    // Measure again once the page loader lifts and the page can scroll (its scrollbar is back).
+    const remeasure = () => ScrollTrigger.refresh();
+    window.addEventListener("hn:reveal", remeasure);
 
     return () => {
+      window.removeEventListener("hn:reveal", remeasure);
       ro.disconnect();
       mm.revert();
     };
@@ -178,7 +182,8 @@ export function ApprovalsScroll() {
       <div className="ap-pin relative flex flex-col overflow-hidden lg:min-h-[100svh] lg:flex-row lg:items-center">
         {/* Copy: left column of the 1200 px container. */}
         <div className="relative z-10 mx-auto w-full max-w-[1200px] px-5 py-24">
-          <div className="ap-copy flex w-full flex-col gap-5 lg:w-[440px]">
+          {/* stacked (under 1024 px): title and subtitle centred, the points a centred block */}
+          <div className="ap-copy flex w-full flex-col gap-5 max-lg:mx-auto max-lg:max-w-[560px] max-lg:items-center max-lg:text-center lg:w-[440px]">
             <h2 className="text-[40px] font-medium leading-[1.04] tracking-[-1.6px] md:text-[60px]" aria-label={LINES.join(" ")}>
               {LINES.map((line) => (
                 <span key={line} className="block" aria-hidden="true">
@@ -189,7 +194,7 @@ export function ApprovalsScroll() {
             <p className="ap-reveal text-[17px] leading-[1.5] text-[var(--color-text-2)]">
               Penny finds the bill and gets it ready. Unless you set a rule, nothing leaves the wallet until you tap Approve.
             </p>
-            <ul className="flex flex-col gap-3">
+            <ul className="flex flex-col gap-3 max-lg:text-left">
               <Point className="ap-reveal" d={Icon.ban}>Over your per-payment limit? Refused before signing, even if you approve.</Point>
               <Point className="ap-reveal" d={Icon.list}>Only addresses on your list can be paid.</Point>
               <Point className="ap-reveal" d={Icon.snow}>Freeze the wallet in one tap, any time.</Point>

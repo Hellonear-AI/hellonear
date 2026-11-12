@@ -103,7 +103,7 @@ function Card({ m, k, dealt }: { m: (typeof MINDS)[number]; k: number; dealt: bo
                 <span className="text-[13px] text-[var(--color-text-3)]">{m.meta}</span>
               </span>
             </div>
-            <a href={href} className="mind-card-cta shrink-0" aria-label={`Choose ${m.name}`}>
+            <a href={href} target="_blank" rel="noopener" className="mind-card-cta shrink-0" aria-label={`Choose ${m.name}`}>
               Choose
               <Arrow />
             </a>

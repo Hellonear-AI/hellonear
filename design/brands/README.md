@@ -27,4 +27,5 @@ Aspect ratio = width / height of the file's viewBox (SVG) or pixel size (PNG).
 
 - `meteor-wallet-mark.svg`: the mark only (the `#411EDF` path, unchanged) cut from `meteor-wallet.svg`, because the official wordmark text is white and disappears on the light page. Not recoloured.
 - `near-ai.svg` (colour), `outlayer.png`, and the other files as listed above.
+- `near.svg` on the page is `near-lockup.svg`: the N mark (inline SVG in near.org's header, `viewBox="0 0 16 16"`, `currentColor`) and the `near.svg` wordmark side by side, centred, the wordmark about half the mark's height, as the near.org header shows them (checked 12 Nov). Both paths unchanged, set to `#000000`.
 - Google is not used: Google's brand rules don't allow its logo in marketing or to imply endorsement. Gmail and Calendar are named in plain text in the hero.

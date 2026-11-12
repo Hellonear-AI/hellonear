@@ -110,7 +110,8 @@ export function Demo() {
       <button
         type="button"
         onClick={open}
-        aria-label="Play the two-minute demo full screen, with sound"
+        disabled={missing}
+        aria-label={missing ? "The demo video is coming soon" : "Play the two-minute demo full screen, with sound"}
         className={`group relative aspect-video max-h-[600px] w-full overflow-hidden rounded-[24px] bg-[#161614] ${seen ? "fade-in" : "opacity-0"}`}
         style={{ animationDelay: `${words.length * 70 + 150}ms` }}
       >
@@ -126,16 +127,22 @@ export function Demo() {
             className="absolute inset-0 h-full w-full object-cover"
           />
         )}
+        {/* No video hosted yet (NEXT_PUBLIC_DEMO_VIDEO_URL unset and public/demo/ is not deployed): a still of
+            the lawn and a quiet "coming soon", never a developer note or a play button that does nothing. */}
         {missing && (
-          <span className="absolute inset-0 grid place-items-center text-[13px] text-white/50">Placeholder: the demo video goes in public/demo/demo.mp4</span>
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/scenes/lawn-card.webp" alt="" aria-hidden="true" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+            <span className="absolute inset-0 grid place-items-center bg-black/35 text-[16px] font-medium text-white">The demo video is coming soon</span>
+          </>
         )}
         {/* "Sound on" hint: the video is playing silently; a click opens it full screen with sound */}
-        <span className="btn-swipe btn-swipe-group absolute bottom-5 left-5 flex items-center gap-2 rounded-full bg-black/55 px-4 py-2 text-[14px] font-medium text-white backdrop-blur-md">
+        {!missing && <span className="btn-swipe btn-swipe-group absolute bottom-5 left-5 flex items-center gap-2 rounded-full bg-black/55 px-4 py-2 text-[14px] font-medium text-white backdrop-blur-md">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M7 4.5v15l13-7.5z" />
           </svg>
           Watch with sound
-        </span>
+        </span>}
       </button>
 
       <div className="grid gap-5 md:grid-cols-3">
