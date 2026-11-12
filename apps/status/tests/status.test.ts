@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ago, duration, incidentDays, incidents, pct } from "../lib/status";
+import { ago, duration, incidentDays, incidents, levelOf, pct } from "../lib/status";
 import { fixture } from "../lib/fixture";
 
 test("incidents lists down before slow, and leaves operational services out", () => {
@@ -40,4 +40,14 @@ test("past incidents: 7 UTC days newest first, quiet days empty, durations reada
   assert.equal(duration(35), "35 min");
   assert.equal(duration(160), "2 h 40 min");
   assert.equal(duration(120), "2 h");
+});
+
+test("bar colours: green all fine, yellow some failed or slow, red all failed", () => {
+  const b = (status: "operational" | "degraded" | "down" | "none", checks?: number, bad?: number) => ({ start: "2026-11-13T00:00:00Z", status, checks, bad });
+  assert.equal(levelOf(b("operational", 6, 0)), "ok");
+  assert.equal(levelOf(b("down", 6, 3)), "partial");
+  assert.equal(levelOf(b("down", 6, 6)), "major");
+  assert.equal(levelOf(b("degraded", 6, 6)), "partial");
+  assert.equal(levelOf(b("down")), "major", "no counts: the bucket status decides");
+  assert.equal(levelOf(b("none", 0, 0)), "none");
 });

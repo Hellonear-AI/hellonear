@@ -131,14 +131,18 @@ function Row({ s }: { s: Service }) {
           // Tooltips near the edges open inward, so they never run off the card.
           const side = i < 8 ? "left" : i > s.history.length - 9 ? "right" : "mid";
           return (
-            <span key={b.start} className={`bar ${b.status}`}>
+            <span key={b.start} className={`bar ${l.level}`}>
               <span className={`tip ${side}`} role="tooltip">
                 <span className="tipwhen">{l.when}</span>
-                <span className={`tipstate ${b.status}`}>
-                  <span className="dot" aria-hidden="true" />
-                  {l.state}
-                  {l.minutes ? <span className="tipmin">about {l.minutes} min</span> : null}
-                </span>
+                {l.level === "ok" ? (
+                  <span className="tipok">No downtime recorded in this half hour.</span>
+                ) : (
+                  <span className={`tipstate ${l.level}`}>
+                    <span className="dot" aria-hidden="true" />
+                    {l.state}
+                    {l.minutes ? <span className="tipmin">about {l.minutes} min</span> : null}
+                  </span>
+                )}
                 {l.detail ? <span className="tipdetail">{l.detail}</span> : null}
                 {b.checks ? <span className="tipmeta">{b.checks} {b.checks === 1 ? "check" : "checks"}{b.bad ? `, ${b.bad} with a problem` : ", all fine"}</span> : null}
               </span>

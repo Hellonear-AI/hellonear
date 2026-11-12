@@ -70,15 +70,28 @@ export function ago(iso: string | null, now = Date.now()): string {
 
 // The tooltip's lines for one 30-minute bar. Probes run every 5 minutes, so each bad probe stands for about 5 minutes.
 export const PROBE_MINUTES = 5
-export function bucketLines(b: Service["history"][number], locale?: string): { when: string; state: string; minutes: number | null; detail: string | null } {
+// The colour of one bar, like status.claude.com: green when every check was fine, yellow when only some failed
+// (or it was only slow), red when every check failed. Without the optional counts it falls back to the bucket status.
+export type Level = "ok" | "partial" | "major" | "none"
+export function levelOf(b: Service["history"][number]): Level {
+  if (b.status === "none") return "none"
+  if (b.status === "operational") return "ok"
+  if (b.status === "degraded") return "partial"
+  if (typeof b.checks === "number" && typeof b.bad === "number" && b.checks > 0) return b.bad >= b.checks ? "major" : "partial"
+  return "major"
+}
+export const LEVEL_LABEL: Record<Level, string> = { ok: "Operational", partial: "Partial outage", major: "Major outage", none: "No checks" }
+
+export function bucketLines(b: Service["history"][number], locale?: string): { when: string; state: string; level: Level; minutes: number | null; detail: string | null } {
   const start = new Date(b.start)
   const end = new Date(start.getTime() + 30 * 60 * 1000)
   // UTC, said so: the page is rendered on the server, whose clock zone is not the reader's.
   const t = (d: Date) => d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })
   const when = `${start.toLocaleDateString(locale, { day: "numeric", month: "short", timeZone: "UTC" })}, ${t(start)} to ${t(end)} UTC`
-  const state = b.status === "none" ? "No checks" : b.status === "operational" ? "Operational" : b.status === "degraded" ? "Slow" : "Down"
+  const level = levelOf(b)
+  const state = b.status === "degraded" ? "Slow" : LEVEL_LABEL[level]
   const minutes = b.bad && b.bad > 0 ? b.bad * PROBE_MINUTES : null
-  return { when, state, minutes, detail: b.detail ?? null }
+  return { when, state, level, minutes, detail: b.detail ?? null }
 }
 
 // The last `days` calendar days (UTC), newest first, each with its incidents (by start time), so a quiet day

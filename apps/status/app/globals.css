@@ -104,17 +104,18 @@ a { color: inherit; }
 .tipwhen { font-weight: 600; }
 .tipstate { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; background: color-mix(in oklab, var(--fg) 6%, transparent); font-weight: 600; }
 .tipstate .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--bar-none); flex: none; }
-.tipstate.operational .dot { background: var(--ok-bar); }
-.tipstate.degraded .dot { background: var(--warn-bar); }
-.tipstate.down .dot { background: var(--bad-bar); }
+.tipstate.ok .dot { background: var(--ok-bar); }
+.tipstate.partial .dot { background: var(--warn-bar); }
+.tipstate.major .dot { background: var(--bad-bar); }
 .tipmin { margin-left: auto; padding-left: 12px; font-weight: 500; color: var(--muted); }
 .tipdetail { color: var(--fg); }
+.tipok { color: var(--fg); }
 .tipmeta { color: var(--muted); font-size: 12px; }
 @media (prefers-reduced-motion: reduce) { .tip { transition: none; } }
 @media (hover: none) { .tip { display: none; } }
-.bar.operational { background: var(--ok-bar); }
-.bar.degraded { background: var(--warn-bar); }
-.bar.down { background: var(--bad-bar); }
+.bar.ok { background: var(--ok-bar); }
+.bar.partial { background: var(--warn-bar); }
+.bar.major { background: var(--bad-bar); }
 .axis { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .axis .line { flex: 1; height: 1px; background: var(--border); }
 .impact { margin: 10px 0 0; font-size: 14px; }
