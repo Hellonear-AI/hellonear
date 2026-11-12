@@ -1,7 +1,7 @@
 import { api } from "@/lib/api"
 import { ownerTimeZone, stream } from "@/lib/stream"
 import type { RunEvent } from "@/modules/runs/data/events"
-import type { RunProofs } from "@/modules/runs/data/proof"
+import type { ExplorerReports, RunProofs } from "@/modules/runs/data/proof"
 
 // Chat, runs and approvals: docs/api-contract.md §7. Chat and approve/decline answer with an SSE
 // stream of §3 events (`stream` in src/lib/stream.ts).
@@ -24,6 +24,7 @@ export const chatApi = {
   /** Stop a run that is still streaming (#121). Its stream then ends with run.finished "canceled". */
   /** The proof behind a reply's verified badge (#254, #257); `404 no_proof` when none was kept. */
   runProof: (runId: string) => api<RunProofs>(`/runs/${enc(runId)}/proof`),
+  teeExplorer: (runId: string) => api<ExplorerReports>(`/runs/${enc(runId)}/proof/tee-explorer`, { method: "POST", body: {} }),
   cancel: (runId: string) => api<unknown>(`/runs/${enc(runId)}/cancel`, { method: "POST", body: {} }),
   resume: (
     runId: string,
