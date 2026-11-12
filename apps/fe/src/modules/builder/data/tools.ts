@@ -105,7 +105,7 @@ export const TOOLS: BuilderTool[] = [
     defaults: { spreadsheetId: "", range: "" },
     fields: [
       { name: "values", label: "Rows", kind: "list" },
-      { name: "count", label: "Number of rows", kind: "number" },
+      { name: "count", label: "Number of rows (with the header)", kind: "number" },
     ],
     toArgs: (a) => ({ ...a, spreadsheetId: sheetIdOf(a.spreadsheetId ?? "") }),
   },
