@@ -9,6 +9,7 @@ import { engineFetch, engineJson, skill, skills, templates } from './engine.ts'
 import { HttpError, assertSameOrigin, cors, logServerError, readBody, sendJson, setCookie, isLoopback } from './http.ts'
 import { TOOLKITS, connect, disconnect, listConnections, toolkitSchema } from './connections.ts'
 import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, playgroundAttackOf, playgroundMind, requireMind, updateMind, updateMindSchema, type Mind } from './minds.ts'
+import { explorerReports } from './teeExplorer.ts'
 import { cancelRun, getRun, isAwaiting, listRuns, mindEvents, pendingApprovals, relayRun, runEvents, runProofs, sweepStuckRuns } from './runs.ts'
 import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema, secretsForRun } from './secrets.ts'
 import { addressRuleOf, assertWalletEmpty, createWallet, freezeTransaction, getWallet, hasWallet, isDemoMind, policySchema, policyTransaction } from './wallets.ts'
@@ -392,7 +393,7 @@ export const server = createServer(async (req, res) => {
     }
 
     // Runs (#14, #17)
-    const run = path.match(/^\/v1\/runs\/([^/]+)(\/approve|\/decline|\/cancel|\/proof)?$/)
+    const run = path.match(/^\/v1\/runs\/([^/]+)(\/approve|\/decline|\/cancel|\/proof|\/proof\/tee-explorer)?$/)
     if (run) {
       const found = await getRun(user.id, decodeURIComponent(run[1]))
       if (!found) throw new HttpError(404, 'run_not_found')
@@ -403,6 +404,12 @@ export const server = createServer(async (req, res) => {
         const proofs = await runProofs(found.runId)
         if (!proofs.length) throw new HttpError(404, 'no_proof')
         return sendJson(res, 200, { runId: found.runId, proofs })
+      }
+      // The run's Intel quote(s) uploaded to the TEE Explorer (#277), so the proof's link opens a report already checked.
+      if (run[2] === '/proof/tee-explorer' && req.method === 'POST') {
+        const proofs = await runProofs(found.runId)
+        if (!proofs.length) throw new HttpError(404, 'no_proof')
+        return sendJson(res, 200, { reports: await explorerReports(proofs) })
       }
       // Stop a run that is still streaming (#121). A run paused for approval has no stream: decline it instead.
       if (run[2] === '/cancel' && req.method === 'POST') {

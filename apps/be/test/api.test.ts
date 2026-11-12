@@ -11,6 +11,7 @@ import { fakeOutlayer, outlayerServer } from './fake-outlayer.ts'
 import { COMPOSIO_KEY, composioServer, fakeComposio } from './fake-composio.ts'
 import { fakeTelegram, telegramServer } from './fake-telegram.ts'
 import { AGENTMAIL_KEYS, agentmailServer, fakeAgentmail } from './fake-agentmail.ts'
+import { fakeTeeExplorer, teeExplorerServer } from './fake-tee-explorer.ts'
 
 await new Promise<void>((r) => engine.listen(0, r))
 process.env.ENGINE_URL = `http://127.0.0.1:${(engine.address() as AddressInfo).port}`
@@ -33,6 +34,7 @@ process.env.AGENTMAIL_API_KEY_2 = AGENTMAIL_KEYS[1]
 const DEMO_INBOX = 'hellonear-demo@agentmail.to'
 fakeAgentmail.inboxes.push({ inbox_id: DEMO_INBOX, email: DEMO_INBOX, client_id: 'hellonear-demo', org: 0 })
 process.env.DEMO_AGENTMAIL_INBOX = DEMO_INBOX
+process.env.TEE_EXPLORER_URL = `http://127.0.0.1:${(teeExplorerServer.address() as AddressInfo).port}`
 process.env.DATABASE_URL ??= 'postgresql://hellonear:hellonear-dev-only@localhost:55432/hellonear'
 process.env.SECRETS_MASTER_KEY = randomBytes(32).toString('base64')
 process.env.FE_ORIGIN = 'http://localhost:3000, https://fe-second.example'
@@ -65,6 +67,7 @@ after(async () => {
   await new Promise<void>((r) => composioServer.close(() => r()))
   await new Promise<void>((r) => telegramServer.close(() => r()))
   await new Promise<void>((r) => agentmailServer.close(() => r()))
+  await new Promise<void>((r) => teeExplorerServer.close(() => r()))
   await pool.end()
 })
 
@@ -421,6 +424,47 @@ describe('chat and runs (#14, #17)', () => {
     assert.equal((await none.json()).error, 'no_proof')
     const paused = await events(await alice.call('POST', `/v1/minds/${mind.id}/chat`, { message: 'please pay' }))
     assert.equal((await alice.call('GET', `/v1/runs/${paused[0].runId}/proof`)).status, 404)
+  })
+
+  test('the proof link opens a TEE Explorer report: the quote alone is uploaded, once, for the owner (#277)', async () => {
+    const alice = await signIn()
+    const { mind } = await (await alice.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Tea' })).json()
+    const runId = (await events(await alice.call('POST', `/v1/minds/${mind.id}/chat`, { message: 'what time is it?' })))[0].runId
+    const quote = Buffer.from(fakeProof.attestations['gateway:0xabc'].intelQuote, 'hex')
+    const checksum = createHash('sha256').update(quote).digest('hex')
+    await query('delete from tee_explorer_reports')
+    const before = fakeTeeExplorer.uploads.length
+    // An upload the Explorer refuses, or an answer whose checksum could point anywhere: 503, nothing kept.
+    fakeTeeExplorer.failNext = { status: 500, body: { success: false } }
+    const refused = await alice.call('POST', `/v1/runs/${runId}/proof/tee-explorer`, {})
+    assert.equal(refused.status, 503)
+    assert.equal((await refused.json()).error, 'tee_explorer_error')
+    fakeTeeExplorer.failNext = { status: 200, body: { success: true, checksum: '../../evil', quote: { verified: true } } }
+    assert.equal((await alice.call('POST', `/v1/runs/${runId}/proof/tee-explorer`, {})).status, 503)
+    assert.equal((await query('select 1 from tee_explorer_reports')).length, 0)
+    // Uploaded: the report URL is built from the checksum.
+    const res = await alice.call('POST', `/v1/runs/${runId}/proof/tee-explorer`, {})
+    assert.equal(res.status, 200)
+    const report = { attestation: 'gateway:0xabc', url: `${config.teeExplorerUrl}/reports/${checksum}`, verified: true }
+    assert.deepEqual(await res.json(), { reports: [report] })
+    // Only the quote's bytes went out, as the Explorer's own Verify button sends them.
+    const sent = fakeTeeExplorer.uploads.slice(before)
+    assert.equal(sent.length, 3)
+    assert.deepEqual(sent.at(-1)!.fields, ['file'])
+    assert.equal(sent.at(-1)!.name, 'quote.bin')
+    assert.equal(sent.at(-1)!.type, 'application/octet-stream')
+    assert.ok(sent.at(-1)!.bytes.equals(quote))
+    // A second click (or another run with the same quote) reuses the report.
+    assert.deepEqual(await (await alice.call('POST', `/v1/runs/${runId}/proof/tee-explorer`, {})).json(), { reports: [report] })
+    assert.equal(fakeTeeExplorer.uploads.length, before + 3)
+    // Owner only; GET is not the route; a run without a proof has nothing to upload.
+    const bob = await signIn()
+    assert.equal((await bob.call('POST', `/v1/runs/${runId}/proof/tee-explorer`, {})).status, 404)
+    assert.equal((await alice.call('GET', `/v1/runs/${runId}/proof/tee-explorer`)).status, 405)
+    const plain = await events(await alice.call('POST', `/v1/minds/${mind.id}/chat`, { message: 'no proof' }))
+    const none = await alice.call('POST', `/v1/runs/${plain[0].runId}/proof/tee-explorer`, {})
+    assert.equal(none.status, 404)
+    assert.equal((await none.json()).error, 'no_proof')
   })
 
   test('events are relayed in order and stored; the run is summarised; threads continue', async () => {

@@ -65,6 +65,9 @@ export const config = {
   telegramApiUrl: process.env.TELEGRAM_API_URL ?? 'https://api.telegram.org',
   telegramWebhookBase: (process.env.TELEGRAM_WEBHOOK_BASE ?? '').replace(/\/$/, ''),
   telegramPolling: process.env.TELEGRAM_POLLING === 'true',
+  // TEE Explorer (#277): where the backend uploads a run's Intel quote for the "Open in TEE Explorer" link (tests point
+  // it at a fake).
+  teeExplorerUrl: (process.env.TEE_EXPLORER_URL || 'https://proof.t16z.com').replace(/\/$/, ''),
   nonceTtlMs: 5 * 60 * 1000,
   sessionTtlMs: 7 * 24 * 60 * 60 * 1000,
 }
