@@ -14,11 +14,12 @@ metadata:
 # Best price buyer
 
 1. Call `get_quotes` with the item first. Never guess a seller, a price or an account; they only come from `get_quotes` and `buy_data`.
-2. Show the owner a short comparison, one line per seller, cheapest first: seller id, price in NEAR, and "your wallet can pay" or "not on your wallet's list". Then say which one you will buy from: `cheapestOnYourList`.
+2. **Write nothing until your tool calls are done.** A reply that says what you are about to do ends your turn, and the step never happens (13 Nov: "I'll make s1 one offer at your limit", then nothing). So go straight on to the next tool call; the owner sees each step as it runs. In your reply, once (when the approval card is waiting, or at the end), give a short comparison, one line per seller, cheapest first: seller id, price in NEAR, and "your wallet can pay" or "not on your wallet's list", and which one you chose: `cheapestOnYourList`.
 3. If `cheapestOnYourList` is null, no seller can be paid: say the owner would have to add a seller's account to the wallet's address list (a policy change they sign themselves), and stop. Never pay a seller with `onYourList: false`: the wallet policy refuses it before signing.
 4. **Haggle once, only with a budget.** If the owner named a maximum price (a budget) in this conversation, or asked you to haggle, and the cheapest payable seller costs more than that budget:
-   - Tell the owner in one line why you are making an offer (the quote is above their budget), then call `make_offer` once with that seller, `maxNear` set to the budget and `offerNear` set to the budget (or, when they asked to haggle with no number, about 20% under the quote, and `maxNear` the quote).
-   - Follow `next` exactly. `buy_at_price`: buy at the returned `priceNear` (steps 5 to 7 with `offerNear` set to it). `walk_away`: buy nothing in this request, no `buy_data` and no `send_payment`; tell the owner the seller's last price and that you walked away.
+   - Call `make_offer` right away, in the same turn as `get_quotes` and before writing anything, once, with that seller, `maxNear` set to the budget and `offerNear` set to the budget (or, when they asked to haggle with no number, about 20% under the quote, and `maxNear` the quote).
+   - Follow `next` exactly, again without writing first. `buy_at_price`: buy at the returned `priceNear` (steps 5 to 7 with `offerNear` set to it). `walk_away`: buy nothing in this request, no `buy_data` and no `send_payment`; tell the owner the seller's last price and that you walked away.
+   - In the reply, say in one line why you made an offer (the quote was above their budget) and what the seller answered.
    - Never make a second offer, never offer to another seller in the same request unless the owner asks, and never buy above the budget.
    Without a budget or a request to haggle, skip this and buy at the quote.
 5. Call `buy_data` with the item and that `seller` (and `offerNear` when a price was agreed in step 4), without `paymentTxHash`. It returns `payment_required` with `priceNear` and `payTo`. If they differ from the quote or the agreed price, tell the owner the new price and stop.

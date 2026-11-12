@@ -120,6 +120,14 @@ describe('Best price buyer haggles once (Payments Mind)', () => {
   const mind = mindWith('payments-mind', ['payments', 'daily-planner', 'recipient-guard', 'split-bill', 'treasury-report', 'spending-audit', 'best-price', 'freeze-advisor'])
   const card = (evs: Ev[]) => evs.find((e) => e.type === 'tool.approval_required')
 
+  // Chrome, 13 Nov: with this wording the Mind wrote "I'll make s1 one offer at your limit" and ended without the call.
+  test('"haggle if it costs more" makes the offer in the same run, not just a promise to', async () => {
+    offers.length = 0
+    const evs = await chat(mind, 'Buy the gas price report, but I only want to pay 0.0006 NEAR. Haggle if it costs more.')
+    assert.equal(calls(evs, 'make_offer').length, 1, `the offer was made: ${toolsOf(evs)} / ${reply(evs)}`)
+    assert.ok(!card(evs), 'no card: the counter is over the budget or it was accepted at the budget')
+  })
+
   test('a budget under the counter: one offer, then it walks away and pays nothing', async () => {
     offers.length = 0
     const evs = await chat(mind, 'Buy the NEAR testnet gas price report from the cheapest seller. My budget is 0.0007 NEAR.')

@@ -129,6 +129,15 @@ describe('recipient-guard (#182)', () => {
     assert.equal(look?.result?.isContract, true, toolsOf(evs))
     assert.match(finalText(evs), /contract/i, finalText(evs))
   })
+
+  // Chrome, 13 Nov: with Payments picked, the Mind looked the contract up and went straight to the card.
+  test('Payments alone also warns before paying a contract, with no card', async () => {
+    const before = sent.length
+    const evs = await events(await post('/v1/minds/pay/chat', { userId: `u-${randomUUID()}`, threadId: randomUUID(), walletToken: TOKEN, message: 'Pay 0.001 NEAR to hellonear-registry.testnet.', mind: mind('Pay', ['payments']) }))
+    assert.ok(!evs.some((e) => e.type === 'tool.approval_required'), `no card for a contract: ${toolsOf(evs)}`)
+    assert.equal(sent.length, before, 'nothing reached the wallet')
+    assert.match(finalText(evs), /contract/i, finalText(evs))
+  })
 })
 
 describe('freeze-advisor (#185)', () => {
