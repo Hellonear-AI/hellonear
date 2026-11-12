@@ -25,6 +25,27 @@ export function stepOrb(step: Pick<ToolStep, "tool" | "status">): StepOrb {
   return TOOLS[step.tool]?.orb ?? "working"
 }
 
+/**
+ * 1Click's chain ids in people's words (Axel, #282: "on Arb" read like a code). An id not listed
+ * shows as it is.
+ */
+export const CHAIN_NAMES: Record<string, string> = {
+  eth: "Ethereum", arb: "Arbitrum", base: "Base", sol: "Solana", pol: "Polygon", bsc: "BNB Chain", op: "Optimism",
+  avax: "Avalanche", tron: "Tron", ton: "TON", sui: "Sui", aptos: "Aptos", stellar: "Stellar", gnosis: "Gnosis",
+  scroll: "Scroll", monad: "Monad", xlayer: "X Layer", hypercore: "Hyperliquid",
+}
+
+/** A token amount cut (never rounded up) to two decimals, or to its first figures when smaller: "49.984601" -> "49.98", "0.004512" -> "0.0045". */
+export function shortAmount(amount: string): string {
+  const m = amount.match(/^(\d+)(?:\.(\d+))?$/)
+  if (!m) return amount
+  const [, whole, frac = ""] = m
+  const two = frac.slice(0, 2).replace(/0+$/, "")
+  if (whole !== "0" || !frac) return two ? `${whole}.${two}` : whole
+  const lead = frac.search(/[1-9]/)
+  return lead < 0 ? "0" : `0.${frac.slice(0, Math.max(2, lead + 2))}`
+}
+
 export type StepText = { label: string; detail: string | null; tone: "doing" | "done" | "failed" | "stopped" }
 
 export function stepText(step: ToolStep): StepText {
@@ -58,6 +79,14 @@ function summary(step: ToolStep): string | null {
     }
     case "split_amount":
       return count(r.shares, "share", "shares")
+    // A cross-chain preview (#273): what would arrive, where. Kept short to fit a phone's line; the
+    // Mind states the quote's proof in its reply (#278) and the opened step shows it.
+    case "crosschain_quote": {
+      const to = r.to as { amount?: string; token?: string; chain?: string } | undefined
+      if (!to?.amount) return null
+      const chain = to.chain ? (CHAIN_NAMES[to.chain] ?? to.chain) : "the other chain"
+      return [shortAmount(to.amount), to.token, "on", chain].filter(Boolean).join(" ")
+    }
     case "near_check_transfer":
       return r.coversAmount === true ? "Paid in full" : r.status === "succeeded" ? "Paid, but not the full amount" : r.status === "failed" ? "Not paid" : null
     case "near_view_account":

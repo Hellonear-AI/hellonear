@@ -75,6 +75,8 @@ export const TOOLS: Record<string, ToolWords> = {
   // The skills for the five tracks (#194, #211). Reading or looking up: searching.
   get_quotes: { doing: "Asking sellers for prices", done: "Compared prices", orb: "searching", node: "Price quotes" },
   near_check_transfer: { doing: "Checking for a payment", done: "Checked for a payment", orb: "searching", node: "Transfer check" },
+  // A stablecoin payment to another chain, previewed through NEAR Intents (#273): a dry quote, nothing is sent.
+  crosschain_quote: { doing: "Getting a cross-chain quote", done: "Got a cross-chain quote", orb: "searching", node: "Cross-chain quote", about: "Asks NEAR Intents what a stablecoin payment to another chain would deliver. A preview only: nothing is sent." },
   googledrive_find_files: { doing: "Looking in your Google Drive", done: "Looked in your Google Drive", orb: "searching", node: "Drive search" },
   googledocs_read_document: { doing: "Reading a Google Doc", done: "Read a Google Doc", orb: "searching", node: "Read a Doc" },
   googlesheets_find_spreadsheets: { doing: "Looking for a spreadsheet", done: "Found your spreadsheets", orb: "searching", node: "Find sheets" },

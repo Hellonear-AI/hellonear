@@ -218,15 +218,20 @@ export function useCanvasView() {
       return { d: Math.hypot(b.x - a.x, b.y - a.y) || 1, x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
     }
     const down = (e: PointerEvent) => {
+      // Any new press starts fresh, a mouse one too (a touchscreen laptop: a click after a pinch
+      // still closes the settings; Axel, #274).
+      if (e.pointerType !== "touch" || touches.current.size === 0) pinched.current = false
       if (e.pointerType !== "touch") return
-      if (touches.current.size === 0) pinched.current = false
       touches.current.set(e.pointerId, local(e))
       if (touches.current.size === 2) {
         // A one-finger pan becomes the pinch.
         pan.current = null
         setPanning(false)
         pinched.current = true
-        pinch.current = { view: { ...target.current }, ...between() }
+        // From where the view is on screen, not where an easing zoom was heading, so it doesn't jump (Axel, #274).
+        pinch.current = { view: { ...current.current }, ...between() }
+        // The second finger is the pinch's, not a press on the card under it (Axel, #274).
+        e.stopPropagation()
       }
     }
     const move = (e: PointerEvent) => {
@@ -235,6 +240,7 @@ export function useCanvasView() {
       const p = pinch.current
       if (p && touches.current.size >= 2) {
         e.preventDefault()
+        e.stopPropagation()
         go(pinchView(p.view, p, between()), true)
       }
     }
@@ -246,7 +252,12 @@ export function useCanvasView() {
     f.addEventListener("pointermove", move, true)
     f.addEventListener("pointerup", up, true)
     f.addEventListener("pointercancel", up, true)
+    // A finger lifted outside the canvas still ends there, so no stale touch starts a "pinch" later (Axel, #274).
+    window.addEventListener("pointerup", up)
+    window.addEventListener("pointercancel", up)
     return () => {
+      window.removeEventListener("pointerup", up)
+      window.removeEventListener("pointercancel", up)
       f.removeEventListener("pointerdown", down, true)
       f.removeEventListener("pointermove", move, true)
       f.removeEventListener("pointerup", up, true)

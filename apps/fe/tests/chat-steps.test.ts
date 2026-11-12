@@ -116,6 +116,18 @@ describe("step words for the track skills (#211)", () => {
     expect(done("get_quotes", { quotes: [{ priceNear: "1" }, { priceNear: "0.8" }], cheapestOnYourList: { priceNear: "0.8" } })).toMatchObject({ label: "Compared prices", detail: "2 sellers, best 0.8 NEAR" })
     expect(done("split_amount", { shares: [{}, {}, {}] })).toMatchObject({ label: "Worked out the shares", detail: "3 shares" })
     expect(done("near_check_transfer", { status: "succeeded", coversAmount: true }).detail).toBe("Paid in full")
+    // A cross-chain preview (#273) says what would arrive where, short enough for a phone's line.
+    const quote = { status: "quote_only", to: { chain: "base", token: "USDC", amount: "9.97", recipient: "0xabc", minAmount: "9.87" }, proof: { signedBy1Click: true } }
+    expect(done("crosschain_quote", quote)).toMatchObject({ label: "Got a cross-chain quote", detail: "9.97 USDC on Base" })
+    // 1Click's chain ids become names, unknown ones stay as they are, and the amount is cut to two decimals (Axel, #282).
+    expect(done("crosschain_quote", { ...quote, to: { ...quote.to, chain: "arb", amount: "49.984601" } }).detail).toBe("49.98 USDC on Arbitrum")
+    expect(done("crosschain_quote", { ...quote, to: { ...quote.to, chain: "bsc", amount: "12" } }).detail).toBe("12 USDC on BNB Chain")
+    expect(done("crosschain_quote", { ...quote, to: { ...quote.to, chain: "zksync" } }).detail).toBe("9.97 USDC on zksync")
+    const { shortAmount } = await import("@/modules/runs/data/steps")
+    expect(shortAmount("49.984601")).toBe("49.98")
+    expect(shortAmount("10.000000")).toBe("10")
+    expect(shortAmount("0.004512")).toBe("0.0045")
+    expect(shortAmount("0.000000")).toBe("0")
   })
 })
 
