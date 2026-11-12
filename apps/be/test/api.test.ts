@@ -11,6 +11,7 @@ import { fakeOutlayer, outlayerServer } from './fake-outlayer.ts'
 import { COMPOSIO_KEY, composioServer, fakeComposio } from './fake-composio.ts'
 import { fakeTelegram, telegramServer } from './fake-telegram.ts'
 import { AGENTMAIL_KEYS, agentmailServer, fakeAgentmail } from './fake-agentmail.ts'
+import { explorerServer, fakeExplorer } from './fake-explorer.ts'
 
 await new Promise<void>((r) => engine.listen(0, r))
 process.env.ENGINE_URL = `http://127.0.0.1:${(engine.address() as AddressInfo).port}`
@@ -30,6 +31,8 @@ await new Promise<void>((r) => agentmailServer.listen(0, r))
 process.env.AGENTMAIL_URL = `http://127.0.0.1:${(agentmailServer.address() as AddressInfo).port}/v0`
 process.env.AGENTMAIL_API_KEY = AGENTMAIL_KEYS[0]
 process.env.AGENTMAIL_API_KEY_2 = AGENTMAIL_KEYS[1]
+await new Promise<void>((r) => explorerServer.listen(0, r))
+process.env.TEE_EXPLORER_URL = `http://127.0.0.1:${(explorerServer.address() as AddressInfo).port}`
 const DEMO_INBOX = 'hellonear-demo@agentmail.to'
 fakeAgentmail.inboxes.push({ inbox_id: DEMO_INBOX, email: DEMO_INBOX, client_id: 'hellonear-demo', org: 0 })
 process.env.DEMO_AGENTMAIL_INBOX = DEMO_INBOX
@@ -65,6 +68,7 @@ after(async () => {
   await new Promise<void>((r) => composioServer.close(() => r()))
   await new Promise<void>((r) => telegramServer.close(() => r()))
   await new Promise<void>((r) => agentmailServer.close(() => r()))
+  await new Promise<void>((r) => explorerServer.close(() => r()))
   await pool.end()
 })
 
@@ -623,6 +627,48 @@ describe('chat and runs (#14, #17)', () => {
     const { events: all } = await (await alice.call('GET', `/v1/runs/${paused[0].runId}`)).json()
     assert.deepEqual(all.map((e: any) => e.seq), all.map((_: unknown, i: number) => i))
     assert.equal(all.length, paused.length + 3)
+  })
+
+  test('the TEE Explorer link (#277): the run\'s Intel quote uploaded once, a verified report for the owner alone', async () => {
+    const alice = await signIn()
+    const { mind } = await (await alice.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Tia' })).json()
+    const evs = await events(await alice.call('POST', `/v1/minds/${mind.id}/chat`, { message: 'what time is it?' }))
+    const runId = evs[0].runId
+    const before = fakeExplorer.uploads.length
+    const res = await alice.call('POST', `/v1/runs/${runId}/proof/tee-explorer`, {})
+    assert.equal(res.status, 200, await res.clone().text())
+    const body = await res.json()
+    const quote = (fakeProof.attestations as any)['gateway:0xabc'].intelQuote as string
+    const checksum = createHash('sha256').update(Buffer.from(quote, 'hex')).digest('hex')
+    assert.deepEqual(body, { runId, reports: [{ attestation: 'gateway:0xabc', kind: 'gateway', url: `${process.env.TEE_EXPLORER_URL}/reports/${checksum}`, verified: true }] })
+    // The quote's bytes, not its hex or the whole proof.
+    assert.equal(fakeExplorer.uploads.length, before + 1)
+    assert.ok(fakeExplorer.uploads.at(-1)!.equals(Buffer.from(quote, 'hex')))
+    // A second click reuses the link.
+    assert.deepEqual(await (await alice.call('POST', `/v1/runs/${runId}/proof/tee-explorer`, {})).json(), body)
+    assert.equal(fakeExplorer.uploads.length, before + 1)
+    // Someone else's run, a run without a proof, and the wrong method.
+    const bob = await signIn()
+    assert.equal((await bob.call('POST', `/v1/runs/${runId}/proof/tee-explorer`, {})).status, 404)
+    const plain = await events(await alice.call('POST', `/v1/minds/${mind.id}/chat`, { message: 'no proof' }))
+    const none = await alice.call('POST', `/v1/runs/${plain[0].runId}/proof/tee-explorer`, {})
+    assert.equal(none.status, 404)
+    assert.equal((await none.json()).error, 'no_proof')
+    assert.equal((await alice.call('GET', `/v1/runs/${runId}/proof/tee-explorer`)).status, 405)
+  })
+
+  test('the TEE Explorer link (#277): an Explorer that fails answers 503, never 502', async () => {
+    const { resetExplorerCache } = await import('../src/teeExplorer.ts')
+    resetExplorerCache()
+    const alice = await signIn()
+    const { mind } = await (await alice.call('POST', '/v1/minds', { templateId: 'general-assistant', name: 'Uma' })).json()
+    const evs = await events(await alice.call('POST', `/v1/minds/${mind.id}/chat`, { message: 'what time is it?' }))
+    fakeExplorer.down = true
+    try {
+      const res = await alice.call('POST', `/v1/runs/${evs[0].runId}/proof/tee-explorer`, {})
+      assert.equal(res.status, 503)
+      assert.equal((await res.json()).error, 'tee_explorer_error')
+    } finally { fakeExplorer.down = false }
   })
 })
 

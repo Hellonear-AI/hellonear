@@ -10,6 +10,7 @@ import { HttpError, assertSameOrigin, cors, logServerError, readBody, sendJson, 
 import { TOOLKITS, connect, disconnect, listConnections, toolkitSchema } from './connections.ts'
 import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, playgroundAttackOf, playgroundMind, requireMind, updateMind, updateMindSchema, type Mind } from './minds.ts'
 import { cancelRun, getRun, isAwaiting, listRuns, mindEvents, pendingApprovals, relayRun, runEvents, runProofs, sweepStuckRuns } from './runs.ts'
+import { explorerReport, quotesOf } from './teeExplorer.ts'
 import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema, secretsForRun } from './secrets.ts'
 import { addressRuleOf, assertWalletEmpty, createWallet, freezeTransaction, getWallet, hasWallet, isDemoMind, policySchema, policyTransaction } from './wallets.ts'
 import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
@@ -392,7 +393,7 @@ export const server = createServer(async (req, res) => {
     }
 
     // Runs (#14, #17)
-    const run = path.match(/^\/v1\/runs\/([^/]+)(\/approve|\/decline|\/cancel|\/proof)?$/)
+    const run = path.match(/^\/v1\/runs\/([^/]+)(\/approve|\/decline|\/cancel|\/proof|\/proof\/tee-explorer)?$/)
     if (run) {
       const found = await getRun(user.id, decodeURIComponent(run[1]))
       if (!found) throw new HttpError(404, 'run_not_found')
@@ -403,6 +404,15 @@ export const server = createServer(async (req, res) => {
         const proofs = await runProofs(found.runId)
         if (!proofs.length) throw new HttpError(404, 'no_proof')
         return sendJson(res, 200, { runId: found.runId, proofs })
+      }
+      // The proof's Intel quote(s) checked by Phala's TEE Explorer (#277): the app opens `url`, a report already verified,
+      // instead of asking the owner to paste the quote.
+      if (run[2] === '/proof/tee-explorer' && req.method === 'POST') {
+        const quotes = quotesOf(await runProofs(found.runId))
+        if (!quotes.length) throw new HttpError(404, 'no_proof')
+        const reports = []
+        for (const q of quotes) reports.push({ attestation: q.attestation, kind: q.kind, ...(await explorerReport(q.intelQuote)) })
+        return sendJson(res, 200, { runId: found.runId, reports })
       }
       // Stop a run that is still streaming (#121). A run paused for approval has no stream: decline it instead.
       if (run[2] === '/cancel' && req.method === 'POST') {
