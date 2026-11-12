@@ -34,4 +34,4 @@ curl -s localhost:3300/mcp -H 'content-type: application/json' \
 
 ## Deploy
 
-Not deployed yet. Plan: **Vercel**, by Axel with the Vercel CLI from this folder (`vercel` then `vercel --prod`), project `hellonear-docs`, root directory `apps/docs`. Then two domains on that project, `docs.hellonear.xyz` and `trust.hellonear.xyz`, each a `CNAME → cname.vercel-dns.com` in the `hellonear.xyz` Cloudflare zone (DNS only, not proxied). The DNS change is on the box owner's side (James), with Axel's approval. No env vars.
+On **Vercel**, project `hellonear-docs` (created 13 Nov), deployed by Axel with the Vercel CLI from this folder. **Build locally and upload the result** (`vercel build --prod` then `vercel deploy --prebuilt --prod`): the content script copies `../../docs/openapi.json`, which a plain `vercel deploy` from this folder does not upload, so a remote build fails with ENOENT. Domains on the project: `docs.hellonear.xyz` and `trust.hellonear.xyz`, each a `CNAME` in the `hellonear.xyz` Cloudflare zone to the target Vercel gives (DNS only, not proxied). The DNS change is on the box owner's side (James), with Axel's approval. No env vars.

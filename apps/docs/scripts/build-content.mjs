@@ -38,6 +38,8 @@ for (const p of pages) {
 
 mkdirSync(join(root, 'lib/generated'), { recursive: true })
 writeFileSync(join(root, 'lib/generated/pages.json'), JSON.stringify(pages, null, 1) + '\n')
+// public/ holds only generated files, so it is not in git: make it on a fresh checkout.
+mkdirSync(join(root, 'public'), { recursive: true })
 copyFileSync(join(root, '../../docs/openapi.json'), join(root, 'public/openapi.json'))
 // Swagger UI's prebuilt bundle, served as a static file: bundling swagger-ui-react with Turbopack breaks its
 // OpenAPI resolver ("OpenApi3_1Element.refract is not a function"), so an opened operation never loads.
