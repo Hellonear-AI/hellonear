@@ -37,9 +37,9 @@ HelloNear gives a person a **Mind**: an AI agent with a persona, memory, skills 
 **[Security model](#security-model)** ·
 **[Try it](#try-it)** ·
 **[API reference](#api-reference)** ·
-**[Limits](#limits)**
+**[Hackathon phase](#hackathon-phase-testnet)**
 
-Built at **NEAR HACKATHON** (1 to 14 Nov 2026) for six tracks: `security`, `privacy`, `agents`, `swarms`, `business`, `realworld`.<br>1,000+ commits and 178 merged pull requests since the hackathon started.
+Built at **NEAR HACKATHON** (1 to 14 Nov 2026) for six tracks: `security`, `privacy`, `agents`, `swarms`, `business`, `realworld`.<br>1,000+ commits and 189 merged pull requests since the hackathon started.
 
 <br>
 
@@ -557,7 +557,10 @@ So: HelloNear can keep your chats and memory to be useful, and you can delete th
 | **OutLayer wallets** on testnet: one per Mind, policy v2 (per-payment limit, daily limit, recipients) enforced in a TEE; policy and freeze are calls on `outlayer.testnet` the owner signs | `apps/be/src/wallets.ts` | the payment, policy and freeze transactions above |
 | **NEP-413 sign-in** with the owner's NEAR wallet (Meteor first, any NEAR Connect wallet works) | `apps/be/src/auth.ts` | `apps/be/test/api.test.ts` |
 | **Mind registry contract** (Rust, `near-sdk` 5.29) on `hellonear-registry.testnet`: Minds, published skills, and `equip_skill` pays the skill's publisher | `sc/` | `sc/README.md` (deploy transactions, code hash), sandbox tests in `sc/tests/` |
-| **NEAR RPC** (FastNear testnet): account lookups and transfer checks the Mind uses before and after paying | `engine/src/tools.ts` | `engine/test/near-tool.test.ts` |
+| **Swarm auction contract** (Rust, `near-sdk` 5.29) on `auction.hellonear-swarm.testnet`: sealed-bid group buying, every agent its own sub-account, source verified | `sc/swarm` | [a real round's transactions](#the-swarm-auction-one-real-round-on-testnet), `sc/swarm/tests/simulation.rs` |
+| **Meta transactions (NEP-366)**: a relayer pays the gas for an owner's calls to the registry, never a deposit | `apps/be/src/relay.ts` | `apps/be/test/relay.test.ts` |
+| **NEAR AI Agent Market**: agents from market.near.ai, priced through their x402 answer (paid with a NEP-366 USDC transfer on mainnet, so quoted only here) | `engine/src/market.ts` | `engine/test/market.test.ts`, Try it step 8 |
+| **NEAR RPC** (FastNear testnet): account lookups (including whether the account is a contract) and transfer checks the Mind uses before and after paying | `engine/src/tools.ts` | `engine/test/near-tool.test.ts` |
 
 ---
 
@@ -571,8 +574,12 @@ So: HelloNear can keep your chats and memory to be useful, and you can delete th
 2. *"Send 0.01 NEAR to lin1er.testnet"*. See: an approval card with the amount, the recipient and the wallet's checks. Approve it. See: a receipt with a testnet transaction link.
 3. *"Send 10 USDC to 0x8ba1f109551bD432803012645Ac136ddd64DBA72 on Base."* See: a NEAR Intents quote (what would arrive, the cost, the time), signed by 1Click, and the Mind saying nothing was sent.
 4. Click **Verified via NEAR AI TEE gateway** under a reply → **View proof** → **Check it in TEE Explorer**. See: Phala's TEE Explorer opens on a report that reads VERIFIED.
-5. Open **Attack playground** and run a scenario. See: which layer stopped it.
-6. Make an **Email Manager** and ask *"List my latest emails. Is any of them suspicious?"* See: the sample inbox, the phishing email flagged, nothing paid.
+5. *"Buy the gas price report, but I only want to pay 0.0006 NEAR. Haggle if it costs more."* See: the sellers' prices, then **Made an offer**. The Mind buys at the agreed price (approval card) or walks away and pays nothing; it never makes a second offer.
+6. *"Pay 0.001 NEAR to hellonear-registry.testnet."* See: a warning that it is a smart contract, and a question. No approval card.
+7. After a payment, open **Wallet**. See: **Download CSV** beside Recent activity, a file an accountant can open (date, status, amount, counterparty, purpose, who approved, tx hash, NearBlocks link).
+8. Make a **General Assistant** and ask *"I need competitor research for a coffee shop in Jakarta. My budget is 1 USDC. Find the cheapest agent on the NEAR AI Agent Market that fits."* See: real agents from market.near.ai, a price from each, which fit the budget, and the cheapest recommended. Nothing is hired or paid (hiring is USDC on mainnet). An older General Assistant adds **Hire on Agent Market** on the Skills page first.
+9. Open **Attack playground** and run a scenario. See: which layer stopped it.
+10. Make an **Email Manager** and ask *"List my latest emails. Is any of them suspicious?"* See: the sample inbox, the phishing email flagged, nothing paid.
 
 ### Through the API
 
@@ -728,6 +735,8 @@ The web app is a client of a public HTTP API, and everything it does can be done
 | `POST` | `/v1/minds/{mindId}/wallet` | Create the Mind's OutLayer wallet (testnet) | 201 |  |
 | `GET` | `/v1/minds/{mindId}/wallet` | Balance, spent today, frozen, and the policy | 200 | yes |
 | `GET` | `/v1/minds/{mindId}/wallet/payments` | Payment receipts, refused ones included | 200 | yes |
+| `GET` | `/v1/minds/{mindId}/payments.csv` | Every payment as a CSV an accountant can open (date UTC, status in words, amount, counterparty, purpose, who approved, tx hash, NearBlocks link) | 200 `text/csv` | yes |
+| `POST` | `/v1/relay` | Relay a NEP-366 signed delegate action to the registry (only `unequip_skill` / `set_wallet`, exactly 1 yoctoNEAR); the relayer pays the gas, never a deposit. Not for try-out users | 200, `503 relay_not_configured` until the relayer is set | |
 | `POST` | `/v1/minds/{mindId}/wallet/policy` | Build a store_wallet_policy transaction for the owner to sign | 200 |  |
 | `POST` | `/v1/minds/{mindId}/wallet/freeze` | Build a freeze_wallet transaction for the owner to sign | 200 |  |
 | `POST` | `/v1/minds/{mindId}/wallet/unfreeze` | Build an unfreeze_wallet transaction for the owner to sign | 200 |  |
@@ -795,11 +804,20 @@ The web app is a client of a public HTTP API, and everything it does can be done
 
 ---
 
-## Limits
+## Hackathon phase (testnet)
 
-Stated plainly, so nothing here surprises a judge:
-- **Testnet only.** Payments are in testnet NEAR. Cross-chain stablecoin payments are quoted through NEAR Intents (signature checked) but not sent: NEAR Intents is mainnet only.
-- **Best price buyer** compares sellers only when the backend lists several; with one seller it buys from that one.
+During the hackathon HelloNear runs on **NEAR testnet**, so judges can try everything for free with test tokens and a guest session. Some features therefore stop one step short of real money on purpose. Each becomes real on mainnet with the same approvals and limits.
+
+| Feature | During the hackathon (testnet) | On mainnet |
+|---|---|---|
+| **Payments** | Testnet NEAR from each Mind's OutLayer wallet, policy checked in a TEE | Real NEAR and stablecoins, same policy, approvals and Freeze |
+| **Cross-chain stablecoins (NEAR Intents)** | Real quotes from 1Click, signature checked; nothing is sent, because NEAR Intents has no testnet | The Mind sends the payment it quoted, after the owner approves |
+| **NEAR AI Agent Market (market.near.ai)** | Real agents and real prices (each agent's x402 answer); the Mind picks the cheapest within the owner's budget, but **hires no one**, because the market is paid in USDC on NEAR mainnet | The Mind **hires the agent for real**: one signed USDC transfer (NEP-366) behind the owner's approval card, and the agent's result comes back into the chat. Haggling then moves to the market's job board (post the job with a budget, compare bids, answer one counter) |
+| **Haggling** | One offer to the sellers of HelloNear's own testnet data shop (two sellers on the hosted demo) | The same playbook with real sellers and the job board above |
+| **Swarm auction** | Contract live and source verified at `auction.hellonear-swarm.testnet`; one round ran with scripted agent accounts, the 20-buyer simulation runs on a local sandbox | Minds join group-buying rounds from the app with their own wallets |
+| **Relayer (NEP-366)** | Live in the backend for two registry methods; on the hosted demo it answers `503 relay_not_configured` until the relayer's key is set on the server | Pays the gas for owners' calls to HelloNear's contracts, so owners never need NEAR for gas |
+
+Also stated plainly:
 - **App accounts:** Gmail, Google Calendar and Meet, Sheets, Drive, Docs and Notion were used by the team with real accounts. Changing Sheets cells, moving Calendar events, updating Notion rows and appending to Docs were tested against a stand-in for Composio, not yet on a real account. Zoom, Outlook and Slack are wired but not yet tried with a real account.
 - **The owner's payment rule** was tested on a local stack against a stand-in OutLayer. OutLayer's TEE checks every payment either way.
 - **Model behaviour varies.** Over repeated runs the model sometimes declines a payment it could have put on a card. The approval and the wallet policy, not the model, are what guarantee the outcome.
@@ -861,7 +879,7 @@ Payments also need `DEMO_OUTLAYER_API_KEY` (an OutLayer wallet's agent key) in `
 
 All code in this repository was written from 25 Oct 2026 (first commit), after the hackathon was announced on 19 Oct. There is no earlier baseline.
 
-**1,000+ commits since the hackathon started:** on 12 Nov 2026, `main` had 1,134 commits since 1 Nov (905 without merge commits) and 178 merged pull requests, each reviewed and tested before merge. Check it with `git rev-list --count --since=2026-11-01 main`.
+**1,000+ commits since the hackathon started:** on 13 Nov 2026, `main` had 1,188 commits since 1 Nov (945 without merge commits) and 189 merged pull requests, each reviewed and tested before merge. Check it with `git rev-list --count --since=2026-11-01 main`.
 
 **Libraries:** `@mastra/core` 1.81, `@mastra/memory`, `@mastra/pg`, `@ai-sdk/openai-compatible`, `@nearai/inference-sdk`, `@defuse-protocol/one-click-sdk-typescript` 0.1.26 (engine); `near-api-js` 7.4, `pg`, `zod` (backend); Next.js 16, React 19, `@hot-labs/near-connect`, `near-connect-hooks`, `@xyflow/react`, GSAP, shadcn (web app); `near-sdk` 5.29, `near-sandbox`, `near-api` (contract tests).
 
