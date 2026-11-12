@@ -1,0 +1,88 @@
+---
+title: Quickstart
+description: Try HelloNear in the web app as a guest, or drive it with curl through the public API.
+---
+
+### In the web app (2 minutes, no account)
+
+> **During the hackathon everything runs on NEAR testnet, so judges can try it all for free.** *Continue as guest* needs no wallet, sign-up or payment: you get 20 messages, sample inbox and calendar data, and payments from a shared test wallet with HelloNear's limits. The AI runs on NEAR AI Cloud with the team's own credits, so you pay nothing for the model. Guest data is deleted after 7 days.
+
+1. Open **[app.hellonear.xyz](https://app.hellonear.xyz)** → **Continue as guest** → pick the **Payments Mind**.
+2. *"Send 0.01 NEAR to lin1er.testnet"*. See: an approval card with the amount, the recipient and the wallet's checks. Approve it. See: a receipt with a testnet transaction link.
+3. *"Send 10 USDC to 0x8ba1f109551bD432803012645Ac136ddd64DBA72 on Base."* See: a NEAR Intents quote (what would arrive, the cost, the time), signed by 1Click, and the Mind saying nothing was sent.
+4. Click **Verified via NEAR AI TEE gateway** under a reply → **View proof** → **Check it in TEE Explorer**. See: Phala's TEE Explorer opens on a report that reads VERIFIED.
+5. *"Buy the gas price report, but I only want to pay 0.0006 NEAR. Haggle if it costs more."* See: the sellers' prices, then **Made an offer**. The Mind buys at the agreed price (approval card) or walks away and pays nothing; it never makes a second offer.
+6. *"Pay 0.001 NEAR to hellonear-registry.testnet."* See: a warning that it is a smart contract, and a question. No approval card.
+7. After a payment, open **Wallet**. See: **Download CSV** beside Recent activity, a file an accountant can open (date, status, amount, counterparty, purpose, who approved, tx hash, NearBlocks link).
+8. Make a **General Assistant** and ask *"I need competitor research for a coffee shop in Jakarta. My budget is 1 USDC. Find the cheapest agent on the NEAR AI Agent Market that fits."* See: real agents from market.near.ai, a price from each, which fit the budget, and the cheapest recommended. Nothing is hired or paid (hiring is USDC on mainnet). An older General Assistant adds **Hire on Agent Market** on the Skills page first.
+9. Open **Attack playground** and run a scenario. See: which layer stopped it.
+10. Make an **Email Manager** and ask *"List my latest emails. Is any of them suspicious?"* See: the sample inbox, the phishing email flagged, nothing paid.
+
+### Through the API
+
+The hosted backend is `https://api.hellonear.xyz`. Guest mode makes a temporary user (20 messages, deleted after 7 days). Replies stream as [server-sent events](https://github.com/Hellonear-AI/hellonear/blob/main/docs/api-contract.md#3-hellonear-events-engine--backend--browser).
+
+```sh
+B=https://api.hellonear.xyz                 # or http://localhost:4000 (see "Run locally")
+
+# 1. Start a guest session. See: 201 and "demo": true
+curl -s -c jar -X POST $B/v1/auth/demo -H 'content-type: application/json' -d '{}'
+
+# 2. List the Mind templates. See: email-manager, general-assistant, payments-mind
+curl -s -b jar $B/v1/templates
+
+# 3. Create a Payments Mind. See: 201 with the Mind's id (mnd_…)
+curl -s -b jar -X POST $B/v1/minds -H 'content-type: application/json' \
+  -d '{"templateId":"payments-mind","name":"Penny"}'
+M=mnd_...                                   # the id from step 3
+
+# 4. Ask for a cross-chain quote. See: tool.called crosschain_quote, a tool.result with
+#    status "quote_only", to.amount, cost, seconds and proof.signedBy1Click: true; nothing sent
+curl -sN -b jar -X POST $B/v1/minds/$M/chat -H 'content-type: application/json' \
+  -d '{"message":"Send 10 USDC to 0x8ba1f109551bD432803012645Ac136ddd64DBA72 on Base."}'
+
+# 5. Ask to pay. See: tool.approval_required for send_payment, nothing sent yet
+curl -sN -b jar -X POST $B/v1/minds/$M/chat -H 'content-type: application/json' \
+  -d '{"message":"Send 0.01 NEAR to lin1er.testnet"}'
+curl -s -b jar $B/v1/minds/$M/approvals                      # the runId and toolCallId
+curl -sN -b jar -X POST $B/v1/runs/$RUN/approve -H 'content-type: application/json' \
+  -d '{"toolCallId":"…"}'                                   # See: send_payment "sent" with a txHash
+
+# 6. The proof behind a reply. See: signers, signatures (hashes only) and the Intel quote,
+#    then a TEE Explorer report URL with verified: true
+curl -s -b jar $B/v1/runs/$RUN/proof
+curl -s -b jar -X POST $B/v1/runs/$RUN/proof/tee-explorer -H 'content-type: application/json' -d '{}'
+```
+
+Ask for 1 NEAR and approve it. See: `policy_denied`, no transaction and no tx link: the wallet refused before signing.
+
+**Attack playground:**
+- `curl -s -b jar $B/v1/attacks`. See: `direct-order`, `email-injection`, `rogue-skill`, `tricked-owner`.
+- `curl -sN -b jar -X POST $B/v1/attacks/direct-order/runs -H 'content-type: application/json' -d '{}'`. See: the Mind refuses and `attack.verdict` has `"stoppedBy":"model"`.
+- `rogue-skill`: `"stoppedBy":"no_tool"`; `send_payment` never appears.
+- `tricked-owner`: sometimes the Mind refuses, sometimes it puts the payment on a card. Approve that card. See: `"stoppedBy":"policy"`, `policy_denied` ("not in whitelist") and **no tx hash**.
+
+**Autopilot** (a job built here as JSON; the Builder makes the same canvas):
+```sh
+curl -s -b jar -X PUT $B/v1/minds/$M/workflows/morning-brief -H 'content-type: application/json' -d '{"name":"Morning brief","nodes":[
+  {"id":"start","type":"trigger","data":{"schedule":{"cron":"30 7 * * 1-5","timezone":"Asia/Jakarta"}}},
+  {"id":"cal","type":"tool","data":{"tool":"googlecalendar_list_events","args":{}}},
+  {"id":"note","type":"agent","data":{"prompt":"In three short lines, brief me on today from these events: {{steps.cal.events}}"}}],
+  "edges":[{"source":"start","target":"cal"},{"source":"cal","target":"note"}]}'
+curl -sN -b jar -X POST $B/v1/minds/$M/workflows/morning-brief/runs -H 'content-type: application/json' -d '{}'
+```
+Use a General Assistant (it has the calendar). An If compares a number or text from an earlier step (after a list, its count: "number of events is more than 0"). Turning the schedule on needs a wallet sign-in (a guest gets `403 demo_not_allowed`).
+
+**More prompts** (guests get a sample inbox and calendar):
+- *"Archive the newsletter and the StreamBox receipt."*: a card listing each email, saying nothing is deleted.
+- *"Brief me on today"*: meetings, emails that need you, money due, and a "Watch out" line for the phishing email.
+- *"Which subscriptions do I pay for?"*: StreamBox, CloudNotes and an invoice, with monthly totals; it never pays.
+- *"What's the gas price on NEAR testnet? Buy the report."*: a `402` price, a card for 0.001 NEAR, then the report with its tx hash.
+- *"Pay b0b.testnet 0.01"* after paying `bob.testnet`: a question about the lookalike, not a card.
+- *"Mark INV-12 as Paid in my Invoices sheet"* (with Sheets connected): card Now: Unpaid / New: Paid.
+- *"Move my 3pm client call to 4pm"*: card From / To; guests stay, nobody is emailed.
+- *"What is this app?"*: every Mind answers from the built-in guide.
+
+Every route and event is in [`docs/api-contract.md`](https://github.com/Hellonear-AI/hellonear/blob/main/docs/api-contract.md).
+
+---

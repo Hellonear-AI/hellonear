@@ -1,0 +1,6 @@
+tsconfig.tsbuildinfo
+.vercel
+.env*
+lib/generated/
+public/openapi.json
+public/swagger/
