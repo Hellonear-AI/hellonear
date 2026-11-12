@@ -1,21 +1,35 @@
-MIT License
+HelloNear Source-Available License
 
-Copyright (c) 2026 HelloNear contributors
+Copyright (c) 2026 The HelloNear team (GitHub: Lexirieru, Lin1er, AncungAulia, Nabil-Aufa).
+All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This repository is published so that it can be read and evaluated. It is not open source.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. What you may do without asking
+   a. Read the source code and documentation, and clone this repository to do so.
+   b. Build and run the software on your own machine, or use the hosted demo, to evaluate
+      or review HelloNear, including judging it in NEAR HACKATHON.
+   c. Quote short excerpts in a review, article or discussion of HelloNear, with a link to
+      this repository.
+   d. The NEAR HACKATHON organizers keep the non-exclusive rights to use the project's name,
+      screenshots, video and repository link for promotion, as the hackathon rules state.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+2. What needs the team's written permission
+   a. Copying, modifying, translating or creating derivative works of any part of this
+      repository, in whole or in substantial part.
+   b. Distributing, publishing, sublicensing or selling it, or offering it as a hosted service.
+   c. Using it, or any substantial part of it, in another product, project or hackathon
+      submission.
+   d. Presenting any part of it as your own work, or removing or changing this notice or
+      the authors' names.
+
+3. Third-party software
+   Libraries, fonts, logos and other material by third parties that this repository uses or
+   includes keep their own licenses and trademarks. This license covers only the work of the
+   HelloNear team.
+
+4. No warranty
+   The software is provided "as is", without warranty of any kind. In no event shall the
+   authors be liable for any claim, damages or other liability arising from it or its use.
+
+For permission, contact the team through https://github.com/Hellonear-AI/hellonear.
