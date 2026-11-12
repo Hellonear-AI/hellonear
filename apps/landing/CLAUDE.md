@@ -91,7 +91,7 @@ Measured on the production build (`bun run build && bun x next start`), Chrome a
 
 - `deploy/deploy.sh` builds this folder on the deploying machine (`next build` from `git archive HEAD`) and ships only `.next`; the box runs `next start` on port 3100 as `hellonear-landing.service` (`deploy/systemd/`). A merged `main` deploys it like the rest (`deploy/README.md`).
 - The demo video: set `DEPLOY_LANDING_VIDEO_URL` for the deploy (it becomes `NEXT_PUBLIC_DEMO_VIDEO_URL`); without it the demo section shows its placeholder.
-- `https://hellonear.xyz` serves it once the apex ingress rule points at 3100; until then the apex still goes to the web app, which redirects it to `app.` (`deploy/README.md`, step 8).
+- `https://hellonear.xyz` serves it since 12 Nov: the apex ingress rule points at 3100 (#266, `deploy/README.md`, step 8).
 
 ## Deploying to Vercel instead (checked 11 Nov, not deployed: deploys need Axel's approval)
 
