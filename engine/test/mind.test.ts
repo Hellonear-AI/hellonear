@@ -32,6 +32,10 @@ test('memory switches (#209): absent or on keeps today\'s options; off maps to M
   assert.deepEqual(memoryOptions(mind({ enabled: false })), { workingMemory: { enabled: false } })
   assert.deepEqual(memoryOptions(mind({ recall: false })), { semanticRecall: false })
   assert.deepEqual(memoryOptions(mind({ enabled: false, recall: false })), { workingMemory: { enabled: false }, semanticRecall: false })
+  // The embedder does not answer (13 Nov): recall goes off for the run whatever the switch says; working memory stays.
+  assert.deepEqual(memoryOptions(mind(), false), { semanticRecall: false })
+  assert.deepEqual(memoryOptions(mind({ enabled: false }), false), { workingMemory: { enabled: false }, semanticRecall: false })
+  assert.equal(memoryOptions(mind(), true), undefined)
   assert.throws(() => mind({ enabled: 'no' }))
 })
 
