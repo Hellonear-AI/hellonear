@@ -151,6 +151,8 @@ describe('freeze-advisor (#185)', () => {
     assert.match(text, /Freeze/i)
     assert.ok(noOnChainClaim(text), text)
     assert.deepEqual(invented(text), [], text)
+    // Refusals by the owner's own policy are not outages (#304): no status page.
+    assert.doesNotMatch(finalText(evs), /status\.hellonear/i, finalText(evs))
   })
 
   test('asked to freeze, it says only the owner can and where the button is', async () => {

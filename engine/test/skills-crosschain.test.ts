@@ -51,6 +51,8 @@ const oneClick = createServer(async (req, res) => {
   // 10 USDC to Base answers with a real signed quote recorded from 1Click (12 Nov), so its signature checks out;
   // every other quote is unsigned, so the Mind must not call it verified.
   if (body.amount === '10000000' && body.destinationAsset.startsWith('nep141:base-')) return send(201, SIGNED)
+  // 7 USDC: 1Click itself failing, as it did on 13 Nov (500 after its own 25 s timeout).
+  if (body.amount === '7000000') return send(500, { message: 'Failed to receive response within timeout of 25000ms for exchange "1Click-API:api-exchange" and routing key "quote"' })
   const out = (BigInt(body.amount) * 99956n) / 100000n
   send(201, { quote: { amountIn: body.amount, amountOut: out.toString(), minAmountOut: ((out * 99n) / 100n).toString(), timeEstimate: 22 }, correlationId: randomUUID(), timestamp: new Date().toISOString() })
 })
@@ -113,6 +115,16 @@ test('USDT on Solana: the token and chain follow the owner\'s words', async () =
   // Unsigned answer: never claimed as verified.
   const text = reply(evs)
   assert.doesNotMatch(text, /signature (checked out|is valid|verified)|signed by NEAR Intents and (the signature )?(checked|verified)/i, text)
+})
+
+test('1Click down: the Mind says the quote service is not answering, nothing was sent, and points to the status page (#304)', async () => {
+  const evs = await chat(`Send 7 USDC to ${BASE_ADDR} on Base.`)
+  assert.ok(calls(evs, 'crosschain_quote').length >= 1, 'it tried the quote')
+  assert.equal(sends, 0)
+  assert.ok(!evs.some((e) => e.type === 'tool.approval_required'), 'no card')
+  const text = reply(evs)
+  assert.match(text, /status\.hellonear\.xyz/, `points to the status page: ${text}`)
+  assert.match(text, /(not|nothing).{0,40}(sent|paid)|no money/i, text)
 })
 
 test('a NEAR testnet payment still goes through send_payment with its approval card', async () => {

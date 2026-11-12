@@ -65,6 +65,14 @@ export const SMALL_TALK_RULE =
 export const LANGUAGE_RULE =
   'Language: write your reply in the same language as the owner\'s latest message, whatever language your earlier replies, your memory or your instructions use. Use correct, standard spelling and grammar for that language and only real words; never mix in words from another language and never invent words. Never correct yourself in the middle of a reply: if you are not sure of a name, place or fact, leave it out. Keep sentences short and simple.'
 
+// The public status page (apps/status, #303). Overridable in case its DNS is late.
+export const STATUS_PAGE_URL = process.env.STATUS_PAGE_URL ?? 'https://status.hellonear.xyz'
+
+// #304: on 13 Nov a 1Click quote timed out and NEAR AI's embeddings hung. When an outside service doesn't answer, the
+// Mind says so plainly and points to the status page; when the owner's own rules stopped something, it must not.
+export const STATUS_RULE =
+  `Outages: when a tool fails because an outside service did not answer (a timeout, "aborted", "unreachable", "not reachable", "did not answer", or an HTTP 5xx error), say in one plain sentence which service is not answering right now and that nothing was sent or paid because of it, and add that the owner can check the live status at ${STATUS_PAGE_URL}. Do not try it again more than once. Never say this, and never mention the status page, when the owner's own rules stopped something (policy_denied, wallet_frozen, a per-payment or daily limit, a declined approval) or when the request itself was wrong: those are not outages.`
+
 // The Mind knows its own skills and the ones the owner could add (#114), by the names on the Skills screen, so it
 // can say "add Email helper in Skills" instead of only saying no.
 export function skillsLine(skillIds: string[]): string {
@@ -109,7 +117,7 @@ export function autoApproveLine(mind: Mind): string {
 export const promptMind = (mind: Mind, rulesApply: boolean): Mind => (rulesApply ? mind : { ...mind, autoApprove: undefined })
 
 export function buildInstructions(mind: Mind, opts: { timeZone?: string } = {}): string {
-  const lines = [`You are ${mind.name}. ${mind.soul.identity}`, '', WRITING_STYLE_RULE, '', LANGUAGE_RULE, '', SMALL_TALK_RULE, '', skillsLine(mind.skills.map((s) => s.skillId))]
+  const lines = [`You are ${mind.name}. ${mind.soul.identity}`, '', WRITING_STYLE_RULE, '', LANGUAGE_RULE, '', SMALL_TALK_RULE, '', STATUS_RULE, '', skillsLine(mind.skills.map((s) => s.skillId))]
   if (opts.timeZone) lines.push('', timeZoneLine(opts.timeZone))
   const rules = autoApproveLine(mind)
   if (rules) lines.push('', rules)
