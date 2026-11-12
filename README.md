@@ -166,16 +166,31 @@ What a Mind can work with. Logos are the ones the web app shows on the Connectio
 | <img src="docs/readme/icons/apps/telegram.svg" width="26" alt=""> | **Telegram** | A bot per Mind, made by the owner with BotFather | Chat with the Mind, streamed replies, Approve / Decline buttons on cards; only the owner's chat is answered |
 | <img src="design/brands/agentmail.svg" width="26" alt=""> | **The Mind's own email address** | AgentMail, one inbox per Mind | Send from `…@agentmail.to` after approval, only to addresses the owner typed; read its own inbox with spam and phishing warnings |
 | <img src="docs/readme/icons/apps/meteor.svg" width="26" alt=""> | **NEAR wallet** (Meteor first) | NEAR Connect, NEP-413 sign-in | The owner signs in, sets the Mind wallet's limits and freezes it; the Mind never holds the owner's keys |
-| <img src="docs/readme/icons/skills/http-request.svg" width="26" alt=""> | **Other apps** (keys) | Keys saved in Connections, encrypted | Call the owner's own HTTPS services, only on the hosts the owner listed; the Mind never sees the key |
+| <img src="docs/readme/icons/skills/http-request.svg" width="26" alt=""> | **HTTP request** (your own APIs) | API keys the owner saves in Connections, stored encrypted | Call any HTTPS API the owner uses (a store, a CRM, a webhook) with the owner's key, only on the hosts the owner listed; the Mind writes `{{secrets.NAME}}` and never sees the key |
 
-**Built on:**
-<img src="design/brands/near.svg" height="22" alt="NEAR">&nbsp;&nbsp;
-<img src="design/brands/near-ai.svg" height="22" alt="NEAR AI">&nbsp;&nbsp;
-<img src="design/brands/outlayer.png" height="22" alt="OutLayer">&nbsp;&nbsp;
-<img src="design/brands/mastra.svg" height="22" alt="Mastra">&nbsp;&nbsp;
-<img src="design/brands/composio.svg" height="22" alt="Composio">&nbsp;&nbsp;
-<img src="design/brands/agentmail.svg" height="22" alt="AgentMail">&nbsp;&nbsp;
-<img src="design/brands/meteor-wallet.svg" height="22" alt="Meteor Wallet">
+---
+
+## Tech stack: what is used where
+
+| | Technology | Where in the repo | What it does in HelloNear |
+|---|---|---|---|
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/brands/near-white.svg"><img src="design/brands/near.svg" height="22" alt="NEAR"></picture> | **NEAR Protocol** (testnet) | `sc/`, `apps/be/src/auth.ts`, `apps/be/src/wallets.ts` | The Mind registry contract (Minds, published skills, `equip_skill` pays the publisher); NEP-413 sign-in; every payment, policy change and freeze is a NEAR transaction |
+| <img src="design/brands/near-ai.svg" height="20" alt="NEAR AI"> | **NEAR AI Cloud** | `engine/src/models.ts`, `engine/src/verify.ts`, `engine/src/titles.ts` | Runs every model call inside a TEE; HelloNear checks each reply's signature against the attestation before the Verified badge, and keeps the proof |
+| | **NEAR Intents** (1Click API + official SDK) | `engine/src/crosschain.ts` | Cross-chain USDC/USDT quotes from NEAR to other chains; each quote's 1Click signature is verified with `verifyQuoteSignature` |
+| <img src="design/brands/outlayer.png" height="18" alt="OutLayer"> | **OutLayer** (testnet) | `apps/be/src/wallets.ts`, `apps/be/src/payments.ts` | One wallet per Mind; its policy (per-payment limit, daily limit, allowed recipients) is stored on chain and checked in a TEE before anything is signed; freeze |
+| <img src="design/brands/meteor-wallet-mark.svg" height="22" alt="Meteor"> | **Meteor Wallet** via **NEAR Connect** | `apps/fe` | The owner's wallet: signs in, signs the Mind wallet's policy, adds funds, freezes. Other NEAR Connect wallets work too |
+| | **FastNear** testnet RPC | `engine/src/tools.ts`, `apps/be/src/config.ts` | Account lookups before a payment (`view_account`) and transfer checks after one (`tx`) |
+| | **Phala TEE Attestation Explorer** | `apps/be/src/teeExplorer.ts` | Checks the Intel TDX quote behind a reply; the app opens its VERIFIED report |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/brands/mastra-white.svg"><img src="design/brands/mastra.svg" height="22" alt="Mastra"></picture> | **Mastra** 1.81 | `engine/` | The agent: one generic Mind agent, tools, approvals (`requireApproval`, per-call rules, `beforeApproval`), memory, context limits, dynamic workflows for the Builder, workflow schedules for Autopilot |
+| <img src="design/brands/zai.svg" height="20" alt="Z.ai"> | **GLM-5.3 Flash** (Z.ai), **DeepSeek V4.1 Flash**, **Qwen3 Embedding** | `engine/src/config.ts`, `engine/src/models.ts` | Chat, reasoning and memory embeddings, all served by NEAR AI Cloud |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/brands/composio-white.svg"><img src="design/brands/composio.svg" height="22" alt="Composio"></picture> | **Composio** | `apps/be/src/connections.ts`, `engine/src/composio.ts`, `engine/src/apps.ts`, `engine/src/calendar.ts`, `engine/src/zoom.ts` | The owner connects Gmail, Google Calendar, Meet, Sheets, Drive, Docs, Notion, Slack, Outlook and Zoom with OAuth (backend: Connect Links); the engine runs the app tools in a session scoped to that one owner |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/brands/agentmail-white.svg"><img src="design/brands/agentmail.svg" height="22" alt="AgentMail"></picture> | **AgentMail** | `apps/be/src/mail.ts`, `engine/src/mail.ts` | Each Mind's own email address (`…@agentmail.to`): send after approval, read its inbox with spam and phishing warnings, email the owner |
+| <img src="docs/readme/icons/apps/telegram.svg" height="22" alt="Telegram"> | **Telegram Bot API** | `apps/be/src/telegram.ts`, `apps/be/src/telegramFormat.ts` | A bot per Mind: chat, streamed replies, Approve / Decline buttons; only the owner's chat is answered |
+| | **Postgres 17 + pgvector** | `apps/be/migrations/`, `engine/src/mastra.ts` | Runs, events, approvals, encrypted secrets (backend); Mastra storage, run snapshots and memory vectors (engine) |
+| | **Next.js 16, React 19, GSAP, React Flow** | `apps/fe`, `apps/landing` | The web app (chat, live view, Builder canvas, wallet, settings) and the landing page |
+| | **Rust, `near-sdk` 5.29, `near-sandbox`** | `sc/` | The registry contract and its sandbox tests, including upgrades |
+| | **Bun, Node 24, k6** | every package | Package manager and runtime; load tests |
+| | **Proxmox LXC + Cloudflare Tunnel** | `deploy/` | The hosted demo; a merged `main` is deployed automatically after its CI passes |
 
 ---
 
@@ -427,7 +442,7 @@ Icons are the ones the web app shows on each skill card.
 | <img src="docs/readme/icons/skills/slack.svg" width="26" alt=""> | **Slack** (`slack`) | Lists the owner's Slack channels and posts a message the owner approved; cannot read messages | `slack_list_channels`, `slack_send_message` |
 | <img src="docs/readme/icons/skills/outlook.svg" width="26" alt=""> | **Outlook email** (`outlook`) | Reads the owner's Outlook inbox, sums it up and saves reply drafts; it never sends | `outlook_list_emails`, `outlook_read_email`, `outlook_create_draft` |
 | <img src="docs/readme/icons/skills/zoom.svg" width="26" alt=""> | **Zoom** (`zoom`) | Lists the owner's Zoom meetings, schedules one with a join link after approval, and reads Zoom's AI summary of a past meeting; never deletes, ends or invites | `zoom_list_meetings`, `zoom_create_meeting`, `zoom_meeting_summary` |
-| <img src="docs/readme/icons/skills/http-request.svg" width="26" alt=""> | **Other apps** (`http-request`) | Calls the owner's own services with keys saved in Connections | `http_request` |
+| <img src="docs/readme/icons/skills/http-request.svg" width="26" alt=""> | **HTTP request** (`http-request`) | Calls the owner's own HTTPS APIs with keys saved in Connections, only on the hosts the owner listed | `http_request` |
 
 Plus the built-in **HelloNear guide**, loaded by every Mind, so it can answer questions about the app without inventing screens or features.
 
