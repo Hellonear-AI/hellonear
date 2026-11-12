@@ -301,7 +301,7 @@ export function MindGraph() {
         return {
           title: n.label,
           kind: "Mind",
-          about: n.c === 0 ? "A Payments Mind. Pays your bills inside your limits and asks you first." : `A Mind with ${skills.length} skills: ${skills.join(", ")}.`,
+          about: n.c === 0 ? "A Payments Mind. Pays your bills inside your limits and asks you first, unless you set a rule." : `A Mind with ${skills.length} skills: ${skills.join(", ")}.`,
         };
       }
       if (n.tone === "skill") return { title: n.label, kind: `Skill · ${mind}`, about: ABOUT[n.label] ?? "A skill this Mind uses." };

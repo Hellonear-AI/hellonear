@@ -9,12 +9,12 @@ import { NIGHT_BG } from "./night";
 
 gsap.registerPlugin(ScrollTrigger);
 
-// "Every payment asks you first": when the section comes into view, the title slides up word by word
+// "Every payment asks you first, unless you set a rule.": when the section comes into view, the title slides up word by word
 // behind a mask (like the Minds heading), then the subtitle and points slide up one by one. The big scene frame
 // opens from the right edge with the scroll (scrubbed). The copy reverses when scrolling back above.
 // Reduced motion: no animation.
 
-const LINES = ["Every payment", "asks you first"];
+const LINES = ["Every payment", "asks you first,", "unless you", "set a rule."];
 
 function Words({ text }: { text: string }) {
   return (
@@ -187,7 +187,7 @@ export function ApprovalsScroll() {
               ))}
             </h2>
             <p className="ap-reveal text-[17px] leading-[1.5] text-[var(--color-text-2)]">
-              Penny finds the bill and gets it ready. Nothing leaves the wallet until you tap Approve.
+              Penny finds the bill and gets it ready. Unless you set a rule, nothing leaves the wallet until you tap Approve.
             </p>
             <ul className="flex flex-col gap-3">
               <Point className="ap-reveal" d={Icon.ban}>Over your per-payment limit? Refused before signing, even if you approve.</Point>

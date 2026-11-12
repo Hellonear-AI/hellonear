@@ -14,7 +14,7 @@ const TITLE = "Two minutes with a Mind";
 const HOW = [
   ["Pick a Mind", "Choose a personality and give it a name."],
   ["Set your limits", "How much per payment, and which addresses it can pay."],
-  ["Stay in charge", "Every payment asks you first. Freeze it any time."],
+  ["Stay in charge", "Every payment asks you first, unless you set a rule. Freeze it any time."],
 ];
 
 function useInView<T extends Element>(threshold = 0.3) {
