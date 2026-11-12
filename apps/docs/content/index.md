@@ -1,0 +1,43 @@
+---
+title: Introduction
+description: HelloNear gives a person a Mind, an AI agent with a persona, memory, skills and its own NEAR wallet, whose money rules sit outside the model.
+---
+
+HelloNear gives a person a **Mind**: an AI agent with a persona, memory, skills it can equip and its own NEAR wallet. It reads your email, works in your apps and pays your bills, but **every limit that matters sits outside the model**: the owner approves, and the wallet's policy is checked inside a TEE before anything is signed. Every reply comes from NEAR AI Cloud's TEE with a proof you can check yourself.
+
+Built at **NEAR HACKATHON** (1 to 14 Nov 2026) for six tracks: `security`, `privacy`, `agents`, `swarms`, `business`, `realworld`. Everything runs on **NEAR testnet** during the hackathon.
+
+## Live now
+
+| | |
+|---|---|
+| Web app (no account needed: *Continue as guest*) | [app.hellonear.xyz](https://app.hellonear.xyz) |
+| Landing page | [hellonear.xyz](https://hellonear.xyz) |
+| API (NEAR testnet) | [api.hellonear.xyz/v1/health](https://api.hellonear.xyz/v1/health) |
+| Status, checked every 5 minutes | [status.hellonear.xyz](https://status.hellonear.xyz) |
+| Mind registry contract | [`hellonear-registry.testnet`](https://testnet.nearblocks.io/address/hellonear-registry.testnet?tab=contract) (v0.3.0, source verified) |
+| Swarm auction contract | [`auction.hellonear-swarm.testnet`](https://testnet.nearblocks.io/address/auction.hellonear-swarm.testnet?tab=contract) (source verified) |
+| OpenAPI spec | [openapi.json](/openapi.json), rendered in the [API reference](/api-reference) |
+| Repository | [github.com/Hellonear-AI/hellonear](https://github.com/Hellonear-AI/hellonear) |
+
+## The problem
+
+An AI assistant that can pay is one prompt injection away from paying the wrong person. A rule written in the system prompt ("never send more than X") is advice to the model, not a limit: a malicious email, calendar invite or web page can talk the model out of it. And an AI that reads your private email should not leak it to the infrastructure it runs on.
+
+HelloNear's answer is to **take the limits out of the model** and **make the model's work verifiable**:
+
+1. **Every payment asks the owner,** in the app or in Telegram, unless the owner turned on a rule for small payments to listed addresses. Without an approval or a rule, the payment tool cannot run.
+2. **The wallet enforces its own policy.** Each Mind's wallet is an [OutLayer](https://outlayer.ai) wallet whose policy (per-payment limit, daily limit, allowed recipients) is stored on NEAR and checked in a TEE before anything is signed. A payment over the limit or to an unknown address is refused **even if the owner approved it**, and no transaction exists.
+3. **Freeze.** One transaction, signed in the owner's own NEAR wallet, stops everything.
+4. **Private, verifiable inference.** Every model call runs on NEAR AI Cloud inside a TEE. HelloNear checks each reply's signature against the hardware attestation before it shows the "Verified" badge, keeps that proof, and lets anyone open it on Phala's TEE Attestation Explorer.
+
+## Where to go next
+
+- [Quickstart](/quickstart): try it in two minutes as a guest, or drive it with curl.
+- [Minds and templates](/minds), [Skills and tools](/skills), [Wallet, limits and approvals](/wallet-and-approvals): the core ideas.
+- [API reference](/api-reference): every route, from the OpenAPI spec.
+- [Trust](/trust): every claim on this site with a link you can check.
+
+## For AI agents
+
+This site is readable by machines: [/llms.txt](/llms.txt) lists every page, [/llms-full.txt](/llms-full.txt) has them all in one file, any page is available as Markdown by adding `.md` to its path, [/skill.md](/skill.md) describes how to use HelloNear, and an MCP server at [/mcp](/mcp) offers `search_docs` and `read_page`.

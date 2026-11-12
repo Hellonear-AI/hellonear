@@ -1,0 +1,31 @@
+---
+title: Verified replies
+description: How every reply is checked against NEAR AI Cloud's TEE attestation, what the badge levels mean, and how to open the proof on Phala's TEE Explorer.
+---
+
+Every model call runs on **NEAR AI Cloud** inside a TEE. After a reply finishes, the engine fetches each completion's signature and checks it against the hardware attestation (`engine/src/verify.ts`) before the app shows the **Verified** badge.
+
+## Badge levels
+
+The badge shows the weakest step's level, at the level the NEAR AI SDK proves:
+
+| Level | Meaning |
+|---|---|
+| `model_tee` | The model itself ran in a TEE and signed the reply |
+| `gateway_tee` | NEAR AI's gateway TEE signed the reply (streaming replies are checked at this level) |
+
+Only verifiable (Confidential or third-party TEE) models get a badge. Incognito models never do.
+
+## What is kept
+
+The proof behind the badge is stored on the run's `run.verified` event: signatures, hashes and Intel's TDX quote. Never the conversation text. It is about 12 KB, mostly the quote, and it is never streamed: only the owner can read it, through `GET /v1/runs/{runId}/proof`.
+
+## Check it yourself
+
+In the app: click **Verified via NEAR AI TEE gateway** under a reply, then **View proof**, then **Check it in TEE Explorer**. The backend uploads the Intel quote to Phala's TEE Attestation Explorer (`POST /v1/runs/{runId}/proof/tee-explorer`) and the app opens the report. Only the quote leaves, no conversation text, and the report then shows in the Explorer's public list of recent attestations.
+
+A real report: [proof.t16z.com/reports/1b374e5b…](https://proof.t16z.com/reports/1b374e5b10031496c6c45bc7749038d7e7cd26a16996455f893b6b5dd44a9db2) reads **VERIFIED**. Its report data ends with that run's nonce (`…99e266`), and its MRCONFIG carries the compose hash (`877959253d…`) found in the proof.
+
+## Events
+
+`run.verified` follows `run.finished` on the stream. See [Streaming events](/events).
