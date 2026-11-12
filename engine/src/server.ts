@@ -25,6 +25,7 @@ import { secretSchema } from './secrets.ts'
 import { deleteWorkflow, listWorkflows, loadWorkflow, saveWorkflow } from './workflows.ts'
 import { forgetThread } from './threads.ts'
 import { embedderReady, startEmbedderProbe } from './embedderHealth.ts'
+import { nearAiProbes } from './probes.ts'
 import { ruleFor } from './autoApprove.ts'
 import { clearWorkingMemory, readWorkingMemory, writeWorkingMemory } from './memory.ts'
 import { autopilotSchema, deleteAutopilot, getAutopilot, listRuns, setAutopilot } from './autopilot.ts'
@@ -209,6 +210,10 @@ export const server = createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/v1/health') return sendJson(res, 200, { ok: true, mastra: '1.81.0', attestation: attestationStatus() })
     if (!authorized(req)) return sendJson(res, 401, { error: 'unauthorized' })
 
+    // Status page (apps/be/src/status.ts): NEAR AI chat and embeddings, checked with the engine's key.
+    if (req.method === 'GET' && url.pathname === '/internal/v1/probes') {
+      return sendJson(res, 200, { probes: await nearAiProbes({ baseUrl: config.nearaiBaseUrl, apiKey: config.nearaiApiKey, chatModel: config.defaultModel, embeddingModel: config.embeddingModel }) })
+    }
     if (req.method === 'GET' && url.pathname === '/v1/templates') return sendJson(res, 200, { templates: templateSummaries() })
     if (req.method === 'GET' && url.pathname === '/v1/skills') return sendJson(res, 200, { skills: skillCatalogSummaries() })
     // Skill ids are [a-z0-9-] (skills.ts), so anything else falls through to 404 without decoding.

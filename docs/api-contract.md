@@ -188,6 +188,10 @@ Format (`@mastra/memory` 1.40 `docs-memory-working-memory.md`, read 11 Nov): the
 
 `{ "ok": true, "mastra": "1.81.0", "attestation": { "<modelId>": { "ok": true, "checkedAt": "…", "ms": 17558 } } }`: attestation is warmed at startup and every 50 minutes.
 
+### `GET /internal/v1/probes` (status page)
+
+`X-Engine-Key` like every route but health. Runs the two NEAR AI checks for the status page with the engine's key (plain requests, not the verified transport): `{ "probes": [ { "id": "nearai-chat" | "nearai-embeddings", "status": "operational" | "degraded" | "down", "latencyMs": number | null, "detail": string | null } ] }`. Chat: a completion of `z-ai/glm-5.3-flash` (`max_tokens` 32), degraded over 10 s, down after 30 s or on an error. Embeddings: one `Qwen/Qwen3-Embedding-0.6B` embedding, degraded over 5 s, down after 15 s, an error or an empty vector. The backend calls it every 5 minutes **[tested: engine `test/probes.test.ts` with a fake NEAR AI; 401 without the key in `test/engine.test.ts`; live 13 Nov: both operational, ~1.9 s and ~1.7 s]**.
+
 ### Visual Builder workflows (#20)
 
 A workflow belongs to one Mind. The canvas is saved by the engine (Mastra stores it in Postgres, schema `mastra`), so the backend only proxies these calls; ids: `workflowId` is lowercase words joined by single dashes (max 48), `mindId` letters/digits/`_` joined by single dashes.
@@ -377,6 +381,21 @@ Index `run_events (run_id, seq)` and `runs (mind_id, started_at desc)`. Migratio
 Implemented in `apps/be` (#8). Base URL `http://localhost:4000` locally. JSON bodies (at most 256 KB). Errors are `{ error, ...details }` with the status below. When a service the backend depends on fails (OutLayer, Composio, the engine, the NEAR RPC), the answer is **`503`**, never `502`: behind Cloudflare a `502`/`504` body is replaced by Cloudflare's own HTML page, so the FE would lose the error. `…_error` means the service answered with a failure (details carry its status, e.g. `outlayerStatus`); `…_unreachable` / `engine_unavailable` mean no answer, with `reason` (`timeout` or a network code such as `ECONNREFUSED`). Every 5xx is logged to the backend journal as one `http error` line (route, code, details; never keys). Every route except health and auth needs the session cookie `hn_session` (send requests with `credentials: 'include'`). CORS allows only the origins in `FE_ORIGIN` (comma-separated, exact match) with credentials; a state-changing request whose `Origin` is not one of them gets `403 bad_origin`. Another user's Mind or run answers `404`.
 
 `GET /v1/health` (public): `{ ok: true, engine: boolean, revision: string | null }`. `engine` is whether the engine's own health answered; `revision` is the git commit the hosted release was deployed from (the `REVISION` file `deploy/deploy.sh` writes), `null` when the backend runs from a checkout. So anyone can see what is live without SSH.
+
+`GET /v1/status` (public, any origin, no cookies; `access-control-allow-origin: *`, `cache-control: public, max-age=30`, `OPTIONS` answered): the status page's data (status.hellonear.xyz). Every 5 minutes the backend checks 9 services in parallel and stores one row each in `service_checks` (kept 8 days); the answer is computed from the last 7 days and cached 30 s.
+```
+{ "updatedAt": ISO, "overall": "operational" | "degraded" | "down",
+  "services": [{ "id", "name", "group": "HelloNear" | "NEAR AI" | "NEAR" | "Partners",
+    "status": "operational" | "degraded" | "down" | "unknown", "latencyMs": number | null, "checkedAt": ISO | null,
+    "detail": string | null, "impact": string, "uptime24h": number | null, "uptime7d": number | null,
+    "history": [{ "start": ISO, "status": "operational" | "degraded" | "down" | "none", "checks": number, "bad": number, "detail": string | null }] }],
+  "incidents": [{ "service", "name", "status": "down" | "degraded", "start": ISO, "end": ISO | null, "minutes": number, "detail": string | null }] }
+```
+- Services, in this order: `hellonear-api` (Postgres `select 1`), `hellonear-engine` (engine `/v1/health`), `nearai-chat` and `nearai-embeddings` (from the engine's `GET /internal/v1/probes`), `near-intents-quote` (1Click `POST /v0/quote`, `dry: true`, 10 USDC NEAR → Base), `outlayer` (`GET {OUTLAYER_URL}/health`), `near-rpc` (FastNear testnet `status`), `agent-market` (`GET market.near.ai/v1/agents?limit=1`), `tee-explorer` (`HEAD proof.t16z.com`).
+- Degraded over (ms): api 1,000, engine 2,000, NEAR AI chat 10,000, embeddings 5,000, 1Click quote 15,000, OutLayer 3,000, RPC 3,000 (or a node still syncing), Agent Market 5,000, TEE Explorer 5,000. Down: an error, a non-2xx answer, an answer without the expected field, or no answer within the timeout (api 5 s, engine 10 s, chat 30 s, embeddings 15 s, quote 30 s, OutLayer and RPC 10 s, Agent Market and TEE Explorer 15 s).
+- `status` is the latest check, or `unknown` when it is older than 15 minutes (or there is none). If the engine does not answer, nothing is stored for NEAR AI that round (it is not guessed). `overall` is `down` when a HelloNear service is down, `degraded` when anything else is down or degraded. Uptime counts degraded as up.
+- `history` is 48 half-hour buckets ending with the current one, oldest first: the worst check in each, `checks` and `bad` (down or degraded) counted, `detail` the last bad check's. `incidents` (newest first, at most 100): consecutive non-operational checks of one service; one good check ends it (`end`), `null` while ongoing; `down` if any check in it was down.
+- Details are short and never carry keys or URLs **[tested: `test/status-math.test.ts` (unit), `test/status.test.ts` (local Postgres, fake upstreams: up, slow, failing, engine down); live 13 Nov: 1Click's quote answered 500 after 25 s, the rest operational]**.
 
 ### Auth (NEP-413)
 

@@ -44,6 +44,217 @@
         "security": []
       }
     },
+    "/v1/status": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Status page data: HelloNear and every service it depends on, checked every 5 minutes",
+        "description": "Public, any origin, no cookies (`access-control-allow-origin: *`, `cache-control: public, max-age=30`). Read by status.hellonear.xyz. See docs/api-contract.md \u00a77.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Current status, 24-hour history and incidents of the last 7 days",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "updatedAt",
+                    "overall",
+                    "services",
+                    "incidents"
+                  ],
+                  "properties": {
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "overall": {
+                      "type": "string",
+                      "enum": [
+                        "operational",
+                        "degraded",
+                        "down"
+                      ]
+                    },
+                    "services": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "group",
+                          "status",
+                          "latencyMs",
+                          "checkedAt",
+                          "detail",
+                          "impact",
+                          "uptime24h",
+                          "uptime7d",
+                          "history"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "group": {
+                            "type": "string",
+                            "enum": [
+                              "HelloNear",
+                              "NEAR AI",
+                              "NEAR",
+                              "Partners"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "operational",
+                              "degraded",
+                              "down",
+                              "unknown"
+                            ]
+                          },
+                          "latencyMs": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "checkedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "detail": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "impact": {
+                            "type": "string"
+                          },
+                          "uptime24h": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "uptime7d": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "history": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "start",
+                                "status",
+                                "checks",
+                                "bad",
+                                "detail"
+                              ],
+                              "properties": {
+                                "start": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "operational",
+                                    "degraded",
+                                    "down",
+                                    "none"
+                                  ]
+                                },
+                                "checks": {
+                                  "type": "integer"
+                                },
+                                "bad": {
+                                  "type": "integer"
+                                },
+                                "detail": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "incidents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "service",
+                          "name",
+                          "status",
+                          "start",
+                          "end",
+                          "minutes",
+                          "detail"
+                        ],
+                        "properties": {
+                          "service": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "down",
+                              "degraded"
+                            ]
+                          },
+                          "start": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "end": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "minutes": {
+                            "type": "integer"
+                          },
+                          "detail": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/auth/challenge": {
       "post": {
         "tags": [
