@@ -744,10 +744,11 @@ Stated plainly, so nothing here surprises a judge:
 - **The AI is on us:** every reply runs on NEAR AI Cloud with the team's own credits.
 - **Signing in with a NEAR wallet** (Meteor first) gives the full app: your own Mind wallet, limits, freeze, rules, connections and Autopilot.
 
-**After the hackathon (planned, not built):**
+**After the hackathon:**
 - **Mainnet.** Deploy the registry and the Mind wallets on NEAR mainnet; cross-chain stablecoin payments through NEAR Intents can then be sent, not only quoted, under the same limits and approvals.
 - **Pay-as-you-go AI credits.** Owners top up credits and pay for what their Minds use. Each run already records its tokens and cost.
 - **More Mind templates** beyond the three today, each starting with the skills for its job.
+- **Images and voice.** Owners send their Mind a photo (a receipt, an invoice, a screenshot) or a voice message, and the Mind reads it and acts on it, with the same approvals and limits.
 
 ---
 
