@@ -809,6 +809,7 @@ AI coding agents (Claude Code) helped write code and docs; humans reviewed and a
 
 One person may be in at most two projects, if they are independent and each README names the other. HelloNear shares no code with these:
 
+- **Axel** is also in **Comatocard**: https://github.com/comatocard/comatocard
 - **Ancung** is also in **Waybil**: https://github.com/AncungAulia/waybil-near
 
 ---
