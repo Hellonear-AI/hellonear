@@ -214,6 +214,36 @@ Every link opens a public explorer or report. Nothing here needs an account.
 
 A payment the policy refuses has **no transaction at all**: OutLayer refuses it in the TEE before signing. The app and the Mind never show a tx link for one.
 
+### The registry contract's source is verified
+
+`hellonear-registry.testnet` runs exactly the code in this repository at commit `95c2b3d`. It was built reproducibly (NEP-330) and verified through SourceScan, so anyone can rebuild it and get the same hash.
+
+| | |
+|---|---|
+| **Status** | **Verified**. The [NearBlocks contract tab](https://testnet.nearblocks.io/address/hellonear-registry.testnet?tab=contract) shows the verified source, and its verify page answers "Contract already verified" |
+| **Code hash on chain** | `GUxsMNJdJKoFq7VJawNeCwW7GjGZE6TpURPj13ojEnub` |
+| **Deploy transaction** | [`DmidjQmoN15bj2qctXaXDefAW5NGJZFBPqqPPFJoa6Qb`](https://testnet.nearblocks.io/txns/DmidjQmoN15bj2qctXaXDefAW5NGJZFBPqqPPFJoa6Qb) (12 Nov 2026, code-only, state unchanged) |
+| **Source** | [`Hellonear-AI/hellonear@95c2b3d`](https://github.com/Hellonear-AI/hellonear/tree/95c2b3d839357583224b4c8fa64b0f03cddc3f80), folder `sc` |
+| **Build image** | `sourcescan/cargo-near:0.21.1-rust-1.96.0@sha256:ccb22bb4e677ed022d8b9d1aa1b32f0af52dd0471ef1c32e48dedbf68ee6ee17` |
+| **Verifier** | SourceScan `v2-verifier.sourcescan.testnet`; its record holds the same code hash and the source on IPFS (`QmX4dYjf9v798uF4Uuf11EPMA83Le84sCg6UsmaGdgrMdc`) |
+
+Check it without a browser (public RPC, no key). Each command should print the value in the table:
+
+```sh
+RPC=https://test.rpc.fastnear.com
+
+# 1. The code hash deployed on the account
+curl -s $RPC -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"view_account","finality":"final","account_id":"hellonear-registry.testnet"}}' | jq -r .result.code_hash
+
+# 2. The contract names its own source and build (NEP-330 contract_source_metadata)
+curl -s $RPC -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"call_function","finality":"final","account_id":"hellonear-registry.testnet","method_name":"contract_source_metadata","args_base64":"e30="}}' | jq -r '.result.result | implode | fromjson | .build_info'
+
+# 3. SourceScan's verification record for the account
+curl -s $RPC -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"call_function","finality":"final","account_id":"v2-verifier.sourcescan.testnet","method_name":"get_contract","args_base64":"eyJhY2NvdW50X2lkIjoiaGVsbG9uZWFyLXJlZ2lzdHJ5LnRlc3RuZXQifQ=="}}' | jq -r '.result.result | implode | fromjson | .code_hash'
+```
+
+To rebuild it yourself (needs Docker): `git checkout 95c2b3d && cd sc && cargo near build reproducible-wasm`, then compare the SHA-256 (base58) of `target/near/hellonear_mind_registry.wasm` with the code hash above.
+
 ### The proof behind a verified reply (NEAR AI Cloud TEE)
 
 | | |
