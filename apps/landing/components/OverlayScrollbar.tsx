@@ -74,9 +74,11 @@ export function OverlayScrollbar() {
     const total = document.documentElement.scrollHeight;
     const travel = view - el.offsetHeight;
     if (travel <= 0) return;
-    // Thumb pixels to page pixels; "instant", since the page scrolls smoothly by default.
+    // Thumb pixels to page pixels, at once: through Lenis when it runs (SmoothScroll), else "instant".
     const top = d.startScroll + ((e.clientY - d.startY) / travel) * (total - view);
-    window.scrollTo({ top, behavior: "instant" });
+    const lenis = (window as unknown as { __lenis?: { scrollTo: (y: number, o: { immediate: boolean }) => void } }).__lenis;
+    if (lenis) lenis.scrollTo(top, { immediate: true });
+    else window.scrollTo({ top, behavior: "instant" });
   };
   const onUp = () => {
     drag.current = null;
