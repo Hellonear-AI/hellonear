@@ -2,6 +2,7 @@
 
 import { CheckIcon, CircleSlashIcon, CopyIcon, FileDownIcon, HourglassIcon, LockIcon, PlusIcon, SnowflakeIcon, WalletIcon, XIcon } from "lucide-react"
 import { useState, type ReactNode } from "react"
+import { toast } from "sonner"
 import { cn } from "cn"
 import { ErrorRetry } from "@/components/elements/ErrorRetry"
 import { EmptyState } from "@/components/elements/EmptyState"
@@ -199,6 +200,21 @@ const TONE = {
   waiting: { icon: HourglassIcon, dot: "bg-warning-soft text-warning", badge: "warning" as const, amount: "text-foreground" },
 }
 
+async function downloadCsv(mindId: string) {
+  try {
+    const res = await fetch(apiUrl(`/minds/${encodeURIComponent(mindId)}/payments.csv`), { credentials: "include" })
+    if (!res.ok) throw new Error(res.status === 401 ? "Your session ended. Sign in again to download." : "Could not download the CSV. Try again.")
+    const name = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? "hellonear-payments.csv"
+    const url = URL.createObjectURL(await res.blob())
+    const a = Object.assign(document.createElement("a"), { href: url, download: name })
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    // A network failure is a TypeError ("Failed to fetch"); only our own messages are shown as they are.
+    toast.error(e instanceof Error && e.name !== "TypeError" ? e.message : "Could not download the CSV. Try again.")
+  }
+}
+
 function Activity({ mindId, name }: { mindId: string; name: string }) {
   const { data: payments, isPending, isError } = usePayments(mindId, 50)
   const [filter, setFilter] = useState<ActivityFilter>("all")
@@ -208,10 +224,11 @@ function Activity({ mindId, name }: { mindId: string; name: string }) {
     <Card>
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-[15px] font-semibold text-foreground">Recent activity</h2>
-        {/* Every payment as a CSV an accountant can open (GET …/payments.csv): a plain link, so the
-            browser downloads it with the session cookie and names it from Content-Disposition. */}
+        {/* Every payment as a CSV an accountant can open (GET …/payments.csv). Fetched and saved as a blob,
+            not a plain link: on the hosted site the API is another origin, where browsers ignore `download`,
+            and an expired session would open the JSON error in the tab (Ancung, #297 review). */}
         {payments?.length ? (
-          <Button variant="outline" size="sm" nativeButton={false} render={<a href={apiUrl(`/minds/${encodeURIComponent(mindId)}/payments.csv`)} download />}>
+          <Button variant="outline" size="sm" onClick={() => void downloadCsv(mindId)}>
             <FileDownIcon className="size-4" />
             Download CSV
           </Button>

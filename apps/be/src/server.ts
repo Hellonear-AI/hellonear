@@ -456,7 +456,7 @@ export const server = createServer(async (req, res) => {
       // Every payment as a CSV an accountant can open (realworld track).
       if (sub === '/payments.csv' && req.method === 'GET') {
         const csv = await paymentsCsv(mind.id)
-        res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="hellonear-${mind.id}-payments.csv"`, 'cache-control': 'no-store' }).end(csv)
+        res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="hellonear-${mind.id}-payments.csv"`, 'cache-control': 'no-store', 'access-control-expose-headers': 'content-disposition' }).end(csv)
         return
       }
       if (sub === '/wallet/policy' && req.method === 'POST') denyDemo(user, 'set_policy')

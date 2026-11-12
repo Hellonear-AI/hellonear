@@ -1190,6 +1190,8 @@ describe('payment tools through the backend (#42, option B)', () => {
       assert.equal(res.status, 200)
       assert.equal(res.headers.get('content-type'), 'text/csv; charset=utf-8')
       assert.equal(res.headers.get('content-disposition'), `attachment; filename="hellonear-${mindId}-payments.csv"`)
+      // The web app fetches it from another origin on the hosted site and names the file from this header (#297 review).
+      assert.equal(res.headers.get('access-control-expose-headers'), 'content-disposition')
       const text = await res.text()
       // fetch's text() strips the BOM; check the raw bytes start with it.
       assert.equal(text.includes('\r\n'), true)
