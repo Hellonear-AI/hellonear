@@ -27,7 +27,7 @@ HelloNear gives a person a **Mind**: an AI agent with a persona, memory, skills 
 | **Web app** (no account needed: *Continue as guest*) | **[app.hellonear.xyz](https://app.hellonear.xyz)** |
 | **Landing page** | **[hellonear.xyz](https://hellonear.xyz)** |
 | **API** (NEAR testnet) | **[api.hellonear.xyz/v1/health](https://api.hellonear.xyz/v1/health)** |
-| **Mind registry contract** | **[`hellonear-registry.testnet`](https://testnet.nearblocks.io/address/hellonear-registry.testnet)** (v0.3.0, NEP-330) |
+| **Mind registry contract** | **[`hellonear-registry.testnet`](https://testnet.nearblocks.io/address/hellonear-registry.testnet)** (v0.3.0, NEP-330, [source verified](https://testnet.nearblocks.io/address/hellonear-registry.testnet?tab=contract)) |
 | **API reference** | **[OpenAPI spec](docs/openapi.json)** · [README section](#api-reference) |
 | **Repository** | **[github.com/Hellonear-AI/hellonear](https://github.com/Hellonear-AI/hellonear)** |
 
@@ -209,6 +209,7 @@ Every link opens a public explorer or report. Nothing here needs an account.
 | An owner froze the Mind's wallet | [`HHGf2pqG…`](https://testnet.nearblocks.io/txns/HHGf2pqGRGTEJuA7wn4R18swFC4ssL6XMyXyogFHkDgu) | `freeze_wallet` on `outlayer.testnet`: one signature stops every payment |
 | A payment went through right after the UTC day reset of the daily limit | [`GUn5P1Dp…`](https://testnet.nearblocks.io/txns/GUn5P1DpuJ3XxMw2s9GJAecHR1BVuVtr4wQhTZ54RjG) | The daily cap is enforced by the wallet and resets at 00:00 UTC |
 | The Mind registry contract upgraded to v0.3.0 | [`ESMY36Uo…`](https://testnet.nearblocks.io/txns/ESMY36UoFcdWuw5fbShbNx13Fvf2NB1z1qWWypJNyCwp) | `DeployContract` on `hellonear-registry.testnet`; `contract_source_metadata` answers version 0.3.0, NEP-330 |
+| The same v0.3.0 redeployed from a reproducible build, then source-verified | [`DmidjQmo…`](https://testnet.nearblocks.io/txns/DmidjQmoN15bj2qctXaXDefAW5NGJZFBPqqPPFJoa6Qb) | `build_info` names the build image and commit `95c2b3d`; NearBlocks shows the contract as verified through SourceScan (code hash `GUxsMNJd…`) |
 | A Mind equipped a published skill, paying its publisher | [`6diDXaAY…`](https://testnet.nearblocks.io/txns/6diDXaAYmT8pMtVemsv4xtmzSE8DW7WM5Uprim6aU2a5) | `equip_skill` on the registry |
 
 A payment the policy refuses has **no transaction at all**: OutLayer refuses it in the TEE before signing. The app and the Mind never show a tx link for one.
@@ -733,7 +734,6 @@ Stated plainly, so nothing here surprises a judge:
 - **App accounts:** Gmail, Google Calendar and Meet, Sheets, Drive, Docs and Notion were used by the team with real accounts. Changing Sheets cells, moving Calendar events, updating Notion rows and appending to Docs were tested against a stand-in for Composio, not yet on a real account. Zoom, Outlook and Slack are wired but not yet tried with a real account.
 - **The owner's payment rule** was tested on a local stack against a stand-in OutLayer. OutLayer's TEE checks every payment either way.
 - **Model behaviour varies.** Over repeated runs the model sometimes declines a payment it could have put on a card. The approval and the wallet policy, not the model, are what guarantee the outcome.
-- **Contract verification** on NearBlocks needs a reproducible build from the public repository; the deployed v0.3.0 was a non-reproducible build (`build_info: null`).
 
 ---
 
