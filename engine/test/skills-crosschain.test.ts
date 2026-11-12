@@ -94,6 +94,11 @@ test('"send 10 USDC to <Base address>": a dry quote with the owner\'s address, n
   const done = evs.find((e) => e.type === 'tool.result' && e.tool === 'crosschain_quote')
   assert.equal(done?.result?.proof?.signedBy1Click, true)
   assert.match(text, /sign/i, `says it is signed: ${text}`)
+  // The proof is stated without being asked. Its values come from the tool result (the FE shows them): retyping them,
+  // the model dropped characters from the signature and the hash (3 of 6 runs, 12 Nov). Any proof-like string the reply
+  // does carry must be exactly the tool's.
+  const exact = new Set([done.result.proof.quoteHash, done.result.proof.signature.replace('ed25519:', ''), done.result.proof.publicKey.replace('ed25519:', '')])
+  for (const m of text.matchAll(/[1-9A-HJ-NP-Za-km-z]{40,}/g)) assert.ok(exact.has(m[0]), `a mangled proof string ${m[0]}: ${text}`)
 })
 
 test('USDT on Solana: the token and chain follow the owner\'s words', async () => {
