@@ -39,10 +39,15 @@
 
 html {
   scroll-behavior: smooth;
-  /* The page loader locks scrolling (overflow: hidden on html). Keep the scrollbar's room while it does,
-     so the page doesn't shift sideways when it lifts and GSAP measures the real width (with a classic
-     scrollbar the approvals pin was measured 17 px too wide, and the page scrolled sideways). */
-  scrollbar-gutter: stable;
+  /* The page's own scrollbar is hidden; OverlayScrollbar draws a thin thumb over the page instead
+     (Ancung, 12 Nov: a native bar's gutter is always the page's background, a light strip beside the
+     sky). With no bar there is no width to reserve either, so the page never shifts sideways when the
+     loader lifts and GSAP measures it (before, a classic scrollbar made the approvals pin 17 px too
+     wide; `scrollbar-gutter: stable` worked around that). */
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar {
+  display: none;
 }
 
 body {
