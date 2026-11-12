@@ -38,7 +38,7 @@ HelloNear gives a person a **Mind**: an AI agent with a persona, memory, skills 
 **[API reference](#api-reference)** ·
 **[Limits](#limits)**
 
-Built at **NEAR HACKATHON** (1 to 14 Nov 2026) for six tracks: `security`, `privacy`, `agents`, `swarms`, `business`, `realworld`.
+Built at **NEAR HACKATHON** (1 to 14 Nov 2026) for six tracks: `security`, `privacy`, `agents`, `swarms`, `business`, `realworld`.<br>1,000+ commits and 178 merged pull requests since the hackathon started.
 
 <br>
 
@@ -787,6 +787,8 @@ Payments also need `DEMO_OUTLAYER_API_KEY` (an OutLayer wallet's agent key) in `
 ## Built during the hackathon, and what it uses
 
 All code in this repository was written from 25 Oct 2026 (first commit), after the hackathon was announced on 19 Oct. There is no earlier baseline.
+
+**1,000+ commits since the hackathon started:** on 12 Nov 2026, `main` had 1,134 commits since 1 Nov (905 without merge commits) and 178 merged pull requests, each reviewed and tested before merge. Check it with `git rev-list --count --since=2026-11-01 main`.
 
 **Libraries:** `@mastra/core` 1.81, `@mastra/memory`, `@mastra/pg`, `@ai-sdk/openai-compatible`, `@nearai/inference-sdk`, `@defuse-protocol/one-click-sdk-typescript` 0.1.26 (engine); `near-api-js` 7.4, `pg`, `zod` (backend); Next.js 16, React 19, `@hot-labs/near-connect`, `near-connect-hooks`, `@xyflow/react`, GSAP, shadcn (web app); `near-sdk` 5.29, `near-sandbox`, `near-api` (contract tests).
 
