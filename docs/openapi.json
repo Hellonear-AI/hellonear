@@ -1,0 +1,2042 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "HelloNear API",
+    "version": "1.0.0",
+    "description": "The public HTTP API behind https://app.hellonear.xyz (NEAR testnet). Sign in with a NEAR wallet (NEP-413: `/v1/auth/challenge`, then `/v1/auth/login`) or start a try-out session with `POST /v1/auth/demo`; both set the `hn_session` cookie. Chat, approvals, attack and workflow runs stream server-sent events; every event type is described in docs/api-contract.md \u00a73."
+  },
+  "servers": [
+    {
+      "url": "https://api.hellonear.xyz",
+      "description": "Hosted demo (NEAR testnet)"
+    },
+    {
+      "url": "http://localhost:4000",
+      "description": "Local"
+    }
+  ],
+  "security": [
+    {
+      "session": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "hn_session"
+      }
+    }
+  },
+  "paths": {
+    "/v1/health": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Health of the backend and the engine",
+        "responses": {
+          "200": {
+            "description": "`{ ok, engine, revision }`"
+          }
+        },
+        "security": []
+      }
+    },
+    "/v1/auth/challenge": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Get a NEP-413 sign-in message and a one-time nonce",
+        "responses": {
+          "200": {
+            "description": "`{ message, recipient, nonce }` (nonce: 32 bytes base64, single use, 5 minutes)"
+          }
+        },
+        "security": []
+      }
+    },
+    "/v1/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Sign in with a NEAR wallet signature (NEP-413)",
+        "responses": {
+          "200": {
+            "description": "`{ user: { id, nearAccountId } }` and the `hn_session` cookie; `401 invalid_nonce | invalid_signature`"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "accountId": {
+                    "type": "string"
+                  },
+                  "publicKey": {
+                    "type": "string"
+                  },
+                  "signature": {
+                    "type": "string"
+                  },
+                  "nonce": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "accountId",
+                  "publicKey",
+                  "signature",
+                  "nonce"
+                ]
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/v1/auth/demo": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Start a try-out (guest) session: no wallet, 20 messages",
+        "responses": {
+          "201": {
+            "description": "`201 { user: { id, nearAccountId: \"demo:\u2026\", demo: true } }` and the session cookie"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Sign out",
+        "responses": {
+          "204": {
+            "description": "`204`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        }
+      }
+    },
+    "/v1/me": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "The signed-in user",
+        "responses": {
+          "200": {
+            "description": "`{ user }` (`user.demo: true` for a try-out user)"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        }
+      }
+    },
+    "/v1/templates": {
+      "get": {
+        "tags": [
+          "Catalog"
+        ],
+        "summary": "Mind templates",
+        "responses": {
+          "200": {
+            "description": "`{ templates }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        }
+      }
+    },
+    "/v1/skills": {
+      "get": {
+        "tags": [
+          "Catalog"
+        ],
+        "summary": "Every skill a Mind can equip, with its tools",
+        "responses": {
+          "200": {
+            "description": "`{ skills }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        }
+      }
+    },
+    "/v1/skills/{skillId}": {
+      "get": {
+        "tags": [
+          "Catalog"
+        ],
+        "summary": "One skill with its playbook (SKILL.md body)",
+        "responses": {
+          "200": {
+            "description": "`{ skill: { skillId, title, blurb, status, connections, tools, markdown } }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "skillId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/minds": {
+      "get": {
+        "tags": [
+          "Minds"
+        ],
+        "summary": "The user's Minds, newest first",
+        "responses": {
+          "200": {
+            "description": "`{ minds }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Minds"
+        ],
+        "summary": "Create a Mind from a template",
+        "responses": {
+          "201": {
+            "description": "`201 { mind }`; `400 unknown_template | unknown_skill | duplicate_skill`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "templateId": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "soul": {
+                    "type": "object"
+                  },
+                  "model": {
+                    "type": "string"
+                  },
+                  "skills": {
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "templateId",
+                  "name"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/minds/{mindId}": {
+      "get": {
+        "tags": [
+          "Minds"
+        ],
+        "summary": "One Mind",
+        "responses": {
+          "200": {
+            "description": "`{ mind }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Minds"
+        ],
+        "summary": "Change a Mind: name, voice, model, skills, memory switches, auto-approve rules",
+        "responses": {
+          "200": {
+            "description": "`{ mind }`. `autoApprove` = `{ tools: [toolId], payment: { maxNear } | null }`; try-out users get `403 demo_not_allowed` for rules"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "soul": {
+                    "type": "object"
+                  },
+                  "model": {
+                    "type": "string"
+                  },
+                  "skills": {
+                    "type": "array"
+                  },
+                  "memory": {
+                    "type": "object"
+                  },
+                  "autoApprove": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Minds"
+        ],
+        "summary": "Delete a Mind (and its workflows, schedules and wallet key)",
+        "responses": {
+          "200": {
+            "description": "`204`; `409 wallet_not_empty { balanceNear }` unless `?acknowledgeBalance=true`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "acknowledgeBalance",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/minds/{mindId}/chat": {
+      "post": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "Send a message; the reply streams as server-sent events",
+        "responses": {
+          "200": {
+            "description": "SSE: `run.started`, `step.*`, `text.delta`, `tool.called`, `tool.result`, `tool.approval_required`, `run.finished`, `run.verified`, \u2026",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "message": {
+                    "type": "string"
+                  },
+                  "threadId": {
+                    "type": "string"
+                  },
+                  "timeZone": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "message"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/minds/{mindId}/threads": {
+      "get": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "Chat threads, newest first",
+        "responses": {
+          "200": {
+            "description": "`{ threads: [{ threadId, title, lastMessageAt, messageCount }] }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/minds/{mindId}/threads/{threadId}/messages": {
+      "get": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "A thread's messages, oldest first, paged by `before`",
+        "responses": {
+          "200": {
+            "description": "`{ messages: [{ id, role, text, createdAt, runId }], nextBefore }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "threadId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/minds/{mindId}/threads/{threadId}": {
+      "patch": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "Rename a thread",
+        "responses": {
+          "200": {
+            "description": "`{ thread }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "threadId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "title"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "Delete a thread for good (the engine forgets it too)",
+        "responses": {
+          "200": {
+            "description": "`204`; `409 thread_busy` while a run is running or waiting"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "threadId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/minds/{mindId}/runs": {
+      "get": {
+        "tags": [
+          "Runs"
+        ],
+        "summary": "Runs of a Mind, with tokens and cost",
+        "responses": {
+          "200": {
+            "description": "`{ runs: [{ runId, threadId, workflowId, status, model, usage, costUsd, startedAt, finishedAt }] }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/runs/{runId}": {
+      "get": {
+        "tags": [
+          "Runs"
+        ],
+        "summary": "One run with all its stored events",
+        "responses": {
+          "200": {
+            "description": "`{ run, events }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/runs/{runId}/proof": {
+      "get": {
+        "tags": [
+          "Verification"
+        ],
+        "summary": "The proof behind a reply's Verified badge",
+        "responses": {
+          "200": {
+            "description": "`{ runId, proofs: [{ seq, model, level, proof: { checkedAt, steps, attestations } }] }`; `404 no_proof`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/runs/{runId}/proof/tee-explorer": {
+      "post": {
+        "tags": [
+          "Verification"
+        ],
+        "summary": "Upload the run's Intel quote to Phala's TEE Explorer and get the verified report",
+        "responses": {
+          "200": {
+            "description": "`{ runId, reports: [{ attestation, kind, url, verified }] }`; `404 no_proof`; `503 tee_explorer_unreachable | tee_explorer_error`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/minds/{mindId}/approvals": {
+      "get": {
+        "tags": [
+          "Approvals"
+        ],
+        "summary": "Runs waiting for the owner's approval",
+        "responses": {
+          "200": {
+            "description": "`{ approvals: [{ runId, threadId, toolCallId, tool, args, requestedAt }] }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/runs/{runId}/approve": {
+      "post": {
+        "tags": [
+          "Approvals"
+        ],
+        "summary": "Approve a waiting tool call; the run resumes as SSE",
+        "responses": {
+          "200": {
+            "description": "SSE continuing the run; `409 not_awaiting_approval`",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "toolCallId": {
+                    "type": "string"
+                  },
+                  "timeZone": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "toolCallId"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{runId}/decline": {
+      "post": {
+        "tags": [
+          "Approvals"
+        ],
+        "summary": "Decline a waiting tool call; the run resumes as SSE",
+        "responses": {
+          "200": {
+            "description": "SSE continuing the run; `409 not_awaiting_approval`",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "toolCallId": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "timeZone": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "toolCallId"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{runId}/cancel": {
+      "post": {
+        "tags": [
+          "Runs"
+        ],
+        "summary": "Stop a run that is still streaming",
+        "responses": {
+          "200": {
+            "description": "`{ run }` once `run.finished { status: \"canceled\" }` is stored; `409 not_running`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/minds/{mindId}/events": {
+      "get": {
+        "tags": [
+          "Runs"
+        ],
+        "summary": "Events across runs since a time (Mind Graph history)",
+        "responses": {
+          "200": {
+            "description": "`{ events }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/minds/{mindId}/wallet": {
+      "post": {
+        "tags": [
+          "Wallet"
+        ],
+        "summary": "Create the Mind's OutLayer wallet (testnet)",
+        "responses": {
+          "201": {
+            "description": "`201 { wallet }`; `409 wallet_exists`; try-out users `403`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Wallet"
+        ],
+        "summary": "Balance, spent today, frozen, and the policy",
+        "responses": {
+          "200": {
+            "description": "`{ wallet: { address, shared, balanceNear, spentTodayNear, frozen, policy } }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/minds/{mindId}/wallet/payments": {
+      "get": {
+        "tags": [
+          "Wallet"
+        ],
+        "summary": "Payment receipts, refused ones included",
+        "responses": {
+          "200": {
+            "description": "`{ payments }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/minds/{mindId}/wallet/policy": {
+      "post": {
+        "tags": [
+          "Wallet"
+        ],
+        "summary": "Build a store_wallet_policy transaction for the owner to sign",
+        "responses": {
+          "200": {
+            "description": "`{ transaction }` for the owner's NEAR wallet to sign (`outlayer.testnet`)"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "perTransactionNear": {
+                    "type": "string"
+                  },
+                  "dailyNear": {
+                    "type": "string"
+                  },
+                  "whitelist": {
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "perTransactionNear",
+                  "whitelist"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/minds/{mindId}/wallet/freeze": {
+      "post": {
+        "tags": [
+          "Wallet"
+        ],
+        "summary": "Build a freeze_wallet transaction for the owner to sign",
+        "responses": {
+          "200": {
+            "description": "`{ transaction }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/minds/{mindId}/wallet/unfreeze": {
+      "post": {
+        "tags": [
+          "Wallet"
+        ],
+        "summary": "Build an unfreeze_wallet transaction for the owner to sign",
+        "responses": {
+          "200": {
+            "description": "`{ transaction }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/minds/{mindId}/memory": {
+      "get": {
+        "tags": [
+          "Memory"
+        ],
+        "summary": "What the Mind remembers about the owner",
+        "responses": {
+          "200": {
+            "description": "`{ memory: { markdown, updatedAt } }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Memory"
+        ],
+        "summary": "Replace the Mind's memory",
+        "responses": {
+          "200": {
+            "description": "`{ memory }`; try-out users `403 demo_not_allowed`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "markdown": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "markdown"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Memory"
+        ],
+        "summary": "Clear the Mind's memory",
+        "responses": {
+          "204": {
+            "description": "`204`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/minds/{mindId}/inbox": {
+      "get": {
+        "tags": [
+          "Email"
+        ],
+        "summary": "The Mind's own email address, if any",
+        "responses": {
+          "200": {
+            "description": "`{ inbox: null | { email, shared } }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Email"
+        ],
+        "summary": "Create the Mind's own email address (AgentMail)",
+        "responses": {
+          "201": {
+            "description": "`201 { inbox }`; `409 email_skill_off`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/minds/{mindId}/mail/sent": {
+      "get": {
+        "tags": [
+          "Email"
+        ],
+        "summary": "Emails the Mind sent, refusals included",
+        "responses": {
+          "200": {
+            "description": "`{ sends }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/minds/{mindId}/workflows": {
+      "get": {
+        "tags": [
+          "Autopilot"
+        ],
+        "summary": "Saved Builder workflows",
+        "responses": {
+          "200": {
+            "description": "`{ workflows: [{ workflowId, name, tools, schedule, updatedAt }] }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/minds/{mindId}/workflows/{workflowId}": {
+      "put": {
+        "tags": [
+          "Autopilot"
+        ],
+        "summary": "Save a Builder canvas (compiled to a Mastra workflow)",
+        "responses": {
+          "200": {
+            "description": "`{ workflowId, tools, steps, schedule, autopilot }`; `400 invalid_workflow { issues }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workflowId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "nodes": {
+                    "type": "array"
+                  },
+                  "edges": {
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "name",
+                  "nodes",
+                  "edges"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Autopilot"
+        ],
+        "summary": "One workflow with its canvas",
+        "responses": {
+          "200": {
+            "description": "`{ workflowId, name, tools, schedule, updatedAt, canvas, steps }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workflowId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Autopilot"
+        ],
+        "summary": "Delete a workflow and its schedule",
+        "responses": {
+          "204": {
+            "description": "`204`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workflowId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/minds/{mindId}/workflows/{workflowId}/runs": {
+      "post": {
+        "tags": [
+          "Autopilot"
+        ],
+        "summary": "Run a workflow now; steps stream as SSE",
+        "responses": {
+          "200": {
+            "description": "SSE: `workflow.started`, `node.started`, `node.finished`, `workflow.finished`; `409 missing_tools`",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workflowId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "input": {
+                    "type": "object"
+                  },
+                  "timeZone": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Autopilot"
+        ],
+        "summary": "Past runs of a workflow, newest first, with each step",
+        "responses": {
+          "200": {
+            "description": "`{ runs }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workflowId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/minds/{mindId}/workflows/{workflowId}/autopilot": {
+      "put": {
+        "tags": [
+          "Autopilot"
+        ],
+        "summary": "Turn the schedule on (wallet sign-in only)",
+        "responses": {
+          "200": {
+            "description": "`{ autopilot }`; `409 cannot_autopilot`; try-out users `403`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workflowId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "input": {
+                    "type": "object"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Autopilot"
+        ],
+        "summary": "The schedule's state",
+        "responses": {
+          "200": {
+            "description": "`{ autopilot }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workflowId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Autopilot"
+        ],
+        "summary": "Turn the schedule off",
+        "responses": {
+          "204": {
+            "description": "`204`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workflowId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/connections": {
+      "get": {
+        "tags": [
+          "Connections"
+        ],
+        "summary": "Apps the user connected through Composio",
+        "responses": {
+          "200": {
+            "description": "`{ connections: [{ toolkit, status, \u2026 }] }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        }
+      }
+    },
+    "/v1/connections/{toolkit}": {
+      "post": {
+        "tags": [
+          "Connections"
+        ],
+        "summary": "Get a Composio Connect Link for an app",
+        "responses": {
+          "200": {
+            "description": "`{ redirectUrl }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "toolkit",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Connections"
+        ],
+        "summary": "Disconnect an app",
+        "responses": {
+          "204": {
+            "description": "`204`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "toolkit",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/minds/{mindId}/telegram": {
+      "get": {
+        "tags": [
+          "Telegram"
+        ],
+        "summary": "The Mind's Telegram bot, if connected",
+        "responses": {
+          "200": {
+            "description": "`{ telegram }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Telegram"
+        ],
+        "summary": "Connect a BotFather token to the Mind",
+        "responses": {
+          "200": {
+            "description": "`{ telegram }` with a one-time `t.me/<bot>?start=<code>` link; `409 telegram_bot_in_use`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "token"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Telegram"
+        ],
+        "summary": "Disconnect the bot",
+        "responses": {
+          "204": {
+            "description": "`204`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/secrets": {
+      "get": {
+        "tags": [
+          "Secrets"
+        ],
+        "summary": "Saved API keys (names and hosts, never values)",
+        "responses": {
+          "200": {
+            "description": "`{ secrets: [{ name, allowedHosts, createdAt, updatedAt }] }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        }
+      }
+    },
+    "/v1/secrets/{name}": {
+      "put": {
+        "tags": [
+          "Secrets"
+        ],
+        "summary": "Save an API key for the Mind's HTTP request skill",
+        "responses": {
+          "200": {
+            "description": "`{ secret }` (summary only)"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "string"
+                  },
+                  "allowedHosts": {
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "value",
+                  "allowedHosts"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Secrets"
+        ],
+        "summary": "Delete a saved key",
+        "responses": {
+          "204": {
+            "description": "`204`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/attacks": {
+      "get": {
+        "tags": [
+          "Attack playground"
+        ],
+        "summary": "The prompt-injection scenarios",
+        "responses": {
+          "200": {
+            "description": "`{ attacks: [{ attackId, title, description, attacker, message }] }`"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        }
+      }
+    },
+    "/v1/attacks/{attackId}/runs": {
+      "post": {
+        "tags": [
+          "Attack playground"
+        ],
+        "summary": "Run a scenario on a hidden test Mind; ends with attack.verdict",
+        "responses": {
+          "200": {
+            "description": "SSE as chat, ending with `attack.verdict { stoppedBy: model | no_tool | approval | policy | none }`",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "parameters": [
+          {
+            "name": "attackId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "timeZone": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

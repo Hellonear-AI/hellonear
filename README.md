@@ -24,16 +24,18 @@ HelloNear gives a person a **Mind**: an AI agent with a persona, memory, skills 
 
 | | |
 |---|---|
-| **Web app** (no account needed: *Try without a wallet*) | **[app.hellonear.xyz](https://app.hellonear.xyz)** |
+| **Web app** (no account needed: *Continue as guest*) | **[app.hellonear.xyz](https://app.hellonear.xyz)** |
 | **Landing page** | **[hellonear.xyz](https://hellonear.xyz)** |
 | **API** (NEAR testnet) | **[api.hellonear.xyz/v1/health](https://api.hellonear.xyz/v1/health)** |
 | **Mind registry contract** | **[`hellonear-registry.testnet`](https://testnet.nearblocks.io/address/hellonear-registry.testnet)** (v0.3.0, NEP-330) |
+| **API reference** | **[OpenAPI spec](docs/openapi.json)** · [README section](#api-reference) |
 | **Repository** | **[github.com/Hellonear-AI/hellonear](https://github.com/Hellonear-AI/hellonear)** |
 
 **[The agent and its 50 tools](#the-agent-mastra-on-near-ai-cloud)** ·
 **[Receipts](#receipts-check-them-yourself)** ·
 **[Security model](#security-model)** ·
 **[Try it](#try-it)** ·
+**[API reference](#api-reference)** ·
 **[Limits](#limits)**
 
 Built at **NEAR HACKATHON** (1 to 14 Nov 2026) for six tracks: `security`, `privacy`, `agents`, `swarms`, `business`, `realworld`.
@@ -467,7 +469,7 @@ Each layer stops an attack on its own; the ones further down do not trust the on
 | **The owner's approval** | Any payment the model was talked into: nothing is sent until the owner approves | Ask a Payments Mind to pay. See: an approval card that names the amount, the recipient and the checks below |
 | **The wallet policy (OutLayer, in a TEE)** | A payment the owner approved by mistake: over the per-payment limit or to an address not on the list is refused before signing, with no transaction | Approve a payment above the limit. See: `policy_denied`, no tx hash. The card already says "blocked even if you approve" |
 | **Daily limit (OutLayer, in a TEE)** | Many small payments that add up: once today's payments reach the daily limit, the next one is refused before signing; the day starts at 00:00 UTC | Wallet → Edit → *Per day*. See: "Spent today: X of Y NEAR" |
-| **The owner's rules (opt-in)** | Nothing by themselves: they only skip the card the owner chose to skip, only up to the owner's amount and only to a listed address. Try-outs and the Attack playground always ask, and the TEE policy still checks every payment | Mind settings → Approvals → payments up to 0.01. See: no card, and the receipt says "Approved by your rule" |
+| **The owner's rules (opt-in)** | Nothing by themselves: they only skip the card the owner chose to skip, only up to the owner's amount and only to a listed address. Guests and the Attack playground always ask, and the TEE policy still checks every payment | Mind settings → Approvals → payments up to 0.01. See: no card, and the receipt says "Approved by your rule" |
 | **Freeze** | Everything, at once: one transaction the owner signs | Wallet → Freeze wallet (on your own Mind). See: every later payment ends `wallet_frozen` |
 | **Unattended jobs** | Autopilot jobs get no payment or approval tools; they may only email the owner or add to the owner's calendar, as steps the owner placed | Builder → Use a tool → *Email me*. See: it can only send the Mind's notes, to your own Gmail |
 
@@ -493,7 +495,9 @@ Each layer stops an attack on its own; the ones further down do not trust the on
 
 ### In the web app (2 minutes, no account)
 
-1. Open **[app.hellonear.xyz](https://app.hellonear.xyz)** → **Try without a wallet** → pick the **Payments Mind**.
+> **During the hackathon everything runs on NEAR testnet, so judges can try it all for free.** *Continue as guest* needs no wallet, sign-up or payment: you get 20 messages, sample inbox and calendar data, and payments from a shared test wallet with HelloNear's limits. The AI runs on NEAR AI Cloud with the team's own credits, so you pay nothing for the model. Guest data is deleted after 7 days.
+
+1. Open **[app.hellonear.xyz](https://app.hellonear.xyz)** → **Continue as guest** → pick the **Payments Mind**.
 2. *"Send 0.01 NEAR to lin1er.testnet"*. See: an approval card with the amount, the recipient and the wallet's checks. Approve it. See: a receipt with a testnet transaction link.
 3. *"Send 10 USDC to 0x8ba1f109551bD432803012645Ac136ddd64DBA72 on Base."* See: a NEAR Intents quote (what would arrive, the cost, the time), signed by 1Click, and the Mind saying nothing was sent.
 4. Click **Verified via NEAR AI TEE gateway** under a reply → **View proof** → **Check it in TEE Explorer**. See: Phala's TEE Explorer opens on a report that reads VERIFIED.
@@ -502,12 +506,12 @@ Each layer stops an attack on its own; the ones further down do not trust the on
 
 ### Through the API
 
-The hosted backend is `https://api.hellonear.xyz`. Try-out mode makes a temporary user (20 messages, deleted after 7 days). Replies stream as [server-sent events](docs/api-contract.md#3-hellonear-events-engine--backend--browser).
+The hosted backend is `https://api.hellonear.xyz`. Guest mode makes a temporary user (20 messages, deleted after 7 days). Replies stream as [server-sent events](docs/api-contract.md#3-hellonear-events-engine--backend--browser).
 
 ```sh
 B=https://api.hellonear.xyz                 # or http://localhost:4000 (see "Run locally")
 
-# 1. Start a try-out session. See: 201 and "demo": true
+# 1. Start a guest session. See: 201 and "demo": true
 curl -s -c jar -X POST $B/v1/auth/demo -H 'content-type: application/json' -d '{}'
 
 # 2. List the Mind templates. See: email-manager, general-assistant, payments-mind
@@ -553,9 +557,9 @@ curl -s -b jar -X PUT $B/v1/minds/$M/workflows/morning-brief -H 'content-type: a
   "edges":[{"source":"start","target":"cal"},{"source":"cal","target":"note"}]}'
 curl -sN -b jar -X POST $B/v1/minds/$M/workflows/morning-brief/runs -H 'content-type: application/json' -d '{}'
 ```
-Use a General Assistant (it has the calendar). An If compares a number or text from an earlier step (after a list, its count: "number of events is more than 0"). Turning the schedule on needs a wallet sign-in.
+Use a General Assistant (it has the calendar). An If compares a number or text from an earlier step (after a list, its count: "number of events is more than 0"). Turning the schedule on needs a wallet sign-in (a guest gets `403 demo_not_allowed`).
 
-**More prompts** (try-out users get a sample inbox and calendar):
+**More prompts** (guests get a sample inbox and calendar):
 - *"Archive the newsletter and the StreamBox receipt."*: a card listing each email, saying nothing is deleted.
 - *"Brief me on today"*: meetings, emails that need you, money due, and a "Watch out" line for the phishing email.
 - *"Which subscriptions do I pay for?"*: StreamBox, CloudNotes and an invoice, with monthly totals; it never pays.
@@ -566,6 +570,158 @@ Use a General Assistant (it has the calendar). An If compares a number or text f
 - *"What is this app?"*: every Mind answers from the built-in guide.
 
 Every route and event is in [`docs/api-contract.md`](docs/api-contract.md).
+
+---
+
+## API reference
+
+The web app is a client of a public HTTP API, and everything it does can be done with `curl`. The full spec is **[`docs/openapi.json`](docs/openapi.json)** (OpenAPI 3.1, 60 operations): open it in [Swagger Editor](https://editor.swagger.io/?url=https://raw.githubusercontent.com/Hellonear-AI/hellonear/main/docs/openapi.json) or any OpenAPI viewer to read every route and try it against the hosted API. Every server-sent event type is described in [`docs/api-contract.md`](docs/api-contract.md) §3.
+
+- **Base URL:** `https://api.hellonear.xyz` (NEAR testnet), or `http://localhost:4000`.
+- **Auth:** a session cookie, `hn_session`. Get one with `POST /v1/auth/demo` (guest, no wallet) or with a NEAR wallet: `POST /v1/auth/challenge`, sign the message (NEP-413), then `POST /v1/auth/login`. `curl` works as is (no `Origin` header); a browser page on another site gets `403` for any call that changes something (CSRF protection).
+- **Streams:** chat, approve/decline, workflow runs and attack runs answer `text/event-stream`: `run.started`, `text.delta`, `tool.called`, `tool.result`, `tool.approval_required`, `run.finished`, `run.verified` and more.
+- **Guests** get `403 demo_not_allowed` for owner actions (wallet policy, freeze, memory edits, rules, schedules); everything else works.
+- **Checked live:** the last column marks the endpoints called against the hosted API with a guest session on 12 Nov 2026 and answered as documented (owner-only and money-moving endpoints are covered by the backend's integration tests instead).
+
+**System**
+
+| Method | Path | What it does | Answer | Checked live |
+|---|---|---|---|---|
+| `GET` | `/v1/health` | Health of the backend and the engine | 200 | yes |
+
+**Auth**
+
+| Method | Path | What it does | Answer | Checked live |
+|---|---|---|---|---|
+| `POST` | `/v1/auth/challenge` | Get a NEP-413 sign-in message and a one-time nonce | 200 |  |
+| `POST` | `/v1/auth/login` | Sign in with a NEAR wallet signature (NEP-413) | 200 |  |
+| `POST` | `/v1/auth/demo` | Start a try-out (guest) session: no wallet, 20 messages | 201 | yes |
+| `POST` | `/v1/auth/logout` | Sign out | 204 |  |
+| `GET` | `/v1/me` | The signed-in user | 200 | yes |
+
+**Catalog**
+
+| Method | Path | What it does | Answer | Checked live |
+|---|---|---|---|---|
+| `GET` | `/v1/templates` | Mind templates | 200 | yes |
+| `GET` | `/v1/skills` | Every skill a Mind can equip, with its tools | 200 | yes |
+| `GET` | `/v1/skills/{skillId}` | One skill with its playbook (SKILL.md body) | 200 | yes |
+
+**Minds**
+
+| Method | Path | What it does | Answer | Checked live |
+|---|---|---|---|---|
+| `GET` | `/v1/minds` | The user's Minds, newest first | 200 | yes |
+| `POST` | `/v1/minds` | Create a Mind from a template | 201 | yes |
+| `GET` | `/v1/minds/{mindId}` | One Mind | 200 | yes |
+| `PATCH` | `/v1/minds/{mindId}` | Change a Mind: name, voice, model, skills, memory switches, auto-approve rules | 200 |  |
+| `DELETE` | `/v1/minds/{mindId}` | Delete a Mind (and its workflows, schedules and wallet key) | 200 |  |
+
+**Chat**
+
+| Method | Path | What it does | Answer | Checked live |
+|---|---|---|---|---|
+| `POST` | `/v1/minds/{mindId}/chat` | Send a message; the reply streams as server-sent events | SSE | yes |
+| `GET` | `/v1/minds/{mindId}/threads` | Chat threads, newest first | 200 | yes |
+| `GET` | `/v1/minds/{mindId}/threads/{threadId}/messages` | A thread's messages, oldest first, paged by `before` | 200 |  |
+| `PATCH` | `/v1/minds/{mindId}/threads/{threadId}` | Rename a thread | 200 |  |
+| `DELETE` | `/v1/minds/{mindId}/threads/{threadId}` | Delete a thread for good (the engine forgets it too) | 200 |  |
+
+**Runs**
+
+| Method | Path | What it does | Answer | Checked live |
+|---|---|---|---|---|
+| `GET` | `/v1/minds/{mindId}/runs` | Runs of a Mind, with tokens and cost | 200 | yes |
+| `GET` | `/v1/runs/{runId}` | One run with all its stored events | 200 | yes |
+| `POST` | `/v1/runs/{runId}/cancel` | Stop a run that is still streaming | 200 |  |
+| `GET` | `/v1/minds/{mindId}/events` | Events across runs since a time (Mind Graph history) | 200 | yes |
+
+**Approvals**
+
+| Method | Path | What it does | Answer | Checked live |
+|---|---|---|---|---|
+| `GET` | `/v1/minds/{mindId}/approvals` | Runs waiting for the owner's approval | 200 | yes |
+| `POST` | `/v1/runs/{runId}/approve` | Approve a waiting tool call; the run resumes as SSE | SSE |  |
+| `POST` | `/v1/runs/{runId}/decline` | Decline a waiting tool call; the run resumes as SSE | SSE | yes |
+
+**Verification**
+
+| Method | Path | What it does | Answer | Checked live |
+|---|---|---|---|---|
+| `GET` | `/v1/runs/{runId}/proof` | The proof behind a reply's Verified badge | 200 | yes |
+| `POST` | `/v1/runs/{runId}/proof/tee-explorer` | Upload the run's Intel quote to Phala's TEE Explorer and get the verified report | 200 | yes |
+
+**Wallet**
+
+| Method | Path | What it does | Answer | Checked live |
+|---|---|---|---|---|
+| `POST` | `/v1/minds/{mindId}/wallet` | Create the Mind's OutLayer wallet (testnet) | 201 |  |
+| `GET` | `/v1/minds/{mindId}/wallet` | Balance, spent today, frozen, and the policy | 200 | yes |
+| `GET` | `/v1/minds/{mindId}/wallet/payments` | Payment receipts, refused ones included | 200 | yes |
+| `POST` | `/v1/minds/{mindId}/wallet/policy` | Build a store_wallet_policy transaction for the owner to sign | 200 |  |
+| `POST` | `/v1/minds/{mindId}/wallet/freeze` | Build a freeze_wallet transaction for the owner to sign | 200 |  |
+| `POST` | `/v1/minds/{mindId}/wallet/unfreeze` | Build an unfreeze_wallet transaction for the owner to sign | 200 |  |
+
+**Memory**
+
+| Method | Path | What it does | Answer | Checked live |
+|---|---|---|---|---|
+| `GET` | `/v1/minds/{mindId}/memory` | What the Mind remembers about the owner | 200 | yes |
+| `PUT` | `/v1/minds/{mindId}/memory` | Replace the Mind's memory | 200 |  |
+| `DELETE` | `/v1/minds/{mindId}/memory` | Clear the Mind's memory | 204 |  |
+
+**Email**
+
+| Method | Path | What it does | Answer | Checked live |
+|---|---|---|---|---|
+| `GET` | `/v1/minds/{mindId}/inbox` | The Mind's own email address, if any | 200 | yes |
+| `POST` | `/v1/minds/{mindId}/inbox` | Create the Mind's own email address (AgentMail) | 201 |  |
+| `GET` | `/v1/minds/{mindId}/mail/sent` | Emails the Mind sent, refusals included | 200 | yes |
+
+**Autopilot**
+
+| Method | Path | What it does | Answer | Checked live |
+|---|---|---|---|---|
+| `GET` | `/v1/minds/{mindId}/workflows` | Saved Builder workflows | 200 | yes |
+| `PUT` | `/v1/minds/{mindId}/workflows/{workflowId}` | Save a Builder canvas (compiled to a Mastra workflow) | 200 | yes |
+| `GET` | `/v1/minds/{mindId}/workflows/{workflowId}` | One workflow with its canvas | 200 |  |
+| `DELETE` | `/v1/minds/{mindId}/workflows/{workflowId}` | Delete a workflow and its schedule | 204 | yes |
+| `POST` | `/v1/minds/{mindId}/workflows/{workflowId}/runs` | Run a workflow now; steps stream as SSE | SSE | yes |
+| `GET` | `/v1/minds/{mindId}/workflows/{workflowId}/runs` | Past runs of a workflow, newest first, with each step | 200 | yes |
+| `PUT` | `/v1/minds/{mindId}/workflows/{workflowId}/autopilot` | Turn the schedule on (wallet sign-in only) | 200 | yes |
+| `GET` | `/v1/minds/{mindId}/workflows/{workflowId}/autopilot` | The schedule's state | 200 |  |
+| `DELETE` | `/v1/minds/{mindId}/workflows/{workflowId}/autopilot` | Turn the schedule off | 204 |  |
+
+**Connections**
+
+| Method | Path | What it does | Answer | Checked live |
+|---|---|---|---|---|
+| `GET` | `/v1/connections` | Apps the user connected through Composio | 200 | yes |
+| `POST` | `/v1/connections/{toolkit}` | Get a Composio Connect Link for an app | 200 |  |
+| `DELETE` | `/v1/connections/{toolkit}` | Disconnect an app | 204 |  |
+
+**Telegram**
+
+| Method | Path | What it does | Answer | Checked live |
+|---|---|---|---|---|
+| `GET` | `/v1/minds/{mindId}/telegram` | The Mind's Telegram bot, if connected | 200 | yes |
+| `PUT` | `/v1/minds/{mindId}/telegram` | Connect a BotFather token to the Mind | 200 |  |
+| `DELETE` | `/v1/minds/{mindId}/telegram` | Disconnect the bot | 204 |  |
+
+**Secrets**
+
+| Method | Path | What it does | Answer | Checked live |
+|---|---|---|---|---|
+| `GET` | `/v1/secrets` | Saved API keys (names and hosts, never values) | 200 | yes |
+| `PUT` | `/v1/secrets/{name}` | Save an API key for the Mind's HTTP request skill | 200 |  |
+| `DELETE` | `/v1/secrets/{name}` | Delete a saved key | 204 |  |
+
+**Attack playground**
+
+| Method | Path | What it does | Answer | Checked live |
+|---|---|---|---|---|
+| `GET` | `/v1/attacks` | The prompt-injection scenarios | 200 | yes |
+| `POST` | `/v1/attacks/{attackId}/runs` | Run a scenario on a hidden test Mind; ends with attack.verdict | SSE | yes |
 
 ---
 
@@ -584,7 +740,7 @@ Stated plainly, so nothing here surprises a judge:
 ## Now and after the hackathon
 
 **During the hackathon (now):** everything runs on NEAR testnet so judges can try it for free.
-- **Try-out (guest) mode:** *Try without a wallet* makes a temporary user with 20 messages, a Mind from any template, sample inbox and calendar data, and payments from a shared test wallet with HelloNear's limits. No wallet, account or payment needed; data is deleted after 7 days.
+- **Guest mode:** *Continue as guest* makes a temporary user with 20 messages, a Mind from any template, sample inbox and calendar data, and payments from a shared test wallet with HelloNear's limits. No wallet, account or payment needed; data is deleted after 7 days.
 - **The AI is on us:** every reply runs on NEAR AI Cloud with the team's own credits.
 - **Signing in with a NEAR wallet** (Meteor first) gives the full app: your own Mind wallet, limits, freeze, rules, connections and Autopilot.
 
