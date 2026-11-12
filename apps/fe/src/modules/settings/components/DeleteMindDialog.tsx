@@ -40,7 +40,7 @@ function useDeleteMind(mindId: string, name: string, onStuck: (balanceNear: stri
       }
       toast.error(`Could not delete ${name}`, {
         description: isApiCode(err, "demo_not_allowed")
-          ? "A try-out Mind can't be deleted."
+          ? "A guest Mind can't be deleted."
           : isApiCode(err, "outlayer_unreachable", "outlayer_error")
             ? "Its wallet could not be checked. No changes were made. Please try again later."
             : "Please try again later.",

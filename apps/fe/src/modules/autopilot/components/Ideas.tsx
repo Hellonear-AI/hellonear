@@ -92,7 +92,7 @@ function IdeaCard({ mindId, name, demo, idea, onAdded, compact }: { mindId: stri
             {busy && <Spinner />}
             Use this
           </Button>
-          {demo && <span className="text-xs text-muted-foreground">In a try-out it stays off; you can run it with Run now.</span>}
+          {demo && <span className="text-xs text-muted-foreground">As a guest it stays off; you can run it with Run now.</span>}
           {(add.error || setSkills.error) && <span className="text-xs text-danger">Could not add it. Please try again later.</span>}
         </>
       )}

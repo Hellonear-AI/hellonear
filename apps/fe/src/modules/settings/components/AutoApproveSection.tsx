@@ -67,7 +67,7 @@ export function AutoApproveSection({ mind, name, wallet, tryOut }: { mind: ApiMi
     },
     onError: (err) =>
       toast.error("Could not save the rules", {
-        description: isApiCode(err, "demo_not_allowed") ? "A try-out Mind always asks. Connect a wallet to make your own." : "Please try again later.",
+        description: isApiCode(err, "demo_not_allowed") ? "A guest Mind always asks. Connect a wallet to make your own." : "Please try again later.",
       }),
     onSettled: () => queryClient.invalidateQueries({ queryKey: mindKeys.all }),
   })
@@ -82,7 +82,7 @@ export function AutoApproveSection({ mind, name, wallet, tryOut }: { mind: ApiMi
     <div className="flex max-w-[600px] flex-col gap-8">
       <p className="text-[13px] text-muted-foreground">
         Everything here is off until you turn it on. Anything left off waits for your approval in the chat. The chat still shows each action, marked as approved by your rule.
-        {tryOut && " A try-out Mind always asks; connect a wallet to choose this."}
+        {tryOut && " A guest Mind always asks; connect a wallet to choose this."}
       </p>
 
       {pays && (

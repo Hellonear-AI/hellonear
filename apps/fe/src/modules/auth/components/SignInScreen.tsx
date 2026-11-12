@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { ArrowRightIcon, CircleXIcon, FlaskConicalIcon, GlobeIcon, KeyRoundIcon, WalletMinimalIcon } from "lucide-react"
+import { ArrowRightIcon, CircleXIcon, GlobeIcon, KeyRoundIcon, UserRoundIcon, WalletMinimalIcon } from "lucide-react"
 import { useEffect, useState, type ReactNode } from "react"
 import { cn } from "cn"
 import { ErrorRetry } from "@/components/elements/ErrorRetry"
@@ -147,9 +147,9 @@ export function SignInScreen() {
             <Option
               onClick={tryOut}
               disabled={busy}
-              icon={demo.isPending ? <Spinner /> : <FlaskConicalIcon />}
-              title={emptyTryOut ? "Continue your try-out" : "Try without a wallet"}
-              note={emptyTryOut ? "Pick a Mind and start chatting." : "No sign-up. 20 messages and a shared test wallet. Deleted after 7 days."}
+              icon={demo.isPending ? <Spinner /> : <UserRoundIcon />}
+              title="Continue as guest"
+              note={emptyTryOut ? "Pick up where you left off." : "No sign-up. 20 messages with a shared test wallet."}
             />
           </div>
 

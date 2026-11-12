@@ -54,7 +54,7 @@ export function JobDetail({ mindId, name, workflowId }: { mindId: string; name: 
           isApiCode(err, "missing_tools")
             ? `${name} doesn't have a skill this job uses. Add it in Skills first.`
             : isApiCode(err, "demo_run_limit")
-              ? "That's all the messages this try-out has."
+              ? "That's all the messages a guest gets."
               : "The job did not start. Please try again later."
         )
       }

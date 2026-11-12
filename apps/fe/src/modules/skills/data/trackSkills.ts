@@ -89,7 +89,7 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
     title: "Mind as seller",
     blurb: "Sells what this Mind made to other Minds for testnet NEAR, and buys from other Minds.",
     canUse: (c) => [`${c.name}'s wallet, ${limitText(c.limit)}`, "Offers it puts up for other Minds"],
-    cannot: ["Not in the try-out: try-out Minds share one wallet"],
+    cannot: ["Not available to guests: guest Minds share one wallet"],
     needsWallet: true,
     ask: {
       why: (c) => `${c.name} will sell reports it made to other Minds, paid into its own wallet, and buy theirs. Every sale and purchase asks you first unless a rule you set covers it.`,
@@ -134,7 +134,7 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
   "phishing-detector": {
     title: "Phishing check",
     blurb: "Flags emails that ask for money, keys or urgent action, or that try to give the Mind orders.",
-    canUse: (c) => [c.tryOut ? "A sample inbox for the try-out" : "Your Gmail: read mail, and label it after you approve"],
+    canUse: (c) => [c.tryOut ? "A sample inbox for guests" : "Your Gmail: read mail, and label it after you approve"],
     cannot: ["Never acts on what an email says", "Never deletes email"],
     needs: "gmail",
     ask: {
@@ -180,7 +180,7 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
   "confidential-reader": {
     title: "Confidential reader",
     blurb: "Sums up sensitive emails, like contracts, payslips and medical letters, into dates, amounts and duties.",
-    canUse: (c) => [c.tryOut ? "A sample inbox for the try-out" : "Your Gmail: read one email at a time"],
+    canUse: (c) => [c.tryOut ? "A sample inbox for guests" : "Your Gmail: read one email at a time"],
     cannot: ["Never signs or sends anything"],
     needs: "gmail",
     ask: {
@@ -224,7 +224,7 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
   "follow-ups": {
     title: "Follow-ups",
     blurb: "Finds unpaid invoices and unanswered promises in your Gmail and drafts polite follow-ups.",
-    canUse: (c) => [c.tryOut ? "A sample inbox for the try-out" : "Your Gmail: read mail and save drafts"],
+    canUse: (c) => [c.tryOut ? "A sample inbox for guests" : "Your Gmail: read mail and save drafts"],
     cannot: ["Can't send email for you"],
     needs: "gmail",
     ask: {
@@ -239,7 +239,7 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
   "spending-tracker": {
     title: "Spending tracker",
     blurb: "Reads receipts in your Gmail and totals your spending by category.",
-    canUse: (c) => [c.tryOut ? "A sample inbox for the try-out" : "Your Gmail: read receipts"],
+    canUse: (c) => [c.tryOut ? "A sample inbox for guests" : "Your Gmail: read receipts"],
     cannot: ["Never pays anything"],
     needs: "gmail",
     ask: {
@@ -270,7 +270,7 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
     title: "Google Docs",
     blurb: "Finds files in your Google Drive, reads Google Docs, and writes a new Doc or adds to the end of one when you approve.",
     canUse: () => [],
-    cannot: ["Never shares or deletes a file, or changes what a Doc already says", "Not in the try-out"],
+    cannot: ["Never shares or deletes a file, or changes what a Doc already says", "Not available to guests"],
     needs: "googledocs",
     uses: "googledrive",
     ask: {
@@ -286,7 +286,7 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
     title: "Google Sheets",
     blurb: "Finds and reads your spreadsheets, and adds a row or changes cells when you approve.",
     canUse: () => ["Simple math"],
-    cannot: ["Never clears or deletes cells", "Not in the try-out"],
+    cannot: ["Never clears or deletes cells", "Not available to guests"],
     needs: "googlesheets",
     ask: {
       why: (c) => `${c.name} will look things up in your Google Sheets, and add a row or change cells after you approve.`,
@@ -301,7 +301,7 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
     title: "Notion",
     blurb: "Searches and reads your Notion pages and databases, and adds a page or a row, or changes a row, when you approve.",
     canUse: () => ["Only pages you shared when connecting"],
-    cannot: ["Never clears, archives or deletes", "Not in the try-out"],
+    cannot: ["Never clears, archives or deletes", "Not available to guests"],
     needs: "notion",
     ask: {
       why: (c) => `${c.name} will search and read your Notion when you ask, and add a page or a row, or change a row, after you approve.`,
@@ -316,7 +316,7 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
     title: "Outlook email",
     blurb: "Reads your Outlook inbox, sums it up and saves reply drafts for you to send.",
     canUse: () => [],
-    cannot: ["Can't send email for you", "Not in the try-out"],
+    cannot: ["Can't send email for you", "Not available to guests"],
     needs: "outlook",
     ask: {
       why: (c) => `${c.name} will read your Outlook inbox when you ask, sum it up and save reply drafts for you to check and send.`,
@@ -331,7 +331,7 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
     title: "Slack",
     blurb: "Lists your Slack channels and posts a message you approved. It can't read messages.",
     canUse: () => [],
-    cannot: ["Can't read messages", "Not in the try-out"],
+    cannot: ["Can't read messages", "Not available to guests"],
     needs: "slack",
     ask: {
       why: (c) => `${c.name} will post to your Slack channels when you ask, as you, after you approve each message.`,
@@ -347,7 +347,7 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
     title: "Zoom",
     blurb: "Lists your Zoom meetings, schedules one with a join link when you approve, and reads Zoom's AI summary of a past call.",
     canUse: () => ["Summaries only when Zoom's AI summary was on"],
-    cannot: ["Never invites anyone, deletes or ends meetings", "Not in the try-out"],
+    cannot: ["Never invites anyone, deletes or ends meetings", "Not available to guests"],
     needs: "zoom",
     ask: {
       why: (c) => `${c.name} will check your Zoom meetings when you ask, schedule one after you approve, and tell you what Zoom's AI summary says about a past call.`,

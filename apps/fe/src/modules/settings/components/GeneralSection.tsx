@@ -56,7 +56,7 @@ export function GeneralSection({ mind, name, wallet, tryOut }: { mind: ApiMind; 
     },
     onError: (err) =>
       toast.error("Could not save the settings", {
-        description: isApiCode(err, "demo_not_allowed") ? "A try-out Mind can't be changed. Connect a wallet to make your own." : "Please try again later.",
+        description: isApiCode(err, "demo_not_allowed") ? "A guest Mind can't be changed. Connect a wallet to make your own." : "Please try again later.",
       }),
     onSettled: () => queryClient.invalidateQueries({ queryKey: mindKeys.all }),
   })

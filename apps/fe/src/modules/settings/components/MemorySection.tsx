@@ -48,7 +48,7 @@ export function MemorySection({ mind, name, tryOut }: { mind: ApiMind; name: str
     },
     onError: (err) =>
       toast.error("Could not save the memory", {
-        description: isApiCode(err, "demo_not_allowed") ? "A try-out Mind's memory can be read but not changed." : "No changes were made. Please try again later.",
+        description: isApiCode(err, "demo_not_allowed") ? "A guest Mind's memory can be read but not changed." : "No changes were made. Please try again later.",
       }),
   })
 
@@ -62,7 +62,7 @@ export function MemorySection({ mind, name, tryOut }: { mind: ApiMind; name: str
     },
     onError: (err) =>
       toast.error("Could not clear the memory", {
-        description: isApiCode(err, "demo_not_allowed") ? "A try-out Mind's memory can be read but not changed." : "No changes were made. Please try again later.",
+        description: isApiCode(err, "demo_not_allowed") ? "A guest Mind's memory can be read but not changed." : "No changes were made. Please try again later.",
       }),
   })
 
@@ -148,7 +148,7 @@ export function MemorySection({ mind, name, tryOut }: { mind: ApiMind; name: str
         )}
 
         {tryOut ? (
-          <p className="text-xs text-muted-foreground">A try-out Mind&apos;s memory can be read but not changed.</p>
+          <p className="text-xs text-muted-foreground">A guest Mind&apos;s memory can be read but not changed.</p>
         ) : (
           draft === null &&
           markdown && (

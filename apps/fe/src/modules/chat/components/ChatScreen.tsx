@@ -163,7 +163,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
           <p className="truncate text-xs text-muted-foreground">
             {templateLabel(templateId)}
             {/* Not "asks before every payment": an auto-approve rule (#167) can let small ones through. */}
-            {tryOut ? ", try-out with a shared test wallet" : limit ? `, payments up to ${limit} NEAR each` : ""}
+            {tryOut ? ", guest with a shared test wallet" : limit ? `, payments up to ${limit} NEAR each` : ""}
           </p>
         </div>
         <Button variant="ghost" size="sm" onClick={toggleLive} aria-pressed={liveOpen} className="shrink-0 text-muted-foreground">
@@ -177,7 +177,7 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
         // sentence shows from 640 px.
         <div role="status" className="mx-4 mt-3 flex items-center gap-3 rounded-md bg-brand-soft px-4 py-2 text-sm text-foreground md:mx-8">
           <p className="min-w-0 flex-1">
-            Try-out{tryOutLeft !== null ? `: ${tryOutLeft} of ${TRY_OUT_MESSAGES} messages left` : ""}.
+            Guest{tryOutLeft !== null ? `: ${tryOutLeft} of ${TRY_OUT_MESSAGES} messages left` : ""}.
             <span className="hidden sm:inline">
               {" "}Payments come from a shared test wallet{limit ? `, up to ${limit} NEAR each,` : ""} to approved addresses only.
             </span>
@@ -332,9 +332,9 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
             {outOfMessages && (
               // T1.5: one clear way forward once the try-out's messages are used up.
               <div className="mb-3 flex flex-col items-start gap-2 rounded-lg border border-border bg-surface p-4">
-                <p className="text-[15px] font-semibold text-foreground">That&apos;s the end of the try-out</p>
+                <p className="text-[15px] font-semibold text-foreground">That&apos;s the end of your guest session</p>
                 <p className="text-sm text-muted-foreground">
-                  You&apos;ve used all {TRY_OUT_MESSAGES} messages. Connect a wallet to keep going with your own Mind, wallet and limits. This try-out is deleted after 7 days.
+                  You&apos;ve used all {TRY_OUT_MESSAGES} messages. Connect a wallet to keep going with your own Mind, wallet and limits. This guest session is deleted after 7 days.
                 </p>
                 <Button size="sm" onClick={leaveTryOut}>
                   Connect Meteor
@@ -344,8 +344,8 @@ export function ChatScreen({ mindId, threadId }: { mindId: string; threadId: str
             <Composer
               name={name}
               busy={busy}
-              note={outOfMessages ? "Connect a wallet to send more messages." : tryOut ? `Try-out payments: ${limit ? `up to ${limit} NEAR, ` : ""}approved addresses only.` : composerNote(name, frozen)}
-              locked={outOfMessages ? "Try-out finished" : undefined}
+              note={outOfMessages ? "Connect a wallet to send more messages." : tryOut ? `Guest payments: ${limit ? `up to ${limit} NEAR, ` : ""}approved addresses only.` : composerNote(name, frozen)}
+              locked={outOfMessages ? "Guest session finished" : undefined}
               onSend={(text) => send(text, threadId)}
               onStop={stop}
               stopping={stopping}

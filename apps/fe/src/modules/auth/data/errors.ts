@@ -9,7 +9,7 @@ export function walletError(err: unknown): string {
 
 /** T1.2 and a backend without try-out mode. */
 export function demoError(err: unknown): string {
-  if (isApiCode(err, "demo_rate_limited")) return "Too many try-outs from this network. Please try again later or connect a wallet."
-  if (err instanceof ApiError && err.status === 404) return "Try-out is not available at the moment. Please connect a wallet."
-  return "Could not start a try-out. Please try again later."
+  if (isApiCode(err, "demo_rate_limited")) return "Too many guest sessions from this network. Please try again later or connect a wallet."
+  if (err instanceof ApiError && err.status === 404) return "Guest access is not available at the moment. Please connect a wallet."
+  return "Could not start a guest session. Please try again later."
 }

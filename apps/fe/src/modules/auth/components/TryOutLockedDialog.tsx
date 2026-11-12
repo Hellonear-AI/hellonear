@@ -15,17 +15,17 @@ export type LockedAction = "add-funds" | "freeze" | "limits" | "wallet" | "keys"
 export function lockedReason(action: LockedAction, name: string): string {
   switch (action) {
     case "freeze":
-      return `Freezing needs the owner's signature. In a try-out, ${name} uses a shared test wallet that only HelloNear can change.`
+      return `Freezing needs the owner's signature. As a guest, ${name} uses a shared test wallet that only HelloNear can change.`
     case "add-funds":
-      return `Funds come from your own wallet. In a try-out, ${name} uses a shared test wallet that HelloNear fills.`
+      return `Funds come from your own wallet. As a guest, ${name} uses a shared test wallet that HelloNear fills.`
     case "limits":
-      return `Changing limits needs the owner's signature. In a try-out, ${name} uses a shared test wallet with limits HelloNear sets.`
+      return `Changing limits needs the owner's signature. As a guest, ${name} uses a shared test wallet with limits HelloNear sets.`
     case "wallet":
-      return `A wallet of ${name}'s own needs your signature for its limits. In a try-out, ${name} pays from a shared test wallet.`
+      return `A wallet of ${name}'s own needs your signature for its limits. As a guest, ${name} pays from a shared test wallet.`
     case "keys":
-      return "Keys are kept for your account, and a try-out can't keep them. Connect a wallet to save keys for your own services."
+      return "Keys are kept for your account, and a guest session can't keep them. Connect a wallet to save keys for your own services."
     case "autopilot":
-      return `Jobs that run on a schedule need your own account. In a try-out, you can still run ${name}'s jobs by hand with Run now.`
+      return `Jobs that run on a schedule need your own account. As a guest, you can still run ${name}'s jobs by hand with Run now.`
   }
 }
 
@@ -68,7 +68,7 @@ export function TryOutLockedDialog({ action, name, onClose }: { action: LockedAc
           </div>
         )}
 
-        <p className="text-[13px] text-tertiary-foreground">Connecting keeps nothing from this try-out. You start fresh with your own Mind and limits.</p>
+        <p className="text-[13px] text-tertiary-foreground">Connecting keeps nothing from this guest session. You start fresh with your own Mind and limits.</p>
 
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button
