@@ -12,6 +12,7 @@ import type { Mind } from './mind.ts'
 import { addressOf, composioTool, gmail, toListed, toRead } from './composio.ts'
 import { appTools } from './apps.ts'
 import { zoomTools } from './zoom.ts'
+import { crosschainQuote } from './crosschain.ts'
 import {
   ISO_WITH_OFFSET, MAX_ATTENDEES, MAX_RANGE_DAYS, checkAttendees, composioTiming, createSampleEvent, createSampleMeeting, listSampleCalendar, listedEvents, withLocalTimes, type CalendarEvent,
   meetLinkOf, rangeOf, withMeetLink,
@@ -792,7 +793,7 @@ const nearCheckTransfer = createTool({
 })
 
 export const toolRegistry = {
-  get_time: getTime, add_numbers: addNumbers, split_amount: splitAmountTool, http_request: httpRequest, near_view_account: nearViewAccount, near_check_transfer: nearCheckTransfer,
+  get_time: getTime, add_numbers: addNumbers, split_amount: splitAmountTool, http_request: httpRequest, near_view_account: nearViewAccount, near_check_transfer: nearCheckTransfer, crosschain_quote: crosschainQuote,
   buy_data: buyData, get_quotes: getQuotes, sell_offer: sellOffer, buy_from_mind: buyFromMind, send_payment: sendPayment, get_balance: getBalance, list_payments: listPayments,
   gmail_list_emails: gmailListEmails, gmail_read_email: gmailReadEmail, gmail_create_draft: gmailCreateDraft, gmail_organize: gmailOrganize,
   googlecalendar_list_events: calendarListEvents, googlecalendar_create_event: calendarCreateEvent,
