@@ -1,6 +1,6 @@
 # CLAUDE.md — sc/
 
-Mind registry contract: Mind ↔ owner ↔ wallet ↔ skill. Owner: Axel. Issue: #12. Design notes: `research.md` 8.3.
+Mind registry contract: Mind ↔ owner ↔ wallet ↔ skill. Owner: Axel. Issue: #12. Plan and decisions: #3, #4.
 
 **Update this file in the same PR whenever you change the contract interface, build/test/deploy commands, the deployed account id, or SDK versions.** Root rules in `/CLAUDE.md` also apply.
 
