@@ -15,10 +15,14 @@ export type Service = {
   impact: string
   uptime24h: number | null
   uptime7d: number | null
-  history: { start: string; status: BucketState }[]
+  // checks / bad / detail are optional: probes in the bucket, how many were down or slow, and the last problem's detail.
+  history: { start: string; status: BucketState; checks?: number; bad?: number; detail?: string | null }[]
 }
 
-export type Status = { updatedAt: string; overall: "operational" | "degraded" | "down"; services: Service[] }
+// A run of failed checks of one service, worked out by the backend from the last 7 days of probes.
+export type Incident = { service: string; name: string; status: "down" | "degraded"; start: string; end: string | null; minutes: number; detail: string | null }
+
+export type Status = { updatedAt: string; overall: "operational" | "degraded" | "down"; services: Service[]; incidents?: Incident[] }
 
 export const GROUPS: Service["group"][] = ["HelloNear", "NEAR AI", "NEAR", "Partners"]
 
@@ -62,6 +66,38 @@ export function ago(iso: string | null, now = Date.now()): string {
   if (m < 60) return `${m} min ago`
   const h = Math.round(m / 60)
   return h < 48 ? `${h} h ago` : `${Math.round(h / 24)} d ago`
+}
+
+// The tooltip's lines for one 30-minute bar. Probes run every 5 minutes, so each bad probe stands for about 5 minutes.
+export const PROBE_MINUTES = 5
+export function bucketLines(b: Service["history"][number], locale?: string): { when: string; state: string; minutes: number | null; detail: string | null } {
+  const start = new Date(b.start)
+  const end = new Date(start.getTime() + 30 * 60 * 1000)
+  // UTC, said so: the page is rendered on the server, whose clock zone is not the reader's.
+  const t = (d: Date) => d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })
+  const when = `${start.toLocaleDateString(locale, { day: "numeric", month: "short", timeZone: "UTC" })}, ${t(start)} to ${t(end)} UTC`
+  const state = b.status === "none" ? "No checks" : b.status === "operational" ? "Operational" : b.status === "degraded" ? "Slow" : "Down"
+  const minutes = b.bad && b.bad > 0 ? b.bad * PROBE_MINUTES : null
+  return { when, state, minutes, detail: b.detail ?? null }
+}
+
+// The last `days` calendar days (UTC), newest first, each with its incidents (by start time), so a quiet day
+// still shows as "No incidents reported".
+export function incidentDays(list: Incident[], days = 7, now = Date.now()): { day: string; items: Incident[] }[] {
+  const out: { day: string; items: Incident[] }[] = []
+  for (let i = 0; i < days; i++) {
+    const d = new Date(now - i * 86_400_000).toISOString().slice(0, 10)
+    out.push({ day: d, items: list.filter((x) => x.start.slice(0, 10) === d).sort((a, b) => b.start.localeCompare(a.start)) })
+  }
+  return out
+}
+
+// "2 h 40 min", "35 min".
+export function duration(minutes: number): string {
+  const m = Math.max(0, Math.round(minutes))
+  if (m < 60) return `${m} min`
+  const h = Math.floor(m / 60)
+  return m % 60 ? `${h} h ${m % 60} min` : `${h} h`
 }
 
 export const pct = (n: number | null) => (n === null ? "No data" : `${n.toFixed(2)}% uptime`)

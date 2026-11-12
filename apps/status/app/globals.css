@@ -74,7 +74,7 @@ a { color: inherit; }
 
 .group { margin-bottom: 28px; }
 .group h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
-.card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; }
 .row { padding: 16px 18px; border-top: 1px solid var(--border); }
 .row:first-child { border-top: 0; }
 .rowtop { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
@@ -86,7 +86,32 @@ a { color: inherit; }
 .state.unknown { color: var(--muted); }
 
 .bars { display: flex; gap: 2px; height: 32px; margin: 12px 0 6px; }
-.bar { flex: 1 1 0; min-width: 0; border-radius: 2px; background: var(--bar-none); }
+.bar { position: relative; flex: 1 1 0; min-width: 0; border-radius: 2px; background: var(--bar-none); }
+.bar:hover { filter: brightness(0.85); }
+
+/* Hover a bar to see its half hour (CSS only, no JavaScript). */
+.tip {
+  position: absolute; top: calc(100% + 10px); left: 50%; transform: translateX(-50%) translateY(-4px);
+  z-index: 10; width: max-content; max-width: 260px; padding: 12px 14px; border-radius: 12px;
+  background: var(--card); border: 1px solid var(--border); box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+  display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--fg);
+  opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 120ms ease-out, transform 120ms ease-out;
+}
+.tip.left { left: 0; transform: translateY(-4px); }
+.tip.right { left: auto; right: 0; transform: translateY(-4px); }
+.bar:hover .tip { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+.bar:hover .tip.left, .bar:hover .tip.right { transform: translateY(0); }
+.tipwhen { font-weight: 600; }
+.tipstate { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; background: color-mix(in oklab, var(--fg) 6%, transparent); font-weight: 600; }
+.tipstate .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--bar-none); flex: none; }
+.tipstate.operational .dot { background: var(--ok-bar); }
+.tipstate.degraded .dot { background: var(--warn-bar); }
+.tipstate.down .dot { background: var(--bad-bar); }
+.tipmin { margin-left: auto; padding-left: 12px; font-weight: 500; color: var(--muted); }
+.tipdetail { color: var(--fg); }
+.tipmeta { color: var(--muted); font-size: 12px; }
+@media (prefers-reduced-motion: reduce) { .tip { transition: none; } }
+@media (hover: none) { .tip { display: none; } }
 .bar.operational { background: var(--ok-bar); }
 .bar.degraded { background: var(--warn-bar); }
 .bar.down { background: var(--bad-bar); }
@@ -95,6 +120,16 @@ a { color: inherit; }
 .impact { margin: 10px 0 0; font-size: 14px; }
 .meta { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
 
+.past { margin-top: 40px; }
+.pasttitle { font-size: 22px; letter-spacing: -0.3px; margin: 0; }
+.pastnote { color: var(--muted); font-size: 13px; margin: 4px 0 16px; }
+.day h3 { font-size: 16px; margin: 20px 0 0; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.quiet { color: var(--muted); margin: 10px 0 0; }
+.incident { margin-top: 12px; }
+.incident p { margin: 2px 0; }
+.ititle { font-weight: 600; font-size: 16px; }
+.ititle.down { color: var(--bad); }
+.ititle.degraded { color: var(--warn); }
 .foot { margin-top: 40px; color: var(--muted); font-size: 13px; }
 .foot p { margin: 4px 0; }
 

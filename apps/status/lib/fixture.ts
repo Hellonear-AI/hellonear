@@ -9,6 +9,9 @@ function history(now: number, badFrom: number, bad: BucketState): Service["histo
   return Array.from({ length: BUCKETS }, (_, i) => ({
     start: new Date(now - (BUCKETS - i) * HALF_HOUR).toISOString(),
     status: i < 4 ? "none" : i >= badFrom ? bad : "operational",
+    checks: i < 4 ? 0 : 6,
+    bad: i >= badFrom && bad !== "operational" ? (i === badFrom ? 3 : 6) : 0,
+    detail: i >= badFrom && bad === "down" ? "No answer in time" : null,
   }))
 }
 
@@ -18,9 +21,15 @@ export function fixture(): Status {
   const ok = (id: string, name: string, group: Service["group"], latencyMs: number, impact: string): Service => ({
     id, name, group, status: "operational", latencyMs, checkedAt: at, detail: null, impact, uptime24h: 100, uptime7d: 99.95, history: history(now, BUCKETS, "operational"),
   })
+  const iso = (msAgo: number) => new Date(now - msAgo).toISOString()
   return {
     updatedAt: at,
     overall: "down",
+    incidents: [
+      { service: "near-intents-quote", name: "NEAR Intents: 1Click quotes", status: "down", start: iso(2 * 3_600_000), end: null, minutes: 120, detail: "1Click answered 500 after 25 s" },
+      { service: "nearai-embeddings", name: "NEAR AI Cloud: embeddings", status: "down", start: iso(9 * 3_600_000), end: null, minutes: 540, detail: "No answer in 8 s" },
+      { service: "agent-market", name: "NEAR AI Agent Market", status: "degraded", start: iso(30 * 3_600_000), end: iso(29.5 * 3_600_000), minutes: 30, detail: "Answered in 3.4 s" },
+    ],
     services: [
       ok("hellonear-api", "HelloNear API", "HelloNear", 42, "The web app can't sign in, chat or pay."),
       ok("hellonear-engine", "Mind engine", "HelloNear", 18, "Minds can't answer; nothing is paid."),

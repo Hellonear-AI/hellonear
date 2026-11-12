@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ago, incidents, pct } from "../lib/status";
+import { ago, duration, incidentDays, incidents, pct } from "../lib/status";
 import { fixture } from "../lib/fixture";
 
 test("incidents lists down before slow, and leaves operational services out", () => {
@@ -23,4 +23,21 @@ test("every fixture service has 48 half-hour buckets, oldest first", () => {
     assert.equal(s.history.length, 48, s.id);
     assert.ok(Date.parse(s.history[0].start) < Date.parse(s.history[47].start), s.id);
   }
+});
+
+test("past incidents: 7 UTC days newest first, quiet days empty, durations readable", () => {
+  const now = Date.parse("2026-11-13T03:00:00Z");
+  const list = [
+    { service: "a", name: "A", status: "down" as const, start: "2026-11-13T01:00:00Z", end: null, minutes: 120, detail: null },
+    { service: "b", name: "B", status: "degraded" as const, start: "2026-11-11T10:00:00Z", end: "2026-11-11T10:30:00Z", minutes: 30, detail: "slow" },
+  ];
+  const days = incidentDays(list, 7, now);
+  assert.equal(days.length, 7);
+  assert.equal(days[0].day, "2026-11-13");
+  assert.equal(days[0].items.length, 1);
+  assert.equal(days[1].items.length, 0);
+  assert.equal(days[2].items[0].service, "b");
+  assert.equal(duration(35), "35 min");
+  assert.equal(duration(160), "2 h 40 min");
+  assert.equal(duration(120), "2 h");
 });

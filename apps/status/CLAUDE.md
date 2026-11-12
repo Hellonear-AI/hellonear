@@ -10,6 +10,8 @@ The public status page, **status.hellonear.xyz**: whether HelloNear and the serv
 - One server-rendered page (`app/page.tsx`), revalidated every 30 s (`revalidate`), so it works without JavaScript. A small client component (`AutoRefresh.tsx`) refreshes it every minute while the tab is visible.
 - If the status API can't be read, the page says so ("Can't reach the status API"); it never shows everything as down.
 - 48 bars of 30 minutes (the last 24 h), each the worst check in it; uptime counts slow answers as up. A down service shows its `impact` line (what users see); a slow one says it still works.
+- **Hover a bar** for its half hour: time range, state, about how long it was bad (`bad` checks × 5 min), the last problem's detail and how many checks ran (optional bucket fields `checks`, `bad`, `detail`). CSS only; hidden on touch screens. Times are UTC everywhere, said so on the page, since it is rendered on the server.
+- **Past incidents:** the backend's `incidents` (runs of failed checks of one service, last 7 days) listed by UTC day like status.claude.com, Ongoing or Resolved with the duration; a quiet day reads "No incidents reported."
 - Styles: plain CSS (`app/globals.css`) with the web app's Stone & Lime tokens, light and dark by `prefers-color-scheme`. Icons are the landing's.
 
 ## Commands
