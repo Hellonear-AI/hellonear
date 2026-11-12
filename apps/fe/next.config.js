@@ -4,8 +4,8 @@
 // The backend still checks the forwarded Origin header against its FE_ORIGIN list.
 const API_URL = (process.env.HELLONEAR_API_URL || "http://localhost:4000").replace(/\/+$/, "")
 
-// hellonear.xyz is the landing page (apps/landing); until it is deployed, the apex redirects here too.
-const OTHER_HOSTS = ["hellonear.xyz", "hellonear.jameshub.fun"]
+// The first public name. hellonear.xyz is the landing page (apps/landing, on its own port since #266).
+const OTHER_HOSTS = ["hellonear.jameshub.fun"]
 
 /** @type {import('next').NextConfig} */
 module.exports = {
@@ -17,7 +17,7 @@ module.exports = {
   // came all at once (Ancung, 10 Nov; the cause is not proven). The hosted build calls the API
   // directly and keeps compression.
   compress: Boolean(process.env.NEXT_PUBLIC_API_URL),
-  // The public web app is https://app.hellonear.xyz. The other names send visitors there, because
+  // The public web app is https://app.hellonear.xyz. The old name sends visitors there, because
   // the build calls one API (api.hellonear.xyz) and the session cookie only reaches it from the same site.
   async redirects() {
     return OTHER_HOSTS.map((host) => ({ source: "/:path*", has: [{ type: "host", value: host }], destination: "https://app.hellonear.xyz/:path*", permanent: false }))
