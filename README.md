@@ -27,7 +27,7 @@ HelloNear gives a person a **Mind**: an AI agent with a persona, memory, skills 
 | **Web app** (no account needed: *Continue as guest*) | **[app.hellonear.xyz](https://app.hellonear.xyz)** |
 | **Landing page** | **[hellonear.xyz](https://hellonear.xyz)** |
 | **API** (NEAR testnet) | **[api.hellonear.xyz/v1/health](https://api.hellonear.xyz/v1/health)** |
-| **Mind registry contract** | **[`hellonear-registry.testnet`](https://testnet.nearblocks.io/address/hellonear-registry.testnet)** (v0.3.0, NEP-330) |
+| **Mind registry contract** | **[`hellonear-registry.testnet`](https://testnet.nearblocks.io/address/hellonear-registry.testnet)** (v0.3.0, NEP-330, [source verified](https://testnet.nearblocks.io/address/hellonear-registry.testnet?tab=contract)) |
 | **API reference** | **[OpenAPI spec](docs/openapi.json)** · [README section](#api-reference) |
 | **Repository** | **[github.com/Hellonear-AI/hellonear](https://github.com/Hellonear-AI/hellonear)** |
 
@@ -209,9 +209,40 @@ Every link opens a public explorer or report. Nothing here needs an account.
 | An owner froze the Mind's wallet | [`HHGf2pqG…`](https://testnet.nearblocks.io/txns/HHGf2pqGRGTEJuA7wn4R18swFC4ssL6XMyXyogFHkDgu) | `freeze_wallet` on `outlayer.testnet`: one signature stops every payment |
 | A payment went through right after the UTC day reset of the daily limit | [`GUn5P1Dp…`](https://testnet.nearblocks.io/txns/GUn5P1DpuJ3XxMw2s9GJAecHR1BVuVtr4wQhTZ54RjG) | The daily cap is enforced by the wallet and resets at 00:00 UTC |
 | The Mind registry contract upgraded to v0.3.0 | [`ESMY36Uo…`](https://testnet.nearblocks.io/txns/ESMY36UoFcdWuw5fbShbNx13Fvf2NB1z1qWWypJNyCwp) | `DeployContract` on `hellonear-registry.testnet`; `contract_source_metadata` answers version 0.3.0, NEP-330 |
+| The same v0.3.0 redeployed from a reproducible build, then source-verified | [`DmidjQmo…`](https://testnet.nearblocks.io/txns/DmidjQmoN15bj2qctXaXDefAW5NGJZFBPqqPPFJoa6Qb) | `build_info` names the build image and commit `95c2b3d`; NearBlocks shows the contract as verified through SourceScan (code hash `GUxsMNJd…`) |
 | A Mind equipped a published skill, paying its publisher | [`6diDXaAY…`](https://testnet.nearblocks.io/txns/6diDXaAYmT8pMtVemsv4xtmzSE8DW7WM5Uprim6aU2a5) | `equip_skill` on the registry |
 
 A payment the policy refuses has **no transaction at all**: OutLayer refuses it in the TEE before signing. The app and the Mind never show a tx link for one.
+
+### The registry contract's source is verified
+
+`hellonear-registry.testnet` runs exactly the code in this repository at commit `95c2b3d`. It was built reproducibly (NEP-330) and verified through SourceScan, so anyone can rebuild it and get the same hash.
+
+| | |
+|---|---|
+| **Status** | **Verified**. The [NearBlocks contract tab](https://testnet.nearblocks.io/address/hellonear-registry.testnet?tab=contract) shows the verified source, and its verify page answers "Contract already verified" |
+| **Code hash on chain** | `GUxsMNJdJKoFq7VJawNeCwW7GjGZE6TpURPj13ojEnub` |
+| **Deploy transaction** | [`DmidjQmoN15bj2qctXaXDefAW5NGJZFBPqqPPFJoa6Qb`](https://testnet.nearblocks.io/txns/DmidjQmoN15bj2qctXaXDefAW5NGJZFBPqqPPFJoa6Qb) (12 Nov 2026, code-only, state unchanged) |
+| **Source** | [`Hellonear-AI/hellonear@95c2b3d`](https://github.com/Hellonear-AI/hellonear/tree/95c2b3d839357583224b4c8fa64b0f03cddc3f80), folder `sc` |
+| **Build image** | `sourcescan/cargo-near:0.21.1-rust-1.96.0@sha256:ccb22bb4e677ed022d8b9d1aa1b32f0af52dd0471ef1c32e48dedbf68ee6ee17` |
+| **Verifier** | SourceScan `v2-verifier.sourcescan.testnet`; its record holds the same code hash and the source on IPFS (`QmX4dYjf9v798uF4Uuf11EPMA83Le84sCg6UsmaGdgrMdc`) |
+
+Check it without a browser (public RPC, no key). Each command should print the value in the table:
+
+```sh
+RPC=https://test.rpc.fastnear.com
+
+# 1. The code hash deployed on the account
+curl -s $RPC -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"view_account","finality":"final","account_id":"hellonear-registry.testnet"}}' | jq -r .result.code_hash
+
+# 2. The contract names its own source and build (NEP-330 contract_source_metadata)
+curl -s $RPC -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"call_function","finality":"final","account_id":"hellonear-registry.testnet","method_name":"contract_source_metadata","args_base64":"e30="}}' | jq -r '.result.result | implode | fromjson | .build_info'
+
+# 3. SourceScan's verification record for the account
+curl -s $RPC -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"call_function","finality":"final","account_id":"v2-verifier.sourcescan.testnet","method_name":"get_contract","args_base64":"eyJhY2NvdW50X2lkIjoiaGVsbG9uZWFyLXJlZ2lzdHJ5LnRlc3RuZXQifQ=="}}' | jq -r '.result.result | implode | fromjson | .code_hash'
+```
+
+To rebuild it yourself (needs Docker): `git checkout 95c2b3d && cd sc && cargo near build reproducible-wasm`, then compare the SHA-256 (base58) of `target/near/hellonear_mind_registry.wasm` with the code hash above.
 
 ### The proof behind a verified reply (NEAR AI Cloud TEE)
 
@@ -733,7 +764,6 @@ Stated plainly, so nothing here surprises a judge:
 - **App accounts:** Gmail, Google Calendar and Meet, Sheets, Drive, Docs and Notion were used by the team with real accounts. Changing Sheets cells, moving Calendar events, updating Notion rows and appending to Docs were tested against a stand-in for Composio, not yet on a real account. Zoom, Outlook and Slack are wired but not yet tried with a real account.
 - **The owner's payment rule** was tested on a local stack against a stand-in OutLayer. OutLayer's TEE checks every payment either way.
 - **Model behaviour varies.** Over repeated runs the model sometimes declines a payment it could have put on a card. The approval and the wallet policy, not the model, are what guarantee the outcome.
-- **Contract verification** on NearBlocks needs a reproducible build from the public repository; the deployed v0.3.0 was a non-reproducible build (`build_info: null`).
 
 ---
 

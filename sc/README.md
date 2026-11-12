@@ -55,7 +55,19 @@ cargo near deploy build-non-reproducible-wasm hellonear-registry.testnet with-in
 
 ## Source verification
 
-Not verified yet: the testnet deploy used a non-reproducible build, so `contract_source_metadata.build_info` is `null`. Per [Production Builds](https://docs.near.org/smart-contracts/anatomy/reduce-size) and the [SourceScan guide](https://github.com/SourceScan/verification-guide), verification needs a **reproducible build** (`cargo near deploy build-reproducible-wasm …`, Docker/OrbStack, all changes committed and pushed) from a **public** repository, then **Verify and Publish** on the NearBlocks contract page. Do this once the repo is public (#22).
+**Verified** on [NearBlocks](https://testnet.nearblocks.io/address/hellonear-registry.testnet?tab=contract) through SourceScan (`v2-verifier.sourcescan.testnet`) since 12 Nov 2026. The deployed WASM was built reproducibly, so `contract_source_metadata.build_info` names the build image and the exact commit, and anyone can rebuild it and get the same code hash:
+
+- build environment `sourcescan/cargo-near:0.21.1-rust-1.96.0@sha256:ccb22bb4…`, contract path `sc`;
+- source `git+https://github.com/Hellonear-AI/hellonear?rev=95c2b3d839357583224b4c8fa64b0f03cddc3f80`;
+- on-chain code hash `GUxsMNJdJKoFq7VJawNeCwW7GjGZE6TpURPj13ojEnub`, the same one SourceScan stores (`get_contract` on the verifier).
+
+To redeploy reproducibly (Docker/OrbStack, everything committed and pushed to the public repo):
+
+```sh
+cargo near deploy build-reproducible-wasm hellonear-registry.testnet without-init-call network-config testnet sign-with-keychain send
+```
+
+Then **Verify and Publish** on the NearBlocks contract page (the form fills itself from `build_info`).
 
 ## Deploy (testnet)
 
@@ -64,6 +76,11 @@ cargo near deploy build-non-reproducible-wasm <account>.testnet with-init-call n
 ```
 
 **Deployed (testnet): `hellonear-registry.testnet`, now v0.3.0**
+
+Reproducible redeploy of v0.3.0 (12 Nov 2026, from `main` at `95c2b3d`), so the source can be verified:
+- Same contract code, built with `build-reproducible-wasm`; code-only deploy, no init call: [`DmidjQmo…`](https://testnet.nearblocks.io/txns/DmidjQmoN15bj2qctXaXDefAW5NGJZFBPqqPPFJoa6Qb). Before it, `cargo test` passed locally (17 unit, 2 registry sandbox, 2 migration). Two builds gave the same hash.
+- On-chain `code_hash` `GUxsMNJdJKoFq7VJawNeCwW7GjGZE6TpURPj13ojEnub`; `build_info` filled; version still 0.3.0.
+- Minds, skills and equipped skills read back unchanged. Nothing changed for the app, backend or engine (same account, same methods).
 
 Upgrade v0.2.0 → v0.3.0 (7 Nov 2026, from `main` at `7b713d1`):
 - Code-only deploy, no init call: [`ESMY36Uo…`](https://explorer.testnet.near.org/transactions/ESMY36UoFcdWuw5fbShbNx13Fvf2NB1z1qWWypJNyCwp). Before it, `cargo test` passed locally (17 unit, 2 registry sandbox, 2 migration incl. v0.2.0 → current).
