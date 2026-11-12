@@ -1042,6 +1042,42 @@
         ]
       }
     },
+    "/v1/minds/{mindId}/payments.csv": {
+      "get": {
+        "tags": [
+          "Wallet"
+        ],
+        "summary": "Every payment as a CSV an accountant can open",
+        "responses": {
+          "200": {
+            "description": "`text/csv; charset=utf-8` (UTF-8 with a BOM, CRLF), downloaded as `hellonear-{mindId}-payments.csv`. Columns: Date (UTC), Status (in words; refused rows say no money moved), Direction, Amount (NEAR), Counterparty, Purpose (the data report or Mind offer it bought), Approved by (`owner` or `your rule`), Transaction hash, Explorer link (NearBlocks testnet), Note. Newest first, up to 10,000 rows",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "`mind_not_found` (not yours)"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
     "/v1/minds/{mindId}/wallet/policy": {
       "post": {
         "tags": [
@@ -2034,6 +2070,54 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/v1/relay": {
+      "post": {
+        "tags": [
+          "Wallet"
+        ],
+        "summary": "Meta-transaction relayer: HelloNear pays the gas for an owner's signed registry call (NEP-366)",
+        "description": "The owner signs a delegate action in their own NEAR wallet; the relayer wraps it in a transaction and pays the gas. Only for `REGISTRY_CONTRACT_ID`, only `unequip_skill` and `set_wallet` with exactly 1 yoctoNEAR (the relayer would pay any deposit), at most 4 calls of at most 30 Tgas, a full-access key, a nonce above the key's, and an expiry at most 1000 blocks ahead. 10 per owner per hour.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "signedDelegate"
+                ],
+                "properties": {
+                  "signedDelegate": {
+                    "type": "string",
+                    "description": "Base64 of the Borsh-encoded SignedDelegate (near-api-js `encodeSignedDelegate`)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "`{ txHash, status: \"success\" | \"failure\", senderId, receiverId, methods, failure? }`"
+          },
+          "400": {
+            "description": "`invalid_signed_delegate | receiver_not_allowed | method_not_allowed | deposit_not_allowed | action_not_allowed | too_many_actions | gas_too_high | args_too_large | args_not_json | unsupported_key_type | bad_signature | delegate_expired | delegate_ttl_too_long | unknown_access_key | key_not_full_access | stale_nonce`"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "`delegate_sender_mismatch` (signed by another account) | `demo_not_allowed`"
+          },
+          "429": {
+            "description": "`relay_rate_limited`"
+          },
+          "503": {
+            "description": "`relay_not_configured | rpc_unreachable | relay_failed`"
           }
         }
       }

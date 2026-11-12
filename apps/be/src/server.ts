@@ -11,10 +11,11 @@ import { TOOLKITS, connect, disconnect, listConnections, toolkitSchema } from '.
 import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, playgroundAttackOf, playgroundMind, requireMind, updateMind, updateMindSchema, type Mind } from './minds.ts'
 import { cancelRun, getRun, isAwaiting, listRuns, mindEvents, pendingApprovals, relayRun, runEvents, runProofs, sweepStuckRuns } from './runs.ts'
 import { explorerReport, quotesOf } from './teeExplorer.ts'
+import { relay } from './relay.ts'
 import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema, secretsForRun } from './secrets.ts'
 import { addressRuleOf, assertWalletEmpty, createWallet, freezeTransaction, getWallet, hasWallet, isDemoMind, policySchema, policyTransaction } from './wallets.ts'
-import { listPayments, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
-import { itemSchema, sellerSchema, shop, txHashSchema } from './shop.ts'
+import { listPayments, paymentsCsv, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
+import { itemSchema, offerNearSchema, sellerSchema, shop, txHashSchema } from './shop.ts'
 import { buyOffer, offerItemSchema, putOffer, putOfferSchema } from './offers.ts'
 import { issueMailToken, issueWalletToken, verifyMailToken, verifyWalletToken } from './walletToken.ts'
 import { EMAIL_SKILL, ensureInbox, inboxOf, listMail, listSends, mailEnabled, messageIdSchema, ownerMailSchema, readMail, releaseInbox, sendMail, sendMailSchema, sendMailToOwner } from './mail.ts'
@@ -272,7 +273,11 @@ export const server = createServer(async (req, res) => {
       // Best Price Buyer (#176): the price list, without paying; it takes no seller or tx.
       const quotes = url.searchParams.get('quotes')
       if (quotes !== null && (quotes !== '1' || tx !== null || seller !== null)) throw new HttpError(400, 'invalid_query')
-      const out = await shop(mindId, item.data, { txHash: tx ?? undefined, seller: seller ?? undefined, quotes: quotes === '1' })
+      // Negotiation: an offer to one seller (`?seller=&offer=`), and the same offer again on the paid step.
+      const offer = url.searchParams.get('offer')
+      if (offer !== null && (quotes !== null || seller === null)) throw new HttpError(400, 'invalid_query')
+      if (offer !== null && !offerNearSchema.safeParse(offer).success) throw new HttpError(400, 'invalid_offer')
+      const out = await shop(mindId, item.data, { txHash: tx ?? undefined, seller: seller ?? undefined, quotes: quotes === '1', offerNear: offer ?? undefined })
       return sendJson(res, out.httpStatus, out.body)
     }
     // Mind as Seller (#181): a Mind publishes what it sells (`PUT /internal/v1/offers/{item}`) and another Mind buys it
@@ -340,6 +345,14 @@ export const server = createServer(async (req, res) => {
     const skillRoute = route('GET', /^\/v1\/skills\/([^/]+)$/)
     // Skill ids are [a-z0-9-] in the engine; anything else is unknown and never reaches it.
     if (skillRoute) return /^[a-z0-9-]{1,64}$/.test(skillRoute[1]) ? sendJson(res, 200, { skill: await skill(skillRoute[1]) }) : sendJson(res, 404, { error: 'unknown_skill' })
+
+    // Meta-transaction relayer (realworld track, src/relay.ts): the owner's signed delegate action for an allowed registry
+    // call; the relayer pays the gas. Try-out users have no NEAR account to sign with.
+    if (route('POST', /^\/v1\/relay$/)) {
+      denyDemo(user, 'relay')
+      const { signedDelegate } = await readBody(req, z.object({ signedDelegate: z.string().min(1).max(12_000) }))
+      return sendJson(res, 200, await relay(signedDelegate, user.nearAccountId))
+    }
 
     // Secrets (#18): names and hosts only ever leave the backend, never values.
     if (route('GET', /^\/v1\/secrets$/)) return sendJson(res, 200, { secrets: await listSecrets(user.id) })
@@ -440,6 +453,12 @@ export const server = createServer(async (req, res) => {
       if (sub === '/wallet' && req.method === 'POST') return sendJson(res, 201, { wallet: await createWallet(mind.id) })
       if (sub === '/wallet' && req.method === 'GET') return sendJson(res, 200, { wallet: await getWallet(mind.id) })
       if (sub === '/wallet/payments' && req.method === 'GET') return sendJson(res, 200, { payments: await listPayments(mind.id, limitOf(url, 20, 100)) })
+      // Every payment as a CSV an accountant can open (realworld track).
+      if (sub === '/payments.csv' && req.method === 'GET') {
+        const csv = await paymentsCsv(mind.id)
+        res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="hellonear-${mind.id}-payments.csv"`, 'cache-control': 'no-store' }).end(csv)
+        return
+      }
       if (sub === '/wallet/policy' && req.method === 'POST') denyDemo(user, 'set_policy')
       if (sub === '/wallet/policy' && req.method === 'POST') return sendJson(res, 200, { transaction: await policyTransaction(mind.id, user.nearAccountId, await readBody(req, policySchema)) })
       if ((sub === '/wallet/freeze' || sub === '/wallet/unfreeze') && req.method === 'POST') denyDemo(user, 'freeze')

@@ -34,6 +34,13 @@ export const config = {
   authRecipient: process.env.AUTH_RECIPIENT ?? 'hellonear.app',
   authMessage: 'Sign in to HelloNear',
   nearRpcUrl: process.env.NEAR_RPC_URL ?? 'https://rpc.testnet.near.org',
+  // Meta-transaction relayer (realworld track, src/relay.ts): it pays gas only for allowed calls to the registry contract.
+  // Off (503 relay_not_configured) until both relayer values are set. rpc.testnet.near.org is deprecated, so the relay
+  // defaults to FastNear's testnet RPC unless NEAR_RPC_URL names another.
+  registryContractId: process.env.REGISTRY_CONTRACT_ID ?? 'hellonear-registry.testnet',
+  relayerAccountId: process.env.RELAYER_ACCOUNT_ID ?? '',
+  relayerPrivateKey: process.env.RELAYER_PRIVATE_KEY ?? '',
+  relayRpcUrl: process.env.NEAR_RPC_URL ?? 'https://test.rpc.fastnear.com',
   cookieSecure: process.env.COOKIE_SECURE === 'true',
   // Judge try-out mode (#43). Off unless DEMO_MODE=true; the shared demo wallet's agent key is optional.
   demoMode: process.env.DEMO_MODE === 'true',
