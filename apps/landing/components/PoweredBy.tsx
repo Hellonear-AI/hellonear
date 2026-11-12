@@ -1,4 +1,4 @@
-// "Our partners" then "Powered by" (#99): the services HelloNear really runs on (files in public/brands/powered, from design/brands), as a logo strip that slides sideways in a
+// "Built with" then "Powered by" (#99): the services HelloNear really runs on (files in public/brands/powered, from design/brands), as a logo strip that slides sideways in a
 // loop. Logos come from each company's own brand kit (sources in design/brands/README.md) and are not
 // recoloured. The row is drawn twice so the loop is seamless; it pauses on hover and stands still for
 // reduced motion. Logos link nowhere.
@@ -113,7 +113,7 @@ function AppRow({ hidden }: { hidden?: boolean }) {
 export function PoweredBy() {
   return (
     <section aria-label="Powered by" className="flex flex-col items-center gap-8 pb-4 pt-16 [--logo-k:0.75] md:[--logo-k:1]">
-      <p className="text-[13px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]">Our partners</p>
+      <p className="text-[13px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]">Built with</p>
       <Partners />
       <p className="mt-6 text-[13px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-3)]">Powered by</p>
       <div className="marquee relative w-full overflow-hidden">
