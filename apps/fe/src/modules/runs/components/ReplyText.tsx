@@ -9,16 +9,49 @@ import { prefersReducedMotion } from "@/lib/media"
 // Chat streaming (design/CLAUDE.md, Motion): chunks are buffered and revealed at a steady pace,
 // each new word fades in over about 200 ms, no fake cursor. A finished reply renders as Markdown.
 
-// Whole words at a steady pace (Ancung, 11 Nov: 140 characters a second felt slow). The speed
-// follows the backlog smoothly: it aims to show what has arrived within about 0.8 s, and eases
-// toward that instead of jumping. Before, it leapt to ten times the base whenever text piled up
-// and dropped back when it ran out; text arrives in bursts, so the reply sped up and stalled,
-// which read as choppy (Ancung, 11 Nov).
+// Whole words at the pace the text arrives (Ancung, 12 Nov: it still read choppy). Measured on the
+// hosted demo: the model sends about 45 characters a second, in bursts every 0.5 s. A fixed
+// 220 a second showed each burst at once and then waited, so words came in clumps half a second
+// apart. Now the reply plays the text as it stood a short delay ago, spread evenly between the
+// bursts (like a video player's buffer); the delay follows how far apart the bursts are.
 const BASE_CHARS_PER_SECOND = 220
-/** How long a backlog may take to show, at most. */
+/** Once the stream has ended, the rest shows within about this long. */
 const DRAIN_SECONDS = 0.8
-/** How quickly the speed follows its target each frame (0 to 1). */
+/** How quickly the drain speed follows its target each frame (0 to 1). */
 const SPEED_EASE = 0.12
+/** The playout delay: a little longer than the usual gap between bursts, within these bounds. */
+const MIN_DELAY_MS = 120
+const MAX_DELAY_MS = 700
+
+/** When each length of the text arrived. */
+export type Arrival = { t: number; len: number }
+
+/**
+ * How much text to show at `at` (a time `delay` behind now): the arrivals joined by straight
+ * lines, so the text grows evenly between bursts instead of jumping at each one.
+ */
+export function playoutLength(arrivals: Arrival[], at: number): number {
+  let len = 0
+  for (let i = 0; i < arrivals.length; i++) {
+    const a = arrivals[i]
+    if (at < a.t) break
+    const b = arrivals[i + 1]
+    len = b && at < b.t ? a.len + ((b.len - a.len) * (at - a.t)) / (b.t - a.t) : (b?.len ?? a.len)
+  }
+  return len
+}
+
+/** The delay for these arrivals: the larger usual gap (the third largest of the last ten), bounded. Pauses for a tool don't count. */
+export function playoutDelay(arrivals: Arrival[]): number {
+  const recent = arrivals.slice(-11)
+  const gaps = recent
+    .slice(1)
+    .map((a, i) => a.t - recent[i].t)
+    .filter((g) => g < 1500)
+    .sort((x, y) => y - x)
+  const usual = gaps[Math.min(2, gaps.length - 1)] ?? 0
+  return Math.min(MAX_DELAY_MS, Math.max(MIN_DELAY_MS, usual * 1.1))
+}
 
 /** The next word boundary at or after `at`, so a word never shows half typed. */
 export function wordEnd(text: string, at: number): number {
@@ -55,10 +88,23 @@ function useRevealed(text: string, live: boolean): number {
   const [shown, setShown] = useState(live ? 0 : text.length)
   const shownRef = useRef(shown)
   const target = useRef(text)
+  const liveRef = useRef(live)
+  const arrivals = useRef<Arrival[]>([])
   const speed = useRef(BASE_CHARS_PER_SECOND)
 
   useEffect(() => {
+    liveRef.current = live
+  }, [live])
+
+  useEffect(() => {
     target.current = text
+    const now = performance.now()
+    const log = arrivals.current
+    if (text.length > (log.at(-1)?.len ?? 0)) {
+      // The first burst starts as if it had come in at the base speed, so it doesn't sit hidden for the whole delay.
+      if (!log.length) log.push({ t: now - (text.length / BASE_CHARS_PER_SECOND) * 1000, len: shownRef.current })
+      log.push({ t: now, len: text.length })
+    }
     if (shownRef.current >= text.length) return
     if (prefersReducedMotion()) {
       shownRef.current = text.length
@@ -67,22 +113,28 @@ function useRevealed(text: string, live: boolean): number {
       return
     }
     let frame = 0
-    let last = performance.now()
+    let last = now
     let budget = 0
-    const tick = (now: number) => {
+    const tick = (at: number) => {
       const full = target.current
-      const behind = full.length - shownRef.current
-      const dt = Math.min(0.1, (now - last) / 1000)
-      last = now
-      // Ease toward the speed that shows the backlog in DRAIN_SECONDS, never below the base.
-      const want = Math.max(BASE_CHARS_PER_SECOND, behind / DRAIN_SECONDS)
-      speed.current += (want - speed.current) * SPEED_EASE
-      budget += dt * speed.current
-      const next = wordEnd(full, Math.min(full.length, shownRef.current + Math.floor(budget)))
+      const dt = Math.min(0.1, (at - last) / 1000)
+      last = at
+      let goal: number
+      if (liveRef.current) {
+        // While it streams: the text as it stood a short delay ago, spread evenly between bursts.
+        goal = playoutLength(arrivals.current, at - playoutDelay(arrivals.current))
+      } else {
+        // The stream ended: show the rest within DRAIN_SECONDS, never slower than the base.
+        const want = Math.max(BASE_CHARS_PER_SECOND, (full.length - shownRef.current) / DRAIN_SECONDS)
+        speed.current += (want - speed.current) * SPEED_EASE
+        budget += dt * speed.current
+        goal = shownRef.current + budget
+      }
+      const next = wordEnd(full, Math.min(full.length, Math.floor(goal)))
       if (next > shownRef.current) {
         budget = Math.max(0, budget - (next - shownRef.current))
         shownRef.current = next
-        // Every frame: only the last block re-renders now, so this stays cheap.
+        // Only the last block re-renders, so a frame stays cheap.
         setShown(next)
       }
       if (shownRef.current < target.current.length) frame = requestAnimationFrame(tick)
