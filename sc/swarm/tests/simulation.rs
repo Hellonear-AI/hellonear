@@ -1,5 +1,6 @@
 // The swarm market with 20 buyer agents and 5 seller agents on a local NEAR sandbox, with scripted strategies and no
 // LLM calls. Every join, commit, reveal and withdraw is a real transaction signed by that agent's own sub-account.
+// Each round runs on its fixed timeline (10 minutes to commit, 10 to reveal); the sandbox clock is fast-forwarded.
 // Run: cargo test --test simulation -- --nocapture   (writes simulation-report.md next to Cargo.toml)
 mod common;
 use common::{NEAR, Swarm, commitment, u};
@@ -9,6 +10,7 @@ use std::fmt::Write as _;
 
 const MILLI: u128 = NEAR / 1000;
 const BUYERS: usize = 20;
+const BOND: u128 = 10 * MILLI; // each seller's bond per round, lost to the buyers if it never reveals
 const ROUNDS: [(&str, u128); 3] = [("gpu-hours", 50), ("gpu-hours", 40), ("gpu-hours", 45)]; // ceilings in milliNEAR per unit
 
 /// A tiny deterministic generator (64-bit LCG), so the simulation gives the same market every run.
@@ -74,6 +76,8 @@ async fn twenty_buyers_five_sellers() -> testresult::TestResult<()> {
     }
 
     let slack = NEAR / 20;
+    // Measured once the deploy (signed by the contract account itself) has settled.
+    let free_at_start = swarm.contract_free().await?;
     let mut adaptive_ask = 60 * MILLI;
     let mut last_price: Option<u128> = None;
     let mut adaptive_sold_last = true;
@@ -87,7 +91,9 @@ async fn twenty_buyers_five_sellers() -> testresult::TestResult<()> {
 
     for (n, (item, ceiling_milli)) in ROUNDS.iter().enumerate() {
         let ceiling = ceiling_milli * MILLI;
-        let opened = swarm.call(&org, "open_round", json!({ "item": item, "max_price_per_unit": ceiling.to_string(), "deadline_minutes": 60 }), slack).await?;
+        let opened = swarm
+            .call(&org, "open_round", json!({ "item": item, "max_price_per_unit": ceiling.to_string(), "seller_bond": BOND.to_string(), "commit_minutes": 10, "reveal_minutes": 10 }), slack)
+            .await?;
         let id: u64 = opened.assert_success().json()?;
         txs += 1;
 
@@ -112,7 +118,7 @@ async fn twenty_buyers_five_sellers() -> testresult::TestResult<()> {
         }
         let mut plans: Vec<Option<(u128, u32, String)>> = vec![];
         for (i, st) in strategies.iter().enumerate() {
-            let salt = format!("r{id}-s{i}-{}", rng.next());
+            let salt = format!("r{id}-s{i}-{:016}", rng.next());
             let plan = match *st {
                 Strategy::CostPlus { cost, margin, capacity } => Some((cost * (100 + margin) / 100, capacity, salt)),
                 Strategy::SmallCheap { ask, capacity } => Some((ask, capacity, salt)),
@@ -120,15 +126,15 @@ async fn twenty_buyers_five_sellers() -> testresult::TestResult<()> {
                 Strategy::Adaptive { capacity, .. } => Some((adaptive_ask, capacity, salt)),
             };
             if let Some((ask, cap, salt)) = &plan {
-                let c = commitment(&swarm, *ask, *cap, salt).await?;
-                swarm.call(&sellers[i], "commit", json!({ "round_id": id, "commitment": c }), slack).await?.assert_success();
+                let c = commitment(&swarm, id, &sellers[i], *ask, *cap, salt).await?;
+                swarm.call(&sellers[i], "commit", json!({ "round_id": id, "commitment": c }), BOND + slack).await?.assert_success();
                 txs += 1;
             }
             plans.push(plan);
         }
 
-        swarm.call(&org, "start_reveal", json!({ "round_id": id }), 0).await?.assert_success();
-        txs += 1;
+        // The commit window ends on the clock fixed at open; nobody has to start the reveal.
+        swarm.advance_minutes(10).await?;
         for (i, plan) in plans.iter().enumerate() {
             if matches!(strategies[i], Strategy::Bluffer) {
                 continue;
@@ -138,36 +144,45 @@ async fn twenty_buyers_five_sellers() -> testresult::TestResult<()> {
                 txs += 1;
             }
         }
-        swarm.call(&org, "close_round", json!({ "round_id": id }), 0).await?.assert_success();
+        // The bluffer never reveals, so the round can only close once the reveal window is over; then anyone may close
+        // it. A different buyer closes each round, to show the organizer has no special power.
+        swarm.advance_minutes(10).await?;
+        let closer = &buyers[n * 7 % BUYERS].0;
+        swarm.call(closer, "close_round", json!({ "round_id": id }), 0).await?.assert_success();
         txs += 1;
 
         // Read the settled round back from the chain and check the money adds up.
         let r: Value = swarm.view("get_round", json!({ "round_id": id })).await?;
         let price = r["clearing_price"].as_str().map(|_| u(&r["clearing_price"]));
+        let mut bonus_sum = 0u128;
         let paid: u128 = r["buyers"].as_array().unwrap().iter().map(|b| u(&b["paid"])).sum();
         let earned: u128 = r["sellers"].as_array().unwrap().iter().map(|s| u(&s["earned"])).sum();
         assert_eq!(paid, earned, "round {id}: buyers paid what sellers earned");
         for b in r["buyers"].as_array().unwrap() {
             assert_eq!(u(&b["paid"]) + u(&b["refund"]), u(&b["escrow"]));
+            bonus_sum += u(&b["bonus"]);
             if let Some(p) = price {
                 assert!(p <= ceiling);
             }
         }
+        assert_eq!(bonus_sum, u(&r["forfeited"]), "round {id}: every forfeited bond went to the buyers");
+        assert_eq!(u(&r["forfeited"]), BOND, "round {id}: only the bluffer lost its bond");
         let adaptive = &r["sellers"].as_array().unwrap()[4];
         adaptive_sold_last = adaptive["sold"].as_u64().unwrap_or(0) > 0;
         last_price = price.or(last_price);
 
         let mut table = String::new();
         let _ = writeln!(table, "## Round {} ({item}, ceiling {} NEAR per unit)\n", n + 1, near(ceiling));
-        let _ = writeln!(table, "{joined} of {BUYERS} buyers joined (the rest will not pay this ceiling). Demand {} units, filled {}, clearing price **{} NEAR** per unit.\n", r["demand"], r["filled"], price.map(near).unwrap_or_else(|| "none".into()));
-        let _ = writeln!(table, "| Seller | Revealed ask | Capacity | Sold | Earned (NEAR) |\n|---|---|---|---|---|");
+        let _ = writeln!(table, "{joined} of {BUYERS} buyers joined (the rest will not pay this ceiling). Demand {} units, filled {}, clearing price **{} NEAR** per unit. Closed by `{closer}` after the reveal window. Forfeited bonds shared out to buyers: {} NEAR.\n", r["demand"], r["filled"], price.map(near).unwrap_or_else(|| "none".into()), near(u(&r["forfeited"])));
+        let _ = writeln!(table, "| Seller | Revealed ask | Capacity | Sold | Earned (NEAR) | Bond ({} NEAR) |\n|---|---|---|---|---|---|", near(BOND));
         for s in r["sellers"].as_array().unwrap() {
             let ask = if s["ask_per_unit"].is_null() { "never revealed".to_string() } else if u(&s["ask_per_unit"]) > ceiling { format!("{} (above ceiling)", near(u(&s["ask_per_unit"]))) } else { near(u(&s["ask_per_unit"])) };
-            let _ = writeln!(table, "| `{}` | {ask} | {} | {} | {} |", s["account"].as_str().unwrap_or(""), s["capacity"].as_u64().map(|c| c.to_string()).unwrap_or_else(|| "-".into()), s["sold"], near(u(&s["earned"])));
+            let bond = if s["ask_per_unit"].is_null() { "forfeited to buyers" } else { "returned on reveal" };
+            let _ = writeln!(table, "| `{}` | {ask} | {} | {} | {} | {bond} |", s["account"].as_str().unwrap_or(""), s["capacity"].as_u64().map(|c| c.to_string()).unwrap_or_else(|| "-".into()), s["sold"], near(u(&s["earned"])));
         }
-        let _ = writeln!(table, "\n| Buyer | Units | Filled | Paid (NEAR) | Refund (NEAR) |\n|---|---|---|---|---|");
+        let _ = writeln!(table, "\n| Buyer | Units | Filled | Paid (NEAR) | Refund (NEAR) | Bond share (NEAR) |\n|---|---|---|---|---|---|");
         for b in r["buyers"].as_array().unwrap() {
-            let _ = writeln!(table, "| `{}` | {} | {} | {} | {} |", b["account"].as_str().unwrap_or(""), b["units"], b["filled"], near(u(&b["paid"])), near(u(&b["refund"])));
+            let _ = writeln!(table, "| `{}` | {} | {} | {} | {} | {:.6} |", b["account"].as_str().unwrap_or(""), b["units"], b["filled"], near(u(&b["paid"])), near(u(&b["refund"])), u(&b["bonus"]) as f64 / NEAR as f64);
         }
         println!("{table}");
         report.push_str(&table);
@@ -176,7 +191,7 @@ async fn twenty_buyers_five_sellers() -> testresult::TestResult<()> {
 
     // Everyone with a balance pulls it; the contract ends holding no one's money.
     let mut withdrawn = 0u128;
-    let mut payouts = String::from("## Payouts\n\nEach agent pulled its own balance with `withdraw` (refunds for buyers, sales for sellers):\n\n| Account | Withdrawn (NEAR) |\n|---|---|\n");
+    let mut payouts = String::from("## Payouts\n\nEach agent pulled its own balance with `withdraw` (refunds and bond shares for buyers, sales and returned bonds for sellers):\n\n| Account | Withdrawn (NEAR) |\n|---|---|\n");
     for who in buyers.iter().map(|(b, _)| b).chain(sellers.iter()) {
         let bal = u(&swarm.view("balance_of", json!({ "account_id": who })).await?);
         if bal == 0 {
@@ -184,7 +199,7 @@ async fn twenty_buyers_five_sellers() -> testresult::TestResult<()> {
             continue;
         }
         let before = swarm.near_of(who).await?;
-        swarm.call(who, "withdraw", json!({}), 0).await?.assert_success();
+        swarm.call(who, "withdraw", json!({}), 1).await?.assert_success();
         txs += 1;
         let gained = swarm.near_of(who).await? - before;
         assert!(gained + NEAR / 100 > bal && gained <= bal, "{who} withdrew {gained}, expected about {bal}");
@@ -193,6 +208,11 @@ async fn twenty_buyers_five_sellers() -> testresult::TestResult<()> {
         let _ = writeln!(payouts, "| `{who}` | {} |", near(bal));
     }
     let _ = writeln!(payouts, "\nTotal withdrawn: {} NEAR. Transactions signed by agents in this run: {txs} (plus 27 account creations and the deploy).", near(withdrawn));
+    // The contract paid no storage out of its own balance or anyone's escrow (audit finding 5): after every payout it
+    // has at least the free balance it started with (plus the 1 yoctoNEAR per withdraw and gas rewards).
+    let free_at_end = swarm.contract_free().await?;
+    assert!(free_at_end >= free_at_start, "free balance fell from {free_at_start} to {free_at_end}");
+    let _ = writeln!(payouts, "\nThe contract's free balance (balance minus storage) was {} NEAR before the first round and {} NEAR after the last payout: storage was always paid by the caller who added it, never out of escrow.", near(free_at_start), near(free_at_end));
     println!("{payouts}");
     report.push_str(&payouts);
     std::fs::write(concat!(env!("CARGO_MANIFEST_DIR"), "/simulation-report.md"), report)?;

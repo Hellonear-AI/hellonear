@@ -74,14 +74,38 @@ impl Swarm {
         Ok(self.contract.call_function(method, args).read_only::<Value>().fetch_from(&self.net).await?.data)
     }
 
+    /// Moves the sandbox clock forward by at least `minutes` (fast-forwarding blocks), so a round's deadlines pass.
+    pub async fn advance_minutes(&self, minutes: u64) -> testresult::TestResult<()> {
+        let target = self.now_ns().await? + minutes * 60_000_000_000;
+        while self.now_ns().await? < target {
+            self.sandbox.fast_forward(500).await?;
+        }
+        Ok(())
+    }
+
+    pub async fn now_ns(&self) -> testresult::TestResult<u64> {
+        Ok(near_api::Chain::block().at(near_api::Reference::Final).fetch_from(&self.net).await?.header.timestamp)
+    }
+
+    /// The contract's balance minus what its storage locks: what it could lose without breaking (audit finding 5).
+    pub async fn contract_free(&self) -> testresult::TestResult<u128> {
+        let a = near_api::Account(self.contract.account_id().clone()).view().fetch_from(&self.net).await?.data;
+        Ok(a.amount.as_yoctonear() - a.storage_usage as u128 * 10_000_000_000_000_000_000)
+    }
+
     pub async fn near_of(&self, who: &AccountId) -> testresult::TestResult<u128> {
         Ok(near_api::Tokens::account(who.clone()).near_balance().fetch_from(&self.net).await?.total.as_yoctonear())
     }
 }
 
-/// The commitment a seller sends, computed by the contract's own view so the hash matches exactly.
-pub async fn commitment(swarm: &Swarm, ask: u128, capacity: u32, salt: &str) -> testresult::TestResult<String> {
-    Ok(swarm.view("commitment_for", json!({ "ask_per_unit": ask.to_string(), "capacity": capacity, "salt": salt })).await?.as_str().unwrap_or_default().to_string())
+/// The commitment `seller` sends in `round_id`, computed by the contract's own view so the hash matches exactly.
+pub async fn commitment(swarm: &Swarm, round_id: u64, seller: &AccountId, ask: u128, capacity: u32, salt: &str) -> testresult::TestResult<String> {
+    Ok(swarm
+        .view("commitment_for", json!({ "round_id": round_id, "seller": seller, "ask_per_unit": ask.to_string(), "capacity": capacity, "salt": salt }))
+        .await?
+        .as_str()
+        .unwrap_or_default()
+        .to_string())
 }
 
 pub fn u(v: &Value) -> u128 {
