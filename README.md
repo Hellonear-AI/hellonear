@@ -27,6 +27,7 @@ HelloNear gives a person a **Mind**: an AI agent with a persona, memory, skills 
 | **Web app** (no account needed: *Continue as guest*) | **[app.hellonear.xyz](https://app.hellonear.xyz)** |
 | **Landing page** | **[hellonear.xyz](https://hellonear.xyz)** |
 | **API** (NEAR testnet) | **[api.hellonear.xyz/v1/health](https://api.hellonear.xyz/v1/health)** |
+| **Status** (HelloNear and every provider it uses, checked every 5 minutes) | **[status.hellonear.xyz](https://status.hellonear.xyz)** · raw: [api.hellonear.xyz/v1/status](https://api.hellonear.xyz/v1/status) |
 | **Mind registry contract** | **[`hellonear-registry.testnet`](https://testnet.nearblocks.io/address/hellonear-registry.testnet)** (v0.3.0, NEP-330, [source verified](https://testnet.nearblocks.io/address/hellonear-registry.testnet?tab=contract)) |
 | **Swarm auction contract** | **[`auction.hellonear-swarm.testnet`](https://testnet.nearblocks.io/address/auction.hellonear-swarm.testnet?tab=contract)** (NEP-330, [source verified](https://testnet.nearblocks.io/address/auction.hellonear-swarm.testnet?tab=contract), [a real round](#the-swarm-auction-one-real-round-on-testnet)) |
 | **API reference** | **[OpenAPI spec](docs/openapi.json)** · [README section](#api-reference) |
@@ -652,7 +653,7 @@ Every route and event is in [`docs/api-contract.md`](docs/api-contract.md).
 
 ## API reference
 
-The web app is a client of a public HTTP API, and everything it does can be done with `curl`. The full spec is **[`docs/openapi.json`](docs/openapi.json)** (OpenAPI 3.1, 62 operations): open it in [Swagger Editor](https://editor.swagger.io/?url=https://raw.githubusercontent.com/Hellonear-AI/hellonear/main/docs/openapi.json) or any OpenAPI viewer to read every route and try it against the hosted API. Every server-sent event type is described in [`docs/api-contract.md`](docs/api-contract.md) §3.
+The web app is a client of a public HTTP API, and everything it does can be done with `curl`. The full spec is **[`docs/openapi.json`](docs/openapi.json)** (OpenAPI 3.1, 63 operations): open it in [Swagger Editor](https://editor.swagger.io/?url=https://raw.githubusercontent.com/Hellonear-AI/hellonear/main/docs/openapi.json) or any OpenAPI viewer to read every route and try it against the hosted API. Every server-sent event type is described in [`docs/api-contract.md`](docs/api-contract.md) §3.
 
 - **Base URL:** `https://api.hellonear.xyz` (NEAR testnet), or `http://localhost:4000`.
 - **Auth:** a session cookie, `hn_session`. Get one with `POST /v1/auth/demo` (guest, no wallet) or with a NEAR wallet: `POST /v1/auth/challenge`, sign the message (NEP-413), then `POST /v1/auth/login`. `curl` works as is (no `Origin` header); a browser page on another site gets `403` for any call that changes something (CSRF protection).
@@ -736,6 +737,7 @@ The web app is a client of a public HTTP API, and everything it does can be done
 | `GET` | `/v1/minds/{mindId}/wallet` | Balance, spent today, frozen, and the policy | 200 | yes |
 | `GET` | `/v1/minds/{mindId}/wallet/payments` | Payment receipts, refused ones included | 200 | yes |
 | `GET` | `/v1/minds/{mindId}/payments.csv` | Every payment as a CSV an accountant can open (date UTC, status in words, amount, counterparty, purpose, who approved, tx hash, NearBlocks link) | 200 `text/csv` | yes |
+| `GET` | `/v1/status` | Public status of HelloNear and its providers (NEAR AI chat and embeddings, 1Click quotes, OutLayer, NEAR RPC, Agent Market, TEE Explorer): status, latency, uptime, 48 half-hour buckets and incidents of the last 7 days. CORS `*`, cached 30 s | 200 | |
 | `POST` | `/v1/relay` | Relay a NEP-366 signed delegate action to the registry (only `unequip_skill` / `set_wallet`, exactly 1 yoctoNEAR); the relayer pays the gas, never a deposit. Not for try-out users | 200, `503 relay_not_configured` until the relayer is set | |
 | `POST` | `/v1/minds/{mindId}/wallet/policy` | Build a store_wallet_policy transaction for the owner to sign | 200 |  |
 | `POST` | `/v1/minds/{mindId}/wallet/freeze` | Build a freeze_wallet transaction for the owner to sign | 200 |  |

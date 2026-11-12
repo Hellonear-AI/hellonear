@@ -41,6 +41,7 @@ const mind = (name: string, extra: Record<string, unknown> = {}) => ({
 describe('engine HTTP API', () => {
   test('health is public, everything else needs X-Engine-Key, bad bodies are rejected', async () => {
     assert.equal((await fetch(base + '/v1/health')).status, 200)
+    assert.equal((await fetch(base + '/internal/v1/probes')).status, 401, 'the status probes need X-Engine-Key')
     assert.equal((await post('/v1/minds/m1/chat', {}, {})).status, 401)
     assert.equal((await post('/v1/minds/m1/chat', {}, { 'x-engine-key': 'wrong' })).status, 401)
     assert.equal((await post('/v1/minds/m1/chat', { userId })).status, 400)

@@ -10,6 +10,7 @@ import { HttpError, assertSameOrigin, cors, logServerError, readBody, sendJson, 
 import { TOOLKITS, connect, disconnect, listConnections, toolkitSchema } from './connections.ts'
 import { createMind, createMindSchema, deleteMind, listMinds, mindConfig, playgroundAttackOf, playgroundMind, requireMind, updateMind, updateMindSchema, type Mind } from './minds.ts'
 import { cancelRun, getRun, isAwaiting, listRuns, mindEvents, pendingApprovals, relayRun, runEvents, runProofs, sweepStuckRuns } from './runs.ts'
+import { serveStatus, startStatusProbes } from './status.ts'
 import { explorerReport, quotesOf } from './teeExplorer.ts'
 import { relay } from './relay.ts'
 import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema, secretsForRun } from './secrets.ts'
@@ -211,6 +212,8 @@ export const telegramRunner: MindRunner = { chat: runTelegramChat, answer: answe
 
 export const server = createServer(async (req, res) => {
   try {
+    // The public status page's data (status.hellonear.xyz): open to any origin, without cookies, so before the app's CORS.
+    if ((req.url ?? '').split('?')[0] === '/v1/status') return await serveStatus(req, res)
     cors(req, res)
     if (req.method === 'OPTIONS') return res.writeHead(204).end()
     assertSameOrigin(req)
@@ -605,6 +608,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const applied = await migrate()
   if (applied.length) console.log('migrations applied', applied.join(', '))
   server.listen(config.port, () => console.log(`backend listening on :${config.port}`))
+  // Status page checks (src/status.ts): every 5 minutes, the first one shortly after start.
+  startStatusProbes()
   // Judge try-out users are deleted after the retention: at start and once a day.
   const sweep = () => cleanupDemoUsers(async (mindId) => { await deleteAllWorkflows(mindId); await disconnectTelegram(mindId).catch(() => {}) }).then((n) => { if (n) console.log('demo users removed', n) }, (e) => console.error('demo cleanup failed', e instanceof Error ? e.message : e))
   void sweep()
