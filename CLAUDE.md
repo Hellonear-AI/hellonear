@@ -33,8 +33,8 @@ When they are installed, use the relevant skill for every NEAR or Mastra task in
 
 HelloNear is an AI agent persona platform on NEAR, built for NEAR HACKATHON (1–14 Nov 2026, deadline 14 Nov 23:59 UTC). Users pick a "Mind" template (General Assistant, Payments Mind, Email Manager), and each Mind has a persona, memory, equippable skills, and a NEAR wallet whose spending limits are enforced outside the AI's reach.
 
-- Research and decisions: `research.md` (Indonesian, draft) and issues #3 (plan) and #4 (decisions).
-- Language: everything written to GitHub and to the repo (code, comments, docs, issues, PRs, commits) is in **English**. `research.md` stays in Indonesian until the team decides otherwise.
+- Research and decisions: issues #3 (plan) and #4 (decisions). `research.md` is the team's internal draft (Indonesian): gitignored, kept locally, never committed.
+- Language: everything written to GitHub and to the repo (code, comments, docs, issues, PRs, commits) is in **English**. `research.md` (local only) stays in Indonesian.
 
 ## Layout
 

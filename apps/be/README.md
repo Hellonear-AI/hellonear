@@ -2,7 +2,7 @@
 
 HelloNear backend API: NEP-413 login, Minds, chat relay with event storage (Mind Graph, approval inbox), encrypted secrets, Visual Builder and Autopilot proxy. The browser only talks to this server; it calls the engine with `X-Engine-Key`. Contract: `docs/api-contract.md` (§7 is the browser-facing API).
 
-**Owner:** James · Issues: #8 (scaffold), #6 (OutLayer spike), #13–#18 · Context: `research.md` 5.2, 5.7, 8.1, 9.8.
+**Owner:** James · Issues: #8 (scaffold), #6 (OutLayer spike), #13–#18 · Plan and decisions: #3, #4.
 
 ## Run locally
 
