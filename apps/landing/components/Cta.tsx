@@ -33,7 +33,8 @@ export function Cta() {
   return (
     <section ref={ref} className="relative overflow-hidden py-24 lg:flex lg:min-h-[86vh] lg:items-center lg:py-0">
       <div className="relative z-10 mx-auto w-full max-w-[1200px] px-5">
-        <div className="flex max-w-[480px] flex-col gap-4">
+        {/* stacked (under 1024 px): centred */}
+        <div className="flex max-w-[480px] flex-col gap-4 max-lg:mx-auto max-lg:items-center max-lg:text-center">
           <h2 className="text-[40px] font-medium leading-[1.04] tracking-[-1.6px] sm:text-[52px] lg:text-[60px]" aria-label={TITLE}>
             {words.map((w, i) => (
               <span key={i} className="inline-block overflow-hidden pb-[0.08em] align-bottom" aria-hidden="true">
@@ -49,13 +50,13 @@ export function Cta() {
           </p>
           {/* two buttons side by side, the same width, on every screen */}
           <div
-            className={`cta-btns mt-3 grid grid-cols-2 gap-2.5 lg:w-fit ${seen ? "rise-in" : "opacity-0"}`}
+            className={`cta-btns mt-3 grid w-full grid-cols-2 gap-2.5 lg:w-fit ${seen ? "rise-in" : "opacity-0"}`}
             style={{ animationDelay: "480ms" }}
           >
             <a href="#minds" className="hero-btn hero-btn-primary hero-btn-lg justify-center">
               Meet your Mind <I d={Icon.arrow} size={16} />
             </a>
-            <a href="https://github.com/Hellonear-AI/hellonear" className="hero-btn hero-btn-ghost hero-btn-lg justify-center">
+            <a href="https://github.com/Hellonear-AI/hellonear" target="_blank" rel="noopener" className="hero-btn hero-btn-ghost hero-btn-lg justify-center">
               <I d={Icon.github} size={16} /> View on GitHub
             </a>
           </div>

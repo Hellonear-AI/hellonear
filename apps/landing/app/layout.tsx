@@ -6,7 +6,7 @@ import { PageLoader } from "@/components/PageLoader";
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 
 export const metadata: Metadata = {
-  title: "HelloNear: a Mind that can't spend more than you allow",
+  title: "HelloNear",
   description:
     "An AI helper with its own NEAR wallet. Every payment asks you first, unless you set a rule, and the limits are stored where your Mind can't change them.",
 };

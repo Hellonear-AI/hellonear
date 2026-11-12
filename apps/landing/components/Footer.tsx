@@ -17,8 +17,8 @@ export function Footer() {
   return (
     <footer className="relative">
       {/* Phones: the text on the page, above the meadow */}
-      <div className="mx-auto flex max-w-[1200px] flex-col gap-8 px-5 pb-6 pt-10 lg:hidden">
-        <Brand />
+      <div className="mx-auto flex max-w-[1200px] flex-col items-center gap-8 px-5 pb-6 pt-10 lg:hidden">
+        <Brand center />
         <Links className="text-[var(--color-text-2)]" head="text-[var(--color-text)]" />
       </div>
 
@@ -68,9 +68,9 @@ export function Footer() {
   );
 }
 
-function Brand({ light = false }: { light?: boolean }) {
+function Brand({ light = false, center = false }: { light?: boolean; center?: boolean }) {
   return (
-    <div className="flex flex-col gap-4">
+    <div className={`flex flex-col gap-4 ${center ? "items-center text-center" : ""}`}>
       <a href="#top" aria-label="HelloNear, back to the top" className={light ? "footer-logo" : ""}>
         {/* big on desktop, a brand mark rather than a small logo */}
         <Logo className={light ? "h-[clamp(56px,6vw,92px)] w-auto" : "h-[44px] w-auto"} />
@@ -89,7 +89,7 @@ function Links({ className, head }: { className: string; head: string }) {
         <div key={title} className="flex flex-col gap-2.5">
           <span className={`font-medium ${head}`}>{title}</span>
           {links.map(([label, href]) => (
-            <a key={label} href={href} className={`${className} transition-colors hover:text-[var(--color-accent)]`}>
+            <a key={label} href={href} {...(href.startsWith("http") ? { target: "_blank", rel: "noopener" } : {})} className={`${className} transition-colors hover:text-[var(--color-accent)]`}>
               {label}
             </a>
           ))}
