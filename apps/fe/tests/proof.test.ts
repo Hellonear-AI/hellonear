@@ -26,3 +26,16 @@ describe("the proof behind the badge (#254)", () => {
     expect(shortHex("0x1234567890abcdef1234")).toBe("0x1234…ef1234")
   })
 })
+
+describe("TEE Explorer report (#277)", () => {
+  const report = (url: string) => ({ runId: "r", reports: [{ attestation: "gateway:0xabc", kind: "gateway", url, verified: true }] })
+
+  it("opens the report the backend uploaded, and only a link on the Explorer itself", async () => {
+    const { explorerReportUrl } = await import("@/modules/runs/data/proof")
+    expect(explorerReportUrl(report("https://proof.t16z.com/reports/9618de8a"))).toBe("https://proof.t16z.com/reports/9618de8a")
+    expect(explorerReportUrl(report("https://evil.example/reports/9618de8a"))).toBeNull()
+    expect(explorerReportUrl(report("https://proof.t16z.com.evil.example/reports/x"))).toBeNull()
+    expect(explorerReportUrl({ runId: "r", reports: [] })).toBeNull()
+    expect(explorerReportUrl(undefined)).toBeNull()
+  })
+})

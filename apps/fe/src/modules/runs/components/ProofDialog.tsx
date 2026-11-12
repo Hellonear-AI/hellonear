@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 import { ArrowUpRightIcon, CheckIcon, CircleAlertIcon } from "lucide-react"
-import type { ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import { cn } from "cn"
 import { CopyButton } from "@/components/elements/CopyButton"
 import { ResponsiveDialog } from "@/components/elements/ResponsiveDialog"
@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { isApiCode } from "@/lib/api"
 import { chatKeys } from "@/lib/queryKeys"
 import { chatApi } from "@/modules/chat/api"
-import { checkedSteps, replyProof, shortHex, tcbText, TEE_EXPLORER_URL, type Proof } from "@/modules/runs/data/proof"
+import { checkedSteps, explorerReportUrl, replyProof, shortHex, tcbText, TEE_EXPLORER_URL, type Proof } from "@/modules/runs/data/proof"
 
 const VERIFIER_URL = "https://github.com/nearai/nearai-cloud-verifier"
 
@@ -57,14 +57,14 @@ export function ProofDialog({ runId, open, onOpenChange }: { runId: string; open
               : "Could not load the proof. Please try again later."}
           </p>
         ) : entry ? (
-          <ProofBody proof={entry.proof} model={entry.model} />
+          <ProofBody runId={runId} proof={entry.proof} model={entry.model} />
         ) : null}
       </div>
     </ResponsiveDialog>
   )
 }
 
-function ProofBody({ proof, model }: { proof: Proof; model: string | null }) {
+function ProofBody({ runId, proof, model }: { runId: string; proof: Proof; model: string | null }) {
   const steps = checkedSteps(proof)
   const attestations = Object.values(proof.attestations)
   const allMatch = steps.length > 0 && steps.every((s) => s.matches)
@@ -128,10 +128,7 @@ function ProofBody({ proof, model }: { proof: Proof; model: string | null }) {
           </Row>
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[13px] font-medium">
-          <a href={TEE_EXPLORER_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-foreground hover:underline">
-            Paste the quote in TEE Explorer
-            <ArrowUpRightIcon className="size-3.5" />
-          </a>
+          <ExplorerLink runId={runId} />
           <a href={VERIFIER_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-foreground hover:underline">
             NEAR AI&apos;s verifier
             <ArrowUpRightIcon className="size-3.5" />
@@ -139,6 +136,39 @@ function ProofBody({ proof, model }: { proof: Proof; model: string | null }) {
         </div>
       </Section>
     </>
+  )
+}
+
+/**
+ * "Check it in TEE Explorer" (#277): opens the run's report on proof.t16z.com, already verified, so
+ * nobody pastes a quote (pasting the whole proof answered "The quote is invalid"). The tab opens
+ * on the click itself, or popup blockers stop it, and goes to the report once the backend has
+ * uploaded the quote. If that fails, the tab shows the Explorer's paste page as before.
+ */
+function ExplorerLink({ runId }: { runId: string }) {
+  const [state, setState] = useState<"idle" | "opening" | "failed">("idle")
+  const open = async () => {
+    const tab = window.open("", "_blank")
+    if (tab) tab.opener = null
+    setState("opening")
+    let url: string | null = null
+    try {
+      url = explorerReportUrl(await chatApi.teeExplorer(runId))
+    } catch {
+      url = null
+    }
+    if (tab) tab.location.href = url ?? TEE_EXPLORER_URL
+    else window.open(url ?? TEE_EXPLORER_URL, "_blank", "noopener,noreferrer")
+    setState(url ? "idle" : "failed")
+  }
+  return (
+    <span className="flex flex-col gap-0.5">
+      <button type="button" onClick={open} disabled={state === "opening"} className="flex items-center gap-1 text-foreground hover:underline disabled:opacity-60">
+        {state === "opening" ? "Opening TEE Explorer…" : "Check it in TEE Explorer"}
+        <ArrowUpRightIcon className="size-3.5" />
+      </button>
+      {state === "failed" && <span className="text-xs font-normal text-muted-foreground">Couldn&apos;t check it for you. Paste the Intel quote there.</span>}
+    </span>
   )
 }
 

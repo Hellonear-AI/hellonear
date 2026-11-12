@@ -35,6 +35,18 @@ export type RunProofs = { runId: string; proofs: { seq: number; model: string | 
 
 export const TEE_EXPLORER_URL = "https://proof.t16z.com"
 
+/**
+ * The run's Intel quote(s) checked by Phala's TEE Explorer (#277): the backend uploads them
+ * (`POST /runs/{runId}/proof/tee-explorer`), since the Explorer has no prefill URL and no CORS.
+ */
+export type ExplorerReports = { runId: string; reports: { attestation: string; kind: string; url: string; verified: boolean }[] }
+
+/** The report to open: the gateway's first (the one the badge rests on), only a link on the Explorer itself. */
+export function explorerReportUrl(r: ExplorerReports | undefined): string | null {
+  const url = r?.reports[0]?.url
+  return url && url.startsWith(`${TEE_EXPLORER_URL}/reports/`) ? url : null
+}
+
 /** The reply's proof: a run paused for approval has one per part, and the last is the reply's. */
 export const replyProof = (r: RunProofs | undefined) => r?.proofs.at(-1) ?? null
 
