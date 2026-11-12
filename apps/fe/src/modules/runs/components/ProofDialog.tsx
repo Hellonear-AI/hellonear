@@ -167,7 +167,7 @@ function ExplorerLink({ runId }: { runId: string }) {
         {state === "opening" ? "Opening TEE Explorer…" : "Check it in TEE Explorer"}
         <ArrowUpRightIcon className="size-3.5" />
       </button>
-      {state === "failed" && <span className="text-xs font-normal text-muted-foreground">Couldn&apos;t check it for you. Paste the Intel quote there.</span>}
+      {state === "failed" && <span className="text-xs font-normal text-muted-foreground">Could not check it automatically. Paste the Intel quote there.</span>}
     </span>
   )
 }
