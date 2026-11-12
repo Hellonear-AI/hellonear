@@ -31,7 +31,7 @@ HelloNear gives a person a **Mind**: an AI agent with a persona, memory, skills 
 | **API reference** | **[OpenAPI spec](docs/openapi.json)** · [README section](#api-reference) |
 | **Repository** | **[github.com/Hellonear-AI/hellonear](https://github.com/Hellonear-AI/hellonear)** |
 
-**[The agent and its 50 tools](#the-agent-mastra-on-near-ai-cloud)** ·
+**[The agent and its 53 tools](#the-agent-mastra-on-near-ai-cloud)** ·
 **[Receipts](#receipts-check-them-yourself)** ·
 **[Security model](#security-model)** ·
 **[Try it](#try-it)** ·
@@ -68,7 +68,7 @@ HelloNear's answer is to **take the limits out of the model** and **make the mod
 | Feature | What it means |
 |---|---|
 | **A Mind per job** | Pick a template (General Assistant, Payments Mind, Email Manager), give it a name and a voice. It remembers what matters, and you can read, edit or clear that memory. |
-| **Skills grant tools** | 33 skills, each a playbook plus a fixed list of tools. A Mind has exactly the tools its skills grant, so a Mind without a payment skill cannot pay, whatever it is told. |
+| **Skills grant tools** | 34 skills, each a playbook plus a fixed list of tools. A Mind has exactly the tools its skills grant, so a Mind without a payment skill cannot pay, whatever it is told. |
 | **Approval cards** | Payments, emails, calendar changes, Sheets cells, Notion rows, Docs, Slack posts and Zoom meetings wait for the owner, with the old value shown next to the new one. |
 | **A wallet with its own rules** | Per-payment limit, daily limit and allowed addresses, enforced by OutLayer in a TEE before signing; freeze with one signature. |
 | **Cross-chain quotes** | A Payments Mind quotes a USDC or USDT payment from NEAR to Base, Solana, Arbitrum and more through **NEAR Intents**, with 1Click's signature checked. |
@@ -98,7 +98,7 @@ HelloNear is submitted to six tracks. For each one: what the organizers ask for 
 | | |
 |---|---|
 | **The track asks for** | "Build spending limits, policy engines, sandboxed wallets, reputation and scam detection. Give AI money without giving it the keys to everything." Hints: agent security, function call keys, TEE attestation |
-| **What HelloNear built** | Seven layers that each stop an attack alone: the model, skills that grant tools, the owner's approval, the OutLayer wallet policy checked **in a TEE before signing**, a daily limit, freeze, and unattended jobs with no payment tools. Writes re-check their target before writing. A Recipient guard against lookalike accounts, a Phishing check, and an Attack playground that names the layer that stopped each attack. Why not function-call keys: they cannot transfer NEAR and their allowance is gas, not a spending cap |
+| **What HelloNear built** | Seven layers that each stop an attack alone: the model, skills that grant tools, the owner's approval, the OutLayer wallet policy checked **in a TEE before signing**, a daily limit, freeze, and unattended jobs with no payment tools. Writes re-check their target before writing. A Recipient guard that answers allow, warn or block with the reason before every payment (where the recipient came from, that it exists, lookalikes of people already paid, first payments, contracts), a Phishing check, and an Attack playground that names the layer that stopped each attack. Why not function-call keys: they cannot transfer NEAR and their allowance is gas, not a spending cap |
 | **Skills** | Recipient guard, Phishing check, Freeze advisor, Spending audit, Payments |
 | **Check it** | Attack playground, any scenario: `attack.verdict` names the layer. Approve 1 NEAR: `policy_denied`, no transaction |
 
@@ -116,8 +116,8 @@ HelloNear is submitted to six tracks. For each one: what the organizers ask for 
 | | |
 |---|---|
 | **The track asks for** | "Build agents that earn, spend, negotiate, hire other agents and pay for APIs, compute or data — with crypto directly or through NEAR Intents." Hints: agent commerce, NEAR Intents, chain signatures |
-| **What HelloNear built** | Minds pay for data with a 402 pattern on testnet NEAR (price, approved payment, report with the tx hash as receipt), sell what they made to other Minds into their own wallet, compare sellers before buying, invoice and check payment on chain, and quote cross-chain payments through **NEAR Intents**. All inside the owner's limits |
-| **Skills** | Paid data, Best price buyer, Price watch, Mind as seller, Invoice & get paid, Payments |
+| **What HelloNear built** | Minds pay for data with a 402 pattern on testnet NEAR (price, approved payment, report with the tx hash as receipt), sell what they made to other Minds into their own wallet, compare sellers before buying, invoice and check payment on chain, quote cross-chain payments through **NEAR Intents**, haggle once with a seller (offer within the owner's budget, then buy at the agreed price or walk away), and find agents on the **NEAR AI Agent Market** (market.near.ai) with each job's exact price from the agent's own x402 answer (hiring is paid in USDC on mainnet, so it only quotes for now). All inside the owner's limits |
+| **Skills** | Paid data, Best price buyer, Hire on Agent Market, Price watch, Mind as seller, Invoice & get paid, Payments |
 | **Check it** | *"What's the gas price on NEAR testnet? Buy the report."*: a `402` price, a card for 0.001 NEAR, then the report and its tx hash |
 
 ### `swarms`: AI Swarms
@@ -143,7 +143,7 @@ HelloNear is submitted to six tracks. For each one: what the organizers ask for 
 | | |
 |---|---|
 | **The track asks for** | "Build payroll, invoicing, remittances, merchant payments and stablecoin rails for real businesses. Something a normal company could use tomorrow." Hints: stablecoins, NEAR Intents, meta transactions |
-| **What HelloNear built** | Invoices sent from the Mind's own email address with payment checked by its transaction on chain; bills and subscriptions found in the owner's Gmail; USDC/USDT payments to other chains quoted through **NEAR Intents**, signed by 1Click and checked with the official SDK (sending needs mainnet); every payment approved by the owner and limited by the wallet |
+| **What HelloNear built** | Invoices sent from the Mind's own email address with payment checked by its transaction on chain; bills and subscriptions found in the owner's Gmail; a payments CSV an accountant can open without asking (`GET /v1/minds/{id}/payments.csv`: date, status in words, amount, counterparty, purpose, who approved, tx hash and NearBlocks link); a meta-transaction relayer (NEP-366) that pays gas only for owner calls to our own registry contract and never pays a deposit; USDC/USDT payments to other chains quoted through **NEAR Intents**, signed by 1Click and checked with the official SDK (sending needs mainnet); every payment approved by the owner and limited by the wallet |
 | **Skills** | Invoice & get paid, Subscriptions & bills, Spending tracker, Payments |
 | **Check it** | *"Send 10 USDC to 0x8ba1f109551bD432803012645Ac136ddd64DBA72 on Base."*: what would arrive, the cost, the time, `proof.signedBy1Click: true`, nothing sent |
 
@@ -279,7 +279,7 @@ flowchart LR
     subgraph EN[Engine · Mastra 1.81]
         direction TB
         AG[One generic Mind agent<br/>persona, memory, skills from RequestContext]
-        TL[[50 tools<br/>granted only by equipped skills]]
+        TL[[53 tools<br/>granted only by equipped skills]]
         WF[Visual Builder workflows<br/>+ Autopilot schedules]
         AG --> TL
         WF --> TL
@@ -358,7 +358,7 @@ This is the core of HelloNear, and the part a judge can read end to end in `engi
 | **Events** | Mastra's stream is normalised into HelloNear events (`tool.called`, `tool.approval_required`, `run.verified`, …) that drive the chat, the live view and the Mind Graph. | `engine/src/server.ts`, `docs/api-contract.md` |
 | **Stop** | Closing the request aborts the model call, so a stopped reply stops spending tokens. Payments already sent to OutLayer are never cut halfway. | `engine/src/server.ts` |
 
-### All 50 tools
+### All 53 tools
 
 **A** (approval) = needs the owner's approval (or an owner rule). Reads never ask.
 
@@ -370,11 +370,14 @@ This is the core of HelloNear, and the part a judge can read end to end in `engi
 | `get_balance` | | The Mind's wallet address and balance | Backend wallet route |
 | `list_payments` | | Recent payments, including refused ones and why | Backend wallet route |
 | `split_amount` | | Each person's share of an amount, exactly, in yoctoNEAR | Local (BigInt) |
-| `near_view_account` | | Look up a testnet account: exists, balance, storage | NEAR RPC `view_account` |
+| `near_view_account` | | Look up a testnet account: exists, balance, storage, and whether it is a contract (`isContract`, `codeHash`) | NEAR RPC `view_account` |
 | `near_check_transfer` | | Check one transaction: success, receiver, amount, whether it paid this Mind | NEAR RPC `tx` |
 | `crosschain_quote` | | Quote a USDC/USDT payment to another chain, signature checked | NEAR Intents 1Click `/v0/quote` (`dry: true`) |
 | `buy_data` | | Buy a live NEAR data report (402 pattern) | Backend shop route |
 | `get_quotes` | | Every seller's price for a report, cheapest first, and which ones the wallet may pay | Backend shop route |
+| `make_offer` | | Offer one seller less than it quoted, once, within the owner's budget; answers accepted or its last price, and whether to buy or walk away | Backend shop route (`offer`) |
+| `market_search` | | Search the NEAR AI Agent Market's public catalog: agents, default price, track record, verification | market.near.ai `GET /v1/agents` |
+| `market_quote` | | Get a listed agent's exact price for the owner's task, unpaid (its x402 answer); nothing starts, nothing is paid | market.near.ai A2A `SendMessage` without payment |
 | `sell_offer` | yes | Put something this Mind made on sale to other Minds | Backend offers route |
 | `buy_from_mind` | | Buy what another Mind sells (402 pattern) | Backend offers route |
 
@@ -437,18 +440,19 @@ This is the core of HelloNear, and the part a judge can read end to end in `engi
 | `add_numbers` | | Exact addition, so the model never sums in its head | Local |
 | `http_request` | | Call a public HTTPS API with a key from Connections, only to the hosts the owner allowed; no redirects, private addresses refused, the key redacted from the result | The owner's service |
 
-### All 33 skills
+### All 34 skills
 
 Icons are the ones the web app shows on each skill card.
 
 | | Skill | What it does | Tools it grants |
 |---|---|---|---|
 | <img src="docs/readme/icons/skills/payments.svg" width="26" alt=""> | **Payments** (`payments`) | Sends testnet NEAR and pays bills after the owner approves; quotes USDC or USDT payments to other chains (Base, Solana…) through NEAR Intents | `send_payment`, `get_balance`, `list_payments`, `get_time`, `near_view_account`, `crosschain_quote` |
-| <img src="docs/readme/icons/skills/recipient-guard.svg" width="26" alt=""> | **Recipient guard** (`recipient-guard`) | Checks a recipient for scams and lookalikes before paying, and asks when in doubt | `near_view_account`, `list_payments`, `send_payment`, `get_balance`, `get_time` |
+| <img src="docs/readme/icons/skills/recipient-guard.svg" width="26" alt=""> | **Recipient guard** (`recipient-guard`) | Checks a recipient before paying and answers allow, warn or block with the reason: where the account came from, that it exists, lookalikes of people you already pay, first payments, and contracts | `near_view_account`, `list_payments`, `send_payment`, `get_balance`, `get_time` |
 | <img src="docs/readme/icons/skills/split-bill.svg" width="26" alt=""> | **Split bill** (`split-bill`) | Works out each person's share of a bill and pays each one after you approve | `add_numbers`, `split_amount`, `send_payment`, `near_view_account`, `list_payments`, `get_balance`, `get_time` |
 | <img src="docs/readme/icons/skills/revenue-split.svg" width="26" alt=""> | **Revenue split** (`revenue-split`) | Remembers your partners' shares and pays each one their part of new income after you approve | `get_balance`, `send_payment`, `near_view_account`, `add_numbers`, `split_amount`, `list_payments`, `get_time` |
 | <img src="docs/readme/icons/skills/paid-data.svg" width="26" alt=""> | **Paid data** (`paid-data`) | Buys small live NEAR reports, paying only after you approve | `buy_data`, `send_payment`, `list_payments`, `get_time` |
-| <img src="docs/readme/icons/skills/best-price.svg" width="26" alt=""> | **Best price buyer** (`best-price`) | Compares every seller of a data report and buys the cheapest one your wallet may pay, after you approve | `get_quotes`, `buy_data`, `send_payment`, `list_payments`, `get_time` |
+| <img src="docs/readme/icons/skills/best-price.svg" width="26" alt=""> | **Best price buyer** (`best-price`) | Compares every seller of a data report, haggles once when the price is over your budget (then buys or walks away), and buys from one your wallet may pay, after you approve | `get_quotes`, `make_offer`, `buy_data`, `send_payment`, `list_payments`, `get_time` |
+| <img src="docs/readme/icons/skills/agent-market.svg" width="26" alt=""> | **Hire on Agent Market** (`agent-market`) | Finds agents on the NEAR AI Agent Market (market.near.ai) and gets a job's exact price; hiring is paid in USDC on NEAR mainnet, so during the testnet phase it only quotes | `market_search`, `market_quote` |
 | <img src="docs/readme/icons/skills/price-watch.svg" width="26" alt=""> | **Price watch** (`price-watch`) | Checks a data report's price and buys only at or under your limit, after you approve | `get_quotes`, `buy_data`, `send_payment`, `add_numbers`, `get_time` |
 | <img src="docs/readme/icons/skills/mind-seller.svg" width="26" alt=""> | **Mind as seller** (`mind-seller`) | Sells what this Mind made to other Minds for testnet NEAR into its own wallet, and buys from other Minds, after you approve | `sell_offer`, `buy_from_mind`, `send_payment`, `get_balance`, `get_time` |
 | <img src="docs/readme/icons/skills/invoice.svg" width="26" alt=""> | **Invoice & get paid** (`invoice`) | Emails an invoice from this Mind's address after you approve, and checks a payment only by its transaction | `mail_send`, `mail_list`, `mail_read`, `get_balance`, `near_check_transfer`, `get_time` |
@@ -623,7 +627,7 @@ Every route and event is in [`docs/api-contract.md`](docs/api-contract.md).
 
 ## API reference
 
-The web app is a client of a public HTTP API, and everything it does can be done with `curl`. The full spec is **[`docs/openapi.json`](docs/openapi.json)** (OpenAPI 3.1, 60 operations): open it in [Swagger Editor](https://editor.swagger.io/?url=https://raw.githubusercontent.com/Hellonear-AI/hellonear/main/docs/openapi.json) or any OpenAPI viewer to read every route and try it against the hosted API. Every server-sent event type is described in [`docs/api-contract.md`](docs/api-contract.md) §3.
+The web app is a client of a public HTTP API, and everything it does can be done with `curl`. The full spec is **[`docs/openapi.json`](docs/openapi.json)** (OpenAPI 3.1, 62 operations): open it in [Swagger Editor](https://editor.swagger.io/?url=https://raw.githubusercontent.com/Hellonear-AI/hellonear/main/docs/openapi.json) or any OpenAPI viewer to read every route and try it against the hosted API. Every server-sent event type is described in [`docs/api-contract.md`](docs/api-contract.md) §3.
 
 - **Base URL:** `https://api.hellonear.xyz` (NEAR testnet), or `http://localhost:4000`.
 - **Auth:** a session cookie, `hn_session`. Get one with `POST /v1/auth/demo` (guest, no wallet) or with a NEAR wallet: `POST /v1/auth/challenge`, sign the message (NEP-413), then `POST /v1/auth/login`. `curl` works as is (no `Origin` header); a browser page on another site gets `403` for any call that changes something (CSRF protection).
