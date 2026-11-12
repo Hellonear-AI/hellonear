@@ -1,3 +1,0 @@
-# Share the registry's target dir so the two crates reuse one build cache (keeps the laptop disk light).
-[build]
-target-dir = "../target"

@@ -28,7 +28,9 @@ jobs:
       - run: rustup show active-toolchain || rustup toolchain install
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: sc
+          workspaces: |
+            sc
+            sc/swarm
       # The sandbox tests build the WASM through `cargo near` (cargo-near 0.22.0, see sc/CLAUDE.md). Pinned by checksum.
       - name: Install cargo-near 0.22.0
         working-directory: ${{ runner.temp }}
@@ -43,7 +45,7 @@ jobs:
       - run: cargo test --locked --test test_registry
       - run: cargo test --locked --test test_migration
       - run: cargo clippy --locked --all-targets
-      # The swarm auction (sc/swarm, AI Swarms track): its own crate sharing sc/target. The 20-buyer simulation takes
+      # The swarm auction (sc/swarm, AI Swarms track): its own crate with its own target. The 20-buyer simulation takes
       # ~2 min on a laptop, so it runs here too: it is the swarm's main proof.
       - run: cargo test --locked --lib
         working-directory: sc/swarm

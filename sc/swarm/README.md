@@ -44,7 +44,7 @@ Safety choices follow the near-smart-contracts skill, the docs.near.org security
 
 ## Build and test
 
-The crate shares `../target` with the registry (`.cargo/config.toml`), so the laptop keeps one build cache.
+To share the registry's build cache on a laptop, set `CARGO_TARGET_DIR=../target` for local builds and tests. It is not set in the repo: a reproducible build (`cargo near … build-reproducible-wasm`) looks for the WASM inside this crate's own `target`, and with a shared target dir the deploy stopped with "No such file or directory" after a successful build (13 Nov).
 
 ```sh
 cd sc/swarm
@@ -52,7 +52,7 @@ cargo test --lib                                   # 28 unit tests: settlement, 
 cargo test --test test_round                       # sandbox: RULES.md's worked example with sub-accounts, real transfers, the clock fast-forwarded
 cargo test --test simulation -- --nocapture        # sandbox: 20 buyers, 5 sellers, 3 rounds; writes simulation-report.md (~4 min)
 cargo clippy --all-targets
-cargo near build non-reproducible-wasm             # ../target/near/hellonear_swarm.wasm
+cargo near build non-reproducible-wasm             # target/near/hellonear_swarm.wasm
 ```
 
 In the sandbox, the parent is `swarm.sandbox`. The contract lives at `auction.swarm.sandbox`. Each agent (`coordinator`, `buyer-1`…`buyer-20`, `seller-1`…`seller-5`) is made with a real `CreateAccount` transaction signed by the parent, and signs its own `join`, `commit`, `reveal`, `close_round` and `withdraw`. Each round has a 10-minute commit window and a 10-minute reveal window, and the tests fast-forward the sandbox clock past them (`sandbox_fast_forward`).
