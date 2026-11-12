@@ -3,6 +3,7 @@ import { Geist } from "next/font/google";
 import "./globals.css";
 import { OverlayScrollbar } from "@/components/OverlayScrollbar";
 import { PageLoader } from "@/components/PageLoader";
+import { SmoothScroll } from "@/components/SmoothScroll";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <PageLoader />
         <OverlayScrollbar />
+        <SmoothScroll />
         {children}
       </body>
     </html>

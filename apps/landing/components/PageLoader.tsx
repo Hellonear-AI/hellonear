@@ -117,7 +117,10 @@ export function PageLoader() {
       requestAnimationFrame(() => requestAnimationFrame(() => setPhase("cover")));
       setTimeout(() => {
         const y = targetY(hash) ?? 0;
-        window.scrollTo({ top: y, behavior: "instant" as ScrollBehavior });
+        // Through Lenis when it runs (SmoothScroll), or it would glide on to where it was heading.
+        const lenis = (window as unknown as { __lenis?: { scrollTo: (y: number, o: { immediate: boolean; force: boolean }) => void } }).__lenis;
+        if (lenis) lenis.scrollTo(y, { immediate: true, force: true });
+        else window.scrollTo({ top: y, behavior: "instant" as ScrollBehavior });
         // No "#…" in the address (Ancung, 13 Nov): the link still works, the bar stays hellonear.xyz.
         history.replaceState(null, "", location.pathname + location.search);
         // let the scroll-driven scenes settle and the images there decode, then lift
