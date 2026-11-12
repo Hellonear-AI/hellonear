@@ -3,3 +3,4 @@ tsconfig.tsbuildinfo
 .env*
 lib/generated/
 public/openapi.json
+public/swagger/

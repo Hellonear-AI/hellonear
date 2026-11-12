@@ -39,4 +39,10 @@ for (const p of pages) {
 mkdirSync(join(root, 'lib/generated'), { recursive: true })
 writeFileSync(join(root, 'lib/generated/pages.json'), JSON.stringify(pages, null, 1) + '\n')
 copyFileSync(join(root, '../../docs/openapi.json'), join(root, 'public/openapi.json'))
-console.log(`content: ${pages.length} pages, openapi.json copied`)
+// Swagger UI's prebuilt bundle, served as a static file: bundling swagger-ui-react with Turbopack breaks its
+// OpenAPI resolver ("OpenApi3_1Element.refract is not a function"), so an opened operation never loads.
+mkdirSync(join(root, 'public/swagger'), { recursive: true })
+for (const file of ['swagger-ui-bundle.js', 'swagger-ui.css']) {
+  copyFileSync(join(root, 'node_modules/swagger-ui-dist', file), join(root, 'public/swagger', file))
+}
+console.log(`content: ${pages.length} pages, openapi.json and Swagger UI copied`)
