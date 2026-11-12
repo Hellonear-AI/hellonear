@@ -43,3 +43,13 @@ jobs:
       - run: cargo test --locked --test test_registry
       - run: cargo test --locked --test test_migration
       - run: cargo clippy --locked --all-targets
+      # The swarm auction (sc/swarm, AI Swarms track): its own crate sharing sc/target. The 20-buyer simulation takes
+      # ~2 min on a laptop, so it runs here too: it is the swarm's main proof.
+      - run: cargo test --locked --lib
+        working-directory: sc/swarm
+      - run: cargo test --locked --test test_round
+        working-directory: sc/swarm
+      - run: cargo test --locked --test simulation
+        working-directory: sc/swarm
+      - run: cargo clippy --locked --all-targets
+        working-directory: sc/swarm
