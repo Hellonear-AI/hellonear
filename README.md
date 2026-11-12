@@ -109,7 +109,7 @@ HelloNear is submitted to six tracks. For each one: what the organizers ask for 
 | **The track asks for** | "Explore confidential computation, private finance and AI that protects sensitive data. Build intelligence without exposure." Hints: private AI, TEE, NEAR AI Cloud |
 | **What HelloNear built** | Every model call runs on **NEAR AI Cloud** inside a TEE. Each reply's signature is checked against the hardware attestation before the Verified badge shows; the proof is kept, shown under View proof, and opens on Phala's TEE Explorer as VERIFIED. Secrets and wallet tokens never reach the model, traces or stored snapshots. Skills that read sensitive email without sending it anywhere |
 | **Skills** | Confidential reader, Redact before send, Health journal |
-| **Check it** | Verified badge → View proof → Check it in TEE Explorer: a VERIFIED report whose nonce matches the dialog |
+| **Check it** | Verified badge → View proof → Check it in TEE Explorer: a VERIFIED report whose nonce matches the dialog. What is kept and what is not: [What is private, and what HelloNear keeps](#what-is-private-and-what-hellonear-keeps) |
 
 ### `agents`: Agent Economy
 
@@ -134,7 +134,7 @@ HelloNear is submitted to six tracks. For each one: what the organizers ask for 
 | | |
 |---|---|
 | **The track asks for** | "Build AI-native businesses with treasury, sales, procurement, cross-chain payments via NEAR Intents and revenue sharing. Humans only set the constraints." Hints: AI agents, NEAR Intents, chain signatures |
-| **What HelloNear built** | The owner sets the constraints (limits, recipients, rules); the Mind runs the treasury: daily treasury reports, a weekly spending audit, revenue sharing between partners, invoices and follow-ups, procurement through Best price buyer, cross-chain quotes through NEAR Intents, and Autopilot jobs that run on a schedule |
+| **What HelloNear built** | The owner sets the constraints (per-payment and daily limits, allowed recipients, approval rules) and holds a kill switch (Freeze, one signature); the Mind runs the treasury: daily treasury reports, a weekly spending audit, revenue sharing between partners, invoices and follow-ups, procurement through Best price buyer, cross-chain quotes through NEAR Intents, and Autopilot jobs that run on a schedule |
 | **Skills** | Treasury report, Spending audit, Revenue split, Invoice & get paid, Follow-ups, Subscriptions & bills |
 | **Check it** | *"Give me today's treasury report"*: balance, what went out, what is pending, read only |
 
@@ -501,10 +501,27 @@ Each layer stops an attack on its own; the ones further down do not trust the on
 | **The wallet policy (OutLayer, in a TEE)** | A payment the owner approved by mistake: over the per-payment limit or to an address not on the list is refused before signing, with no transaction | Approve a payment above the limit. See: `policy_denied`, no tx hash. The card already says "blocked even if you approve" |
 | **Daily limit (OutLayer, in a TEE)** | Many small payments that add up: once today's payments reach the daily limit, the next one is refused before signing; the day starts at 00:00 UTC | Wallet → Edit → *Per day*. See: "Spent today: X of Y NEAR" |
 | **The owner's rules (opt-in)** | Nothing by themselves: they only skip the card the owner chose to skip, only up to the owner's amount and only to a listed address. Guests and the Attack playground always ask, and the TEE policy still checks every payment | Mind settings → Approvals → payments up to 0.01. See: no card, and the receipt says "Approved by your rule" |
-| **Freeze** | Everything, at once: one transaction the owner signs | Wallet → Freeze wallet (on your own Mind). See: every later payment ends `wallet_frozen` |
+| **Freeze (the kill switch)** | Everything, at once: one transaction the owner signs | Wallet → Freeze wallet (on your own Mind). See: every later payment ends `wallet_frozen` |
 | **Unattended jobs** | Autopilot jobs get no payment or approval tools; they may only email the owner or add to the owner's calendar, as steps the owner placed | Builder → Use a tool → *Email me*. See: it can only send the Mind's notes, to your own Gmail |
 
 **Why not a capped function-call key?** NEAR function-call access keys cannot transfer NEAR, and their `allowance` is a gas budget for the key's whole life, not a spending cap ([docs](https://docs.near.org/protocol/accounts-contracts/access-keys)). The spending rules therefore live in the wallet's policy, which OutLayer checks in its TEE before every signature.
+
+
+### What is private, and what HelloNear keeps
+
+The TEE protects the model calls. It does not make HelloNear's own backend blind: a Mind that remembers its owner needs that memory stored somewhere. This table says exactly where the line is.
+
+| Data | Who can see it | Kept? |
+|---|---|---|
+| **Prompts and replies while the model runs** | Nobody outside the TEE: not the cloud provider, not the model host, not NEAR AI. Each reply's signature is checked against the hardware attestation | HelloNear keeps the chat itself (next row); inside the TEE the operator cannot read it |
+| **Chat history** | The owner, and HelloNear's backend (Postgres, **not** in a TEE) | Yes, so the Mind can continue a chat. Deleting a chat also deletes its semantic-recall vectors (`engine/src/threads.ts`) |
+| **The Mind's memory of its owner** (working memory) | The owner (Mind settings → Memory), and HelloNear's backend | Yes, until the owner edits or clears it in Settings (`engine/src/memory.ts`) |
+| **API keys and connection secrets** | Nobody in plain text: AES-256-GCM, bound to the owner and the secret's name (`apps/be/src/crypto.ts`). The model only ever writes `{{secrets.NAME}}` | Encrypted, until the owner deletes it |
+| **Secrets and wallet tokens during a run** | Only the tool that uses them | **Never** in prompts, traces or stored run snapshots: they live in an in-memory map, and a test scans every table for them |
+| **Proofs behind the Verified badge** | Anyone with the run | Signatures, hashes and Intel's TDX quote only, never the conversation text |
+| **Guest sessions** | The guest | Deleted with all their Minds after the retention period (7 days) |
+
+So: HelloNear can keep your chats and memory to be useful, and you can delete them. It never stores your secrets in a form it can read back to the model, and the AI provider never sees your prompts outside the TEE.
 
 ---
 
