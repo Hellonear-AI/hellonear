@@ -130,6 +130,34 @@ describe("streamed replies show whole words (11 Nov)", () => {
   })
 })
 
+describe("streamed replies play at the pace the text arrives (12 Nov)", () => {
+  // The hosted demo's rhythm: about 25 characters every 0.5 s.
+  const bursts = [
+    { t: 0, len: 0 },
+    { t: 500, len: 25 },
+    { t: 1000, len: 50 },
+    { t: 1500, len: 75 },
+  ]
+
+  it("spreads each burst evenly up to the next one instead of showing it at once", async () => {
+    const { playoutLength } = await import("@/modules/runs/components/ReplyText")
+    expect(playoutLength(bursts, 250)).toBeCloseTo(12.5)
+    expect(playoutLength(bursts, 750)).toBeCloseTo(37.5)
+    expect(playoutLength(bursts, 1500)).toBe(75)
+    // Past the last burst it holds there until more arrives.
+    expect(playoutLength(bursts, 4000)).toBe(75)
+    expect(playoutLength(bursts, -10)).toBe(0)
+  })
+
+  it("waits a little longer than the usual gap, within bounds, ignoring a pause for a tool", async () => {
+    const { playoutDelay } = await import("@/modules/runs/components/ReplyText")
+    expect(playoutDelay(bursts)).toBeCloseTo(550)
+    expect(playoutDelay([...bursts, { t: 6000, len: 100 }])).toBeCloseTo(550)
+    expect(playoutDelay([{ t: 0, len: 0 }, { t: 20, len: 30 }, { t: 40, len: 60 }])).toBe(120)
+    expect(playoutDelay([{ t: 0, len: 0 }, { t: 1200, len: 30 }])).toBe(700)
+  })
+})
+
 describe("splitBlocks (streaming renders block by block)", () => {
   it("cuts at blank lines, never inside a code fence", async () => {
     const { splitBlocks } = await import("@/modules/runs/components/ReplyText")
