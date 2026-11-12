@@ -87,7 +87,13 @@ Measured on the production build (`bun run build && bun x next start`), Chrome a
 - Phones: no `backdrop-filter` (the light glass is translucent white); the hero slope is a 1500 px copy (157 KB); the Mind Graph has 14 Minds, a 1.5 device-pixel canvas and draws every other frame unless touched; the demo video loads nothing until it is on screen and pauses when scrolled past. iPhone 13 emulation with a 4x slower CPU: 566 KB first load, no long tasks while scrolling, the graph at 60 fps.
 - Mind Graph on touch screens: a tap opens a card and anything else scrolls the page; "Explore" turns on dragging bubbles and the view with one finger and pinch-zoom with two (`touch-action: none`), until "Done" or the section leaves the screen.
 
-## Deploying to Vercel (checked 11 Nov, not deployed: deploys need Axel's approval)
+## Hosted on the demo box (#266)
+
+- `deploy/deploy.sh` builds this folder on the deploying machine (`next build` from `git archive HEAD`) and ships only `.next`; the box runs `next start` on port 3100 as `hellonear-landing.service` (`deploy/systemd/`). A merged `main` deploys it like the rest (`deploy/README.md`).
+- The demo video: set `DEPLOY_LANDING_VIDEO_URL` for the deploy (it becomes `NEXT_PUBLIC_DEMO_VIDEO_URL`); without it the demo section shows its placeholder.
+- `https://hellonear.xyz` serves it once the apex ingress rule points at 3100; until then the apex still goes to the web app, which redirects it to `app.` (`deploy/README.md`, step 8).
+
+## Deploying to Vercel instead (checked 11 Nov, not deployed: deploys need Axel's approval)
 
 - Project settings: Root Directory `apps/landing`, framework Next.js (auto). Vercel sees `bun.lock` and installs with Bun.
 - Env: `NEXT_PUBLIC_APP_URL` (default `https://app.hellonear.xyz`) and `NEXT_PUBLIC_DEMO_VIDEO_URL` (the hosted demo video; without it the demo shows a placeholder, since `public/demo/` is gitignored).
