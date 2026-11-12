@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckIcon, CircleSlashIcon, CopyIcon, HourglassIcon, LockIcon, PlusIcon, SnowflakeIcon, WalletIcon, XIcon } from "lucide-react"
+import { CheckIcon, CircleSlashIcon, CopyIcon, FileDownIcon, HourglassIcon, LockIcon, PlusIcon, SnowflakeIcon, WalletIcon, XIcon } from "lucide-react"
 import { useState, type ReactNode } from "react"
 import { cn } from "cn"
 import { ErrorRetry } from "@/components/elements/ErrorRetry"
@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { apiUrl } from "@/lib/api"
 import { formatNear } from "@/lib/format"
 import { TryOutLockedDialog, useTryOutLock, type LockedAction } from "@/modules/auth/components/TryOutLockedDialog"
 import { useIsTryOut } from "@/modules/auth/hooks/useSession"
@@ -205,7 +206,17 @@ function Activity({ mindId, name }: { mindId: string; name: string }) {
 
   return (
     <Card>
-      <h2 className="text-[15px] font-semibold text-foreground">Recent activity</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[15px] font-semibold text-foreground">Recent activity</h2>
+        {/* Every payment as a CSV an accountant can open (GET …/payments.csv): a plain link, so the
+            browser downloads it with the session cookie and names it from Content-Disposition. */}
+        {payments?.length ? (
+          <Button variant="outline" size="sm" nativeButton={false} render={<a href={apiUrl(`/minds/${encodeURIComponent(mindId)}/payments.csv`)} download />}>
+            <FileDownIcon className="size-4" />
+            Download CSV
+          </Button>
+        ) : null}
+      </div>
       {isPending ? (
         <Skeleton className="h-40 w-full" />
       ) : isError ? (

@@ -77,6 +77,17 @@ function summary(step: ToolStep): string | null {
       const n = `${quotes.length} ${quotes.length === 1 ? "seller" : "sellers"}`
       return best?.priceNear ? `${n}, best ${best.priceNear} NEAR` : n
     }
+    // Haggling: the seller's answer, and what the Mind does next.
+    case "make_offer":
+      if (!text(r.priceNear)) return null
+      return r.status === "accepted" ? `Accepted at ${r.priceNear} NEAR` : r.next === "walk_away" ? `Countered at ${r.priceNear} NEAR, over budget` : `Countered at ${r.priceNear} NEAR`
+    // Agent Market: how many agents, and one agent's price for the task (USDC, never paid here).
+    case "market_search":
+      return count(r.agents, "agent", "agents")
+    case "market_quote": {
+      const usdc = text((r.price as { usdc?: unknown } | undefined)?.usdc)
+      return usdc ? `${usdc} USDC, not paid` : r.status === "quoted" ? null : "No price right now"
+    }
     case "split_amount":
       return count(r.shares, "share", "shares")
     // A cross-chain preview (#273): what would arrive, where. Kept short to fit a phone's line; the
@@ -89,8 +100,10 @@ function summary(step: ToolStep): string | null {
     }
     case "near_check_transfer":
       return r.coversAmount === true ? "Paid in full" : r.status === "succeeded" ? "Paid, but not the full amount" : r.status === "failed" ? "Not paid" : null
-    case "near_view_account":
-      return text(r.accountId) ?? text(a.accountId)
+    case "near_view_account": {
+      const id = text(r.accountId) ?? text(a.accountId)
+      return id && r.isContract === true ? `${id}, a contract` : id
+    }
     // Google Sheets (#195, #249): which cells, so "Changed cells" says where (Ancung, 11 Nov).
     case "googlesheets_find_spreadsheets":
       return count(r.spreadsheets, "spreadsheet", "spreadsheets")

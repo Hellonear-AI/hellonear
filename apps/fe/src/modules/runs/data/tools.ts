@@ -74,6 +74,11 @@ export const TOOLS: Record<string, ToolWords> = {
   add_numbers: { doing: "Adding numbers", done: "Added numbers", orb: "solving", node: "Calculator", about: "Adds numbers exactly instead of guessing." },
   // The skills for the five tracks (#194, #211). Reading or looking up: searching.
   get_quotes: { doing: "Asking sellers for prices", done: "Compared prices", orb: "searching", node: "Price quotes" },
+  // Haggling (Best price buyer): one offer under the seller's price; it pays nothing.
+  make_offer: { doing: "Making an offer", done: "Made an offer", orb: "working", node: "Offer", about: "Offers a seller less than it asked, once, within your budget. It pays nothing." },
+  // NEAR AI Agent Market: the public catalog, and an agent's price for a task (an unpaid call; nothing is hired).
+  market_search: { doing: "Searching the Agent Market", done: "Searched the Agent Market", orb: "searching", node: "Agent Market", about: "Searches the NEAR AI Agent Market's public catalog. It can only read." },
+  market_quote: { doing: "Asking an agent for a price", done: "Got an agent's price", orb: "searching", node: "Agent price", about: "Asks one Agent Market agent what your task would cost. Nothing is hired or paid." },
   near_check_transfer: { doing: "Checking for a payment", done: "Checked for a payment", orb: "searching", node: "Transfer check" },
   // A stablecoin payment to another chain, previewed through NEAR Intents (#273): a dry quote, nothing is sent.
   crosschain_quote: { doing: "Getting a cross-chain quote", done: "Got a cross-chain quote", orb: "searching", node: "Cross-chain quote", about: "Asks NEAR Intents what a stablecoin payment to another chain would deliver. A preview only: nothing is sent." },

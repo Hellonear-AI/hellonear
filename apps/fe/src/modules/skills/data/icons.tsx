@@ -1,4 +1,4 @@
-import { AtSignIcon, BadgePercentIcon, CalendarX2Icon, ChartPieIcon, ClipboardCheckIcon, EyeOffIcon, FileLockIcon, HeartPulseIcon, LandmarkIcon, MailWarningIcon, ReceiptIcon, ReceiptTextIcon, ReplyIcon, ShieldCheckIcon, SnowflakeIcon, SplitIcon, StoreIcon, TagIcon, CalendarDaysIcon, ChartNoAxesColumnIcon, ClipboardListIcon, PlugIcon, RepeatIcon, SearchIcon, SunriseIcon, WalletIcon, type LucideIcon } from "lucide-react"
+import { AtSignIcon, BadgePercentIcon, CalendarX2Icon, ChartPieIcon, ClipboardCheckIcon, EyeOffIcon, FileLockIcon, HandshakeIcon, HeartPulseIcon, LandmarkIcon, MailWarningIcon, ReceiptIcon, ReceiptTextIcon, ReplyIcon, ShieldCheckIcon, SnowflakeIcon, SplitIcon, StoreIcon, TagIcon, CalendarDaysIcon, ChartNoAxesColumnIcon, ClipboardListIcon, PlugIcon, RepeatIcon, SearchIcon, SunriseIcon, WalletIcon, type LucideIcon } from "lucide-react"
 import type { ComponentType } from "react"
 import { GmailLogo, GoogleDocsLogo, GoogleSheetsLogo, NotionLogo, OutlookLogo, SlackLogo, ZoomLogo } from "@/components/elements/AppLogos"
 
@@ -17,6 +17,8 @@ export const SKILL_ICON: Record<string, LucideIcon | ComponentType<{ className?:
   "paid-data": ChartNoAxesColumnIcon,
   // The skills for the five tracks (#194, #211).
   "best-price": TagIcon,
+  // NEAR AI Agent Market: hiring another agent for a job.
+  "agent-market": HandshakeIcon,
   "price-watch": BadgePercentIcon,
   "split-bill": SplitIcon,
   "revenue-split": ChartPieIcon,
