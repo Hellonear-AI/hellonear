@@ -8,7 +8,7 @@ metadata:
     status: available
     title: HelloNear guide
     builtin: true
-    note: Built into every Mind (#114). Draft by Ancung (FE), so screen and button names match the app; rewritten on 11 Nov for the app as it is now (Settings tabs, auto-approve rules, daily limit, Telegram, Autopilot, Attack playground); updated 12 Nov for cross-chain quotes, View proof and If on a number of items.
+    note: Built into every Mind (#114). Draft by Ancung (FE), so screen and button names match the app; rewritten on 11 Nov for the app as it is now (Settings tabs, auto-approve rules, daily limit, Telegram, Autopilot, Attack playground); updated 12 Nov for cross-chain quotes, View proof and If on a number of items; 13 Nov for haggling, contract checks and the Agent Market.
 ---
 
 # HelloNear guide
@@ -51,7 +51,7 @@ Answer in the owner's language, short and plain. Name the screen and the button.
 ## Skills (names as on the Skills screen)
 - **Payments**: pays bills and sends testnet NEAR, inside the limits, after the owner approves (or under the owner's payment rule). It can also quote a USDC or USDT payment from NEAR to another chain (Base, Arbitrum, Solana, Ethereum and others) through NEAR Intents: what the recipient would get, the cost and the time, with NEAR Intents' signature checked. That is a quote only: NEAR Intents runs on NEAR mainnet and the Mind's wallet is on testnet, so it cannot send cross-chain yet.
 - **Paid data**: buys small live NEAR reports, like the network status or the gas price, and pays only after approval.
-- **Best price buyer**: asks every seller of a data report for a price and buys the cheapest one the wallet may pay.
+- **Best price buyer**: asks every seller of a data report for a price and buys the cheapest one the wallet may pay. If the owner gave a budget and the price is above it, it makes the seller one offer and then buys at the agreed price or walks away.
 - **Price watch**: buys a data report only at or under the price the owner set.
 - **Split bill**: works out each person's share and pays each one; each share asks first unless a rule covers it.
 - **Revenue split**: remembers partners' shares and pays each one their part of new income; each payment asks first unless a rule covers it.
@@ -60,7 +60,7 @@ Answer in the owner's language, short and plain. Name the screen and the button.
 - **Treasury report**: the balance, what went out since yesterday and what is pending. It only reads.
 - **Spending audit**: a week of payments, with links for those sent and the reason for those refused. It only reads.
 - **Spending tracker**: reads receipts in Gmail and totals spending by category.
-- **Recipient guard**: before paying, checks the account exists and is not a lookalike of someone already paid, and asks when in doubt. The wallet limits stay the real stop.
+- **Recipient guard**: before paying, checks the account exists, whether it is a contract, and that it is not a lookalike of someone already paid; it says allow, warn (asks first) or block, with the reason. The wallet limits stay the real stop.
 - **Phishing check**: flags emails that ask for money, keys or urgent action, or that try to give the Mind orders.
 - **Freeze advisor**: spots trouble in the wallet and tells the owner when to press "Freeze wallet". It cannot freeze anything itself.
 - **Confidential reader**: sums up sensitive emails (contracts, payslips, medical letters) into dates, amounts and duties.
@@ -74,7 +74,8 @@ Answer in the owner's language, short and plain. Name the screen and the button.
 - **Calendar conflict check**: finds double bookings and back-to-back meetings in the week and suggests what to move, with free slots. It moves an event only when the owner asks, after approval.
 - **Meeting prep**: who is coming, what was emailed about, open questions and a short checklist.
 - **Morning briefing**: one message with today's meetings, the emails that need the owner, payments due and the balance. It only reads.
-- **NEAR account lookup**: checks any testnet account's balance. It cannot spend.
+- **NEAR account lookup**: checks any testnet account's balance and whether it is a contract. It cannot spend.
+- **Hire on Agent Market**: finds AI agents other people built on the NEAR AI Agent Market (market.near.ai) and gets the exact price of a job the owner describes. Hiring there is paid in USDC on NEAR mainnet, so during the testnet phase it only quotes: nothing is sent to the agent and nothing is paid.
 - **Other apps**: calls a website or service with a key saved in Connections.
 - **Google Sheets**, **Google Docs**, **Slack**, **Notion**, **Outlook email**: work in the owner's own app once it is connected. They read, and add a row, a Doc, a page or a Slack message only after approval (or under the owner's rule); Google Sheets can also change existing cells, and Notion a database row's properties (mark a task done, move its date), the same way, showing the old and new value first. Notion can also list a database's rows (which tasks are due, what is still open). Google Docs can also add text at the end of an existing Doc the same way, never changing what is already there. Outlook email only saves drafts. None of them clears or deletes anything, and they are not in the try-out.
 - **Zoom**: lists the owner's Zoom meetings, sets up a meeting with a join link only after approval (or under the owner's rule; nobody is invited), and reads Zoom's AI summary of a past meeting when the host had it on. It never deletes, ends or changes meetings, and is not in the try-out.

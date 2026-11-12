@@ -13,6 +13,11 @@ export const fakeOutlayer = {
   // The next gas_price answer is an RPC error (#156 review: a failed read must not use up the payment).
   failGasPrice: false,
   failNext: 0,
+  // The relayer's chain (src/relay.ts): block height, access keys (`account:publicKey`), and the transactions it sent.
+  height: 277390000,
+  accessKeys: new Map<string, { nonce: number; permission: unknown }>(),
+  sent: [] as { signedTxBase64: string }[],
+  relayOutcome: { SuccessValue: '' } as unknown,
   // A wallet created outside the backend (the shared demo wallet), funded with 1 NEAR, no policy.
   addWallet(): Wallet {
     const w: Wallet = { walletId: randomUUID(), key: `wk_${randomBytes(32).toString('hex')}`, account: randomBytes(32).toString('hex'), frozen: false, policy: null, balance: (10n ** 24n).toString(), policyVersion: 0 }
@@ -55,6 +60,19 @@ export const outlayerServer = createServer(async (req, res) => {
   }
   if (req.method === 'POST' && url.pathname === '/rpc' && body.method === 'gas_price' && fakeOutlayer.failGasPrice) { fakeOutlayer.failGasPrice = false; return send(res, 200, { jsonrpc: '2.0', id: 1, error: { name: 'INTERNAL_ERROR' } }) }
   if (req.method === 'POST' && url.pathname === '/rpc' && body.method === 'gas_price') return send(res, 200, { jsonrpc: '2.0', id: 1, result: { gas_price: '100000000' } })
+  if (req.method === 'POST' && url.pathname === '/rpc' && body.method === 'block') {
+    return send(res, 200, { jsonrpc: '2.0', id: body.id, result: { header: { height: fakeOutlayer.height, hash: 'GJ2rdQDMGFVsZPn9RYfWo5BibVx8iBFDWvnbvMzaWUfR', timestamp: 0 } } })
+  }
+  if (req.method === 'POST' && url.pathname === '/rpc' && body.method === 'query' && body.params?.request_type === 'view_access_key') {
+    const k = fakeOutlayer.accessKeys.get(`${body.params.account_id}:${body.params.public_key}`)
+    if (!k) return send(res, 200, { jsonrpc: '2.0', id: body.id, error: { name: 'HANDLER_ERROR', cause: { name: 'UNKNOWN_ACCESS_KEY', info: { public_key: body.params.public_key } }, code: -32000, message: 'Server error', data: `Access key for public key ${body.params.public_key} does not exist while viewing` } })
+    return send(res, 200, { jsonrpc: '2.0', id: body.id, result: { nonce: k.nonce, permission: k.permission, block_height: fakeOutlayer.height, block_hash: 'GJ2rdQDMGFVsZPn9RYfWo5BibVx8iBFDWvnbvMzaWUfR' } })
+  }
+  if (req.method === 'POST' && url.pathname === '/rpc' && body.method === 'send_tx') {
+    fakeOutlayer.sent.push({ signedTxBase64: body.params.signed_tx_base64 })
+    const hash = createHash('sha256').update(body.params.signed_tx_base64).digest('hex').slice(0, 44)
+    return send(res, 200, { jsonrpc: '2.0', id: body.id, result: { final_execution_status: 'EXECUTED_OPTIMISTIC', status: fakeOutlayer.relayOutcome, transaction: { hash }, transaction_outcome: { id: hash, outcome: { status: { SuccessValue: '' } } }, receipts_outcome: [] } })
+  }
   if (req.method === 'POST' && url.pathname === '/rpc') {
     const p = body.params
     if (p.account_id !== 'outlayer.testnet' || p.method_name !== 'estimate_wallet_policy_cost') return send(res, 200, { jsonrpc: '2.0', id: 1, error: { message: 'unknown view' } })

@@ -13,18 +13,34 @@ export const TRACK_SKILLS: Record<string, SkillCopy> = {
   // Business and agents: paying and getting paid.
   "best-price": {
     title: "Best price buyer",
-    blurb: "Asks every seller of a data report for a price and buys the cheapest one your wallet may pay.",
+    blurb: "Asks every seller of a data report for a price, haggles once if it's over your budget, and buys from one your wallet may pay.",
     canUse: (c) => ["Prices from every seller in the data shop", `${c.name}'s wallet, ${limitText(c.limit)}`],
     cannot: ["Can't pay a seller off your address list"],
     needsWallet: true,
     ask: {
       why: (c) => `${c.name} will compare sellers before buying a report and show you the prices, then pay the cheapest one you allow after you approve.`,
-      does: () => ["Ask every seller for a price", "Show you the comparison", "Pay the cheapest seller on your list, after you approve"],
+      does: () => ["Ask every seller for a price", "Show you the comparison", "Offer less once if the price is over your budget, then buy or walk away", "Pay the seller on your list, after you approve"],
       never: () => ["Pay without asking you", "Pay a seller you haven't listed"],
       note: approvalNote,
     },
     added: (c) => `${c.name} can find the cheapest seller now. Ask it in the chat, for example "Buy the gas price report at the best price."`,
     removed: (c) => `${c.name} won't compare sellers any more.`,
+  },
+  // NEAR AI Agent Market (market.near.ai): find an agent for a job and get its exact price. Hiring is
+  // paid in USDC on NEAR mainnet, so during the testnet phase it only quotes (engine/skills/agent-market).
+  "agent-market": {
+    title: "Hire on Agent Market",
+    blurb: "Finds AI agents for a job on the NEAR AI Agent Market and gets the job's exact price. Hiring is paid in mainnet USDC, so it only quotes for now.",
+    canUse: () => ["The Agent Market's public catalog", "A price for the task you write, from the agent itself"],
+    cannot: ["Can't hire or pay during the testnet phase", "Never sends secrets in a task"],
+    ask: {
+      why: (c) => `${c.name} will look for agents that can do a job you describe, show their price and track record, and ask one for the exact price of your task.`,
+      does: () => ["Search the Agent Market", "Show agents with price, jobs done and success rate", "Ask one agent for the price of your task"],
+      never: () => ["Hire or pay anyone", "Put secrets or private data in a task"],
+      note: "No signature needed. Asking for a price starts no work and moves no money.",
+    },
+    added: (c) => `${c.name} can look for agents on the Agent Market now. Ask it in the chat, for example "Find an agent to research coffee shop competitors. What would it cost?"`,
+    removed: (c) => `${c.name} won't look for agents on the Agent Market any more.`,
   },
   "price-watch": {
     title: "Price watch",

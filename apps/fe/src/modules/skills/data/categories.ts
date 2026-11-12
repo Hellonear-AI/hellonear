@@ -8,7 +8,7 @@ export const CATEGORIES: { id: CategoryId; label: string; skills: string[] }[] =
   {
     id: "money",
     label: "Money",
-    skills: ["payments", "best-price", "price-watch", "split-bill", "revenue-split", "invoice", "mind-seller", "paid-data", "subscriptions"],
+    skills: ["payments", "best-price", "agent-market", "price-watch", "split-bill", "revenue-split", "invoice", "mind-seller", "paid-data", "subscriptions"],
   },
   {
     id: "safety",

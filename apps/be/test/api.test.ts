@@ -5,7 +5,7 @@ import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { AddressInfo } from 'node:net'
 import { createHash, randomBytes } from 'node:crypto'
-import { KeyPair, KeyPairSigner } from 'near-api-js'
+import { KeyPair, KeyPairSigner, actions as nearActions, buildDelegateAction, decodeSignedTransaction, encodeSignedDelegate } from 'near-api-js'
 import { ENGINE_KEY, engine, fake, fakeProof } from './fake-engine.ts'
 import { fakeOutlayer, outlayerServer } from './fake-outlayer.ts'
 import { COMPOSIO_KEY, composioServer, fakeComposio } from './fake-composio.ts'
@@ -1084,8 +1084,138 @@ describe('payment tools through the backend (#42, option B)', () => {
 
       // A bad list stops the backend at start rather than at the first purchase.
       for (const bad of ['a.testnet', 'a.testnet:0', 'a.testnet:1,a.testnet:2', 'NOT AN ACCOUNT:1', 'a.testnet:1.2345']) assert.throws(() => parseSellers(bad, ''), /SHOP_SELLERS/, bad)
-      assert.deepEqual(parseSellers('', 'shop.testnet'), [{ id: 's1', account: 'shop.testnet', multiplierMilli: 1000n }])
+      assert.deepEqual(parseSellers('', 'shop.testnet'), [{ id: 's1', account: 'shop.testnet', multiplierMilli: 1000n, floorMilli: 800n }])
       assert.deepEqual(parseSellers('', ''), [])
+    } finally {
+      ;[config.shopPayTo, config.shopSellers] = saved
+    }
+  })
+
+  test('Negotiation: an offer at the floor is accepted, one under it gets one counter, and the paid step checks the agreed price', async () => {
+    const { config } = await import('../src/config.ts')
+    const { parseSellers } = await import('../src/shop.ts')
+    const saved = [config.shopPayTo, config.shopSellers] as const
+    try {
+      config.shopPayTo = 'shop.testnet'
+      // s1 keeps the default floor (0.8 of its price), s2 names its own (0.5).
+      config.shopSellers = 'shop.testnet:1,cheap.testnet:0.8:0.5'
+      const a = await signIn()
+      const { mindId } = await walletMind(a, { policy: false })
+      const token = await tokenFromChat(a, mindId)
+      const get = async (q: string) => { const r = await engineCall('GET', `/internal/v1/shop/network-status${q}`, token); return [r.status, await r.json()] as const }
+      const sold = { item: 'network-status', title: 'NEAR testnet status: latest block, protocol version, validator count' }
+
+      // s1: price 0.001, floor 0.0008.
+      let [status, out] = await get('?seller=s1&offer=0.0008')
+      assert.equal(status, 200, JSON.stringify(out))
+      assert.deepEqual({ ...out, reason: undefined }, { ...sold, status: 'accepted', seller: 's1', priceNear: '0.0008', payTo: 'shop.testnet', reason: undefined })
+      assert.match(out.reason, /accepts 0\.0008 NEAR instead of 0\.001/)
+      // Under the floor: one counter, halfway to the price (0.0007 → 0.00085), never under the floor.
+      ;[status, out] = await get('?seller=s1&offer=0.0007')
+      assert.deepEqual([status, out.status, out.priceNear], [200, 'countered', '0.00085'])
+      assert.match(out.reason, /counters at 0\.00085 NEAR/)
+      // Halfway would be 0.00055, under the floor: the counter is the floor.
+      ;[, out] = await get('?seller=s1&offer=0.0001')
+      assert.deepEqual([out.status, out.priceNear], ['countered', '0.0008'])
+      // Offering the counter is accepted (stateless).
+      ;[, out] = await get('?seller=s1&offer=0.00085')
+      assert.deepEqual([out.status, out.priceNear], ['accepted', '0.00085'])
+      // Over the price: the price, not more.
+      ;[, out] = await get('?seller=s1&offer=0.5')
+      assert.deepEqual([out.status, out.priceNear], ['accepted', '0.001'])
+      // s2: price 0.0008, its own floor 0.5 → 0.0004.
+      ;[, out] = await get('?seller=s2&offer=0.0004')
+      assert.deepEqual([out.status, out.priceNear, out.payTo], ['accepted', '0.0004', 'cheap.testnet'])
+      ;[, out] = await get('?seller=s2&offer=0.0002')
+      assert.deepEqual([out.status, out.priceNear], ['countered', '0.0005'])
+
+      // An offer needs a seller and a valid amount, and is not part of the price list.
+      for (const q of ['?offer=0.0008', '?seller=s1&offer=0', '?seller=s1&offer=abc', '?seller=s1&offer=-1', '?quotes=1&offer=0.0008']) assert.equal((await get(q))[0], 400, q)
+      assert.equal((await get('?seller=s9&offer=0.0008'))[0], 404)
+
+      const pay = async (to: string, amountNear: string) => (await (await engineCall('POST', '/internal/v1/wallet/send_payment', token, { to, amountNear })).json()).txHash as string
+      // Paid at the agreed price: redeemed with the same offer.
+      const agreed = await pay('shop.testnet', '0.0008')
+      // Without the offer, 0.0008 is short of s1's list price.
+      assert.equal((await get(`?seller=s1&tx=${agreed}`))[1].error, 'payment_does_not_match')
+      // An offer under the floor was never agreed, so the list price still applies.
+      ;[status, out] = await get(`?seller=s1&offer=0.0007&tx=${agreed}`)
+      assert.deepEqual([status, out.error, out.priceNear], [402, 'payment_does_not_match', '0.001'])
+      // A 402 for an accepted offer names the agreed price.
+      ;[status, out] = await get('?seller=s1&offer=0.0008&tx=' + '1'.repeat(44))
+      assert.deepEqual([status, out.error, out.seller, out.priceNear, out.payTo], [402, 'payment_not_found', 's1', '0.0008', 'shop.testnet'])
+      ;[status, out] = await get(`?seller=s1&offer=0.0008&tx=${agreed}`)
+      assert.equal(status, 200, JSON.stringify(out))
+      assert.deepEqual([out.status, out.seller, out.receipt.amountNear], ['paid', 's1', '0.0008'])
+      // Paying under the agreed price does not count.
+      const short = await pay('shop.testnet', '0.00079')
+      assert.equal((await get(`?seller=s1&offer=0.0008&tx=${short}`))[1].error, 'payment_does_not_match')
+
+      for (const bad of ['a.testnet:1:0', 'a.testnet:1:1.5', 'a.testnet:1:0.8:1']) assert.throws(() => parseSellers(bad, ''), /SHOP_SELLERS/, bad)
+      assert.deepEqual(parseSellers('a.testnet:1.2:0.65', '')[0], { id: 's1', account: 'a.testnet', multiplierMilli: 1200n, floorMilli: 650n })
+      assert.deepEqual(parseSellers('a.testnet:1:1', '')[0].floorMilli, 1000n)
+    } finally {
+      ;[config.shopPayTo, config.shopSellers] = saved
+    }
+  })
+
+  test('payments CSV: every attempt in plain words, with purpose, who approved it, the tx and its explorer link; owner only', async () => {
+    const { csvCell } = await import('../src/payments.ts')
+    const saved = [config.shopPayTo, config.shopSellers] as const
+    try {
+      config.shopPayTo = 'shop.testnet'
+      config.shopSellers = ''
+      const a = await signIn()
+      const { mindId } = await walletMind(a)
+      const token = await tokenFromChat(a, mindId)
+      const pay = async (to: string, amountNear: string) => (await (await engineCall('POST', '/internal/v1/wallet/send_payment', token, { to, amountNear })).json())
+      const bought = await pay('shop.testnet', '0.001')
+      const r = await engineCall('GET', `/internal/v1/shop/gas-price?tx=${bought.txHash}`, token)
+      assert.equal(r.status, 200, await r.clone().text())
+      const ruled = await pay('shop.testnet', '0.002')
+      const refused = await pay('stranger.testnet', '0.003')
+      assert.equal(refused.status, 'policy_denied')
+      // The runs that made them: one approved by the owner's card, one by an auto-approve rule.
+      const runId = `run_csv_${randomBytes(4).toString('hex')}`
+      await query(`insert into runs (id, mind_id, status) values ($1, $2, 'finished')`, [runId, mindId])
+      const ev = [
+        ['tool.approval_required', { toolCallId: 'c1', tool: 'send_payment' }],
+        ['tool.result', { toolCallId: 'c1', tool: 'send_payment', result: { paymentId: bought.paymentId } }],
+        ['tool.called', { toolCallId: 'c2', tool: 'send_payment', approvedBy: 'rule', rule: 'payment' }],
+        ['tool.result', { toolCallId: 'c2', tool: 'send_payment', result: { paymentId: ruled.paymentId } }],
+      ] as const
+      for (const [i, [type, payload]] of ev.entries()) await query('insert into run_events (run_id, seq, type, payload, ts) values ($1, $2, $3, $4, now())', [runId, i + 1, type, payload])
+
+      const res = await a.call('GET', `/v1/minds/${mindId}/payments.csv`)
+      assert.equal(res.status, 200)
+      assert.equal(res.headers.get('content-type'), 'text/csv; charset=utf-8')
+      assert.equal(res.headers.get('content-disposition'), `attachment; filename="hellonear-${mindId}-payments.csv"`)
+      // The web app fetches it from another origin on the hosted site and names the file from this header (#297 review).
+      assert.equal(res.headers.get('access-control-expose-headers'), 'content-disposition')
+      const text = await res.text()
+      // fetch's text() strips the BOM; check the raw bytes start with it.
+      assert.equal(text.includes('\r\n'), true)
+      const lines = text.trimEnd().split('\r\n')
+      assert.equal(lines[0], 'Date (UTC),Status,Direction,Amount (NEAR),Counterparty,Purpose,Approved by,Transaction hash,Explorer link,Note')
+      assert.equal(lines.length, 4)
+      const byAmount = Object.fromEntries(lines.slice(1).map((l) => [l.split(',')[3], l.split(',')]))
+      const b = byAmount['0.001']
+      assert.match(b[0], /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)
+      assert.deepEqual(b.slice(1, 9), ['sent', 'out', '0.001', 'shop.testnet', 'data report: gas-price', 'owner', bought.txHash, `https://testnet.nearblocks.io/txns/${bought.txHash}`])
+      assert.deepEqual(byAmount['0.002'].slice(1, 7), ['sent', 'out', '0.002', 'shop.testnet', '', 'your rule'])
+      assert.deepEqual(byAmount['0.003'].slice(1, 8), ['refused by the wallet policy (no money moved)', 'out', '0.003', 'stranger.testnet', '', '', ''])
+      const raw = new Uint8Array(await (await a.call('GET', `/v1/minds/${mindId}/payments.csv`)).arrayBuffer())
+      assert.deepEqual([...raw.slice(0, 3)], [0xef, 0xbb, 0xbf])
+
+      // Another owner's Mind is not found; no session is 401.
+      assert.equal((await (await signIn()).call('GET', `/v1/minds/${mindId}/payments.csv`)).status, 404)
+      assert.equal((await client()('GET', `/v1/minds/${mindId}/payments.csv`)).status, 401)
+
+      assert.equal(csvCell('plain'), 'plain')
+      assert.equal(csvCell('a,b'), '"a,b"')
+      assert.equal(csvCell('say "hi"\nok'), '"say ""hi""\nok"')
+      assert.equal(csvCell('=HYPERLINK("x")'), `"'=HYPERLINK(""x"")"`)
+      assert.equal(csvCell('-1'), "'-1")
     } finally {
       ;[config.shopPayTo, config.shopSellers] = saved
     }
@@ -2796,5 +2926,117 @@ describe('auto-approve rules (#167)', () => {
     assert.equal(patched.status, 403)
     assert.equal((await patched.json()).error, 'demo_not_allowed')
     assert.deepEqual((await (await call('GET', `/v1/minds/${mind.id}`, undefined, h)).json()).mind.autoApprove, { tools: [], payment: null })
+  })
+})
+
+describe('meta-transaction relayer (realworld track)', () => {
+  const origin = { origin: 'http://localhost:3000' }
+  async function owner() {
+    const { keyPair, accountId, publicKey } = await newAccount()
+    const call = client()
+    const { nonce } = await (await call('POST', '/v1/auth/challenge', {})).json()
+    const res = await call('POST', '/v1/auth/login', { accountId, publicKey, nonce, signature: await sign(keyPair, accountId, nonce) })
+    const cookie = res.headers.get('set-cookie')!.split(';')[0]
+    fakeOutlayer.accessKeys.set(`${accountId}:${publicKey}`, { nonce: 100, permission: 'FullAccess' })
+    return { keyPair, accountId, publicKey, call: client(cookie) }
+  }
+  async function delegate(o: { keyPair: KeyPair; accountId: string }, over: { nonce?: bigint; maxBlockHeight?: bigint; method?: string } = {}) {
+    const da = buildDelegateAction({
+      senderId: o.accountId, receiverId: config.registryContractId,
+      actions: [nearActions.functionCall(over.method ?? 'unequip_skill', { mind_id: 'mnd_1', skill_id: 'pay' }, 30_000_000_000_000n, 1n)],
+      nonce: over.nonce ?? 101n, maxBlockHeight: over.maxBlockHeight ?? BigInt(fakeOutlayer.height + 100), publicKey: o.keyPair.getPublicKey(),
+    })
+    const { signedDelegate } = await new KeyPairSigner(o.keyPair).signDelegateAction(da)
+    return Buffer.from(encodeSignedDelegate(signedDelegate)).toString('base64')
+  }
+  const relayer = KeyPair.fromRandom('ed25519')
+  const saved = [config.relayerAccountId, config.relayerPrivateKey] as const
+  before(async () => {
+    const { resetRelayLimits } = await import('../src/relay.ts')
+    resetRelayLimits()
+    config.relayerAccountId = 'relayer.testnet'
+    config.relayerPrivateKey = relayer.toString()
+    fakeOutlayer.accessKeys.set(`relayer.testnet:${relayer.getPublicKey().toString()}`, { nonce: 5, permission: 'FullAccess' })
+  })
+  after(() => { [config.relayerAccountId, config.relayerPrivateKey] = saved })
+
+  test('relays an allowed registry call: the relayer signs a transaction to the owner carrying the owner\'s signed delegate', async () => {
+    const o = await owner()
+    const before = fakeOutlayer.sent.length
+    const res = await o.call('POST', '/v1/relay', { signedDelegate: await delegate(o) }, origin)
+    assert.equal(res.status, 200, await res.clone().text())
+    const out = await res.json()
+    assert.deepEqual({ ...out, txHash: typeof out.txHash }, { txHash: 'string', status: 'success', senderId: o.accountId, receiverId: config.registryContractId, methods: ['unequip_skill'] })
+    assert.equal(fakeOutlayer.sent.length, before + 1)
+    const tx: any = decodeSignedTransaction(Buffer.from(fakeOutlayer.sent.at(-1)!.signedTxBase64, 'base64'))
+    assert.equal(tx.transaction.signerId, 'relayer.testnet')
+    assert.equal(tx.transaction.receiverId, o.accountId)
+    assert.equal(tx.transaction.nonce, 6n)
+    assert.equal(tx.transaction.actions.length, 1)
+    assert.equal(tx.transaction.actions[0].signedDelegate.delegateAction.senderId, o.accountId)
+    assert.equal(tx.transaction.actions[0].signedDelegate.delegateAction.actions[0].functionCall.methodName, 'unequip_skill')
+    // The relayer's signature is valid for its own key over the transaction.
+    const { createHash } = await import('node:crypto')
+    const { encodeTransaction } = await import('near-api-js')
+    const hash = createHash('sha256').update(encodeTransaction(tx.transaction)).digest()
+    assert.ok(relayer.getPublicKey().verify(hash, Uint8Array.from(tx.signature.ed25519Signature.data)))
+
+    // An inner failure is reported, not hidden.
+    fakeOutlayer.relayOutcome = { Failure: { ActionError: { kind: { FunctionCallError: { ExecutionError: 'skill is not equipped' } } } } }
+    try {
+      const failed = await (await o.call('POST', '/v1/relay', { signedDelegate: await delegate(o, { nonce: 102n }) }, origin)).json()
+      assert.equal(failed.status, 'failure')
+      assert.ok(failed.failure.ActionError)
+    } finally {
+      fakeOutlayer.relayOutcome = { SuccessValue: '' }
+    }
+  })
+
+  test('refuses before sending: expired, too far ahead, a stale nonce, an unknown or function-call key, another method, another sender', async () => {
+    const o = await owner()
+    const before = fakeOutlayer.sent.length
+    const post = async (signedDelegate: string, c = o.call) => { const r = await c('POST', '/v1/relay', { signedDelegate }, origin); return [r.status, (await r.json()).error] }
+    assert.deepEqual(await post(await delegate(o, { maxBlockHeight: BigInt(fakeOutlayer.height) })), [400, 'delegate_expired'])
+    assert.deepEqual(await post(await delegate(o, { maxBlockHeight: BigInt(fakeOutlayer.height + 5000) })), [400, 'delegate_ttl_too_long'])
+    assert.deepEqual(await post(await delegate(o, { nonce: 100n })), [400, 'stale_nonce'])
+    assert.deepEqual(await post(await delegate(o, { method: 'equip_skill' })), [400, 'method_not_allowed'])
+    fakeOutlayer.accessKeys.set(`${o.accountId}:${o.publicKey}`, { nonce: 100, permission: { FunctionCall: { allowance: null, receiver_id: config.registryContractId, method_names: [] } } })
+    assert.deepEqual(await post(await delegate(o)), [400, 'key_not_full_access'])
+    fakeOutlayer.accessKeys.delete(`${o.accountId}:${o.publicKey}`)
+    assert.deepEqual(await post(await delegate(o)), [400, 'unknown_access_key'])
+    // Signed by one owner, sent by another.
+    const other = await owner()
+    assert.deepEqual(await post(await delegate(other), o.call), [403, 'delegate_sender_mismatch'])
+    assert.equal(fakeOutlayer.sent.length, before)
+    // Bad body, CSRF, no session.
+    assert.equal((await o.call('POST', '/v1/relay', {}, origin)).status, 400)
+    assert.equal((await o.call('POST', '/v1/relay', { signedDelegate: await delegate(other) }, { origin: 'https://evil.example' })).status, 403)
+    assert.equal((await client()('POST', '/v1/relay', { signedDelegate: 'x' }, origin)).status, 401)
+  })
+
+  test('per-owner hourly limit, try-out users refused, and 503 when no relayer is configured', async () => {
+    const { RELAY_LIMIT, resetRelayLimits } = await import('../src/relay.ts')
+    const o = await owner()
+    const limit = RELAY_LIMIT.perHour
+    RELAY_LIMIT.perHour = 2
+    try {
+      for (const n of [201n, 202n]) assert.equal((await o.call('POST', '/v1/relay', { signedDelegate: await delegate(o, { nonce: n }) }, origin)).status, 200)
+      const r = await o.call('POST', '/v1/relay', { signedDelegate: await delegate(o, { nonce: 203n }) }, origin)
+      assert.deepEqual([r.status, (await r.json()).error], [429, 'relay_rate_limited'])
+    } finally {
+      RELAY_LIMIT.perHour = limit
+      resetRelayLimits()
+    }
+    const demo = await client()('POST', '/v1/auth/demo', {}, { ...origin, 'cf-connecting-ip': '198.51.100.251' })
+    const demoCall = client(demo.headers.get('set-cookie')!.split(';')[0])
+    const d = await demoCall('POST', '/v1/relay', { signedDelegate: await delegate(o, { nonce: 300n }) }, origin)
+    assert.deepEqual([d.status, (await d.json()).error], [403, 'demo_not_allowed'])
+    config.relayerPrivateKey = ''
+    try {
+      const r = await o.call('POST', '/v1/relay', { signedDelegate: await delegate(o, { nonce: 301n }) }, origin)
+      assert.deepEqual([r.status, (await r.json()).error], [503, 'relay_not_configured'])
+    } finally {
+      config.relayerPrivateKey = relayer.toString()
+    }
   })
 })

@@ -9,11 +9,13 @@
     "dev": "node --env-file=.env --import tsx src/server.ts",
     "migrate": "node --env-file=.env --import tsx src/migrate.ts",
     "test": "node --env-file-if-exists=.env --import tsx --test --test-concurrency=1 test/*.test.ts",
-    "test:unit": "node --import tsx --test test/crypto.test.ts test/sse.test.ts test/telegram-format.test.ts test/approvals.test.ts",
+    "test:unit": "node --import tsx --test test/crypto.test.ts test/sse.test.ts test/telegram-format.test.ts test/approvals.test.ts test/relay.test.ts",
     "load": "node --env-file-if-exists=.env --import tsx load/api.ts",
+    "load:shop": "node --env-file-if-exists=.env --import tsx load/shop.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "borsh": "2.0.0",
     "near-api-js": "7.4.0",
     "pg": "8.23.1",
     "zod": "4.6.7"

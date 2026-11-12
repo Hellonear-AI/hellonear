@@ -129,6 +129,19 @@ describe("step words for the track skills (#211)", () => {
     expect(shortAmount("0.004512")).toBe("0.0045")
     expect(shortAmount("0.000000")).toBe("0")
   })
+
+  it("says what a haggle, an Agent Market search or quote, and a contract lookup came to", async () => {
+    const { stepText } = await import("@/modules/runs/data/steps")
+    const done = (tool: string, result: unknown) => stepText({ toolCallId: "t", tool, status: "ok", args: {}, result })
+    expect(done("make_offer", { status: "accepted", priceNear: "0.0008", next: "buy_at_price" })).toMatchObject({ label: "Made an offer", detail: "Accepted at 0.0008 NEAR" })
+    expect(done("make_offer", { status: "countered", priceNear: "0.0009", next: "buy_at_price" }).detail).toBe("Countered at 0.0009 NEAR")
+    expect(done("make_offer", { status: "countered", priceNear: "0.0012", next: "walk_away" }).detail).toBe("Countered at 0.0012 NEAR, over budget")
+    expect(done("market_search", { query: "research", agents: [{}, {}, {}] })).toMatchObject({ label: "Searched the Agent Market", detail: "3 agents" })
+    expect(done("market_quote", { status: "quoted", price: { usdc: "15", network: "near:mainnet", payTo: "x" } })).toMatchObject({ label: "Got an agent's price", detail: "15 USDC, not paid" })
+    expect(done("market_quote", { status: "unavailable" }).detail).toBe("No price right now")
+    expect(done("near_view_account", { accountId: "hellonear-registry.testnet", isContract: true }).detail).toBe("hellonear-registry.testnet, a contract")
+    expect(done("near_view_account", { accountId: "lin1er.testnet", isContract: false }).detail).toBe("lin1er.testnet")
+  })
 })
 
 describe("streamed replies show whole words (11 Nov)", () => {

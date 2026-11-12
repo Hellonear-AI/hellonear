@@ -111,3 +111,53 @@ export async function listPayments(mindId: string, limit = 20) {
     ...(p.tx_hash ? { txHash: p.tx_hash } : {}), ...(p.message ? { message: p.message } : {}), at: p.created_at.toISOString(),
   }))
 }
+
+// CSV of a Mind's payments for an accountant (realworld track): one row per attempt, newest first, in words that need
+// no explaining. "Approved by" comes from the run that made the payment: a `tool.called` with `approvedBy: "rule"` is the
+// owner's auto-approve rule (#167), a `tool.approval_required` for the same call is the owner's own approval.
+const CSV_STATUS: Record<PaymentStatus, string> = {
+  sent: 'sent', pending: 'pending', policy_denied: 'refused by the wallet policy (no money moved)',
+  wallet_frozen: 'refused, wallet frozen (no money moved)', failed: 'failed (no money moved)',
+}
+export const CSV_HEADER = ['Date (UTC)', 'Status', 'Direction', 'Amount (NEAR)', 'Counterparty', 'Purpose', 'Approved by', 'Transaction hash', 'Explorer link', 'Note']
+// RFC 4180 quoting, and a leading ' on a cell that a spreadsheet would read as a formula.
+export function csvCell(v: string): string {
+  const safe = /^[=+\-@\t\r]/.test(v) ? `'${v}` : v
+  return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
+}
+export async function paymentsCsv(mindId: string, limit = 10_000): Promise<string> {
+  // One pass: the payment calls in this Mind's runs, then who approved each, then the rows (no per-row subqueries).
+  const rows = await query<{ id: string; created_at: Date; status: PaymentStatus; amount_yocto: string; to_account: string; tx_hash: string | null; message: string | null; shop_item: string | null; offer_item: string | null; approved_by: string | null }>(
+    `with calls as (
+       select e.payload->'result'->>'paymentId' as payment_id, e.run_id, e.payload->>'toolCallId' as call
+       from run_events e join runs r on r.id = e.run_id
+       where r.mind_id = $1 and e.type in ('tool.result', 'tool.error') and e.payload->'result' ? 'paymentId'
+     ), approvals as (
+       select c.payment_id,
+         bool_or(a.type = 'tool.called' and a.payload->>'approvedBy' = 'rule') as by_rule,
+         bool_or(a.type = 'tool.approval_required') as by_owner
+       from calls c join run_events a on a.run_id = c.run_id and a.type in ('tool.called', 'tool.approval_required') and a.payload->>'toolCallId' = c.call
+       group by c.payment_id
+     )
+     select p.id, p.created_at, p.status, p.amount_yocto, p.to_account, p.tx_hash, p.message, s.item as shop_item, o.item as offer_item,
+       case when ap.by_rule then 'your rule' when ap.by_owner then 'owner' end as approved_by
+     from wallet_payments p
+     left join approvals ap on ap.payment_id = p.id
+     left join (select distinct on (payment_id) payment_id, item from shop_purchases where mind_id = $1) s on s.payment_id = p.id
+     left join (select distinct on (payment_id) payment_id, item from offer_purchases where buyer_mind_id = $1) o on o.payment_id = p.id
+     where p.mind_id = $1 order by p.created_at desc limit $2`, [mindId, limit])
+  const lines = [CSV_HEADER, ...rows.map((p) => [
+    p.created_at.toISOString().replace('T', ' ').slice(0, 19),
+    CSV_STATUS[p.status] ?? p.status,
+    'out',
+    toNear(BigInt(p.amount_yocto)),
+    p.to_account,
+    p.shop_item ? `data report: ${p.shop_item}` : p.offer_item ? `bought from another Mind: ${p.offer_item}` : '',
+    p.approved_by ?? '',
+    p.tx_hash ?? '',
+    p.tx_hash ? `https://testnet.nearblocks.io/txns/${encodeURIComponent(p.tx_hash)}` : '',
+    p.message ?? '',
+  ])]
+  // A BOM so Excel opens it as UTF-8; CRLF line ends per RFC 4180.
+  return '﻿' + lines.map((l) => l.map(csvCell).join(',')).join('\r\n') + '\r\n'
+}
