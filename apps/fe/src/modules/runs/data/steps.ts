@@ -58,13 +58,13 @@ function summary(step: ToolStep): string | null {
     }
     case "split_amount":
       return count(r.shares, "share", "shares")
-    // A cross-chain preview (#273): what would arrive, where. "Signed by NEAR Intents" only when the engine checked it.
+    // A cross-chain preview (#273): what would arrive, where. Kept short to fit a phone's line; the
+    // Mind states the quote's proof in its reply (#278) and the opened step shows it.
     case "crosschain_quote": {
       const to = r.to as { amount?: string; token?: string; chain?: string } | undefined
       if (!to?.amount) return null
-      const chain = to.chain ? to.chain.charAt(0).toUpperCase() + to.chain.slice(1) : null
-      const signed = (r.proof as { signedBy1Click?: boolean } | undefined)?.signedBy1Click === true
-      return `${to.amount} ${to.token ?? ""} on ${chain ?? "the other chain"}${signed ? ", signed by NEAR Intents" : ""}`.replace(/\s+/g, " ")
+      const chain = to.chain ? to.chain.charAt(0).toUpperCase() + to.chain.slice(1) : "the other chain"
+      return [to.amount, to.token, "on", chain].filter(Boolean).join(" ")
     }
     case "near_check_transfer":
       return r.coversAmount === true ? "Paid in full" : r.status === "succeeded" ? "Paid, but not the full amount" : r.status === "failed" ? "Not paid" : null
