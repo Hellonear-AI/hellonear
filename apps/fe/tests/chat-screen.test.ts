@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { ApiError } from "@/lib/api"
-import { dayLabel, failureText } from "@/modules/chat/data/thread"
+import { dayLabel, failureText, mayBeOutage } from "@/modules/chat/data/thread"
 import { refusalReasons } from "@/modules/wallet/data/checks"
 
 describe("refusalReasons", () => {
@@ -42,5 +42,17 @@ describe("dayLabel", () => {
 describe("no reply", () => {
   it("says the Mind didn't write one", () => {
     expect(failureText("Omaga", "no_reply")).toBe("Omaga thought about it but didn't write a reply. Try asking again.")
+  })
+})
+
+describe("mayBeOutage (#304)", () => {
+  it("links the status page for a 5xx or a run that broke partway, not for the owner's own side", async () => {
+    const { ApiError } = await import("@/lib/api")
+    expect(mayBeOutage(new ApiError(503, "engine_unavailable", {}))).toBe(true)
+    expect(mayBeOutage("engine_stream_interrupted")).toBe(true)
+    expect(mayBeOutage(new ApiError(401, "unauthorized", {}))).toBe(false)
+    expect(mayBeOutage(new ApiError(429, "demo_run_limit", {}))).toBe(false)
+    expect(mayBeOutage("no_reply")).toBe(false)
+    expect(mayBeOutage(new TypeError("Failed to fetch"))).toBe(false)
   })
 })
