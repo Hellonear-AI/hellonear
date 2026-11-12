@@ -14,7 +14,8 @@ import type { RecentChat } from "@/modules/minds/data/minds"
 
 /**
  * One chat in Recent chats, with a ⋯ menu to rename or delete it (#207, like Claude and ChatGPT):
- * the menu shows on hover or focus in place of the time, and always on touch screens.
+ * the menu shows on hover or focus in place of the time, and always on touch screens, beside the
+ * thinking orb or "Waiting" when the chat is busy.
  */
 export function ChatRow({
   mindId,
@@ -65,17 +66,22 @@ export function ChatRow({
         href={href}
         onClick={onNavigate}
         aria-current={isOpen ? "page" : undefined}
-        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-2 pr-3 pl-3"
+        className={cn("flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-2 pr-3 pl-3", busy && "pointer-coarse:pr-9")}
       >
         <MarqueeTitle title={chat.title} shimmer={shimmer} />
         {/* In the row's flow, so the title stops before it (Ancung, 11 Nov: "Yesterday" ran over a
-            long title when it floated). At least as wide as ⋯, which takes its place on hover. */}
+            long title when it floated). At least as wide as ⋯, which takes its place on hover.
+            On touch screens ⋯ always shows, so the time hides there; but the thinking orb and
+            "Waiting" stay, beside ⋯ (Ancung, 12 Nov: on a phone they never showed). */}
         <span
           className={cn(
             "flex min-w-6 shrink-0 items-center justify-end transition-opacity",
             // Keyboard focus only: after the menu closes, focus goes back to ⋯ and a plain focus-within
             // kept the time hidden for good (Ancung, 11 Nov).
-            "group-hover/chat:opacity-0 group-has-[:focus-visible]/chat:opacity-0 pointer-coarse:opacity-0",
+            busy
+              ? // A touch leaves :hover stuck on the row, so only a mouse swaps the orb for ⋯.
+                "pointer-fine:group-hover/chat:opacity-0 pointer-fine:group-has-[:focus-visible]/chat:opacity-0"
+              : "group-hover/chat:opacity-0 group-has-[:focus-visible]/chat:opacity-0 pointer-coarse:opacity-0",
             menuOpen && "opacity-0"
           )}
         >
