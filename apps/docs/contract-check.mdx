@@ -1,0 +1,18 @@
+---
+title: "Contract check before paying"
+description: "How the Recipient guard skill warns before a plain transfer to a smart contract and asks the owner instead of showing an approval card."
+---
+
+**Track:** `security`. **Skill:** Recipient guard (`recipient-guard`), in the Payments Mind template. **Tool:** `near_view_account`.
+
+Before paying, the Mind looks up the recipient on NEAR testnet (`view_account`: exists, balance, storage, `isContract`, `codeHash`). If the account is a smart contract, it warns: it is a contract, not a person's wallet, and NEAR sent to it by a plain transfer may be stuck or do nothing. It pays only if the owner confirms that is what they want.
+
+## Try it
+
+With a Payments Mind: *"Pay 0.001 NEAR to hellonear-registry.testnet."* See: a warning that it is a smart contract, and a question. No approval card.
+
+## Other checks in the same skill
+
+Recipient guard answers allow, warn or block with the reason: where the account came from, that it exists, lookalikes of people the owner already pays, first payments, and contracts. A first payment to a real account that is not a contact, contract or lookalike is allowed, and the Mind says it is the first payment to it.
+
+These checks are advice from the model. The hard stops are the owner's approval and the wallet policy. See [Wallet, limits and approvals](/wallet-and-approvals).

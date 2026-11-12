@@ -1,0 +1,119 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "HelloNear",
+  "description": "Documentation for HelloNear: AI agents on NEAR whose money rules sit outside the model.",
+  "colors": {
+    "primary": "#3E5C00",
+    "light": "#D8F04A",
+    "dark": "#3E5C00"
+  },
+  "background": {
+    "color": {
+      "light": "#F3F2EE",
+      "dark": "#11110F"
+    }
+  },
+  "fonts": {
+    "family": "Geist"
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg",
+    "href": "https://docs.hellonear.xyz"
+  },
+  "favicon": "/favicon.svg",
+  "navbar": {
+    "links": [
+      {
+        "label": "Trust",
+        "href": "https://trust.hellonear.xyz"
+      },
+      {
+        "label": "Status",
+        "href": "https://status.hellonear.xyz"
+      },
+      {
+        "type": "github",
+        "href": "https://github.com/Hellonear-AI/hellonear"
+      }
+    ]
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": [
+              "index",
+              "quickstart",
+              "how-it-works",
+              "tech-stack"
+            ]
+          },
+          {
+            "group": "Concepts",
+            "pages": [
+              "minds",
+              "skills",
+              "wallet-and-approvals",
+              "verified-replies",
+              "privacy",
+              "autopilot",
+              "telegram",
+              "connections",
+              "agent"
+            ]
+          },
+          {
+            "group": "Track features",
+            "pages": [
+              "tracks",
+              "haggling",
+              "agent-market",
+              "contract-check",
+              "payments-csv",
+              "relayer",
+              "swarm-auction"
+            ]
+          },
+          {
+            "group": "API",
+            "pages": [
+              "api-reference",
+              "api",
+              "events",
+              "errors",
+              "status"
+            ]
+          },
+          {
+            "group": "Smart contracts",
+            "pages": [
+              "contracts"
+            ]
+          },
+          {
+            "group": "More",
+            "pages": [
+              "run-locally",
+              "connectors",
+              "hackathon-phase"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Endpoints",
+        "openapi": "https://raw.githubusercontent.com/Hellonear-AI/hellonear/main/docs/openapi.json"
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/Hellonear-AI/hellonear"
+    }
+  }
+}

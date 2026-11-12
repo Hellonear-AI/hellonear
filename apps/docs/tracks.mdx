@@ -1,0 +1,71 @@
+---
+title: "The six tracks"
+description: "What HelloNear built for each NEAR HACKATHON track, the skills that carry it, and how to check it."
+---
+
+HelloNear is submitted to six tracks. For each one: what the organizers ask for (quoted from the *Build* and *Hints* columns of HACKATHON.md), what HelloNear built for it, the skills that carry it, and how to check it.
+
+| Track | Why HelloNear fits, in one line |
+|---|---|
+| [`security`](https://github.com/Hellonear-AI/hellonear#security-ai-security--defense) | An AI with money whose limits it cannot touch: approval, an OutLayer policy checked in a TEE before signing, freeze, scam and lookalike checks, and an Attack playground |
+| [`privacy`](https://github.com/Hellonear-AI/hellonear#privacy-privacy--private-ai) | Every reply runs on NEAR AI Cloud in a TEE and is verified against its attestation, with a proof anyone can open on Phala's TEE Explorer |
+| [`agents`](https://github.com/Hellonear-AI/hellonear#agents-agent-economy) | Minds pay for data (402), sell to other Minds, compare sellers, invoice, and quote payments through NEAR Intents, inside the owner's limits |
+| [`swarms`](https://github.com/Hellonear-AI/hellonear#swarms-ai-swarms) | Every purchase is a small auction between sellers; Minds trade with other Minds; one request pays several people, each approved |
+| [`business`](https://github.com/Hellonear-AI/hellonear#business-autonomous-business) | The owner sets the constraints; the Mind runs the treasury: reports, audits, revenue sharing, invoices, procurement, scheduled jobs |
+| [`realworld`](https://github.com/Hellonear-AI/hellonear#realworld-real-world-money) | Invoices with payment checked on chain, bills found in Gmail, and stablecoin payments to other chains quoted through NEAR Intents |
+
+### `security`: AI Security & Defense
+
+| | |
+|---|---|
+| **The track asks for** | "Build spending limits, policy engines, sandboxed wallets, reputation and scam detection. Give AI money without giving it the keys to everything." Hints: agent security, function call keys, TEE attestation |
+| **What HelloNear built** | Seven layers that each stop an attack alone: the model, skills that grant tools, the owner's approval, the OutLayer wallet policy checked **in a TEE before signing**, a daily limit, freeze, and unattended jobs with no payment tools. Writes re-check their target before writing. A Recipient guard that answers allow, warn or block with the reason before every payment (where the recipient came from, that it exists, lookalikes of people already paid, first payments, contracts), a Phishing check, and an Attack playground that names the layer that stopped each attack. Why not function-call keys: they cannot transfer NEAR and their allowance is gas, not a spending cap |
+| **Skills** | Recipient guard, Phishing check, Freeze advisor, Spending audit, Payments |
+| **Check it** | Attack playground, any scenario: `attack.verdict` names the layer. Approve 1 NEAR: `policy_denied`, no transaction |
+
+### `privacy`: Privacy & Private AI
+
+| | |
+|---|---|
+| **The track asks for** | "Explore confidential computation, private finance and AI that protects sensitive data. Build intelligence without exposure." Hints: private AI, TEE, NEAR AI Cloud |
+| **What HelloNear built** | Every model call runs on **NEAR AI Cloud** inside a TEE. Each reply's signature is checked against the hardware attestation before the Verified badge shows; the proof is kept, shown under View proof, and opens on Phala's TEE Explorer as VERIFIED. Secrets and wallet tokens never reach the model, traces or stored snapshots. Skills that read sensitive email without sending it anywhere |
+| **Skills** | Confidential reader, Redact before send, Health journal |
+| **Check it** | Verified badge → View proof → Check it in TEE Explorer: a VERIFIED report whose nonce matches the dialog. What is kept and what is not: [What is private, and what HelloNear keeps](/privacy) |
+
+### `agents`: Agent Economy
+
+| | |
+|---|---|
+| **The track asks for** | "Build agents that earn, spend, negotiate, hire other agents and pay for APIs, compute or data , with crypto directly or through NEAR Intents." Hints: agent commerce, NEAR Intents, chain signatures |
+| **What HelloNear built** | Minds pay for data with a 402 pattern on testnet NEAR (price, approved payment, report with the tx hash as receipt), sell what they made to other Minds into their own wallet, compare sellers before buying, invoice and check payment on chain, quote cross-chain payments through **NEAR Intents**, haggle once with a seller (offer within the owner's budget, then buy at the agreed price or walk away), and find agents on the **NEAR AI Agent Market** (market.near.ai) with each job's exact price from the agent's own x402 answer, picking the cheapest one within the owner's budget (hiring is paid in USDC on mainnet, so it only quotes for now). All inside the owner's limits |
+| **Skills** | Paid data, Best price buyer, Hire on Agent Market, Price watch, Mind as seller, Invoice & get paid, Payments |
+| **Check it** | *"What's the gas price on NEAR testnet? Buy the report."*: a `402` price, a card for 0.001 NEAR, then the report and its tx hash |
+
+### `swarms`: AI Swarms
+
+| | |
+|---|---|
+| **The track asks for** | "Build coordination markets, bidding, collective purchasing, intent-based settlement and emergent economies between agents." Hints: multi-agent systems, NEAR Intents, sub-accounts |
+| **What HelloNear built** | A **sealed-bid group-buying auction contract** ([`sc/swarm`](https://github.com/Hellonear-AI/hellonear/blob/main/sc/swarm), rules in [`RULES.md`](https://github.com/Hellonear-AI/hellonear/blob/main/sc/swarm/RULES.md)): buyer agents pool demand with escrow, seller agents commit hidden asks with a bond and reveal them, the cheapest asks fill demand at one clearing price, and every agent is its own NEAR sub-account. A simulation of **20 buyers and 5 sellers with scripted strategies and no LLM** runs three rounds on a local NEAR sandbox and checks money is conserved each round ([report](https://github.com/Hellonear-AI/hellonear/blob/main/sc/swarm/simulation-report.md)); an independent audit's 9 findings are fixed. In the app, Best price buyer runs each order as a small auction between sellers and buys only from one the wallet may pay; Minds buy from and sell to other Minds (each with its own wallet); Split bill and Revenue split pay several people from one request, each payment approved on its own |
+| **Skills** | Best price buyer, Mind as seller, Split bill, Revenue split; contract `sc/swarm` |
+| **Check it** | [One real round on testnet](/contracts#the-swarm-auction-one-real-round-on-testnet): every step's transaction, 6 units filled at one clearing price. Locally, `cd sc/swarm && cargo test --test simulation -- --nocapture`: 20 buyers and 5 sellers, three rounds, a clearing price per round and who got what. In the app: *"Split 0.02 NEAR between alice.testnet and bob.testnet"*: shares worked out in yoctoNEAR, one card per person |
+
+### `business`: Autonomous Business
+
+| | |
+|---|---|
+| **The track asks for** | "Build AI-native businesses with treasury, sales, procurement, cross-chain payments via NEAR Intents and revenue sharing. Humans only set the constraints." Hints: AI agents, NEAR Intents, chain signatures |
+| **What HelloNear built** | The owner sets the constraints (per-payment and daily limits, allowed recipients, approval rules) and holds a kill switch (Freeze, one signature); the Mind runs the treasury: daily treasury reports, a weekly spending audit, revenue sharing between partners, invoices and follow-ups, procurement through Best price buyer, cross-chain quotes through NEAR Intents, and Autopilot jobs that run on a schedule |
+| **Skills** | Treasury report, Spending audit, Revenue split, Invoice & get paid, Follow-ups, Subscriptions & bills |
+| **Check it** | *"Give me today's treasury report"*: balance, what went out, what is pending, read only |
+
+### `realworld`: Real-World Money
+
+| | |
+|---|---|
+| **The track asks for** | "Build payroll, invoicing, remittances, merchant payments and stablecoin rails for real businesses. Something a normal company could use tomorrow." Hints: stablecoins, NEAR Intents, meta transactions |
+| **What HelloNear built** | Invoices sent from the Mind's own email address with payment checked by its transaction on chain; bills and subscriptions found in the owner's Gmail; a payments CSV an accountant can open without asking (`GET /v1/minds/{id}/payments.csv`: date, status in words, amount, counterparty, purpose, who approved, tx hash and NearBlocks link); a meta-transaction relayer (NEP-366) that pays gas only for owner calls to our own registry contract and never pays a deposit; USDC/USDT payments to other chains quoted through **NEAR Intents**, signed by 1Click and checked with the official SDK (sending needs mainnet); every payment approved by the owner and limited by the wallet |
+| **Skills** | Invoice & get paid, Subscriptions & bills, Spending tracker, Payments |
+| **Check it** | *"Send 10 USDC to 0x8ba1f109551bD432803012645Ac136ddd64DBA72 on Base."*: what would arrive, the cost, the time, `proof.signedBy1Click: true`, nothing sent |
+
+---

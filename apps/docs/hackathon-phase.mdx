@@ -1,0 +1,40 @@
+---
+title: "Hackathon phase and roadmap"
+description: "What runs on NEAR testnet during the hackathon, what becomes real on mainnet, and the roadmap."
+---
+
+During the hackathon HelloNear runs on **NEAR testnet**, so judges can try everything for free with test tokens and a guest session. Some features therefore stop one step short of real money on purpose. Each becomes real on mainnet with the same approvals and limits.
+
+| Feature | During the hackathon (testnet) | On mainnet |
+|---|---|---|
+| **Payments** | Testnet NEAR from each Mind's OutLayer wallet, policy checked in a TEE | Real NEAR and stablecoins, same policy, approvals and Freeze |
+| **Cross-chain stablecoins (NEAR Intents)** | Real quotes from 1Click, signature checked; nothing is sent, because NEAR Intents has no testnet | The Mind sends the payment it quoted, after the owner approves |
+| **NEAR AI Agent Market (market.near.ai)** | Real agents and real prices (each agent's x402 answer); the Mind picks the cheapest within the owner's budget, but **hires no one**, because the market is paid in USDC on NEAR mainnet | The Mind **hires the agent for real**: one signed USDC transfer (NEP-366) behind the owner's approval card, and the agent's result comes back into the chat. Haggling then moves to the market's job board (post the job with a budget, compare bids, answer one counter) |
+| **Haggling** | One offer to the sellers of HelloNear's own testnet data shop (two sellers on the hosted demo) | The same playbook with real sellers and the job board above |
+| **Swarm auction** | Contract live and source verified at `auction.hellonear-swarm.testnet`; one round ran with scripted agent accounts, the 20-buyer simulation runs on a local sandbox | Minds join group-buying rounds from the app with their own wallets |
+| **Relayer (NEP-366)** | **Live on the hosted demo** for two registry methods (`unequip_skill`, `set_wallet`), paid by `relayer.hellonear-swarm.testnet`, whose only key lives on the server; never pays a deposit, not for try-out users | Pays the gas for owners' calls to HelloNear's contracts, so owners never need NEAR for gas |
+
+Also stated plainly:
+- **App accounts:** Gmail, Google Calendar and Meet, Sheets, Drive, Docs and Notion were used by the team with real accounts. Changing Sheets cells, moving Calendar events, updating Notion rows and appending to Docs were tested against a stand-in for Composio, not yet on a real account. Zoom, Outlook and Slack are wired but not yet tried with a real account.
+- **The owner's payment rule** was tested on a local stack against a stand-in OutLayer. OutLayer's TEE checks every payment either way.
+- **Model behaviour varies.** Over repeated runs the model sometimes declines a payment it could have put on a card. The approval and the wallet policy, not the model, are what guarantee the outcome.
+
+---
+
+## Now and after the hackathon
+
+**During the hackathon (now):** everything runs on NEAR testnet so judges can try it for free.
+- **Guest mode:** *Continue as guest* makes a temporary user with 20 messages, a Mind from any template, sample inbox and calendar data, and payments from a shared test wallet with HelloNear's limits. No wallet, account or payment needed; data is deleted after 7 days.
+- **The AI is on us:** every reply runs on NEAR AI Cloud with the team's own credits.
+- **Signing in with a NEAR wallet** (Meteor first) gives the full app: your own Mind wallet, limits, freeze, rules, connections and Autopilot.
+
+**After the hackathon:**
+- **Mainnet.** Deploy the registry and the Mind wallets on NEAR mainnet; cross-chain stablecoin payments through NEAR Intents can then be sent, not only quoted, under the same limits and approvals.
+- **Pay-as-you-go AI credits.** Owners top up credits and pay for what their Minds use. Each run already records its tokens and cost.
+- **More Mind templates** beyond the three today, each starting with the skills for its job.
+- **Hiring on the Agent Market.** On mainnet a Mind can pay a market.near.ai agent itself: the payment is one signed delegate action (NEP-366) for the agent's quoted USDC price, behind the owner's approval card and wallet limits, and the agent's result comes back into the chat.
+- **Haggling through the Agent Market's job board.** The Mind posts the owner's job with their budget, compares the bids that come in, answers one counter, and funds the escrow only through the owner's approval card. Today it compares the fixed prices of several agents and picks the cheapest within the budget.
+- **The swarm auction on chain for Minds.** Minds join group-buying rounds of the swarm auction contract (`sc/swarm`) with their own wallets, so several owners' Minds pool demand and pay one clearing price.
+- **Images and voice.** Owners send their Mind a photo (a receipt, an invoice, a screenshot) or a voice message, and the Mind reads it and acts on it, with the same approvals and limits.
+
+---

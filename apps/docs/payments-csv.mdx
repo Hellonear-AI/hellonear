@@ -1,0 +1,26 @@
+---
+title: "Payments CSV"
+description: "A file of every payment a Mind made or tried, with who approved it and the transaction link, that an accountant can open without asking."
+---
+
+**Track:** `realworld`.
+
+The Wallet page has **Download CSV** beside Recent activity. The file has one row per payment attempt: date, status in words, amount, counterparty, purpose, who approved, tx hash and NearBlocks link.
+
+## Try it
+
+After a payment in the app, open **Wallet** and click **Download CSV**.
+
+Through the API (owner only, with the session cookie):
+
+```sh
+curl -s -b jar $B/v1/minds/$MIND/payments.csv
+```
+
+## Details
+
+- "Who approved" is read from the run's own events: `owner`, or `your rule` when the owner's rule skipped the card.
+- Refused payments are listed too, with their reason and no tx hash, because a payment the policy refuses has no transaction.
+- Cells that start like a spreadsheet formula get a leading `'`, so opening the file cannot run a formula.
+
+Source: `paymentsCsv` in `apps/be/src/payments.ts`.

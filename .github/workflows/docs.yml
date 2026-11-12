@@ -1,4 +1,4 @@
-# Docs and Trust Center CI: typecheck, unit tests (content, llms, search, MCP, proxy) and a production build. No secrets.
+# Docs CI (Mintlify): docs.json and every page build, and no internal link or anchor is broken. No secrets.
 name: docs
 
 on:
@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  mintlify:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -30,9 +30,5 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.9
-      - run: bun install --frozen-lockfile
-      - run: bun run typecheck
-      - run: bun run test
-      - run: bun run build
-        env:
-          NEXT_TELEMETRY_DISABLED: '1'
+      - run: bunx mint@4.2.1184 validate
+      - run: bunx mint@4.2.1184 broken-links --check-anchors

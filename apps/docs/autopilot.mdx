@@ -1,0 +1,27 @@
+---
+title: "Autopilot and Builder"
+description: "The visual Builder for jobs a Mind runs, Autopilot schedules, and why unattended jobs get no payment tools."
+---
+
+The **Builder** is a visual canvas for a job a Mind runs step by step. **Autopilot** runs a Builder job on a schedule, without the owner watching.
+
+## Steps
+
+| Step | What it does |
+|---|---|
+| **Ask the Mind** | A prompt to the Mind, with the Mind's persona and skills |
+| **Use a tool** | One tool the owner picked, such as *Email me* or adding to the owner's calendar |
+| **Call a website** | An HTTP request, with secrets filled in only for the hosts the owner listed |
+| **If or else** | A branch, including nested Ifs and End |
+
+Canvases compile to Mastra dynamic workflows (`engine/src/builder.ts`, `engine/src/workflows.ts`); Autopilot runs them on Mastra workflow schedules (`engine/src/autopilot.ts`). User text can never become a Mastra template.
+
+## Unattended jobs are limited
+
+Autopilot jobs get **no payment or approval tools**. They may only email the owner or add to the owner's calendar, and only as steps the owner placed. *Email me* can only send the Mind's notes to the owner's own connected Gmail; the recipient is never in the request. Scheduled runs get no secrets yet.
+
+If the Mind changes (persona, model, skills), its Autopilot jobs get the new config; a job the engine cannot run is paused and says why (`pausedFor`).
+
+## Through the API
+
+`POST /v1/minds/{mindId}/workflows/{workflowId}/runs` runs a workflow and streams events; `PUT …/autopilot` turns the schedule on or off. The workflow events (`workflow.started`, `node.started`, `node.finished`, `workflow.finished`) are in [Streaming events](/events).

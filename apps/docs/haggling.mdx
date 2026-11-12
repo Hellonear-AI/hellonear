@@ -1,0 +1,27 @@
+---
+title: "Haggling with a seller"
+description: "How a Mind makes one offer below a seller's price, within the owner's budget, then buys at the agreed price or walks away."
+---
+
+**Track:** `agents`. **Skill:** Best price buyer (`best-price`). **Tools:** `get_quotes`, `make_offer`, `buy_data`, `send_payment`.
+
+When a data report costs more than the owner's budget, the Mind makes **one** offer to one seller, then either buys at the agreed price (after the owner approves) or walks away and pays nothing. It never makes a second offer.
+
+## Try it
+
+In the app, with a Payments Mind: *"Buy the gas price report, but I only want to pay 0.0006 NEAR. Haggle if it costs more."* See: the sellers' prices, then **Made an offer**, then an approval card at the agreed price, or a reply that it walked away.
+
+## How the seller answers
+
+The sellers are HelloNear's own test shop (`apps/be/src/shop.ts`). Each seller has a floor, a share of its list price (default 0.8):
+
+- An offer at or above the floor is `accepted` (never above the list price).
+- An offer below the floor gets one `countered` price, halfway to the list price but not under the floor.
+
+It is stateless: the paid step carries the same offer, and the backend checks the payment against the agreed price. An offer under the floor never lowers it.
+
+## How payment is checked
+
+The shop answers `402` with a price and an address. The Mind pays through its wallet (owner approval, then the OutLayer policy), and the backend serves the report only for this Mind's own sent payment, confirmed on NEAR testnet by RPC, used once. This is a 402 pattern on testnet NEAR, not the x402 standard.
+
+The Mind only picks sellers its wallet may pay: the quotes say `onYourList`, read from the wallet's own policy.
