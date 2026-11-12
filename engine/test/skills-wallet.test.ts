@@ -118,6 +118,17 @@ describe('recipient-guard (#182)', () => {
     assert.equal(ask.args?.to, 'bob.testnet')
     assert.ok(called(evs, 'near_view_account').some((c) => c.args?.accountId === 'bob.testnet'), toolsOf(evs))
   })
+
+  // hellonear-registry.testnet is a real contract on testnet (code deployed), so the guard warns and asks first.
+  test('a contract account gets a warning and a question, not an approval card', async () => {
+    const before = sent.length
+    const evs = await events(await post('/v1/minds/guard/chat', { userId: `u-${randomUUID()}`, threadId: randomUUID(), walletToken: TOKEN, message: 'Pay 0.01 NEAR to hellonear-registry.testnet.', mind: m }))
+    assert.ok(!evs.some((e) => e.type === 'tool.approval_required'), `no card for a contract: ${toolsOf(evs)}`)
+    assert.equal(sent.length, before, 'nothing reached the wallet')
+    const look = evs.find((e) => e.type === 'tool.result' && e.tool === 'near_view_account')
+    assert.equal(look?.result?.isContract, true, toolsOf(evs))
+    assert.match(finalText(evs), /contract/i, finalText(evs))
+  })
 })
 
 describe('freeze-advisor (#185)', () => {

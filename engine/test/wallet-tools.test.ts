@@ -38,6 +38,13 @@ const backend = createServer(async (req, res) => {
     if (q.get('quotes') === '1') return send(200, { status: 'quotes', item: 'gas-price', title: 'Gas', quotes: [
       { seller: 's2', payTo: 'cheap.testnet', priceNear: '0.0008', onYourList: false }, { seller: 's1', payTo: 'shop.testnet', priceNear: '0.001', onYourList: true }, { seller: 's3', payTo: 'dear.testnet', priceNear: '0.0013', onYourList: true }] })
     if (q.get('seller') === 's9') return send(404, { error: 'unknown_seller' })
+    // Negotiation: s3 asks 0.0013, takes 0.0011 or more, and otherwise counters at 0.0011.
+    if (q.get('offer') && !q.get('tx')) {
+      if (q.get('seller') !== 's3') return send(400, { error: 'offer_not_taken' })
+      return Number(q.get('offer')) >= 0.0011
+        ? send(200, { status: 'accepted', seller: 's3', priceNear: q.get('offer'), payTo: 'dear.testnet', reason: 'fair enough' })
+        : send(200, { status: 'countered', seller: 's3', priceNear: '0.0011', payTo: 'dear.testnet', reason: 'my last price' })
+    }
     if (q.get('seller') === 's3' && !q.get('tx')) return send(402, { status: 'payment_required', item: 'gas-price', title: 'Gas', seller: 's3', priceNear: '0.0013', payTo: 'dear.testnet' })
     const offer = { item: 'gas-price', title: 'Gas', priceNear: '0.001', payTo: 'shop.testnet' }
     const tx = q.get('tx')
@@ -216,4 +223,80 @@ test('sell_offer and buy_from_mind (#181): publish waits for approval; buying is
   const validate = (input: unknown) => toolRegistry.buy_from_mind.inputSchema!['~standard'].validate(input) as any
   assert.ok((await validate({ sellerMindId: 'alice.testnet', item: 'weekly-digest' })).issues?.length, 'a seller is a Mind id, never an account')
   await assert.rejects(run('sell_offer', { item: 'weekly-digest', title: 't', priceNear: '0.002', content: 'c' }), /no wallet yet/)
+})
+
+test('make_offer (negotiation) sends one offer within the budget; the tool, not the model, says buy or walk away', async () => {
+  const offer = (offerNear: string, maxNear: string, seller = 's3') => run('make_offer', { item: 'gas-price', seller, offerNear, maxNear }, TOKEN)
+  const accepted = await offer('0.0012', '0.0012')
+  assert.equal(seen.at(-1)!.url, '/internal/v1/shop/gas-price?seller=s3&offer=0.0012')
+  assert.deepEqual(accepted, { status: 'accepted', item: 'gas-price', seller: 's3', priceNear: '0.0012', payTo: 'dear.testnet', next: 'buy_at_price', reason: 'fair enough' })
+  const counterInBudget = await offer('0.0009', '0.00110')
+  assert.equal(counterInBudget.status, 'countered')
+  assert.equal(counterInBudget.priceNear, '0.0011')
+  assert.equal(counterInBudget.next, 'buy_at_price', 'a counter at the budget is still a buy (compared in yoctoNEAR)')
+  assert.equal((await offer('0.0009', '0.001')).next, 'walk_away')
+  const before = seen.length
+  const over = await offer('0.002', '0.001')
+  assert.equal(over.status, 'refused')
+  assert.equal(seen.length, before, 'an offer above the budget never reaches the seller')
+  assert.equal((await offer('0.0009', '0.001', 's9')).status, 'refused')
+  const notTaken = await offer('0.0009', '0.001', 's1')
+  assert.equal(notTaken.status, 'refused')
+  assert.match(notTaken.reason, /offer_not_taken/)
+  const validate = (input: unknown) => toolRegistry.make_offer.inputSchema!['~standard'].validate(input) as any
+  for (const offerNear of ['0', '-1', '1e-3', '0.001 NEAR']) assert.ok((await validate({ item: 'gas-price', seller: 's3', offerNear, maxNear: '0.001' })).issues?.length, offerNear)
+  await assert.rejects(run('make_offer', { item: 'gas-price', seller: 's3', offerNear: '0.001', maxNear: '0.001' }), /no wallet yet/)
+})
+
+test('buy_data at an agreed price: the shop\'s acceptance is the price to pay; the tx call carries the offer', async () => {
+  const due = await run('buy_data', { item: 'gas-price', seller: 's3', offerNear: '0.0012' }, TOKEN)
+  assert.deepEqual(due, { status: 'payment_required', item: 'gas-price', seller: 's3', priceNear: '0.0012', payTo: 'dear.testnet' })
+  const low = await run('buy_data', { item: 'gas-price', seller: 's3', offerNear: '0.0009' }, TOKEN)
+  assert.equal(low.status, 'refused')
+  assert.equal(low.priceNear, '0.0011')
+  const hash = '9999abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQ'
+  await run('buy_data', { item: 'gas-price', seller: 's3', offerNear: '0.0011', paymentTxHash: hash }, TOKEN)
+  assert.equal(seen.at(-1)!.url, `/internal/v1/shop/gas-price?seller=s3&offer=0.0011&tx=${hash}`)
+  const before = seen.length
+  assert.equal((await run('buy_data', { item: 'gas-price', offerNear: '0.0011' }, TOKEN)).status, 'refused')
+  assert.equal(seen.length, before, 'an agreed price without its seller never reaches the shop')
+})
+
+test('after a walk-away, buy_data refuses that item for the rest of the request', async () => {
+  // One request: one wallet Map, as the server builds it per run.
+  const map = walletContext(TOKEN)
+  const c = { requestContext: { get: (k: string) => (k === WALLET_KEY ? map : undefined) } }
+  const exec = (tool: keyof typeof toolRegistry, input: unknown) => toolRegistry[tool].execute!(input as any, c as any) as Promise<any>
+  assert.equal((await exec('make_offer', { item: 'gas-price', seller: 's3', offerNear: '0.0009', maxNear: '0.001' })).next, 'walk_away')
+  const before = seen.length
+  const out = await exec('buy_data', { item: 'gas-price', seller: 's1' })
+  assert.equal(out.status, 'refused')
+  assert.match(out.reason, /budget/)
+  assert.equal(seen.length, before)
+  assert.equal((await exec('buy_data', { item: 'network-status' })).status, 'payment_required', 'only that item')
+})
+
+test('near_view_account says whether an account is a contract, from its code hash', async () => {
+  const rpc = createServer(async (req, res) => {
+    let raw = ''
+    for await (const c of req) raw += c
+    const id = JSON.parse(raw).params.account_id
+    const codeHash = id === 'registry.testnet' ? 'GUxsMNJdJKoFq7VJawNeCwW7GjGZE6TpURPj13ojEnub' : '11111111111111111111111111111111'
+    res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ result: { amount: '4490000000000000000000000', storage_usage: 190370, code_hash: codeHash } }))
+  })
+  await new Promise<void>((r) => rpc.listen(0, '127.0.0.1', r))
+  const old = process.env.NEAR_RPC_URL
+  process.env.NEAR_RPC_URL = `http://127.0.0.1:${(rpc.address() as AddressInfo).port}`
+  try {
+    const contract = await run('near_view_account', { accountId: 'registry.testnet' })
+    assert.equal(contract.isContract, true)
+    assert.equal(contract.codeHash, 'GUxsMNJdJKoFq7VJawNeCwW7GjGZE6TpURPj13ojEnub')
+    assert.equal(contract.balanceNear, 4.49)
+    const person = await run('near_view_account', { accountId: 'alice.testnet' })
+    assert.equal(person.isContract, false)
+  } finally {
+    if (old === undefined) delete process.env.NEAR_RPC_URL
+    else process.env.NEAR_RPC_URL = old
+    await new Promise<void>((r) => rpc.close(() => r()))
+  }
 })

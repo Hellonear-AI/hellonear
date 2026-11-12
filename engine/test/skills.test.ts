@@ -5,7 +5,7 @@ import { parseSkillMd, skillCatalog, skillCatalogSummaries, skillDetail, usableS
 import { needsApproval } from '../src/tools.ts'
 
 test('every SKILL.md in engine/skills parses and only uses registered tools', () => {
-  assert.deepEqual([...skillCatalog.keys()], ['best-price', 'calendar-conflicts', 'confidential-reader', 'daily-planner', 'docs', 'email-address', 'email-triage', 'follow-ups', 'freeze-advisor', 'health-journal', 'hellonear-guide', 'http-request', 'invoice', 'meeting-prep', 'mind-seller', 'morning-briefing', 'near-account', 'notion', 'outlook', 'paid-data', 'payments', 'phishing-detector', 'price-watch', 'recipient-guard', 'redact-before-send', 'revenue-split', 'sheets', 'slack', 'spending-audit', 'spending-tracker', 'split-bill', 'subscriptions', 'treasury-report', 'zoom'])
+  assert.deepEqual([...skillCatalog.keys()], ['agent-market', 'best-price', 'calendar-conflicts', 'confidential-reader', 'daily-planner', 'docs', 'email-address', 'email-triage', 'follow-ups', 'freeze-advisor', 'health-journal', 'hellonear-guide', 'http-request', 'invoice', 'meeting-prep', 'mind-seller', 'morning-briefing', 'near-account', 'notion', 'outlook', 'paid-data', 'payments', 'phishing-detector', 'price-watch', 'recipient-guard', 'redact-before-send', 'revenue-split', 'sheets', 'slack', 'spending-audit', 'spending-tracker', 'split-bill', 'subscriptions', 'treasury-report', 'zoom'])
   assert.deepEqual(skillCatalog.get('daily-planner')?.tools, ['get_time', 'add_numbers', 'googlecalendar_list_events', 'googlecalendar_create_event', 'googlecalendar_create_meeting', 'googlecalendar_block_time', 'googlecalendar_find_free_time', 'googlecalendar_move_event'])
   assert.deepEqual(skillCatalog.get('daily-planner')?.connections, ['googlecalendar', 'googlemeet'])
   assert.equal(skillCatalog.get('payments')?.status, 'available')
@@ -17,7 +17,7 @@ test('every SKILL.md in engine/skills parses and only uses registered tools', ()
 
 test('commerce skills (#176, #179, #180, #181): buying and selling wait for approval, invoicing never pays', async () => {
   const { needsApproval } = await import('../src/tools.ts')
-  assert.deepEqual(skillCatalog.get('best-price')?.tools, ['get_quotes', 'buy_data', 'send_payment', 'list_payments', 'get_time'])
+  assert.deepEqual(skillCatalog.get('best-price')?.tools, ['get_quotes', 'make_offer', 'buy_data', 'send_payment', 'list_payments', 'get_time'])
   assert.deepEqual(skillCatalog.get('price-watch')?.tools, ['get_quotes', 'buy_data', 'send_payment', 'add_numbers', 'get_time'])
   const invoice = skillCatalog.get('invoice')!
   assert.deepEqual(invoice.tools, ['mail_send', 'mail_list', 'mail_read', 'get_balance', 'near_check_transfer', 'get_time'])

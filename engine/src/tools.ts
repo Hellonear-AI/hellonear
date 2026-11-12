@@ -4,7 +4,7 @@ import { createTool } from '@mastra/core/tools'
 import { withCount } from './counted.ts'
 import { z } from 'zod'
 import { SECRETS_KEY, assertHostAllowed, assertPublicHttpsUrl, assertResolvesPublic, fillSecrets, redact, type Secret } from './secrets.ts'
-import { NoWalletError, markPaymentFailed, paymentFailedEarlier, walletCall } from './wallet.ts'
+import { NoWalletError, WALLET_KEY, markPaymentFailed, paymentFailedEarlier, walletCall } from './wallet.ts'
 import { idempotencyKeyOf, mailCall, ownerMailCall } from './mail.ts'
 import { DEMO_KEY, draftSample, isDemo, listSample, readSample } from './email.ts'
 import { ruleFor } from './autoApprove.ts'
@@ -13,6 +13,7 @@ import { addressOf, composioTool, gmail, toListed, toRead } from './composio.ts'
 import { appTools } from './apps.ts'
 import { zoomTools } from './zoom.ts'
 import { crosschainQuote } from './crosschain.ts'
+import { marketQuote, marketSearch } from './market.ts'
 import {
   ISO_WITH_OFFSET, MAX_ATTENDEES, MAX_RANGE_DAYS, checkAttendees, composioTiming, createSampleEvent, createSampleMeeting, listSampleCalendar, listedEvents, withLocalTimes, type CalendarEvent,
   meetLinkOf, rangeOf, withMeetLink,
@@ -616,12 +617,14 @@ const mailRead = createTool({
 // with the tx hash. The backend serves the report only for this Mind's own fresh payment, once.
 // Best Price Buyer (#176): an item can have several sellers (`s1`, `s2`, …); `seller` picks one, otherwise the cheapest.
 const SHOP_ITEMS = ['network-status', 'gas-price'] as const
+const NEAR_OFFER = z.string().regex(/^\d{1,3}(\.\d{1,24})?$/, 'a decimal string, e.g. "0.0008"').refine((a) => /[1-9]/.test(a), 'must be more than 0')
 const buyData = createTool({
   id: 'buy_data',
-  description: 'Buy a small live data report about NEAR testnet. Call it without paymentTxHash to get the price and the account to pay (status payment_required); after the owner approved and send_payment returned sent, call it again with that txHash (and the same seller) to get the report (status paid). Items: network-status (latest block, protocol version, validators), gas-price (gas price and the cost of a transfer). Optional seller (an id from get_quotes) buys from that seller; without it, from the cheapest.',
+  description: 'Buy a small live data report about NEAR testnet. Call it without paymentTxHash to get the price and the account to pay (status payment_required); after the owner approved and send_payment returned sent, call it again with that txHash (and the same seller) to get the report (status paid). Items: network-status (latest block, protocol version, validators), gas-price (gas price and the cost of a transfer). Optional seller (an id from get_quotes) buys from that seller; without it, from the cheapest. offerNear: a price that seller accepted through make_offer; pass the same value on both calls.',
   inputSchema: z.object({
     item: z.enum(SHOP_ITEMS),
     seller: z.string().regex(/^s\d{1,2}$/, 'a seller id from get_quotes, e.g. "s2"').optional(),
+    offerNear: NEAR_OFFER.optional().describe('the price the seller accepted through make_offer, if any'),
     paymentTxHash: z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{43,44}$/, 'a NEAR transaction hash').optional(),
   }),
   outputSchema: z.object({
@@ -635,8 +638,10 @@ const buyData = createTool({
     data: z.record(z.string(), z.unknown()).optional(),
     receipt: z.object({ txHash: z.string(), paymentId: z.string(), amountNear: z.string(), payTo: z.string().optional() }).optional(),
   }),
-  execute: async ({ item, seller, paymentTxHash }, context) => {
-    const query = new URLSearchParams({ ...(seller ? { seller } : {}), ...(paymentTxHash ? { tx: paymentTxHash } : {}) }).toString()
+  execute: async ({ item, seller, offerNear, paymentTxHash }, context) => {
+    if (offerNear && !seller) return { status: 'refused' as const, item, reason: 'an agreed price belongs to one seller: pass the seller too' }
+    if (walkedAway(context, item)) return { status: 'refused' as const, item, reason: 'the haggle ended over the owner\'s budget, so nothing is bought in this request' }
+    const query = new URLSearchParams({ ...(seller ? { seller } : {}), ...(offerNear ? { offer: offerNear } : {}), ...(paymentTxHash ? { tx: paymentTxHash } : {}) }).toString()
     const out = await walletCall<Record<string, any>>(context, 'GET', `/internal/v1/shop/${item}${query ? `?${query}` : ''}`, undefined, [402, 404, 409])
     if (out.httpStatus === 404) {
       if (out.error !== 'unknown_seller') throw new Error(`wallet: 404 ${String(out.error ?? 'not_found')}`)
@@ -644,6 +649,9 @@ const buyData = createTool({
     }
     if (out.httpStatus === 409) return { status: 'refused' as const, item, reason: 'this payment was already used for a report; a new report needs a new payment' }
     const sellerOf = out.seller ? { seller: String(out.seller) } : {}
+    // Before paying, an agreed price is the shop's answer to the offer: accepted means pay that price.
+    if (offerNear && !paymentTxHash && out.status === 'accepted') return { status: 'payment_required' as const, item, ...sellerOf, priceNear: String(out.priceNear), payTo: String(out.payTo) }
+    if (offerNear && !paymentTxHash && out.status === 'countered') return { status: 'refused' as const, item, ...sellerOf, priceNear: String(out.priceNear), reason: 'the seller does not take that price; this is its last price' }
     if (out.httpStatus === 402) {
       const reason = { payment_not_found: 'no payment from this Mind with that hash in the last hour', payment_does_not_match: 'that payment went to another account or seller, or was under the price', payment_not_on_chain: 'NEAR does not show that transfer as successful' }[String(out.error)]
       return { status: 'payment_required' as const, item, title: out.title, ...sellerOf, priceNear: out.priceNear, payTo: out.payTo, ...(reason ? { reason } : {}) }
@@ -667,6 +675,45 @@ const getQuotes = createTool(withCount('quotes', {
     return { item, title: out.title, quotes, cheapestOnYourList: quotes.find((q) => q.onYourList) ?? null }
   },
 }))
+
+// A walk-away holds for the rest of the request, so the model can't buy that item at the old quote after all.
+const walkedAway = (context: any, item: string) => (context?.requestContext?.get?.(WALLET_KEY) as Map<string, string> | undefined)?.get(`walked:${item}`) === '1'
+const markWalkedAway = (context: any, item: string) => (context?.requestContext?.get?.(WALLET_KEY) as Map<string, string> | undefined)?.set(`walked:${item}`, '1')
+
+// Negotiation (agents track): one offer to one seller, below its asking price. The seller (the backend's shop) answers
+// accepted, or countered with its last price; the playbook allows one round and then buys or walks away. Pays nothing.
+const makeOffer = createTool({
+  id: 'make_offer',
+  description: 'Offer one seller of a NEAR testnet data report a lower price than it quoted, once, within the owner\'s budget (maxNear). The seller answers accepted or countered (its last price). next says what to do: buy_at_price (buy at priceNear with buy_data offerNear) or walk_away (buy nothing; the price is over the budget). Pays nothing and needs no approval.',
+  inputSchema: z.object({
+    item: z.enum(SHOP_ITEMS),
+    seller: z.string().regex(/^s\d{1,2}$/, 'a seller id from get_quotes, e.g. "s2"'),
+    offerNear: NEAR_OFFER.describe('the price to offer, in NEAR'),
+    maxNear: NEAR_OFFER.describe('the most the owner will pay, from the owner\'s own words'),
+  }),
+  outputSchema: z.object({
+    status: z.enum(['accepted', 'countered', 'refused']),
+    item: z.string(), seller: z.string(),
+    priceNear: z.string().optional().describe('accepted: the offer; countered: the seller\'s last price'),
+    payTo: z.string().optional(),
+    next: z.enum(['buy_at_price', 'walk_away']).describe('buy_at_price: buy at priceNear; walk_away: buy nothing in this request'),
+    reason: z.string().optional(),
+  }),
+  execute: async ({ item, seller, offerNear, maxNear }, context) => {
+    if (yoctoOf(offerNear) > yoctoOf(maxNear)) return { status: 'refused' as const, item, seller, next: 'walk_away' as const, reason: 'the offer is above the owner\'s budget' }
+    const query = new URLSearchParams({ seller, offer: offerNear }).toString()
+    const out = await walletCall<Record<string, any>>(context, 'GET', `/internal/v1/shop/${item}?${query}`, undefined, [400, 404])
+    if (out.httpStatus === 404) return { status: 'refused' as const, item, seller, next: 'walk_away' as const, reason: 'there is no such seller for this item; get_quotes lists the sellers' }
+    if (out.httpStatus === 400) return { status: 'refused' as const, item, seller, next: 'walk_away' as const, reason: `the seller refused the offer (${String(out.error ?? 'bad_offer')})` }
+    if (out.status !== 'accepted' && out.status !== 'countered') throw new Error('shop: the seller gave no answer to the offer')
+    const priceNear = String(out.priceNear)
+    // The budget check is done here, in yoctoNEAR, not by the model: with a counter over the budget it once bought at
+    // the original quote anyway (13 Nov).
+    const next = /^\d{1,3}(\.\d{1,24})?$/.test(priceNear) && yoctoOf(priceNear) <= yoctoOf(maxNear) ? 'buy_at_price' as const : 'walk_away' as const
+    if (next === 'walk_away') markWalkedAway(context, item)
+    return { status: out.status as 'accepted' | 'countered', item, seller, priceNear, payTo: String(out.payTo), next, ...(out.reason ? { reason: String(out.reason) } : {}) }
+  },
+})
 
 // Mind as Seller (#181): a Mind sells something it made to other Minds, paid into its own wallet. Publishing waits for
 // the owner (it sets a price and hands the text to any buyer); buying is the paid-data pattern against the seller Mind.
@@ -729,24 +776,31 @@ const buyFromMind = createTool({
 export const DEFAULT_NEAR_RPC_URL = 'https://test.rpc.fastnear.com'
 const NEAR_RPC_URL = process.env.NEAR_RPC_URL ?? DEFAULT_NEAR_RPC_URL
 const YOCTO_PER_NEAR = 10n ** 24n
+const NO_CODE_HASH = '1'.repeat(32)
 const nearViewAccount = createTool({
   id: 'near_view_account',
-  description: 'Look up a NEAR testnet account: its available balance in NEAR and storage used. Read-only.',
+  description: 'Look up a NEAR testnet account: its available balance in NEAR, storage used, and whether it is a contract (has code deployed). Read-only.',
   inputSchema: z.object({ accountId: z.string().min(2).max(64).regex(NEAR_ACCOUNT_ID, 'not a valid NEAR account id') }),
-  outputSchema: z.object({ accountId: z.string(), balanceNear: z.number(), amountYocto: z.string(), storageUsage: z.number() }),
+  outputSchema: z.object({
+    accountId: z.string(), balanceNear: z.number(), amountYocto: z.string(), storageUsage: z.number(),
+    isContract: z.boolean().describe('true when the account has contract code deployed'), codeHash: z.string(),
+  }),
   execute: async ({ accountId }) => {
-    const res = await fetch(NEAR_RPC_URL, {
+    // Read per call, not at import, so tests can point it at a fake RPC.
+    const res = await fetch(process.env.NEAR_RPC_URL ?? NEAR_RPC_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 'engine', method: 'query', params: { request_type: 'view_account', finality: 'final', account_id: accountId } }),
       signal: AbortSignal.timeout(10_000),
     })
-    const body = (await res.json()) as { result?: { amount: string; storage_usage: number }; error?: { cause?: { name?: string }; message?: string } }
+    const body = (await res.json()) as { result?: { amount: string; storage_usage: number; code_hash?: string }; error?: { cause?: { name?: string }; message?: string } }
     if (!body.result) throw new Error(`NEAR RPC: ${body.error?.cause?.name ?? body.error?.message ?? `HTTP ${res.status}`}`)
     const yocto = BigInt(body.result.amount)
     // Exact amount as a string; a number in NEAR (4 decimals) for display and comparisons.
     const balanceNear = Number(yocto / 10n ** 20n) / 10_000
-    return { accountId, balanceNear, amountYocto: body.result.amount, storageUsage: body.result.storage_usage }
+    // An account without code reports the hash of empty code, 32 zero bytes in base58: "11111111111111111111111111111111".
+    const codeHash = body.result.code_hash ?? NO_CODE_HASH
+    return { accountId, balanceNear, amountYocto: body.result.amount, storageUsage: body.result.storage_usage, isContract: codeHash !== NO_CODE_HASH, codeHash }
   },
 })
 
@@ -797,6 +851,7 @@ const nearCheckTransfer = createTool({
 
 export const toolRegistry = {
   get_time: getTime, add_numbers: addNumbers, split_amount: splitAmountTool, http_request: httpRequest, near_view_account: nearViewAccount, near_check_transfer: nearCheckTransfer, crosschain_quote: crosschainQuote,
+  market_search: marketSearch, market_quote: marketQuote, make_offer: makeOffer,
   buy_data: buyData, get_quotes: getQuotes, sell_offer: sellOffer, buy_from_mind: buyFromMind, send_payment: sendPayment, get_balance: getBalance, list_payments: listPayments,
   gmail_list_emails: gmailListEmails, gmail_read_email: gmailReadEmail, gmail_create_draft: gmailCreateDraft, gmail_organize: gmailOrganize,
   googlecalendar_list_events: calendarListEvents, googlecalendar_create_event: calendarCreateEvent,
