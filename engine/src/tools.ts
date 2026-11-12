@@ -724,7 +724,10 @@ const buyFromMind = createTool({
 })
 
 // Read-only NEAR account lookup on testnet (#20 "check balance"). Public RPC, no keys, moves nothing.
-const NEAR_RPC_URL = process.env.NEAR_RPC_URL ?? 'https://rpc.testnet.near.org'
+// rpc.testnet.near.org is deprecated and was answering "THIS ENDPOINT IS DEPRECATED! STOP USING IT NOW!" instead of results
+// on and off (12 Nov), so the default is FastNear's testnet RPC, listed at docs.near.org/api/rpc/providers.
+export const DEFAULT_NEAR_RPC_URL = 'https://test.rpc.fastnear.com'
+const NEAR_RPC_URL = process.env.NEAR_RPC_URL ?? DEFAULT_NEAR_RPC_URL
 const YOCTO_PER_NEAR = 10n ** 24n
 const nearViewAccount = createTool({
   id: 'near_view_account',
@@ -769,7 +772,7 @@ const nearCheckTransfer = createTool({
   }),
   execute: async ({ txHash, senderId, amountNear }, context) => {
     // Read per call, not at import, so tests can point it at a fake RPC.
-    const res = await fetch(process.env.NEAR_RPC_URL ?? 'https://rpc.testnet.near.org', {
+    const res = await fetch(process.env.NEAR_RPC_URL ?? DEFAULT_NEAR_RPC_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 'engine', method: 'tx', params: { tx_hash: txHash, sender_account_id: senderId, wait_until: 'FINAL' } }),

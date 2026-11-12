@@ -94,4 +94,4 @@ The `mastra` skill can report bugs and doc defects to the Mastra team. Never let
 
 ## Env
 
-See `.env.example` (`NEARAI_API_KEY`, `DATABASE_URL`, `ENGINE_API_KEY`, optional `PORT`, optional `NEAR_RPC_URL` for `near_view_account`, default `https://rpc.testnet.near.org`, optional `RUN_RETENTION_DAYS`, default 14, `BACKEND_URL` for the payment and mail tools, `COMPOSIO_API_KEY` and optional `COMPOSIO_URL` for Gmail, Google Calendar and Google Meet). `.env` is gitignored; never commit it.
+See `.env.example` (`NEARAI_API_KEY`, `DATABASE_URL`, `ENGINE_API_KEY`, optional `PORT`, optional `NEAR_RPC_URL` for `near_view_account` and `near_check_transfer`, default `https://test.rpc.fastnear.com` (since 12 Nov: `rpc.testnet.near.org` is deprecated and answered "THIS ENDPOINT IS DEPRECATED!" on and off, failing 11 tests in one full run), optional `RUN_RETENTION_DAYS`, default 14, `BACKEND_URL` for the payment and mail tools, `COMPOSIO_API_KEY` and optional `COMPOSIO_URL` for Gmail, Google Calendar and Google Meet). `.env` is gitignored; never commit it.
