@@ -140,8 +140,9 @@ export function ownsResource(resource: string | undefined, userId: string, mindI
 // (`getMergedThreadConfig`, @mastra/core 1.81). `workingMemory: { enabled: false }`: no working memory in the prompt
 // and no `updateWorkingMemory` tool (`Memory.listTools`). `semanticRecall: false`: no vector search of other chats,
 // and the run's own messages are not embedded either (the output processor checks the same flag). Both on: undefined,
-// so runs keep exactly today's options.
-export function memoryOptions(mind: Mind): { workingMemory?: { enabled: false }; semanticRecall?: false } | undefined {
-  const off = { ...(mind.memory?.enabled === false ? { workingMemory: { enabled: false as const } } : {}), ...(mind.memory?.recall === false ? { semanticRecall: false as const } : {}) }
+// so runs keep exactly today's options. `embedderUp` false (src/embedderHealth.ts): the embedder does not answer, so
+// semantic recall is off for this run whatever the switch says, and the run still answers.
+export function memoryOptions(mind: Mind, embedderUp = true): { workingMemory?: { enabled: false }; semanticRecall?: false } | undefined {
+  const off = { ...(mind.memory?.enabled === false ? { workingMemory: { enabled: false as const } } : {}), ...(mind.memory?.recall === false || !embedderUp ? { semanticRecall: false as const } : {}) }
   return Object.keys(off).length ? off : undefined
 }

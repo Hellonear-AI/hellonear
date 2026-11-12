@@ -14,7 +14,7 @@ import { MAIL_KEY, MIND_ID_KEY, mailContext, mailTokenSchema } from './mail.ts'
 import { DEMO_KEY } from './email.ts'
 import { USER_KEY } from './composio.ts'
 import { missingTools, skillCatalogSummaries, skillDetail, usableSkills } from './skills.ts'
-import { attestationStatus, modelInfo, verifyCompletions, warmAttestation } from './models.ts'
+import { attestationStatus, embedder, modelInfo, verifyCompletions, warmAttestation } from './models.ts'
 import { summarize } from './verify.ts'
 import { templateSummaries, templates } from './templates.ts'
 import { isNewThread, makeTitle } from './titles.ts'
@@ -24,6 +24,7 @@ import { mindSchema, timeZoneSchema } from './mind.ts'
 import { secretSchema } from './secrets.ts'
 import { deleteWorkflow, listWorkflows, loadWorkflow, saveWorkflow } from './workflows.ts'
 import { forgetThread } from './threads.ts'
+import { embedderReady, startEmbedderProbe } from './embedderHealth.ts'
 import { ruleFor } from './autoApprove.ts'
 import { clearWorkingMemory, readWorkingMemory, writeWorkingMemory } from './memory.ts'
 import { autopilotSchema, deleteAutopilot, getAutopilot, listRuns, setAutopilot } from './autopilot.ts'
@@ -196,7 +197,7 @@ function abortOnClose(res: ServerResponse): AbortSignal {
 
 const agentOptions = (mind: Mind, secrets: Secret[], userId: string, mindId: string, threadId: string, tokens: { walletToken?: string; mailToken?: string; timeZone?: string }, demo?: boolean) => ({
   requestContext: contextFor(mind, secrets, { ...tokens, demo, userId, mindId }),
-  memory: { resource: resourceId(userId, mindId, mind.personaVersion), thread: threadId, options: memoryOptions(mind) },
+  memory: { resource: resourceId(userId, mindId, mind.personaVersion), thread: threadId, options: memoryOptions(mind, embedderReady()) },
   maxSteps: 8,
   // No automatic retries: each completion must map to one verifiable request (NEAR AI SDK guide).
   modelSettings: { maxOutputTokens: config.maxOutputTokens, maxRetries: 0, timeout: { totalMs: config.runTimeoutMs } },
@@ -361,6 +362,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   // startWorkers() loads the workflows saved in Postgres (#20); without it they vanish on restart.
   await mastra.startWorkers()
   server.listen(config.port, () => console.log(`engine listening on :${config.port}`))
+  startEmbedderProbe(embedder)
   const warm = () => warmAttestation(warmModels()).then(() => console.log('attestation', JSON.stringify(attestationStatus())))
   void warm()
   setInterval(warm, 50 * 60 * 1000).unref()
