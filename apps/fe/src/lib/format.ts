@@ -29,6 +29,19 @@ export function formatNear(amount: string): string {
   return `${Number(whole).toLocaleString("en-US")}.${cents}`
 }
 
+/**
+ * A payment amount: two decimals like `formatNear`, but up to four when the cents would hide it, so a
+ * 0.001 NEAR payment reads "0.001", not "0.00" (Axel, 13 Nov: "-0.00 NEAR" on the Wallet screen).
+ * Still rounded down, never up. Balances keep `formatNear`.
+ */
+export function formatNearAmount(amount: string): string {
+  const match = /^(\d+)(?:\.(\d*))?$/.exec(amount.trim())
+  if (!match) return amount
+  const digits = (match[2] ?? "").padEnd(4, "0").slice(0, 4)
+  const shown = digits.slice(2) === "00" ? digits.slice(0, 2) : digits.replace(/0+$/, "")
+  return `${Number(match[1].replace(/^0+(?=\d)/, "")).toLocaleString("en-US")}.${shown}`
+}
+
 /** A clock time for chat messages, in the viewer's own format ("10:42"). */
 export function clockTime(iso: string): string {
   const date = new Date(iso)

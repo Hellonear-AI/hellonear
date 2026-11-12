@@ -2,7 +2,7 @@
 // Money coming in isn't in that list (it only records what the Mind tried to send), so
 // "Added by you" rows from the design can't show yet. No "·" separators (Ancung, 9 Nov).
 
-import { clockTime, formatNear, shortWhen } from "@/lib/format"
+import { clockTime, formatNearAmount, shortWhen } from "@/lib/format"
 import { compareNear } from "@/lib/near"
 import type { ApiPayment } from "@/modules/wallet/api"
 
@@ -17,7 +17,7 @@ export type ActivityLine = {
 }
 
 export function activityLine(p: ApiPayment, now: Date = new Date()): ActivityLine {
-  const amount = `${formatNear(p.amountNear)} NEAR`
+  const amount = `${formatNearAmount(p.amountNear)} NEAR`
   const when = `${shortWhen(p.at, now)}, ${clockTime(p.at)}`
   switch (p.status) {
     case "sent":

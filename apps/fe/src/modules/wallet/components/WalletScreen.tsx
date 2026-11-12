@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { apiUrl } from "@/lib/api"
-import { formatNear } from "@/lib/format"
+import { formatNear, formatNearAmount } from "@/lib/format"
 import { TryOutLockedDialog, useTryOutLock, type LockedAction } from "@/modules/auth/components/TryOutLockedDialog"
 import { useIsTryOut } from "@/modules/auth/hooks/useSession"
 import type { ApiWallet } from "@/modules/wallet/api"
@@ -179,7 +179,7 @@ function Balance({ mindId, name, wallet }: { mindId: string; name: string; walle
         <div className="rounded-md bg-muted px-3 py-2.5">
           {/* OutLayer's own counter when the backend sends it (#149), else the sent payments since 00:00 UTC. */}
           <p className="text-sm font-semibold text-foreground">
-            Spent today: {formatNear(wallet.spentTodayNear ?? today?.total ?? "0")}
+            Spent today: {formatNearAmount(wallet.spentTodayNear ?? today?.total ?? "0")}
             {daily ? ` of ${daily}` : ""} NEAR
           </p>
           <p className="text-xs text-muted-foreground">
