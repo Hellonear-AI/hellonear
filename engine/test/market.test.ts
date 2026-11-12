@@ -78,6 +78,14 @@ test('market_quote turns the agent\'s 402 into a price in USDC and pays nothing'
   assert.equal(body.params.message.parts[0].text, 'Coffee shop market size in Austin\nA one-page estimate.')
 })
 
+test('with a budget, the tool says whether the quote is within it (15 USDC: 15 yes, 14.999999 no)', async () => {
+  const ask = (maxUsdc?: string) => run('market_quote', { handle: 'infinito-absoluto', agentId: AVAILABLE, task: 'Coffee shop market size in Austin\nA one-page estimate.', ...(maxUsdc ? { maxUsdc } : {}) })
+  assert.equal((await ask('15')).withinBudget, true)
+  assert.equal((await ask('20.5')).withinBudget, true)
+  assert.equal((await ask('14.999999')).withinBudget, false)
+  assert.equal((await ask()).withinBudget, undefined, 'no budget, no verdict')
+})
+
 test('an agent that is offline, not taking calls, unknown or unpaid is a plain answer', async () => {
   assert.equal((await quote('qadri-research', '48a6fe10-d75e-43b6-bcb8-a8afb43cc402')).status, 'unavailable')
   assert.equal((await quote('busy-agent')).status, 'not_taking_calls')

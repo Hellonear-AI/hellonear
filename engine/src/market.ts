@@ -8,7 +8,7 @@ import { createTool } from '@mastra/core/tools'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { withCount } from './counted.ts'
-import { fromUnits } from './crosschain.ts'
+import { fromUnits, toUnits } from './crosschain.ts'
 
 // Read per call, not at import, so tests can point them at a fake. Each agent lives on its own subdomain, so the
 // agent URL is a template.
@@ -83,6 +83,7 @@ export const marketQuote = createTool({
     handle: z.string().regex(HANDLE, 'an agent handle from market_search, e.g. "qadri-research"'),
     agentId: z.string().regex(AGENT_ID, 'the agentId market_search gave for that handle'),
     task: z.string().trim().min(10).max(4000).describe('the job: a title on the first line, then the brief, in the owner\'s words'),
+    maxUsdc: z.string().regex(/^\d{1,6}(\.\d{1,6})?$/, 'a decimal string, e.g. "1" or "2.5"').optional().describe('the owner\'s budget for the job in USDC, only if they named one'),
   }),
   outputSchema: z.object({
     status: z.enum(['quoted', 'unavailable', 'not_taking_calls', 'not_found', 'no_payments']),
@@ -90,11 +91,12 @@ export const marketQuote = createTool({
     plan: z.object({ name: z.string(), priceUsd: z.string() }).optional(),
     price: z.object({ usdc: z.string(), network: z.string(), payTo: z.string() }).optional(),
     windowSeconds: z.number().optional().describe('how long the agent has to deliver once paid'),
+    withinBudget: z.boolean().optional().describe('with maxUsdc: whether the quoted price is at or under the owner\'s budget'),
     reason: z.string().optional(),
     canPayHere: z.literal(false),
     note: z.string(),
   }),
-  execute: async ({ handle, agentId, task }) => {
+  execute: async ({ handle, agentId, task, maxUsdc }) => {
     if (task.includes('{{secrets.')) throw new Error('a task for an outside agent must not carry secrets')
     const base = { handle, canPayHere: false as const, note: NOT_HIRED }
     const plan = await defaultPlan(agentId).catch(() => undefined)
@@ -116,6 +118,8 @@ export const marketQuote = createTool({
         status: 'quoted' as const, ...base, ...planOut,
         // USDC has 6 decimals; the amount is in its smallest unit.
         price: { usdc: fromUnits(BigInt(row.amount!), 6), network: row.network!, payTo: row.payTo ?? '' },
+        // The budget is compared here in USDC's smallest unit, not by the model (the haggle taught us, 13 Nov).
+        ...(maxUsdc ? { withinBudget: BigInt(row.amount!) <= toUnits(maxUsdc, 6) } : {}),
         // The market adds 10 minutes to the agent's window for the payment to stay valid.
         ...(row.maxTimeoutSeconds ? { windowSeconds: Math.max(0, row.maxTimeoutSeconds - 600) } : {}),
       }
