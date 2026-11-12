@@ -25,4 +25,4 @@ bun run build
 
 ## Deploy
 
-On **Vercel**, project `hellonear-trust`, deployed by Axel with the Vercel CLI from this folder: `vercel build --prod`, then `vercel deploy --prebuilt --prod`. Domain on the project: `trust.hellonear.xyz`, a `CNAME` in the `hellonear.xyz` Cloudflare zone to the target Vercel gives (DNS only, not proxied); the DNS change is on the box owner's side (James), with Axel's approval. No env vars. CI: `.github/workflows/trust.yml`.
+On **Vercel**, project `hellonear-trust` (created 13 Nov; `vercel.json` sets the Next.js framework, since a project made with `vercel project add` has no preset and the build looks for `public/`), deployed by Axel with the Vercel CLI from this folder: `vercel build --prod`, then `vercel deploy --prebuilt --prod`. Domain on the project: `trust.hellonear.xyz`, a `CNAME trust → 0d1d4df456d2b41a.vercel-dns-017.com` in the `hellonear.xyz` Cloudflare zone (DNS only, not proxied); the DNS change is on the box owner's side (James), with Axel's approval. No env vars. CI: `.github/workflows/trust.yml`.
