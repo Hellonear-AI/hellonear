@@ -1,0 +1,22 @@
+[Unit]
+Description=HelloNear landing page (Next.js, apps/landing)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=hellonear
+WorkingDirectory=/opt/hellonear/app/apps/landing
+# Built by deploy/deploy.sh on the deploying machine; the box only runs it. Port 3100 (apps/fe keeps 3000).
+Environment=NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
+ExecStart=/usr/local/bin/node node_modules/next/dist/bin/next start -H 0.0.0.0 -p 3100
+Restart=on-failure
+RestartSec=5
+MemoryMax=384M
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/hellonear
+
+[Install]
+WantedBy=multi-user.target
