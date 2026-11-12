@@ -42,6 +42,7 @@ HelloNear is an AI agent persona platform on NEAR, built for NEAR HACKATHON (1â€
 |---|---|---|
 | `apps/fe` | Web app (Next.js App Router, NEAR Connect) | Ancung |
 | `apps/landing` | Landing page | Nabil |
+| `apps/status` | Status page, status.hellonear.xyz (Vercel): whether HelloNear and the services it runs on answer, read from the backend's `GET /v1/status` | Axel |
 | `apps/be` | Backend API, Postgres + pgvector, NEP-413 login, OutLayer + Composio | James |
 | `engine` | AI engine (Mastra + NEAR AI Cloud) | Axel |
 | `sc` | Mind registry contract (Rust `near-sdk`) | Axel |
@@ -71,6 +72,7 @@ Each folder has its own workflow in `.github/workflows/`. It runs on pull reques
 | `fe` | `apps/fe` | lint, typecheck, `next build` |
 | `sc` | `sc` | unit tests, sandbox tests (incl. upgrades from the fixtures), clippy |
 | `landing` | `apps/landing` | typecheck, `next build` |
+| `status` | `apps/status` | typecheck, unit tests, `next build` |
 
 CI does not replace the local integration and load tests required by the rules below. Nothing deploys from CI itself. A merged `main` is deployed to the hosted demo after its CI passes, by a poller on James's always-on LAN machine that comments the result on the merged PR (rule 3, `deploy/README.md`).
 

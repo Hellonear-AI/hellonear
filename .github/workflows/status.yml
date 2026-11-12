@@ -1,0 +1,39 @@
+# Status page CI: typecheck, unit tests and a production build. No secrets needed. The build reads the live
+# status API once (ISR); if it cannot, the page still builds and says so.
+name: status
+
+on:
+  pull_request:
+    paths: ['apps/status/**', '.github/workflows/status.yml']
+  push:
+    branches: [main]
+    paths: ['apps/status/**', '.github/workflows/status.yml']
+
+concurrency:
+  group: status-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/status
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.22.1
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.9
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run test
+      - run: bun run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
