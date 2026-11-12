@@ -33,7 +33,7 @@ export const config = {
   // NEP-413 `recipient` the wallet signs for; the FE must use the same value.
   authRecipient: process.env.AUTH_RECIPIENT ?? 'hellonear.app',
   authMessage: 'Sign in to HelloNear',
-  nearRpcUrl: process.env.NEAR_RPC_URL ?? 'https://rpc.testnet.near.org',
+  nearRpcUrl: process.env.NEAR_RPC_URL ?? 'https://test.rpc.fastnear.com',
   cookieSecure: process.env.COOKIE_SECURE === 'true',
   // Judge try-out mode (#43). Off unless DEMO_MODE=true; the shared demo wallet's agent key is optional.
   demoMode: process.env.DEMO_MODE === 'true',
