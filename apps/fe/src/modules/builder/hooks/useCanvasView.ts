@@ -10,6 +10,9 @@ import { prefersReducedMotion } from "@/lib/media"
 // Smooth (Ancung, 9 Nov: it stuttered and jumped): the view is written straight to the DOM once
 // per frame, never through React state, so the Builder doesn't re-render while you move. Wheel and
 // buttons ease toward where you're going; dragging follows the pointer 1:1.
+//
+// Phones and tablets (Ancung, 12 Nov): one finger on empty canvas pans, two fingers pinch to zoom
+// around the point between them and move the view with it, anywhere on the canvas, cards included.
 
 export type View = { x: number; y: number; zoom: number }
 
@@ -69,6 +72,16 @@ export function gridOf(zoom: number): { spacing: number; opacity: number } {
   return { spacing, opacity: zoom >= 0.75 ? 1 : 0.55 + (zoom / 0.75) * 0.45 }
 }
 
+/**
+ * The view during a pinch: the canvas point that sat between the fingers when it began stays
+ * between them, scaled by how far apart they are now.
+ */
+export function pinchView(start: View, from: { d: number; x: number; y: number }, now: { d: number; x: number; y: number }): View {
+  const zoom = clamp(start.zoom * (now.d / from.d))
+  const k = zoom / start.zoom
+  return { zoom, x: now.x - (from.x - start.x) * k, y: now.y - (from.y - start.y) * k }
+}
+
 /** Things inside the canvas that take the pointer themselves (cards, inputs, drag handles). */
 const OWN_POINTER = "button, a, input, textarea, [draggable='true'], [role='button']"
 
@@ -83,6 +96,11 @@ export function useCanvasView() {
   const [space, setSpace] = useState(false)
   const [panning, setPanning] = useState(false)
   const pan = useRef<{ id: number; x: number; y: number; moved: boolean } | null>(null)
+  /** Touch points on the canvas, and the pinch they make once there are two. */
+  const touches = useRef(new Map<number, { x: number; y: number }>())
+  const pinch = useRef<{ view: View; d: number; x: number; y: number } | null>(null)
+  /** A pinch happened since the last finger went down, so lifting it isn't a tap on empty canvas. */
+  const pinched = useRef(false)
 
   const paint = useCallback(() => {
     const v = current.current
@@ -187,6 +205,55 @@ export function useCanvasView() {
     return () => f.removeEventListener("wheel", onWheel)
   }, [go])
 
+  // Two fingers pinch. Listened to in the capture phase, so a finger on a card counts too.
+  useEffect(() => {
+    const f = frame.current
+    if (!f) return
+    const local = (e: PointerEvent) => {
+      const box = f.getBoundingClientRect()
+      return { x: e.clientX - box.left, y: e.clientY - box.top }
+    }
+    const between = () => {
+      const [a, b] = [...touches.current.values()]
+      return { d: Math.hypot(b.x - a.x, b.y - a.y) || 1, x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+    }
+    const down = (e: PointerEvent) => {
+      if (e.pointerType !== "touch") return
+      if (touches.current.size === 0) pinched.current = false
+      touches.current.set(e.pointerId, local(e))
+      if (touches.current.size === 2) {
+        // A one-finger pan becomes the pinch.
+        pan.current = null
+        setPanning(false)
+        pinched.current = true
+        pinch.current = { view: { ...target.current }, ...between() }
+      }
+    }
+    const move = (e: PointerEvent) => {
+      if (!touches.current.has(e.pointerId)) return
+      touches.current.set(e.pointerId, local(e))
+      const p = pinch.current
+      if (p && touches.current.size >= 2) {
+        e.preventDefault()
+        go(pinchView(p.view, p, between()), true)
+      }
+    }
+    const up = (e: PointerEvent) => {
+      touches.current.delete(e.pointerId)
+      if (touches.current.size < 2) pinch.current = null
+    }
+    f.addEventListener("pointerdown", down, true)
+    f.addEventListener("pointermove", move, true)
+    f.addEventListener("pointerup", up, true)
+    f.addEventListener("pointercancel", up, true)
+    return () => {
+      f.removeEventListener("pointerdown", down, true)
+      f.removeEventListener("pointermove", move, true)
+      f.removeEventListener("pointerup", up, true)
+      f.removeEventListener("pointercancel", up, true)
+    }
+  }, [go])
+
   // Space held (outside a text field) turns any drag into a pan, as in n8n and Figma.
   useEffect(() => {
     const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))
@@ -208,6 +275,7 @@ export function useCanvasView() {
   }, [])
 
   const onPointerDown = (e: ReactPointerEvent<HTMLElement>) => {
+    if (pinch.current) return
     const onBlock = e.target instanceof Element && e.target.closest(OWN_POINTER)
     const wants = e.button === 1 || (e.button === 0 && (space || !onBlock))
     if (!wants) return
@@ -230,10 +298,10 @@ export function useCanvasView() {
   /** Ends a pan; true if the pointer moved (so the click that follows isn't a deselect). */
   const endPan = (e: ReactPointerEvent<HTMLElement>): boolean => {
     const p = pan.current
-    if (!p || p.id !== e.pointerId) return false
+    if (!p || p.id !== e.pointerId) return pinched.current
     pan.current = null
     setPanning(false)
-    return p.moved
+    return p.moved || pinched.current
   }
 
   return { frame, content, zoomLabel, space, panning, reset, fit, zoomBy, onPointerDown, onPointerMove, endPan }

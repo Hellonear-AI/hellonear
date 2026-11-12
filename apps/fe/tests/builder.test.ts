@@ -152,6 +152,19 @@ describe("Builder canvas pan and zoom", () => {
     expect(fitView({ w: 1000, h: 800 }, { w: 640, h: 400 })).toEqual({ zoom: 1, x: 180, y: 200 })
     expect(fitView({ w: 1000, h: 600 }, { w: 640, h: 1008 }).zoom).toBeCloseTo(0.5)
   })
+
+  it("pinches: the point between the fingers stays between them, zoomed by their spread (12 Nov)", async () => {
+    const { pinchView, MAX_ZOOM } = await import("@/modules/builder/hooks/useCanvasView")
+    const start = { x: 40, y: 20, zoom: 1 }
+    const from = { d: 100, x: 200, y: 300 }
+    // Fingers twice as far apart, and their middle moved 30 px right.
+    const v = pinchView(start, from, { d: 200, x: 230, y: 300 })
+    expect(v.zoom).toBeCloseTo(2)
+    // The canvas point first under the middle (160, 280) is now under the new middle.
+    expect((230 - v.x) / v.zoom).toBeCloseTo((200 - 40) / 1)
+    expect((300 - v.y) / v.zoom).toBeCloseTo((300 - 20) / 1)
+    expect(pinchView(start, from, { d: 10_000, x: 200, y: 300 }).zoom).toBe(MAX_ZOOM)
+  })
 })
 
 describe("Builder wheel feel (gentler, 9 Nov)", () => {
