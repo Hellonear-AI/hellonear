@@ -37,7 +37,7 @@ HelloNear gives a person a **Mind**: an AI agent with a persona, memory, skills 
 **[Security model](#security-model)** ·
 **[Try it](#try-it)** ·
 **[API reference](#api-reference)** ·
-**[Limits](#limits)**
+**[Hackathon phase](#hackathon-phase-testnet)**
 
 Built at **NEAR HACKATHON** (1 to 14 Nov 2026) for six tracks: `security`, `privacy`, `agents`, `swarms`, `business`, `realworld`.<br>1,000+ commits and 189 merged pull requests since the hackathon started.
 
@@ -804,14 +804,20 @@ The web app is a client of a public HTTP API, and everything it does can be done
 
 ---
 
-## Limits
+## Hackathon phase (testnet)
 
-Stated plainly, so nothing here surprises a judge:
-- **Testnet only.** Payments are in testnet NEAR. Cross-chain stablecoin payments are quoted through NEAR Intents (signature checked) but not sent: NEAR Intents is mainnet only.
-- **Best price buyer** compares sellers only when the backend lists several; with one seller it buys from that one. Haggling happens with the sellers of HelloNear's own testnet data shop.
-- **NEAR AI Agent Market:** search and prices are live from market.near.ai, but nothing is hired or paid: the market is paid in USDC on NEAR mainnet. Its direct calls have a fixed price per agent, so the Mind picks the cheapest within a budget rather than haggling with one agent.
-- **Swarm auction:** the contract is live and one round ran on testnet with scripted agent accounts; the 20-buyer simulation runs on a local sandbox. Minds do not join rounds from the app yet.
-- **Relayer:** live in the backend; on the hosted demo it answers `503 relay_not_configured` until the relayer account's key is set on the server, and it relays only two registry methods.
+During the hackathon HelloNear runs on **NEAR testnet**, so judges can try everything for free with test tokens and a guest session. Some features therefore stop one step short of real money on purpose. Each becomes real on mainnet with the same approvals and limits.
+
+| Feature | During the hackathon (testnet) | On mainnet |
+|---|---|---|
+| **Payments** | Testnet NEAR from each Mind's OutLayer wallet, policy checked in a TEE | Real NEAR and stablecoins, same policy, approvals and Freeze |
+| **Cross-chain stablecoins (NEAR Intents)** | Real quotes from 1Click, signature checked; nothing is sent, because NEAR Intents has no testnet | The Mind sends the payment it quoted, after the owner approves |
+| **NEAR AI Agent Market (market.near.ai)** | Real agents and real prices (each agent's x402 answer); the Mind picks the cheapest within the owner's budget, but **hires no one**, because the market is paid in USDC on NEAR mainnet | The Mind **hires the agent for real**: one signed USDC transfer (NEP-366) behind the owner's approval card, and the agent's result comes back into the chat. Haggling then moves to the market's job board (post the job with a budget, compare bids, answer one counter) |
+| **Haggling** | One offer to the sellers of HelloNear's own testnet data shop (two sellers on the hosted demo) | The same playbook with real sellers and the job board above |
+| **Swarm auction** | Contract live and source verified at `auction.hellonear-swarm.testnet`; one round ran with scripted agent accounts, the 20-buyer simulation runs on a local sandbox | Minds join group-buying rounds from the app with their own wallets |
+| **Relayer (NEP-366)** | Live in the backend for two registry methods; on the hosted demo it answers `503 relay_not_configured` until the relayer's key is set on the server | Pays the gas for owners' calls to HelloNear's contracts, so owners never need NEAR for gas |
+
+Also stated plainly:
 - **App accounts:** Gmail, Google Calendar and Meet, Sheets, Drive, Docs and Notion were used by the team with real accounts. Changing Sheets cells, moving Calendar events, updating Notion rows and appending to Docs were tested against a stand-in for Composio, not yet on a real account. Zoom, Outlook and Slack are wired but not yet tried with a real account.
 - **The owner's payment rule** was tested on a local stack against a stand-in OutLayer. OutLayer's TEE checks every payment either way.
 - **Model behaviour varies.** Over repeated runs the model sometimes declines a payment it could have put on a card. The approval and the wallet policy, not the model, are what guarantee the outcome.
