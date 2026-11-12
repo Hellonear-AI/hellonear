@@ -11,6 +11,7 @@ import { buildInstructions, promptMind, type Mind } from './mind.ts'
 import { chatModel, embedder } from './models.ts'
 import { mindSkills } from './skills.ts'
 import { DEMO_KEY } from './email.ts'
+import { embedderReady } from './embedderHealth.ts'
 import { TIME_ZONE_KEY, toolRegistry, toolsFor } from './tools.ts'
 
 // Small pools: the local Postgres allows 40 connections.
@@ -31,6 +32,15 @@ const memory = new Memory({
     workingMemory: { enabled: true, scope: 'resource' },
   },
 })
+// The same memory without semantic recall (no vector, no embedder), used while NEAR AI's embedder does not answer
+// (src/embedderHealth.ts). Chat runs also turn recall off per call (memoryOptions), but Builder and Autopilot agent steps
+// take no per-call memory options, and Mastra read the recall setting from the Memory itself there: a workflow agent
+// step kept failing with "Failed to determine the embedder's output dimension" when only the call options changed
+// (13 Nov). The agent hands both instances Mastra's storage, so threads, messages and working memory are shared.
+const memoryWithoutRecall = new Memory({
+  options: { lastMessages: 20, semanticRecall: false, workingMemory: { enabled: true, scope: 'resource' } },
+})
+export const memoryFor = () => (embedderReady() ? memory : memoryWithoutRecall)
 
 export const MIND_KEY = 'mind'
 // Set for workflow runs (#20): no human is watching, so approval tools are hidden.
@@ -59,7 +69,7 @@ export const mindAgent = new Agent({
   model: (ctx) => chatModel(mindOf(ctx).model ?? config.defaultModel),
   tools: (ctx) => toolsFor(skillsOf(ctx).flatMap((s) => s.tools), { unattended: ctx.requestContext.get(UNATTENDED_KEY) === true }),
   skills: (ctx) => skillsOf(ctx).map((s) => s.skill),
-  memory,
+  memory: () => memoryFor(),
   // Bounds every model call's prompt (#123): 'contiguous' keeps the newest turns that fit, keeps the system prompt and
   // keeps a tool call with its result. Stored history is untouched; only what reaches the model is trimmed.
   inputProcessors: [new TokenLimiterProcessor({ limit: config.contextTokenLimit, trimMode: 'contiguous' })],

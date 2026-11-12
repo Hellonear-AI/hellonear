@@ -14,6 +14,7 @@ import { server } from '../src/server.ts'
 import { mindAgent, vector } from '../src/mastra.ts'
 import { memoryOptions, mindSchema, resourceId } from '../src/mind.ts'
 import { readWorkingMemory, writeWorkingMemory } from '../src/memory.ts'
+import { setEmbedderReady } from '../src/embedderHealth.ts'
 
 let base = ''
 const key = process.env.ENGINE_API_KEY!
@@ -128,4 +129,21 @@ describe('memory switches per run (#209)', () => {
     assert.ok((await searches(() => run(undefined, resource))).n > 0, 'default: recall on')
     assert.equal((await searches(() => run({ recall: false }, resource))).n, 0)
   })
+})
+
+// Builder and Autopilot agent steps take no per-call memory options, so the agent's Memory itself carries the embedder
+// switch (13 Nov: NEAR AI's embedder hung and every workflow agent step failed on it).
+test('while the embedder is down, the agent uses a Memory without semantic recall; when it answers, the usual one', async () => {
+  try {
+    setEmbedderReady(false)
+    const down = (await mindAgent.getMemory())!
+    assert.equal(down.getMergedThreadConfig({}).semanticRecall, false)
+    assert.equal(down.getMergedThreadConfig({}).lastMessages, 20, 'the thread history stays')
+    setEmbedderReady(true)
+    const up = (await mindAgent.getMemory())!
+    assert.notEqual(up.getMergedThreadConfig({}).semanticRecall, false, 'recall as configured')
+    assert.notEqual(up, down)
+  } finally {
+    setEmbedderReady(true)
+  }
 })
