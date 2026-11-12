@@ -118,7 +118,8 @@ export function PageLoader() {
       setTimeout(() => {
         const y = targetY(hash) ?? 0;
         window.scrollTo({ top: y, behavior: "instant" as ScrollBehavior });
-        history.replaceState(null, "", hash === "#top" ? location.pathname : hash);
+        // No "#…" in the address (Ancung, 13 Nov): the link still works, the bar stays hellonear.xyz.
+        history.replaceState(null, "", location.pathname + location.search);
         // let the scroll-driven scenes settle and the images there decode, then lift
         setTimeout(() => {
           setPhase("out");
