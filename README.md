@@ -16,7 +16,7 @@ HelloNear gives a person a **Mind**: an AI agent with a persona, memory, skills 
 ![OutLayer](https://img.shields.io/badge/wallet%20policy-checked%20in%20a%20TEE-6E40C9?style=for-the-badge)
 ![Mastra](https://img.shields.io/badge/Mastra-1.81-F5A623?style=for-the-badge)
 ![Rust](https://img.shields.io/badge/contract-near--sdk%205.29-B7410E?style=for-the-badge&logo=rust&logoColor=white)
-![License](https://img.shields.io/badge/license-MIT-2E7D32?style=for-the-badge)
+![License](https://img.shields.io/badge/license-all%20rights%20reserved-B00020?style=for-the-badge)
 
 <br>
 
@@ -829,4 +829,4 @@ Built on NEAR testnet for **NEAR HACKATHON**.
 
 ## License
 
-MIT, see [`LICENSE`](LICENSE).
+All rights reserved. The code is published to be read and evaluated, including judging in NEAR HACKATHON: you may read it, run it locally and try the hosted demo. Copying, modifying, redistributing, using it in another project, or presenting it as your own needs the team's written permission. Third-party libraries and logos keep their own licenses. See [`LICENSE`](LICENSE).
