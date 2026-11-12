@@ -116,7 +116,7 @@ HelloNear is submitted to six tracks. For each one: what the organizers ask for 
 | | |
 |---|---|
 | **The track asks for** | "Build agents that earn, spend, negotiate, hire other agents and pay for APIs, compute or data — with crypto directly or through NEAR Intents." Hints: agent commerce, NEAR Intents, chain signatures |
-| **What HelloNear built** | Minds pay for data with a 402 pattern on testnet NEAR (price, approved payment, report with the tx hash as receipt), sell what they made to other Minds into their own wallet, compare sellers before buying, invoice and check payment on chain, quote cross-chain payments through **NEAR Intents**, haggle once with a seller (offer within the owner's budget, then buy at the agreed price or walk away), and find agents on the **NEAR AI Agent Market** (market.near.ai) with each job's exact price from the agent's own x402 answer (hiring is paid in USDC on mainnet, so it only quotes for now). All inside the owner's limits |
+| **What HelloNear built** | Minds pay for data with a 402 pattern on testnet NEAR (price, approved payment, report with the tx hash as receipt), sell what they made to other Minds into their own wallet, compare sellers before buying, invoice and check payment on chain, quote cross-chain payments through **NEAR Intents**, haggle once with a seller (offer within the owner's budget, then buy at the agreed price or walk away), and find agents on the **NEAR AI Agent Market** (market.near.ai) with each job's exact price from the agent's own x402 answer, picking the cheapest one within the owner's budget (hiring is paid in USDC on mainnet, so it only quotes for now). All inside the owner's limits |
 | **Skills** | Paid data, Best price buyer, Hire on Agent Market, Price watch, Mind as seller, Invoice & get paid, Payments |
 | **Check it** | *"What's the gas price on NEAR testnet? Buy the report."*: a `402` price, a card for 0.001 NEAR, then the report and its tx hash |
 
@@ -125,9 +125,9 @@ HelloNear is submitted to six tracks. For each one: what the organizers ask for 
 | | |
 |---|---|
 | **The track asks for** | "Build coordination markets, bidding, collective purchasing, intent-based settlement and emergent economies between agents." Hints: multi-agent systems, NEAR Intents, sub-accounts |
-| **What HelloNear built** | Best price buyer runs each order as a small auction between sellers and buys only from one the wallet may pay; Minds buy from and sell to other Minds (each with its own wallet); Split bill and Revenue split pay several people from one request, each payment approved on its own |
-| **Skills** | Best price buyer, Mind as seller, Split bill, Revenue split |
-| **Check it** | *"Split 0.02 NEAR between alice.testnet and bob.testnet"*: shares worked out in yoctoNEAR, one card per person |
+| **What HelloNear built** | A **sealed-bid group-buying auction contract** ([`sc/swarm`](sc/swarm), rules in [`RULES.md`](sc/swarm/RULES.md)): buyer agents pool demand with escrow, seller agents commit hidden asks with a bond and reveal them, the cheapest asks fill demand at one clearing price, and every agent is its own NEAR sub-account. A simulation of **20 buyers and 5 sellers with scripted strategies and no LLM** runs three rounds on a local NEAR sandbox and checks money is conserved each round ([report](sc/swarm/simulation-report.md)); an independent audit's 9 findings are fixed. In the app, Best price buyer runs each order as a small auction between sellers and buys only from one the wallet may pay; Minds buy from and sell to other Minds (each with its own wallet); Split bill and Revenue split pay several people from one request, each payment approved on its own |
+| **Skills** | Best price buyer, Mind as seller, Split bill, Revenue split; contract `sc/swarm` |
+| **Check it** | `cd sc/swarm && cargo test --test simulation -- --nocapture`: 20 buyers and 5 sellers, three rounds, a clearing price per round and who got what. In the app: *"Split 0.02 NEAR between alice.testnet and bob.testnet"*: shares worked out in yoctoNEAR, one card per person |
 
 ### `business`: Autonomous Business
 
@@ -377,7 +377,7 @@ This is the core of HelloNear, and the part a judge can read end to end in `engi
 | `get_quotes` | | Every seller's price for a report, cheapest first, and which ones the wallet may pay | Backend shop route |
 | `make_offer` | | Offer one seller less than it quoted, once, within the owner's budget; answers accepted or its last price, and whether to buy or walk away | Backend shop route (`offer`) |
 | `market_search` | | Search the NEAR AI Agent Market's public catalog: agents, default price, track record, verification | market.near.ai `GET /v1/agents` |
-| `market_quote` | | Get a listed agent's exact price for the owner's task, unpaid (its x402 answer); nothing starts, nothing is paid | market.near.ai A2A `SendMessage` without payment |
+| `market_quote` | | Get a listed agent's exact price for the owner's task, unpaid (its x402 answer), and whether it is within the owner's budget; nothing starts, nothing is paid | market.near.ai A2A `SendMessage` without payment |
 | `sell_offer` | yes | Put something this Mind made on sale to other Minds | Backend offers route |
 | `buy_from_mind` | | Buy what another Mind sells (402 pattern) | Backend offers route |
 
@@ -452,7 +452,7 @@ Icons are the ones the web app shows on each skill card.
 | <img src="docs/readme/icons/skills/revenue-split.svg" width="26" alt=""> | **Revenue split** (`revenue-split`) | Remembers your partners' shares and pays each one their part of new income after you approve | `get_balance`, `send_payment`, `near_view_account`, `add_numbers`, `split_amount`, `list_payments`, `get_time` |
 | <img src="docs/readme/icons/skills/paid-data.svg" width="26" alt=""> | **Paid data** (`paid-data`) | Buys small live NEAR reports, paying only after you approve | `buy_data`, `send_payment`, `list_payments`, `get_time` |
 | <img src="docs/readme/icons/skills/best-price.svg" width="26" alt=""> | **Best price buyer** (`best-price`) | Compares every seller of a data report, haggles once when the price is over your budget (then buys or walks away), and buys from one your wallet may pay, after you approve | `get_quotes`, `make_offer`, `buy_data`, `send_payment`, `list_payments`, `get_time` |
-| <img src="docs/readme/icons/skills/agent-market.svg" width="26" alt=""> | **Hire on Agent Market** (`agent-market`) | Finds agents on the NEAR AI Agent Market (market.near.ai) and gets a job's exact price; hiring is paid in USDC on NEAR mainnet, so during the testnet phase it only quotes | `market_search`, `market_quote` |
+| <img src="docs/readme/icons/skills/agent-market.svg" width="26" alt=""> | **Hire on Agent Market** (`agent-market`) | Finds agents on the NEAR AI Agent Market (market.near.ai), gets a job's exact price and picks the cheapest within your budget; hiring is paid in USDC on NEAR mainnet, so during the testnet phase it only quotes | `market_search`, `market_quote` |
 | <img src="docs/readme/icons/skills/price-watch.svg" width="26" alt=""> | **Price watch** (`price-watch`) | Checks a data report's price and buys only at or under your limit, after you approve | `get_quotes`, `buy_data`, `send_payment`, `add_numbers`, `get_time` |
 | <img src="docs/readme/icons/skills/mind-seller.svg" width="26" alt=""> | **Mind as seller** (`mind-seller`) | Sells what this Mind made to other Minds for testnet NEAR into its own wallet, and buys from other Minds, after you approve | `sell_offer`, `buy_from_mind`, `send_payment`, `get_balance`, `get_time` |
 | <img src="docs/readme/icons/skills/invoice.svg" width="26" alt=""> | **Invoice & get paid** (`invoice`) | Emails an invoice from this Mind's address after you approve, and checks a payment only by its transaction | `mail_send`, `mail_list`, `mail_read`, `get_balance`, `near_check_transfer`, `get_time` |
@@ -799,6 +799,9 @@ Stated plainly, so nothing here surprises a judge:
 - **Mainnet.** Deploy the registry and the Mind wallets on NEAR mainnet; cross-chain stablecoin payments through NEAR Intents can then be sent, not only quoted, under the same limits and approvals.
 - **Pay-as-you-go AI credits.** Owners top up credits and pay for what their Minds use. Each run already records its tokens and cost.
 - **More Mind templates** beyond the three today, each starting with the skills for its job.
+- **Hiring on the Agent Market.** On mainnet a Mind can pay a market.near.ai agent itself: the payment is one signed delegate action (NEP-366) for the agent's quoted USDC price, behind the owner's approval card and wallet limits, and the agent's result comes back into the chat.
+- **Haggling through the Agent Market's job board.** The Mind posts the owner's job with their budget, compares the bids that come in, answers one counter, and funds the escrow only through the owner's approval card. Today it compares the fixed prices of several agents and picks the cheapest within the budget.
+- **The swarm auction on chain for Minds.** Minds join group-buying rounds of the swarm auction contract (`sc/swarm`) with their own wallets, so several owners' Minds pool demand and pay one clearing price.
 - **Images and voice.** Owners send their Mind a photo (a receipt, an invoice, a screenshot) or a voice message, and the Mind reads it and acts on it, with the same approvals and limits.
 
 ---
