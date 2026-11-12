@@ -72,6 +72,20 @@ function useParallax(ref: React.RefObject<HTMLElement | null>) {
   }, [ref]);
 }
 
+/** Taller screens than the 900 px design: the whole 1440 stage grows with the screen height (up to 1.6x), so
+    the hero always fills the first screen (a laptop at 1800 x 1012 used to show the page below it). */
+const MAX_STAGE_SCALE = 1.6;
+function useStageScale() {
+  const [s, setS] = useState(1);
+  useEffect(() => {
+    const set = () => setS(Math.min(MAX_STAGE_SCALE, Math.max(1, window.innerHeight / SECTION_H)));
+    set();
+    window.addEventListener("resize", set);
+    return () => window.removeEventListener("resize", set);
+  }, []);
+  return s;
+}
+
 const layer = (name: keyof typeof DEPTH): React.CSSProperties => ({ transform: `var(--p-${name})`, willChange: "transform" });
 
 /** 2D hands (relit to match the 3D head), in step with the Mind's clips:
@@ -172,7 +186,7 @@ function HeroCopy() {
             <h1 className="text-[46px] font-medium leading-[1.04] tracking-[-1.6px] text-[var(--color-text)]">
               A Mind that can&apos;t spend more than you allow.
             </h1>
-            <p className="max-w-[400px] text-[16px] leading-[1.5] text-[#2E3A46]">
+            <p className="max-w-[400px] text-[16px] leading-[1.5] text-[#2E3A46] max-lg:mx-auto">
               An AI helper with its own wallet. You set the limits, it can&apos;t change them.
             </p>
             {/* Buttons and the app row share one width, so both edges line up. */}
@@ -233,7 +247,9 @@ function HeroMobile() {
       <div className="absolute top-0 h-full w-[1440px]" style={{ left: "max(-80px, calc(50% - 720px))" }}>
         <Sky />
       </div>
-      <div className="relative z-10 flex flex-col items-start gap-4 px-5 pt-[104px] [&_.hero-btn]:h-12 [&_.hero-btn]:gap-1.5 [&_.hero-btn]:px-3 [&_.hero-btn]:text-[13.5px] [&_.hero-btn_svg]:shrink-0 [&_.hero-btn-dot]:shrink-0 [&_.hero-btn]:whitespace-nowrap [&_.hero-btn-primary]:pr-2 [&_h1]:text-[34px] [&_ul]:flex-nowrap [&_ul]:gap-2 [&_ul]:text-[11px] [&_ul_svg]:size-3">
+      {/* Stacked: the copy is centred. Button sizes for phones are in globals.css (.hero-m), since the
+          unlayered .hero-btn-lg rules there beat Tailwind utilities. */}
+      <div className="hero-m relative z-10 mx-auto flex max-w-[560px] flex-col items-center gap-4 px-5 pt-[104px] text-center [&_h1]:text-[34px] sm:[&_h1]:text-[44px] [&_ul]:flex-nowrap [&_ul]:justify-center [&_ul]:gap-2 [&_ul]:text-[11px] [&_ul_svg]:size-3">
         <HeroCopy />
       </div>
       <div className="relative mt-4 h-[420px]">
@@ -278,6 +294,7 @@ export function Hero() {
     }
   };
   // The 3D Mind loads only on screens wide enough for the desktop hero.
+  const scale = useStageScale();
   const [wide, setWide] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)");
@@ -293,15 +310,18 @@ export function Hero() {
     <section
       ref={ref}
       className="hero relative hidden overflow-hidden bg-[#7DA5D2] lg:block"
-      style={{ height: SECTION_H }}
+      style={{ height: `max(${SECTION_H}px, 100svh)` }}
     >
       {/* Ground below the front hill art (its bottom colour), for tall or wide screens. */}
-      <div className="absolute inset-x-0 bottom-0 bg-[#406708]" style={{ top: CREST_Y + 220 }} />
+      <div className="absolute inset-x-0 bottom-0 bg-[#406708]" style={{ top: (CREST_Y + 220) * scale }} />
 
 
       {/* Centred on wide screens; on narrower ones (down to 1024) it slides left only as far as keeps the
           copy on screen (40 px in), and the Mind is cut by the right edge instead. */}
-      <div className="absolute top-0 h-full w-[1440px]" style={{ left: "max(-80px, calc(50% - 720px))" }}>
+      <div
+        className="absolute top-0 w-[1440px] origin-top-left"
+        style={{ height: SECTION_H, left: `max(${-80 * scale}px, calc(50% - ${720 * scale}px))`, transform: scale === 1 ? undefined : `scale(${scale})` }}
+      >
         {/* Our own sky (colours sampled from the reference sky art): deep blue at the top, light near
             the horizon, a warm sun glow in the top-left corner and a few thin cirrus streaks. */}
         <div className="absolute inset-0" style={layer("sky")}>

@@ -59,7 +59,9 @@ export function MindStage({ crestY, centerX, onClip }: { crestY: number; centerX
   useEffect(() => {
     const back = backRef.current!;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const dpr = Math.min(window.devicePixelRatio, 2);
+    // the hero stage is scaled up on tall screens (Hero.tsx, up to 1.6x); render more pixels so it stays sharp
+    const stageScale = Math.min(1.6, Math.max(1, window.innerHeight / 900));
+    const dpr = Math.min(window.devicePixelRatio * stageScale, 2.5);
     const mk = (canvas: HTMLCanvasElement) => {
       const r = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "low-power" });
       r.setPixelRatio(dpr);
