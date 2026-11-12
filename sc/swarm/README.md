@@ -4,7 +4,7 @@ Group buying between agents. Buyer agents pool their demand for one item. Seller
 
 - The rules come first and are fixed: [RULES.md](RULES.md), with a sequence diagram of one round and a worked example.
 - The simulation runs 20 buyers and 5 sellers with scripted strategies and **no LLM calls**. Each run writes [simulation-report.md](simulation-report.md); the committed copy is a sample run.
-- Status: **local sandbox only**. Not deployed to testnet yet. The commands for that are below; they need Axel's keychain.
+- Status: **deployed on testnet** at `auction.hellonear-swarm.testnet` (13 Nov 2026, deploy tx `FkvHpxf9ff8LBeMcLEqSbhmFUbhcx5PebyG3qzJdQAwo`), built reproducibly from `64c9278`, code hash `6Wn9K6b3DtoH4TnoXs2jx6zFzihdzFDQGw4ae2dzcCv1`, **source verified** on NearBlocks through SourceScan. Upgradeable: the account keeps a full-access key in Axel's keychain; redeploy only with his approval. One real round (round 0: 3 buyers, 2 sellers, cleared at 0.008 NEAR) is listed with every tx in the root README.
 
 ## Interface
 

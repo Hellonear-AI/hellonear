@@ -28,6 +28,7 @@ HelloNear gives a person a **Mind**: an AI agent with a persona, memory, skills 
 | **Landing page** | **[hellonear.xyz](https://hellonear.xyz)** |
 | **API** (NEAR testnet) | **[api.hellonear.xyz/v1/health](https://api.hellonear.xyz/v1/health)** |
 | **Mind registry contract** | **[`hellonear-registry.testnet`](https://testnet.nearblocks.io/address/hellonear-registry.testnet)** (v0.3.0, NEP-330, [source verified](https://testnet.nearblocks.io/address/hellonear-registry.testnet?tab=contract)) |
+| **Swarm auction contract** | **[`auction.hellonear-swarm.testnet`](https://testnet.nearblocks.io/address/auction.hellonear-swarm.testnet?tab=contract)** (NEP-330, [source verified](https://testnet.nearblocks.io/address/auction.hellonear-swarm.testnet?tab=contract), [a real round](#the-swarm-auction-one-real-round-on-testnet)) |
 | **API reference** | **[OpenAPI spec](docs/openapi.json)** · [README section](#api-reference) |
 | **Repository** | **[github.com/Hellonear-AI/hellonear](https://github.com/Hellonear-AI/hellonear)** |
 
@@ -127,7 +128,7 @@ HelloNear is submitted to six tracks. For each one: what the organizers ask for 
 | **The track asks for** | "Build coordination markets, bidding, collective purchasing, intent-based settlement and emergent economies between agents." Hints: multi-agent systems, NEAR Intents, sub-accounts |
 | **What HelloNear built** | A **sealed-bid group-buying auction contract** ([`sc/swarm`](sc/swarm), rules in [`RULES.md`](sc/swarm/RULES.md)): buyer agents pool demand with escrow, seller agents commit hidden asks with a bond and reveal them, the cheapest asks fill demand at one clearing price, and every agent is its own NEAR sub-account. A simulation of **20 buyers and 5 sellers with scripted strategies and no LLM** runs three rounds on a local NEAR sandbox and checks money is conserved each round ([report](sc/swarm/simulation-report.md)); an independent audit's 9 findings are fixed. In the app, Best price buyer runs each order as a small auction between sellers and buys only from one the wallet may pay; Minds buy from and sell to other Minds (each with its own wallet); Split bill and Revenue split pay several people from one request, each payment approved on its own |
 | **Skills** | Best price buyer, Mind as seller, Split bill, Revenue split; contract `sc/swarm` |
-| **Check it** | `cd sc/swarm && cargo test --test simulation -- --nocapture`: 20 buyers and 5 sellers, three rounds, a clearing price per round and who got what. In the app: *"Split 0.02 NEAR between alice.testnet and bob.testnet"*: shares worked out in yoctoNEAR, one card per person |
+| **Check it** | [One real round on testnet](#the-swarm-auction-one-real-round-on-testnet): every step's transaction, 6 units filled at one clearing price. Locally, `cd sc/swarm && cargo test --test simulation -- --nocapture`: 20 buyers and 5 sellers, three rounds, a clearing price per round and who got what. In the app: *"Split 0.02 NEAR between alice.testnet and bob.testnet"*: shares worked out in yoctoNEAR, one card per person |
 
 ### `business`: Autonomous Business
 
@@ -179,6 +180,8 @@ What a Mind can work with. Logos are the ones the web app shows on the Connectio
 | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/brands/near-white.svg"><img src="design/brands/near.svg" height="22" alt="NEAR"></picture> | **NEAR Protocol** (testnet) | `sc/`, `apps/be/src/auth.ts`, `apps/be/src/wallets.ts` | The Mind registry contract (Minds, published skills, `equip_skill` pays the publisher); NEP-413 sign-in; every payment, policy change and freeze is a NEAR transaction |
 | <img src="design/brands/near-ai.svg" height="20" alt="NEAR AI"> | **NEAR AI Cloud** | `engine/src/models.ts`, `engine/src/verify.ts`, `engine/src/titles.ts` | Runs every model call inside a TEE; HelloNear checks each reply's signature against the attestation before the Verified badge, and keeps the proof |
 | | **NEAR Intents** (1Click API + official SDK) | `engine/src/crosschain.ts` | Cross-chain USDC/USDT quotes from NEAR to other chains; each quote's 1Click signature is verified with `verifyQuoteSignature` |
+| <img src="design/brands/agent-market.svg" height="22" alt="NEAR AI Agent Market"> | **NEAR AI Agent Market** ([market.near.ai](https://market.near.ai)) | `engine/src/market.ts`, skill `agent-market` | Searches the public catalog of agents and gets a job's exact price from the agent's own x402 answer (A2A, unpaid), then picks the cheapest within the owner's budget; hiring is paid in USDC on mainnet, so it only quotes for now |
+| | **Swarm auction contract** (`near-sdk`, testnet) | `sc/swarm` | Sealed-bid group buying between agents, each its own sub-account; deployed at `auction.hellonear-swarm.testnet`, source verified |
 | <img src="design/brands/outlayer.png" height="18" alt="OutLayer"> | **OutLayer** (testnet) | `apps/be/src/wallets.ts`, `apps/be/src/payments.ts` | One wallet per Mind; its policy (per-payment limit, daily limit, allowed recipients) is stored on chain and checked in a TEE before anything is signed; freeze |
 | <img src="design/brands/meteor-wallet-mark.svg" height="22" alt="Meteor"> | **Meteor Wallet** via **NEAR Connect** | `apps/fe` | The owner's wallet: signs in, signs the Mind wallet's policy, adds funds, freezes. Other NEAR Connect wallets work too |
 | | **FastNear** testnet RPC | `engine/src/tools.ts`, `apps/be/src/config.ts` | Account lookups before a payment (`view_account`) and transfer checks after one (`tx`) |
@@ -243,6 +246,21 @@ curl -s $RPC -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"me
 ```
 
 To rebuild it yourself (needs Docker): `git checkout 95c2b3d && cd sc && cargo near build reproducible-wasm`, then compare the SHA-256 (base58) of `target/near/hellonear_mind_registry.wasm` with the code hash above.
+
+### The swarm auction: one real round on testnet
+
+The group-buying auction contract (`sc/swarm`, rules in [`RULES.md`](sc/swarm/RULES.md)) is deployed at **[`auction.hellonear-swarm.testnet`](https://testnet.nearblocks.io/address/auction.hellonear-swarm.testnet?tab=contract)**. It was built reproducibly from commit `64c9278`, and its **source is verified** through SourceScan (code hash `6Wn9K6b3DtoH4TnoXs2jx6zFzihdzFDQGw4ae2dzcCv1`, deploy [`FkvHpxf9…`](https://testnet.nearblocks.io/txns/FkvHpxf9ff8LBeMcLEqSbhmFUbhcx5PebyG3qzJdQAwo)). Every agent is its own sub-account of `hellonear-swarm.testnet`. Round 0 (13 Nov 2026) had 3 buyers wanting 6 "gpu-hours", a ceiling of 0.01 NEAR per unit, and 2 sellers bidding sealed asks:
+
+| Step | Who | Transaction | What it shows |
+|---|---|---|---|
+| Open the round | `coordinator` | [`B4CFzH9o…`](https://testnet.nearblocks.io/txns/B4CFzH9oCH8smUfCbTeKD7hNLPAmCwgzegzmnodavQaj) | Ceiling 0.01 NEAR per unit, seller bond 0.01 NEAR, a fixed 3 min commit window and 2 min reveal window |
+| Join with escrow | `buyer-1`, `buyer-2`, `buyer-3` | [`GdBiXyn4…`](https://testnet.nearblocks.io/txns/GdBiXyn44oTHPEtcdxiZNdE9xdCPjPqiJUbUniGuVLG6) [`Eo4m23zh…`](https://testnet.nearblocks.io/txns/Eo4m23zhYhpxGTMZB7FxAK7oZAp6rCLFJvkJnrDMRQJJ) [`cgt2zw9v…`](https://testnet.nearblocks.io/txns/cgt2zw9vewKo9HQQC9g8FJFcu5GXM3n9FBWWCzcheaY) | 2, 3 and 1 units, each paying units × ceiling into escrow |
+| Sealed asks | `seller-1`, `seller-2` | [`CQUFGq7K…`](https://testnet.nearblocks.io/txns/CQUFGq7KoJ9VH5pi78GyvA84TLxrDTw1D8wgnuECmSH9) [`4FsTkdpw…`](https://testnet.nearblocks.io/txns/4FsTkdpwJDxX4xXxWp1jfxXo8pLtN1cQizdbMnjP67iN) | Only a SHA-256 commitment (round, seller, ask, capacity, salt) plus the bond. Nobody can see the price |
+| Reveal | `seller-1`, `seller-2` | [`Gu7qQBFn…`](https://testnet.nearblocks.io/txns/Gu7qQBFnV8uUCgp3VgjxntrNzwSnczWLxsq6TLi3U6pw) [`4EPJqmC6…`](https://testnet.nearblocks.io/txns/4EPJqmC6dtzSGADFLnNqffo3DMkvxEmxVuTmbcFFuyyC) | 0.006 NEAR × 4 units and 0.008 NEAR × 5 units; each must hash to its commitment, and the bond comes back |
+| Close (a buyer, not the organizer) | `buyer-2` | [`44guvtrj…`](https://testnet.nearblocks.io/txns/44guvtrj8riB75rgQiC1kfMsBQzYHQcmruR3cdA4eL5C) | All 6 units filled at **one clearing price, 0.008 NEAR**: seller-1 sold 4, seller-2 sold 2. Buyers paid 0.048 NEAR in total and sellers earned 0.048 NEAR |
+| Withdraw | each agent | [`CNsVsstu…`](https://testnet.nearblocks.io/txns/CNsVsstuuumXzjLbjGTFWXEYVXtw1bDfcTsiej7PEy7s) [`E2Amtv9p…`](https://testnet.nearblocks.io/txns/E2Amtv9pnSWdLhQoFaXeZxuxrm8Jjhc8NBgLbcDMcnJC) [`APe2tSRJ…`](https://testnet.nearblocks.io/txns/APe2tSRJqZrcrKUMNhsKnMjvCFcMLfWD4ayHqSvpMgD2) [`3WYa3qLP…`](https://testnet.nearblocks.io/txns/3WYa3qLPAP57WCg5fM7ptgQ6QyKv31M6f7r66NWDGBw6) [`5qV7kPVS…`](https://testnet.nearblocks.io/txns/5qV7kPVSVV17KzvCZBLVbtHbM52ZDnrRtmtaM36V6f9w) | Buyers pull their change (0.004, 0.006 and 0.002 NEAR); sellers pull sales plus bond (0.042 and 0.026 NEAR) |
+
+Read the round yourself: `get_round` with `{"round_id":0}` on `auction.hellonear-swarm.testnet` (public RPC, no key). The full 20-buyer, 5-seller simulation runs on a local sandbox: `cd sc/swarm && cargo test --test simulation -- --nocapture`.
 
 ### The proof behind a verified reply (NEAR AI Cloud TEE)
 

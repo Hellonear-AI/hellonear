@@ -83,6 +83,7 @@ The team uses macOS with **OrbStack** as the Docker runtime. Keep local services
 | What | Account | Env |
 |---|---|---|
 | Mind registry contract (`sc/`), v0.3.0 | `hellonear-registry.testnet` | `REGISTRY_CONTRACT_ID`, `NEAR_NETWORK=testnet` |
+| Swarm auction contract (`sc/swarm`), v0.1.0, source verified | `auction.hellonear-swarm.testnet`; agents are sub-accounts of `hellonear-swarm.testnet` (`coordinator`, `buyer-1..3`, `seller-1..2`), keys in Axel's keychain | none (no app reads it yet) |
 | Demo Mind wallet (OutLayer, policy v2), owner `lin1er.testnet` | `83e05486fc84f7150a70fe44bdfc0692c19182cdd72af7721c9a8a2a511e98bd`; sub-wallet `skill-payments` `bcd8cdbd8b4038c12ab9076188d01f9e5238ff397c3c6097cec1488c6b16588b`. Replaced `0fdc9294…` on 8 Nov (its key was exposed; #70) | `OUTLAYER_API_KEY`, `OUTLAYER_SUB_SKILL_PAYMENTS` (James's `apps/be/.env`, never committed); hosted demo: `DEMO_OUTLAYER_API_KEY` |
 | Try-out email inbox (AgentMail, Free plan, lexirieru's organization; not on chain) (#96) | `hellonear-demo@agentmail.to` (AgentMail `client_id` `hellonear-demo`), created 9 Nov | `AGENTMAIL_API_KEY` (Axel's local `apps/be/.env`, never committed), `DEMO_AGENTMAIL_INBOX`; not on the hosted demo yet |
 
