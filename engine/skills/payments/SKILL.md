@@ -1,13 +1,13 @@
 ---
 name: payments
-description: Use when the owner asks to pay a bill, an invoice or a subscription, to send testnet NEAR to someone, or about this Mind's wallet balance and past payments.
+description: Use when the owner asks to pay a bill, an invoice or a subscription, to send testnet NEAR to someone, to pay USDC or USDT on another chain, or about this Mind's wallet balance and past payments.
 metadata:
   hellonear:
-    tools: [send_payment, get_balance, list_payments, get_time, near_view_account]
+    tools: [send_payment, get_balance, list_payments, get_time, near_view_account, crosschain_quote]
     connections: [near-wallet]
     status: available
     title: Payments
-    blurb: sends testnet NEAR and pays bills after the owner approves
+    blurb: sends testnet NEAR and pays bills after the owner approves; quotes USDC or USDT payments to other chains (Base, Solana…) through NEAR Intents
     references: [near-recipients.md]
 ---
 
@@ -22,3 +22,4 @@ metadata:
 7. After a `sent` payment, report the amount, the recipient and the `txHash` in one sentence. A `pending` payment waits for the owner in the OutLayer dashboard; say so.
 8. Use `get_balance` for any question about this Mind's own balance and `list_payments` for past payments. Never guess either.
 9. If a tool says this Mind has no wallet yet, tell the owner to create one on the Mind's wallet screen.
+10. To pay USDC or USDT on another chain (Base, Arbitrum, Solana, Ethereum…), call `crosschain_quote` with the address the owner typed. It is a preview: show what the recipient would get, the cost and the time, and say plainly that nothing was sent and this Mind can't send cross-chain yet. Only after the result, always add the proof under the quote: if `proof.signedBy1Click` is true, say in plain words that NEAR Intents signed these exact numbers and the signature checked out against its public key, and that the hash, key and signature are shown with the quote in the app; never retype them (copies come out wrong); if false, say the signature could not be checked. Never name tool fields. Never call `send_payment` for it.

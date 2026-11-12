@@ -9,10 +9,11 @@
     "dev": "node --env-file=.env --import tsx src/server.ts",
     "test": "node --env-file=.env --import tsx --test test/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "test:unit": "node --import tsx --test test/skills.test.ts test/templates.test.ts test/graph.test.ts test/secrets.test.ts test/verify.test.ts test/tools.test.ts test/builder.test.ts test/wallet-tools.test.ts test/email.test.ts test/composio.test.ts test/calendar.test.ts test/apps.test.ts test/titles.test.ts test/mail-tools.test.ts test/mind.test.ts test/attacks.test.ts test/auto-approve-rules.test.ts test/zoom.test.ts test/counted.test.ts"
+    "test:unit": "node --import tsx --test test/skills.test.ts test/templates.test.ts test/graph.test.ts test/secrets.test.ts test/verify.test.ts test/tools.test.ts test/builder.test.ts test/wallet-tools.test.ts test/email.test.ts test/composio.test.ts test/calendar.test.ts test/apps.test.ts test/titles.test.ts test/mail-tools.test.ts test/mind.test.ts test/attacks.test.ts test/auto-approve-rules.test.ts test/zoom.test.ts test/counted.test.ts test/crosschain.test.ts"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "3.0.82",
+    "@defuse-protocol/one-click-sdk-typescript": "0.1.26",
     "@mastra/core": "1.81.0",
     "@mastra/memory": "1.40.0",
     "@mastra/pg": "1.34.0",

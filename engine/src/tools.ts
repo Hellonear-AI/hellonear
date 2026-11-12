@@ -12,6 +12,7 @@ import type { Mind } from './mind.ts'
 import { addressOf, composioTool, gmail, toListed, toRead } from './composio.ts'
 import { appTools } from './apps.ts'
 import { zoomTools } from './zoom.ts'
+import { crosschainQuote } from './crosschain.ts'
 import {
   ISO_WITH_OFFSET, MAX_ATTENDEES, MAX_RANGE_DAYS, checkAttendees, composioTiming, createSampleEvent, createSampleMeeting, listSampleCalendar, listedEvents, withLocalTimes, type CalendarEvent,
   meetLinkOf, rangeOf, withMeetLink,
@@ -723,7 +724,10 @@ const buyFromMind = createTool({
 })
 
 // Read-only NEAR account lookup on testnet (#20 "check balance"). Public RPC, no keys, moves nothing.
-const NEAR_RPC_URL = process.env.NEAR_RPC_URL ?? 'https://rpc.testnet.near.org'
+// rpc.testnet.near.org is deprecated and was answering "THIS ENDPOINT IS DEPRECATED! STOP USING IT NOW!" instead of results
+// on and off (12 Nov), so the default is FastNear's testnet RPC, listed at docs.near.org/api/rpc/providers.
+export const DEFAULT_NEAR_RPC_URL = 'https://test.rpc.fastnear.com'
+const NEAR_RPC_URL = process.env.NEAR_RPC_URL ?? DEFAULT_NEAR_RPC_URL
 const YOCTO_PER_NEAR = 10n ** 24n
 const nearViewAccount = createTool({
   id: 'near_view_account',
@@ -768,7 +772,7 @@ const nearCheckTransfer = createTool({
   }),
   execute: async ({ txHash, senderId, amountNear }, context) => {
     // Read per call, not at import, so tests can point it at a fake RPC.
-    const res = await fetch(process.env.NEAR_RPC_URL ?? 'https://rpc.testnet.near.org', {
+    const res = await fetch(process.env.NEAR_RPC_URL ?? DEFAULT_NEAR_RPC_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 'engine', method: 'tx', params: { tx_hash: txHash, sender_account_id: senderId, wait_until: 'FINAL' } }),
@@ -792,7 +796,7 @@ const nearCheckTransfer = createTool({
 })
 
 export const toolRegistry = {
-  get_time: getTime, add_numbers: addNumbers, split_amount: splitAmountTool, http_request: httpRequest, near_view_account: nearViewAccount, near_check_transfer: nearCheckTransfer,
+  get_time: getTime, add_numbers: addNumbers, split_amount: splitAmountTool, http_request: httpRequest, near_view_account: nearViewAccount, near_check_transfer: nearCheckTransfer, crosschain_quote: crosschainQuote,
   buy_data: buyData, get_quotes: getQuotes, sell_offer: sellOffer, buy_from_mind: buyFromMind, send_payment: sendPayment, get_balance: getBalance, list_payments: listPayments,
   gmail_list_emails: gmailListEmails, gmail_read_email: gmailReadEmail, gmail_create_draft: gmailCreateDraft, gmail_organize: gmailOrganize,
   googlecalendar_list_events: calendarListEvents, googlecalendar_create_event: calendarCreateEvent,
