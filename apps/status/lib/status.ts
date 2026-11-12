@@ -47,8 +47,10 @@ export const LABEL: Record<State, string> = { operational: "Operational", degrad
 
 export const HEADLINE: Record<Status["overall"], string> = {
   operational: "All systems operational",
-  degraded: "Some services are slow",
-  down: "Some services are down",
+  // The backend says "degraded" when a provider is down or slow but HelloNear itself answers, and "down" only
+  // when HelloNear's own API or engine is down.
+  degraded: "Partial outage: some services are having problems",
+  down: "Major outage: HelloNear is not answering",
 }
 
 // The services that are not operational, worst first, for the banner at the top.

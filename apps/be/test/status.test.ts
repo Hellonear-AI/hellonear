@@ -72,6 +72,8 @@ before(async () => {
 })
 after(async () => {
   for (const s of [server, ...servers]) { s.closeAllConnections(); s.close() }
+  // The fake upstreams' rows must not stay in a dev database a local backend reads (seen 13 Nov: 4 ms 1Click "answers").
+  await query('delete from service_checks')
   await pool.end()
 })
 
