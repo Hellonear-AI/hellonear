@@ -2,11 +2,19 @@
 
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { GmailLogo, GoogleSheetsLogo, TelegramLogo } from "../AppLogos";
 import type { MindClip } from "./MindStage";
 // three.js is loaded on its own, only on screens wide enough for the 3D Mind (phones never fetch it).
 const MindStage = dynamic(() => import("./MindStage").then((m) => m.MindStage), { ssr: false });
 import { GrassSlope } from "./GrassSlope";
+
+// The stack under the hero buttons (#290). h = logo height in px, tuned so they look the same size.
+const STACK = [
+  { file: "near.svg", name: "NEAR", h: 18 },
+  { file: "near-ai.svg", name: "NEAR AI Cloud", h: 16 },
+  { file: "meteor-wallet-mark.svg", name: "Meteor Wallet", h: 18, label: "Meteor" },
+  { file: "composio.svg", name: "Composio", h: 16 },
+  { file: "zai.svg", name: "GLM by Z.ai", h: 18, label: "GLM" },
+];
 
 // Layout: copy on the left over the sky, a big Mind peeking over the grass on the right.
 // Everything is placed on a 1440 px wide stage, centred.
@@ -209,24 +217,25 @@ function HeroCopy() {
                 Watch the demo
               </a>
             </div>
-            {/* Quiet on purpose: small grey text and icons, no pill backgrounds, so the buttons lead. */}
-            <ul className="flex items-center gap-4 whitespace-nowrap text-[13px] text-[#3E4A55]/80">
-              <li>Works with</li>
-              {(
-                [
-                  [TelegramLogo, "Telegram"],
-                  [GmailLogo, "Gmail"],
-                  [GoogleSheetsLogo, "Sheets"],
-                ] as const
-              ).map(([L, name]) => (
-                <li key={name} className="flex items-center gap-1.5">
-                  <span aria-hidden="true" className="flex opacity-80 grayscale-[0.35]">
-                    <L className="size-3.5" />
-                  </span>
-                  {name}
+            {/* What HelloNear is built on (#290, Axel and Ancung: the stack, not the apps; the apps are
+                listed lower down). Quiet on purpose: small logos at the brands' own colours, no pill
+                backgrounds, so the buttons lead. Meteor and Z.ai have no usable wordmark (white text,
+                a lone tile), so their mark sits beside the name, as in PoweredBy. */}
+            <ul className="hero-stack flex items-center gap-4 whitespace-nowrap text-[13px] text-[#3E4A55]/80">
+              {/* Phones: the label on a line of its own, the five logos on one line under it. */}
+              <li className="max-lg:basis-full">Built with</li>
+              {STACK.map((l) => (
+                <li key={l.file} className="flex items-center gap-1.5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/brands/powered/${l.file}`} alt={l.label ? "" : l.name} className="w-auto max-w-none" style={{ height: `calc(${l.h}px * var(--stack-k, 1))` }} />
+                  {l.label && (
+                    <span className="font-semibold text-[#1F2A33]">
+                      {l.label}
+                      <span className="sr-only"> ({l.name})</span>
+                    </span>
+                  )}
                 </li>
               ))}
-              <li>+8 more</li>
             </ul>
           </div>
     </>
@@ -249,7 +258,7 @@ function HeroMobile() {
       </div>
       {/* Stacked: the copy is centred. Button sizes for phones are in globals.css (.hero-m), since the
           unlayered .hero-btn-lg rules there beat Tailwind utilities. */}
-      <div className="hero-m relative z-10 mx-auto flex max-w-[560px] flex-col items-center gap-4 px-5 pt-[104px] text-center [&_h1]:text-[34px] sm:[&_h1]:text-[44px] [&_ul]:flex-nowrap [&_ul]:justify-center [&_ul]:gap-2 [&_ul]:text-[11px] [&_ul_svg]:size-3">
+      <div className="hero-m relative z-10 mx-auto flex max-w-[560px] flex-col items-center gap-4 px-5 pt-[104px] text-center [&_h1]:text-[34px] sm:[&_h1]:text-[44px] [&_ul]:flex-wrap [&_ul]:justify-center [&_ul]:gap-x-3 [&_ul]:gap-y-1.5 [&_ul]:text-[11px] [&_ul_svg]:size-3 [--stack-k:0.72]">
         <HeroCopy />
       </div>
       <div className="relative mt-4 h-[420px]">
