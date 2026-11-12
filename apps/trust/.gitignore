@@ -1,0 +1,4 @@
+tsconfig.tsbuildinfo
+.vercel
+.env*
+lib/generated/
