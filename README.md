@@ -161,6 +161,18 @@ Tests: `bun run test` in `engine/` and `apps/be/` (integration, real NEAR AI + l
 
 Plan: #3. Decisions: #4. Guidance for AI coding agents: `CLAUDE.md` (root and per folder).
 
+## Now and after the hackathon
+
+**During the hackathon (now):** everything runs on NEAR testnet so judges can try it for free.
+- **Try-out (guest) mode:** "Try without a wallet" makes a temporary user with 20 messages, a Mind from any template, sample inbox and calendar data, and payments from a shared test wallet with HelloNear's limits. It needs no wallet, account or payment. Try-out data is deleted after 7 days.
+- **The AI is on us:** every reply runs on NEAR AI Cloud with the team's own credits, so a judge or owner pays nothing for the model.
+- **Signing in with a NEAR wallet** (Meteor first) gives the full app: your own Mind wallet on testnet, your limits, freeze, rules, connections and Autopilot.
+
+**After the hackathon (planned, not built):**
+- **Mainnet.** Deploy the registry contract and the Mind wallets on NEAR mainnet. With real money on mainnet, cross-chain stablecoin payments through NEAR Intents can be sent, not only quoted, under the same limits and approvals.
+- **Pay-as-you-go AI credits.** Owners top up credits and pay for what their Minds use, instead of the team paying for NEAR AI Cloud. Each run already reports its tokens and cost, so usage can be charged per run.
+- **More Mind templates.** Today there are three (General Assistant, Payments Mind, Email Manager); more ready-made Minds for other jobs, each starting with the skills for its work.
+
 ## Built during the hackathon, and what it uses
 
 All code in this repository was written from 25 Oct 2026 (first commit), after the hackathon was announced on 19 Oct. There is no earlier baseline.
