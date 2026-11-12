@@ -7,6 +7,7 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { randomUUID } from 'node:crypto'
 import { server } from '../src/server.ts'
+import { readFileSync } from 'node:fs'
 import { resetTokenCache } from '../src/crosschain.ts'
 
 let base = ''
@@ -38,6 +39,7 @@ const TOKENS = [
   { assetId: 'nep141:usdt.tether-token.near', decimals: 6, blockchain: 'near', symbol: 'USDT' },
   { assetId: 'nep141:sol-c800a4bd850783ccb82c2b2c7e84175443606352.omft.near', decimals: 6, blockchain: 'sol', symbol: 'USDT' },
 ]
+const SIGNED = JSON.parse(readFileSync(new URL('./fixtures/oneclick-dry-quote.json', import.meta.url), 'utf8'))
 const quotes: any[] = []
 const oneClick = createServer(async (req, res) => {
   let raw = ''
@@ -46,6 +48,9 @@ const oneClick = createServer(async (req, res) => {
   if (req.url === '/v0/tokens') return send(200, TOKENS)
   const body = JSON.parse(raw)
   quotes.push(body)
+  // 10 USDC to Base answers with a real signed quote recorded from 1Click (12 Nov), so its signature checks out;
+  // every other quote is unsigned, so the Mind must not call it verified.
+  if (body.amount === '10000000' && body.destinationAsset.startsWith('nep141:base-')) return send(201, SIGNED)
   const out = (BigInt(body.amount) * 99956n) / 100000n
   send(201, { quote: { amountIn: body.amount, amountOut: out.toString(), minAmountOut: ((out * 99n) / 100n).toString(), timeEstimate: 22 }, correlationId: randomUUID(), timestamp: new Date().toISOString() })
 })
@@ -86,6 +91,9 @@ test('"send 10 USDC to <Base address>": a dry quote with the owner\'s address, n
   const text = reply(evs)
   assert.match(text, /9\.99/, text)
   assert.match(text, /(not|nothing).{0,40}(sent|send)|can'?t send|cannot send|preview|quote/i, text)
+  const done = evs.find((e) => e.type === 'tool.result' && e.tool === 'crosschain_quote')
+  assert.equal(done?.result?.proof?.signedBy1Click, true)
+  assert.match(text, /sign/i, `says it is signed: ${text}`)
 })
 
 test('USDT on Solana: the token and chain follow the owner\'s words', async () => {
@@ -97,6 +105,9 @@ test('USDT on Solana: the token and chain follow the owner\'s words', async () =
   assert.match(String(q[0].args.toChain), /^sol(ana)?$/i)
   assert.equal(q[0].args.recipient, SOL_ADDR)
   assert.equal(sends, 0)
+  // Unsigned answer: never claimed as verified.
+  const text = reply(evs)
+  assert.doesNotMatch(text, /signature (checked out|is valid|verified)|signed by NEAR Intents and (the signature )?(checked|verified)/i, text)
 })
 
 test('a NEAR testnet payment still goes through send_payment with its approval card', async () => {

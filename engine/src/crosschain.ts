@@ -3,6 +3,7 @@
 // `dry: true` quotes), and every HelloNear wallet is on testnet, so this tool never gets a deposit address and nothing
 // can be sent with it. `dry: true` needs no API key (checked live 12 Nov: 201, 10 USDC on NEAR to Base quoted in ~1 s).
 import { createTool } from '@mastra/core/tools'
+import { quoteHash, verifyQuoteSignature, type OneClickQuoteResponse } from '@defuse-protocol/one-click-sdk-typescript'
 import { z } from 'zod'
 import { walletCall } from './wallet.ts'
 
@@ -64,12 +65,25 @@ type QuoteAnswer = {
   quote?: { amountIn: string; amountOut: string; minAmountOut?: string; timeEstimate?: number }
   correlationId?: string
   timestamp?: string
+  signature?: string
   message?: string
+}
+
+// 1Click signs every quote, dry ones too (docs.near-intents.org "Verify Quote Signatures", read 12 Nov): ed25519 by its
+// manager key over a base58 SHA-256 of the request and quote fields. The SDK's own verifyQuoteSignature checks it with
+// the key it ships (`ed25519:reYaWhvwu8Jzo3WUM3zhn6VrhuMEF4eADL17qtRVifc` in 0.1.26); a live quote passed and the same
+// quote with amountOut changed failed (12 Nov). It is the proof shown to the owner that the numbers are NEAR Intents'.
+export const ONE_CLICK_KEY = 'ed25519:reYaWhvwu8Jzo3WUM3zhn6VrhuMEF4eADL17qtRVifc'
+export function proofOf(answer: QuoteAnswer) {
+  const response = answer as unknown as OneClickQuoteResponse
+  let hash = ''
+  try { hash = quoteHash(response) } catch { /* fields missing: not verified */ }
+  return { signedBy1Click: !!answer.signature && verifyQuoteSignature(response), signature: answer.signature ?? '', quoteHash: hash, publicKey: ONE_CLICK_KEY }
 }
 
 export const crosschainQuote = createTool({
   id: 'crosschain_quote',
-  description: 'Preview a stablecoin payment from NEAR to another chain through NEAR Intents: how much the recipient would get, the cost and the time. A quote only: it sends nothing and asks no approval, and this Mind cannot send cross-chain yet (NEAR Intents is mainnet only, the wallet is testnet). The recipient address must be one the owner typed in this conversation.',
+  description: 'Preview a stablecoin payment from NEAR to another chain through NEAR Intents: how much the recipient would get, the cost and the time, with proof.signedBy1Click saying whether NEAR Intents\' signature over those numbers checked out. A quote only: it sends nothing and asks no approval, and this Mind cannot send cross-chain yet (NEAR Intents is mainnet only, the wallet is testnet). The recipient address must be one the owner typed in this conversation.',
   inputSchema: z.object({
     token: z.enum(STABLECOINS).describe('the stablecoin on NEAR to send'),
     amount: z.string().regex(/^\d{1,9}(\.\d{1,6})?$/, 'a decimal amount, e.g. "10" or "2.5"').describe('how much of it to send'),
@@ -85,6 +99,10 @@ export const crosschainQuote = createTool({
     seconds: z.number().describe('NEAR Intents\' estimate of the time it takes'),
     quoteId: z.string(),
     quotedAt: z.string(),
+    proof: z.object({
+      signedBy1Click: z.boolean().describe('true when NEAR Intents\' signature over these numbers checked out'),
+      signature: z.string(), quoteHash: z.string(), publicKey: z.string(),
+    }),
     note: z.string(),
   }),
   execute: async ({ token, amount, toChain, recipient, toToken }, context) => {
@@ -125,6 +143,7 @@ export const crosschainQuote = createTool({
       seconds: q.timeEstimate ?? 0,
       quoteId: body.correlationId ?? '',
       quotedAt: body.timestamp ?? new Date().toISOString(),
+      proof: proofOf(body),
       note: NOT_SENT,
     }
   },

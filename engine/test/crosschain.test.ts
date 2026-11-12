@@ -6,7 +6,8 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { toolRegistry } from '../src/tools.ts'
 import { WALLET_KEY, walletContext } from '../src/wallet.ts'
-import { chainId, costOf, fromUnits, resetTokenCache, toUnits } from '../src/crosschain.ts'
+import { readFileSync } from 'node:fs'
+import { chainId, costOf, fromUnits, proofOf, resetTokenCache, toUnits } from '../src/crosschain.ts'
 
 const USDC_NEAR = 'nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1'
 const USDC_BASE = 'nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near'
@@ -84,6 +85,7 @@ test('a dry quote: USDC on NEAR to Base, refunds to the Mind\'s own wallet, noth
     from: { chain: 'near', token: 'USDC', amount: '10' },
     to: { chain: 'base', token: 'USDC', recipient: BASE_ADDR, amount: '9.99558', minAmount: '9.895624' },
     cost: '0.00442', seconds: 22, quoteId: 'q-1', quotedAt: '2026-11-12T12:54:15.113Z',
+    proof: out.proof,
     note: out.note,
   })
   assert.match(out.note, /nothing was sent/)
@@ -108,4 +110,21 @@ test('refusals: an unknown chain lists where it can go, NEAR itself, a bad addre
 
 test('1Click\'s own refusal comes back in its words', async () => {
   await assert.rejects(run({ token: 'USDC', amount: '10', toChain: 'base', recipient: BAD_ADDR }), /NEAR Intents: recipient is not valid/)
+})
+
+// A real dry quote recorded from 1Click on 12 Nov (test/fixtures/oneclick-dry-quote.json): its signature checks out with
+// the SDK's key; any changed number does not. The fake above signs nothing, so its quotes are never called verified.
+test('the proof: a real 1Click signature verifies, a changed number or a fake answer does not', async () => {
+  const real = JSON.parse(readFileSync(new URL('./fixtures/oneclick-dry-quote.json', import.meta.url), 'utf8'))
+  const proof = proofOf(real)
+  assert.equal(proof.signedBy1Click, true)
+  assert.equal(proof.signature, real.signature)
+  assert.match(proof.quoteHash, /^[1-9A-HJ-NP-Za-km-z]{40,50}$/)
+  assert.equal(proof.publicKey, 'ed25519:reYaWhvwu8Jzo3WUM3zhn6VrhuMEF4eADL17qtRVifc')
+  const changed = structuredClone(real)
+  changed.quote.amountOut = String(BigInt(real.quote.amountOut) + 1n)
+  assert.equal(proofOf(changed).signedBy1Click, false)
+  assert.equal(proofOf({ ...real, signature: undefined }).signedBy1Click, false)
+  const out = await run({ token: 'USDC', amount: '10', toChain: 'base', recipient: BASE_ADDR })
+  assert.equal(out.proof.signedBy1Click, false, 'the fake 1Click has no signature')
 })
