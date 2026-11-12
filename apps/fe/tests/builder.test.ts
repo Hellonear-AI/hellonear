@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { IDEAS } from "@/modules/autopilot/data/ideas"
 import {
   carriesOn,
+  comparable,
   cronOf,
   draftProblems,
   emptyDraft,
@@ -493,5 +494,36 @@ describe("read steps for #252's tools", () => {
     expect(notionIdOf(" 0123456789abcdef0123456789abcdef ")).toBe("0123456789abcdef0123456789abcdef")
     expect(toolInfo("googlecalendar_find_free_time")?.args).toEqual([])
     expect(toolInfo("zoom_list_meetings")?.fields[0].kind).toBe("list")
+  })
+})
+
+describe("an If after a list (#264)", () => {
+  const calendar = { id: "c", kind: "tool" as const, tool: "googlecalendar_list_events", args: {} }
+
+  it("offers the list's count, and saves it as {{steps.id.count}}, never .length", async () => {
+    const { canPlace } = await import("@/modules/builder/data/draft")
+    expect(canPlace([calendar], [], 1, "if")).toBe(true)
+    expect(resultsBefore([calendar]).filter(comparable).map((r) => r.label)).toEqual(["Number of events"])
+    const job: Draft = {
+      name: "Morning note",
+      repeat: "daily",
+      day: 1,
+      time: "07:00",
+      timezone: "UTC",
+      line: [calendar, { id: "i", kind: "if", stepId: "c", field: "count", op: "gt", right: "0", then: [{ id: "a", kind: "agent", prompt: "Write me a note about {{steps.c.events}}." }], else: [] }],
+    }
+    expect(draftProblems(job)).toEqual([])
+    const c = toCanvas(job)
+    expect(c.nodes.find((n) => n.type === "condition")).toMatchObject({ data: { left: "{{steps.c.count}}", op: "gt", right: 0 } })
+    expect(JSON.stringify(c)).not.toMatch(/\.length/)
+    expect(fromCanvas(c, "UTC")?.line[1]).toMatchObject({ kind: "if", stepId: "c", field: "count" })
+  })
+
+  it("says why an If is locked when nothing before gives a number or text", async () => {
+    const { ifLockedWhy } = await import("@/modules/builder/data/draft")
+    expect(ifLockedWhy([], [], 0, undefined, true)).toBe("Add a step that gives a number or text first")
+    expect(ifLockedWhy([], [], 0)).toMatch(/Read the calendar/)
+    // With something comparable before it, the If is locked for another reason.
+    expect(ifLockedWhy([calendar], [], 1, undefined, true)).toBe("The path already ends above")
   })
 })

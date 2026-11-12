@@ -5,7 +5,10 @@
 // from each tool's output schema in engine/src/tools.ts, so an If can only look at something the
 // tool really returns.
 
-/** "list" results (emails, events) can go into an Ask step, but an If can only compare a number or text. */
+/**
+ * "list" results (emails, events) can go into an Ask step, but an If can only compare a number or text.
+ * So every list comes with its `count` (engine #265), which an If can compare ("Number of events > 0").
+ */
 export type FieldKind = "number" | "text" | "list"
 
 export type BuilderTool = {
@@ -51,14 +54,20 @@ export const TOOLS: BuilderTool[] = [
     title: "Read the calendar",
     line: "Upcoming events from Google Calendar",
     args: [],
-    fields: [{ name: "events", label: "Calendar events", kind: "list" }],
+    fields: [
+      { name: "events", label: "Calendar events", kind: "list" },
+      { name: "count", label: "Number of events", kind: "number" },
+    ],
   },
   {
     tool: "gmail_list_emails",
     title: "Read the inbox",
     line: "Recent emails from Gmail",
     args: [],
-    fields: [{ name: "emails", label: "Emails", kind: "list" }],
+    fields: [
+      { name: "emails", label: "Emails", kind: "list" },
+      { name: "count", label: "Number of emails", kind: "number" },
+    ],
   },
   {
     tool: "googlecalendar_block_time",
@@ -94,7 +103,10 @@ export const TOOLS: BuilderTool[] = [
       { name: "range", label: "Cells", kind: "text", placeholder: "Sheet1!A1:D20", optional: true, hint: "Leave empty for the first sheet." },
     ],
     defaults: { spreadsheetId: "", range: "" },
-    fields: [{ name: "values", label: "Rows", kind: "list" }],
+    fields: [
+      { name: "values", label: "Rows", kind: "list" },
+      { name: "count", label: "Number of rows", kind: "number" },
+    ],
     toArgs: (a) => ({ ...a, spreadsheetId: sheetIdOf(a.spreadsheetId ?? "") }),
   },
   {
@@ -114,7 +126,10 @@ export const TOOLS: BuilderTool[] = [
     line: "Pages you shared with HelloNear, by title",
     args: [{ name: "query", label: "Words in the title", kind: "text", placeholder: "Tasks" }],
     defaults: { query: "" },
-    fields: [{ name: "results", label: "Pages found", kind: "list" }],
+    fields: [
+      { name: "results", label: "Pages found", kind: "list" },
+      { name: "count", label: "Number of pages found", kind: "number" },
+    ],
   },
   // Read steps for #252's tools (Ancung, 11 Nov). They read only, so a job may run them.
   {
@@ -123,7 +138,10 @@ export const TOOLS: BuilderTool[] = [
     line: "The rows of one of your Notion databases",
     args: [{ name: "databaseId", label: "Database link", kind: "text", placeholder: "https://www.notion.so/…", hint: "Open the database as a full page and paste its link." }],
     defaults: { databaseId: "" },
-    fields: [{ name: "rows", label: "Rows", kind: "list" }],
+    fields: [
+      { name: "rows", label: "Rows", kind: "list" },
+      { name: "count", label: "Number of rows", kind: "number" },
+    ],
     toArgs: (a) => ({ ...a, databaseId: notionIdOf(a.databaseId ?? "") }),
   },
   {
@@ -133,14 +151,20 @@ export const TOOLS: BuilderTool[] = [
     // its own defaults (gaps of an hour or more, 09:00 to 18:00 on the owner's clock).
     line: "Free hours in your calendar, 09:00 to 18:00",
     args: [],
-    fields: [{ name: "slots", label: "Free slots", kind: "list" }],
+    fields: [
+      { name: "slots", label: "Free slots", kind: "list" },
+      { name: "count", label: "Number of free slots", kind: "number" },
+    ],
   },
   {
     tool: "zoom_list_meetings",
     title: "List Zoom meetings",
     line: "Your upcoming Zoom meetings",
     args: [],
-    fields: [{ name: "meetings", label: "Zoom meetings", kind: "list" }],
+    fields: [
+      { name: "meetings", label: "Zoom meetings", kind: "list" },
+      { name: "count", label: "Number of meetings", kind: "number" },
+    ],
   },
 ]
 

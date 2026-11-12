@@ -472,6 +472,18 @@ export function stepsBefore(line: Block[], id: string): Step[] {
   return hit ? stepsAt(line, hit.path, hit.index) : []
 }
 
+/**
+ * Why an If can't go at a place, in the owner's words (Ancung, 11 Nov: "Add a check or a website
+ * first" read like a bug). An If compares a number or a text; a list (events, emails) is compared
+ * through its count (#264).
+ */
+export function ifLockedWhy(line: Block[], path: LinePath, index: number, self?: Self, short = false): string {
+  const steps = stepsAt(line, path, index)
+  // Something comparable came before, so it's the path that ends above.
+  if (resultsBefore(steps, steps.length, self).some(comparable)) return "The path already ends above"
+  return short ? "Add a step that gives a number or text first" : "Add a step before it that gives a number or a text, like Check the time, Read the calendar or Call a website."
+}
+
 /** Whether a new block of this kind may go at `index` of the line at `path` (#164 rules). */
 export function canPlace(line: Block[], path: LinePath, index: number, kind: Block["kind"], self?: Self): boolean {
   const here = lineAt(line, path)
