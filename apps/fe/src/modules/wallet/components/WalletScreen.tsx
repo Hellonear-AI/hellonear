@@ -317,7 +317,7 @@ function LimitsCard({
           />
           <p className="text-xs text-muted-foreground">
             {demo
-              ? "Try-out limits are set by HelloNear. Connect a wallet to set your own."
+              ? "Guest limits are set by HelloNear. Connect a wallet to set your own."
               : readOnly
                 ? "This wallet is shared. Its limits are set by HelloNear."
                 : `Saved where ${name} can't change them. Changes need your signature.`}

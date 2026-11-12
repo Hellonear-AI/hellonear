@@ -63,7 +63,7 @@ describe("Google Meet (#97)", () => {
       tone: "off",
       connect: "googlemeet",
     })
-    expect(skillLines("daily-planner", { ...ctx, tryOut: true }).map((l) => l.t)).toContain("A sample Meet link for the try-out")
+    expect(skillLines("daily-planner", { ...ctx, tryOut: true }).map((l) => l.t)).toContain("A sample Meet link for guests")
   })
 })
 

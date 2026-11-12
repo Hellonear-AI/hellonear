@@ -26,7 +26,7 @@ function longDay(iso: string, now: Date): string {
 
 export function failureText(name: string, error: unknown): string {
   if (error instanceof ApiError) {
-    if (error.code === "demo_run_limit") return `That's all the messages this try-out has. Connect a wallet to keep chatting with ${name}.`
+    if (error.code === "demo_run_limit") return `That's all the messages a guest gets. Connect a wallet to keep chatting with ${name}.`
     if (error.code === "demo_rate_limited") return "Too many messages from this network. Please try again in a few minutes."
     if (error.status === 401) return "Your session ended. Sign in again to keep chatting."
     if (error.status >= 500) return `${name} could not answer. The AI service didn't respond, so nothing happened.`

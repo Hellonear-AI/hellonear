@@ -79,7 +79,7 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
             <h2 id="apps" className="text-[15px] font-semibold text-foreground">
               Apps
             </h2>
-            {demo && <p className="text-[13px] text-muted-foreground">This try-out uses a sample inbox, calendar and Meet link, so the Google apps have nothing to connect. Telegram works with a bot of your own.</p>}
+            {demo && <p className="text-[13px] text-muted-foreground">Guests get a sample inbox, calendar and Meet link, so the Google apps have nothing to connect. Telegram works with a bot of your own.</p>}
             {connections.isPending ? (
               <Skeleton className="h-36 w-full" />
             ) : connections.isError ? (
@@ -177,7 +177,7 @@ export function ConnectionsScreen({ mindId }: { mindId: string }) {
               <p className="text-[13px] text-muted-foreground">Could not load your keys.</p>
             ) : !secrets.data?.length ? (
               <p className="py-2 text-[13px] text-muted-foreground">
-                {demo ? "A try-out can't keep keys." : `No keys yet. Add one when you want ${name} to call a service of your own.`}
+                {demo ? "A guest session can't keep keys." : `No keys yet. Add one when you want ${name} to call a service of your own.`}
               </p>
             ) : (
               <ul className="flex flex-col">

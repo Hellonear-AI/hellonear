@@ -80,10 +80,10 @@ describe("new skills (9 Nov)", () => {
 describe("try-out skill lines", () => {
   it("name the sample inbox and calendar, and never offer to connect", () => {
     const ctx = { name: "Mpruy", limit: "0.05", tryOut: true }
-    expect(skillLines("email-triage", ctx)[0].t).toBe("A sample inbox for the try-out: read mail and save drafts")
+    expect(skillLines("email-triage", ctx)[0].t).toBe("A sample inbox for guests: read mail and save drafts")
     const briefing = skillLines("morning-briefing", ctx)
     expect(briefing.some((l) => l.connect)).toBe(false)
-    expect(briefing.map((l) => l.t)).toContain("A sample calendar for the try-out")
+    expect(briefing.map((l) => l.t)).toContain("A sample calendar for guests")
   })
 })
 
@@ -105,7 +105,7 @@ describe("every engine skill has words on its card (#211)", () => {
     expect(skillCopy("docs").needs).toBe("googledocs")
     const lines = skillLines("docs", { name: "Omaga", limit: "2", apps: { googledrive: "connected" } })
     expect(lines.map((l) => l.t)).toContain("Your Google Drive, connected")
-    expect(skillLines("calendar-conflicts", { name: "Omaga", limit: null, tryOut: true }).map((l) => l.t)).toContain("A sample calendar for the try-out")
+    expect(skillLines("calendar-conflicts", { name: "Omaga", limit: null, tryOut: true }).map((l) => l.t)).toContain("A sample calendar for guests")
   })
 })
 

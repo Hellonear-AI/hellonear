@@ -143,7 +143,7 @@ export function KeyDialog({
             {save.error && (
               <p role="alert" className="text-[13px] text-danger">
                 {isApiCode(save.error, "demo_not_allowed")
-                  ? "Connect a wallet to save keys. This try-out can't keep them."
+                  ? "Connect a wallet to save keys. A guest session can't keep them."
                   : "Could not save the key. No changes were made. Please try again."}
               </p>
             )}

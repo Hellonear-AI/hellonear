@@ -16,7 +16,7 @@ describe("try-out sign-in (T1.1)", () => {
     expect(init.method).toBe("POST")
   })
   it("says what happened when a try-out can't start (T1.2)", () => {
-    expect(demoError(new ApiError(429, "demo_rate_limited"))).toContain("Too many try-outs from this network")
+    expect(demoError(new ApiError(429, "demo_rate_limited"))).toContain("Too many guest sessions from this network")
     expect(demoError(new ApiError(404, "not_found"))).toContain("not available at the moment")
   })
 })
@@ -38,7 +38,7 @@ describe("try-out owner actions (T1.4)", () => {
       expect(text).not.toMatch(/[—·]/) // no em dash, no "·" (UI rules)
     }
     expect(lockedReason("freeze", "Penny")).toBe(
-      "Freezing needs the owner's signature. In a try-out, Penny uses a shared test wallet that only HelloNear can change."
+      "Freezing needs the owner's signature. As a guest, Penny uses a shared test wallet that only HelloNear can change."
     )
     expect(lockedReason("keys", "Penny")).toContain("can't keep them")
   })

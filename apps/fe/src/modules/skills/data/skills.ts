@@ -58,7 +58,7 @@ export const SKILLS: Record<string, SkillCopy> = {
   "email-triage": {
     title: "Email helper",
     blurb: "Reads, sorts and sums up your email, writes draft replies for you to send, and tidies the inbox when you approve.",
-    canUse: (c) => [c.tryOut ? "A sample inbox for the try-out: read mail and save drafts" : "Your Gmail: read mail, save drafts, archive and label after you approve"],
+    canUse: (c) => [c.tryOut ? "A sample inbox for guests: read mail and save drafts" : "Your Gmail: read mail, save drafts, archive and label after you approve"],
     cannot: ["Can't send email for you"],
     needs: "gmail",
     ask: {
@@ -232,9 +232,9 @@ export const TOOLKIT_NAME: Record<ApiConnection["toolkit"], string> = {
 
 /** What a try-out gets instead of each app (engine: sample data, a fake Meet link, nobody invited). */
 const TRY_OUT_SAMPLE: Partial<Record<ApiConnection["toolkit"], string>> = {
-  gmail: "A sample inbox for the try-out",
-  googlecalendar: "A sample calendar for the try-out",
-  googlemeet: "A sample Meet link for the try-out",
+  gmail: "A sample inbox for guests",
+  googlecalendar: "A sample calendar for guests",
+  googlemeet: "A sample Meet link for guests",
 }
 
 /** One "Can use" line: allowed, not allowed, or an app that isn't connected yet (with a way to connect it). */
@@ -250,7 +250,7 @@ export function skillLines(skillId: string, ctx: Ctx): SkillLine[] {
   for (const toolkit of copy.uses ? [copy.uses].flat() : []) {
     const app = TOOLKIT_NAME[toolkit]
     if (ctx.tryOut) {
-      lines.push({ t: TRY_OUT_SAMPLE[toolkit] ?? `${app} is not part of the try-out`, tone: TRY_OUT_SAMPLE[toolkit] ? "ok" : "no" })
+      lines.push({ t: TRY_OUT_SAMPLE[toolkit] ?? `${app} is not available to guests`, tone: TRY_OUT_SAMPLE[toolkit] ? "ok" : "no" })
       continue
     }
     lines.push(
