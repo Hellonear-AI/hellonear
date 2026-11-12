@@ -14,6 +14,8 @@ The landing design lives in `design/landing.pen` (frame `Landing v0.1`, plus the
 
 Next.js 16 App Router + Tailwind 4, same pinned versions as `apps/fe`. Bun 1.3.9 (`npx -y bun@1.3.9 …` works without a global install).
 
+Smooth scrolling: `lenis` 1.3.27 (Axel, 13 Nov), in `components/SmoothScroll.tsx`. It drives the page's own scroll (no wrapper), runs on GSAP's ticker and calls `ScrollTrigger.update` on every scroll, so the pins and the scrubbed approvals scene stay in step (checked: the scene at the same scrollY looks the same with and without it, mean pixel difference 0.2 of 255). Touch keeps the device's own scrolling; reduced motion gets no Lenis. It is stopped until the page loader lifts (`hn:reveal`). It sits on `window.__lenis`, so code that jumps (`PageLoader`'s in-page links, `OverlayScrollbar`'s drag) calls `lenis.scrollTo(y, { immediate: true })` instead of `window.scrollTo`, or Lenis would glide on to where it was heading. `anchors` is off: `PageLoader` handles in-page links.
+
 ```sh
 bun install
 bun run dev        # http://localhost:3100 (apps/fe keeps 3000)
