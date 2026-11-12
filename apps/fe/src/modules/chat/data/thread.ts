@@ -24,6 +24,17 @@ function longDay(iso: string, now: Date): string {
   return `${weekday}, ${rest}`
 }
 
+/**
+ * A failure that may be an outage on our side or a provider's (#304): the backend or engine answered 5xx, or the
+ * run broke partway. Those cards link to the status page; a sign-in, a limit or a dropped connection on the
+ * owner's side don't.
+ */
+export function mayBeOutage(error: unknown): boolean {
+  if (error instanceof ApiError) return error.status >= 500
+  // "no_reply" means the model wrote nothing, not that a service failed.
+  return typeof error === "string" && error !== "no_reply"
+}
+
 export function failureText(name: string, error: unknown): string {
   if (error instanceof ApiError) {
     if (error.code === "demo_run_limit") return `That's all the messages a guest gets. Connect a wallet to keep chatting with ${name}.`

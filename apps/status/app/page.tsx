@@ -17,9 +17,6 @@ export default async function Page() {
             HelloNear <span className="muted">Status</span>
           </span>
         </a>
-        <a className="ghost" href="https://app.hellonear.xyz">
-          Open the app
-        </a>
       </header>
       {status ? <Board status={status} /> : <Unreachable />}
       <footer className="foot">
@@ -57,7 +54,7 @@ function Board({ status }: { status: Status }) {
               <li key={s.id}>
                 {/* The impact line says what breaks when a service is down; a slow one still works. */}
                 <strong>{s.name}</strong> {s.status === "down" ? "is down" : "is answering slowly"}
-                {s.detail ? ` (${s.detail})` : ""}.{s.status === "down" ? ` ${s.impact}` : " It still works."}
+                {s.detail ? ` (${trimDot(s.detail)})` : ""}.{s.status === "down" ? ` ${s.impact}` : " It still works."}
               </li>
             ))}
           </ul>
@@ -82,6 +79,9 @@ function Board({ status }: { status: Status }) {
   );
 }
 
+// The backend writes details as sentences; the page adds its own full stop.
+const trimDot = (s: string) => s.replace(/[.\s]+$/, "");
+
 const clock = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
 
 function PastIncidents({ status }: { status: Status }) {
@@ -104,7 +104,7 @@ function PastIncidents({ status }: { status: Status }) {
                   <strong>{x.end ? "Resolved" : "Ongoing"}</strong>
                   {" - "}
                   {x.end ? `From ${clock(x.start)} to ${clock(x.end)}` : `Since ${clock(x.start)}`} ({duration(x.minutes)}).
-                  {x.detail ? ` ${x.detail}.` : ""}
+                  {x.detail ? ` ${trimDot(x.detail)}.` : ""}
                 </p>
               </div>
             ))

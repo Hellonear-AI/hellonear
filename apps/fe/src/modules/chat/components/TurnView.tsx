@@ -1,10 +1,11 @@
 "use client"
 
-import { CircleXIcon, RotateCcwIcon } from "lucide-react"
+import { CircleXIcon, ExternalLinkIcon, RotateCcwIcon } from "lucide-react"
 import { MindAvatar } from "@/components/elements/MindAvatar"
 import { CopyButton } from "@/components/elements/CopyButton"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { STATUS_URL } from "@/lib/config"
 import { clockTime } from "@/lib/format"
 import { paymentOf, type ReplyPart, type RunView, type ToolStep } from "@/modules/runs/data/events"
 import { ReplyText } from "@/modules/runs/components/ReplyText"
@@ -14,7 +15,7 @@ import { StepRow, StepsSummary, ThoughtRow } from "@/modules/runs/components/Rep
 import { summaryLabel } from "@/modules/runs/data/steps"
 import { Working } from "@/modules/runs/components/Working"
 import type { ApiWallet } from "@/modules/wallet/api"
-import { failureText } from "@/modules/chat/data/thread"
+import { failureText, mayBeOutage } from "@/modules/chat/data/thread"
 
 /** `read`: the run's events are in, so an empty reply is known to be empty, not still loading. */
 export type Shown = { key: string; message: string | null; createdAt: string; view: RunView; live: boolean; failed: unknown; read: boolean }
@@ -191,12 +192,21 @@ function FailedReply({ name, error, canRetry, onRetry }: { name: string; error: 
         <CircleXIcon className="mt-0.5 size-4 shrink-0 text-danger" />
         {failureText(name, error)}
       </p>
-      {canRetry && (
-        <Button variant="outline" size="sm" onClick={onRetry}>
-          <RotateCcwIcon />
-          Try again
-        </Button>
-      )}
+      <div className="flex flex-wrap items-center gap-2">
+        {canRetry && (
+          <Button variant="outline" size="sm" onClick={onRetry}>
+            <RotateCcwIcon />
+            Try again
+          </Button>
+        )}
+        {/* #304: when a service may be down, say where to check it. A new tab, so the chat stays. */}
+        {mayBeOutage(error) && (
+          <Button variant="ghost" size="sm" nativeButton={false} render={<a href={STATUS_URL} target="_blank" rel="noopener noreferrer" />}>
+            Check the status
+            <ExternalLinkIcon />
+          </Button>
+        )}
+      </div>
     </div>
   )
 }
