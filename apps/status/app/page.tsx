@@ -19,9 +19,6 @@ export default async function Page() {
             HelloNear <span className="muted">Status</span>
           </span>
         </a>
-        <a className="openapp" href="https://app.hellonear.xyz" target="_blank" rel="noopener noreferrer">
-          Open app
-        </a>
       </header>
       {status ? <Board status={status} /> : <Unreachable />}
       <footer className="foot">
