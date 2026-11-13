@@ -98,7 +98,7 @@ Measured on the production build (`bun run build && bun x next start`), Chrome a
 - Big images come in two sizes with `srcSet` (1x / 2x): the approval scene 2560 / 4096 px, the footer 1600 / 3200 px. Images below the first screen are `loading="lazy"`.
 - Logos stay small (OutLayer is a 64 px tall WebP, 12 KB).
 - Phones: no `backdrop-filter` (the light glass is translucent white); the hero slope is a 1500 px copy (157 KB); the Mind Graph has 14 Minds, a 1.5 device-pixel canvas and draws every other frame unless touched; the demo video loads nothing until it is on screen and pauses when scrolled past. iPhone 13 emulation with a 4x slower CPU: 566 KB first load, no long tasks while scrolling, the graph at 60 fps.
-- Mind Graph on touch screens: a tap opens a card and anything else scrolls the page; "Explore" turns on dragging bubbles and the view with one finger and pinch-zoom with two (`touch-action: none`), until "Done" or the section leaves the screen.
+- Mind Graph on touch screens: a tap opens a card and one finger scrolls the page; two fingers zoom and move the graph at any time, like a map, keeping the point between them under them (touch listeners with `preventDefault`, the canvas `touch-action: pan-y`; Ancung, 13 Nov: pinching did nothing until Explore). "Explore" still turns on dragging bubbles and the view with one finger (`touch-action: none`), until "Done" or the section leaves the screen. The − / + / Reset buttons glide to their view (ease-out quart, 450 ms, zoom eased in log space; any touch, drag or wheel stops it; reduced motion jumps). Checked with two simulated fingers (CDP) at 390 px: the graph zooms and the page does not scroll; one finger scrolls it.
 
 ## Hosted on the demo box (#266)
 
