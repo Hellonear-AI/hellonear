@@ -15,8 +15,23 @@
   --ok-soft: #E3F2E8;
   color-scheme: light;
 }
+/* Dark follows the OS unless the header's theme button picked one (data-theme on <html>, saved on this device). */
+:root[data-theme="dark"] {
+    --bg: #11110F;
+    --fg: #F2F1EC;
+    --muted: #A6A39B;
+    --card: #1A1A18;
+    --border: #2C2C29;
+    --code-bg: #222220;
+    --hero-bg: #1F2408;
+    --hero-fg: #F2F1EC;
+    --link: #D8F04A;
+    --ok: #46C27A;
+    --ok-soft: #12261A;
+    color-scheme: dark;
+}
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #11110F;
     --fg: #F2F1EC;
     --muted: #A6A39B;
@@ -164,7 +179,8 @@ code, pre { font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, M
 /* Updates: the category as a quiet label beside the date (Ancung, 13 Nov: the lime pill read casual). */
 .update-meta { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; font-size: 13px; color: var(--muted); }
 .tag { display: inline-block; padding: 2px 9px; border-radius: 999px; background: color-mix(in oklab, var(--brand) 22%, var(--card)); color: var(--link); font-weight: 600; font-size: 12px; }
-@media (prefers-color-scheme: dark) { .tag { background: color-mix(in oklab, var(--brand) 12%, var(--card)); } }
+:root[data-theme="dark"] .tag { background: color-mix(in oklab, var(--brand) 12%, var(--card)); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tag { background: color-mix(in oklab, var(--brand) 12%, var(--card)); } }
 /* Overview cards: even heights, the excerpt clamped to three lines, "Read update" at the bottom. */
 .update-short { display: flex; flex-direction: column; }
 .update-short h3 { margin: 0 0 8px; font-size: 16px; line-height: 1.35; }
@@ -251,9 +267,29 @@ a.yes:hover { box-shadow: 0 0 0 1px var(--ok); }
 .sub-mark { height: 24px; width: 24px; border-radius: 6px; object-fit: contain; }
 .sub-wide { height: 24px; width: auto; }
 .sub-logo.on-dark { display: none; }
+:root[data-theme="dark"] .sub-logo.on-light { display: none; }
+:root[data-theme="dark"] .sub-logo.on-dark { display: block; }
+:root[data-theme="dark"] .invert-dark { filter: invert(1); }
 @media (prefers-color-scheme: dark) {
-  .sub-logo.on-light { display: none; }
-  .sub-logo.on-dark { display: block; }
-  .invert-dark { filter: invert(1); }
+  :root:not([data-theme="light"]) .sub-logo.on-light { display: none; }
+  :root:not([data-theme="light"]) .sub-logo.on-dark { display: block; }
+  :root:not([data-theme="light"]) .invert-dark { filter: invert(1); }
 }
 .sub-initials { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-bottom: 12px; border-radius: 6px; border: 1px solid var(--border); font-size: 10px; font-weight: 700; letter-spacing: 0.3px; color: var(--muted); }
+
+/* Theme button in the header: a round icon button beside Docs. */
+.theme-btn { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border: 1px solid var(--border); border-radius: 999px; background: var(--card); color: var(--fg); cursor: pointer; }
+.theme-btn:hover { border-color: var(--fg); }
+.theme-btn .moon { display: none; }
+:root[data-theme="dark"] .theme-btn .sun { display: none; }
+:root[data-theme="dark"] .theme-btn .moon { display: block; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-btn .sun { display: none; }
+  :root:not([data-theme="light"]) .theme-btn .moon { display: block; }
+}
+/* Phones: the header buttons stay on one line; below 440 px Docs gives way to the theme button (Privacy and
+   Transaction receipts in the hero open the docs too). */
+.btn { white-space: nowrap; }
+@media (max-width: 440px) {
+  .trust .topbar-links .btn:nth-child(3) { display: none; }
+}
