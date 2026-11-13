@@ -248,7 +248,8 @@ a.yes:hover { box-shadow: 0 0 0 1px var(--ok); }
 .sub-logo-wrap { display: block; height: 24px; margin-bottom: 12px; }
 .sub-logo { display: block; }
 .sub-word { height: 18px; width: auto; max-width: 140px; margin-top: 3px; }
-.sub-mark { height: 24px; width: 24px; }
+.sub-mark { height: 24px; width: 24px; border-radius: 6px; object-fit: contain; }
+.sub-wide { height: 24px; width: auto; }
 .sub-logo.on-dark { display: none; }
 @media (prefers-color-scheme: dark) {
   .sub-logo.on-light { display: none; }

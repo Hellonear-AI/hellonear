@@ -1,7 +1,7 @@
 // A subprocessor's logo above its name, the files the repo already keeps (design/brands, docs/readme). A
 // service with no logo file here gets a quiet tile with its initials instead. Dark mode swaps in the white
 // versions; NEAR AI's black mark is inverted (it has no white file).
-type Logo = { src: string; dark?: string; invert?: boolean; mark?: boolean };
+type Logo = { src: string; dark?: string; invert?: boolean; mark?: boolean; wide?: boolean };
 const LOGOS: Record<string, Logo> = {
   "NEAR AI Cloud": { src: "near-ai.svg", dark: "near-ai-black.svg", invert: true },
   OutLayer: { src: "outlayer.png" },
@@ -9,6 +9,11 @@ const LOGOS: Record<string, Logo> = {
   AgentMail: { src: "agentmail.svg", dark: "agentmail-white.svg" },
   "NEAR AI Agent Market": { src: "agent-market.svg", mark: true },
   Telegram: { src: "telegram.svg", mark: true },
+  "NEAR Intents (1Click)": { src: "near-intents.svg", mark: true },
+  "FastNear RPC": { src: "fastnear.png", dark: "fastnear-white.png", wide: true },
+  "Phala TEE Attestation Explorer": { src: "phala.png", mark: true },
+  Vercel: { src: "vercel.svg", dark: "vercel-white.svg", mark: true },
+  Cloudflare: { src: "cloudflare.svg", wide: true },
 };
 
 const initials = (name: string) =>
@@ -29,7 +34,7 @@ export function SubLogo({ name }: { name: string }) {
         {initials(name)}
       </span>
     );
-  const cls = `sub-logo ${l.mark ? "sub-mark" : "sub-word"}`;
+  const cls = `sub-logo ${l.mark ? "sub-mark" : l.wide ? "sub-wide" : "sub-word"}`;
   return (
     <span className="sub-logo-wrap" aria-hidden="true">
       {/* eslint-disable-next-line @next/next/no-img-element */}
