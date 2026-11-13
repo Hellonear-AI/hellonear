@@ -1221,6 +1221,69 @@ describe('payment tools through the backend (#42, option B)', () => {
     }
   })
 
+  test('payments Excel (#298): the same rows as typed cells (numbers, dates, links) in a valid .xlsx; owner only', async () => {
+    const { crc32 } = await import('node:zlib')
+    // Read a stored zip: every entry's CRC must match, and names map to their text.
+    const unzip = (buf: Buffer) => {
+      const files: Record<string, string> = {}
+      const end = buf.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]))
+      let p = buf.readUInt32LE(end + 16)
+      for (let i = 0; i < buf.readUInt16LE(end + 10); i++) {
+        assert.equal(buf.readUInt32LE(p), 0x02014b50)
+        const crc = buf.readUInt32LE(p + 16), size = buf.readUInt32LE(p + 20), nameLen = buf.readUInt16LE(p + 28), at = buf.readUInt32LE(p + 42)
+        const name = buf.subarray(p + 46, p + 46 + nameLen).toString('utf8')
+        assert.equal(buf.readUInt32LE(at), 0x04034b50)
+        const data = buf.subarray(at + 30 + buf.readUInt16LE(at + 26), at + 30 + buf.readUInt16LE(at + 26) + size)
+        assert.equal(crc32(data), crc, `crc of ${name}`)
+        files[name] = data.toString('utf8')
+        p += 46 + nameLen + buf.readUInt16LE(p + 30) + buf.readUInt16LE(p + 32)
+      }
+      return files
+    }
+    const saved = [config.shopPayTo, config.shopSellers] as const
+    try {
+      config.shopPayTo = 'shop.testnet'
+      config.shopSellers = ''
+      const a = await signIn()
+      const { mindId } = await walletMind(a)
+      const token = await tokenFromChat(a, mindId)
+      const pay = async (to: string, amountNear: string) => (await (await engineCall('POST', '/internal/v1/wallet/send_payment', token, { to, amountNear })).json())
+      const sent = await pay('shop.testnet', '0.001')
+      // A note that looks like a formula and needs escaping.
+      await query('update wallet_payments set message = $1 where id = $2', ['=1+1 <tag> & "q"', sent.paymentId])
+      const refused = await pay('stranger.testnet', '0.003')
+      assert.equal(refused.status, 'policy_denied')
+
+      const res = await a.call('GET', `/v1/minds/${mindId}/payments.xlsx`)
+      assert.equal(res.status, 200)
+      assert.equal(res.headers.get('content-type'), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      assert.equal(res.headers.get('content-disposition'), `attachment; filename="hellonear-${mindId}-payments.xlsx"`)
+      assert.equal(res.headers.get('access-control-expose-headers'), 'content-disposition')
+      const files = unzip(Buffer.from(await res.arrayBuffer()))
+      assert.deepEqual(Object.keys(files).sort(), ['[Content_Types].xml', '_rels/.rels', 'xl/_rels/workbook.xml.rels', 'xl/styles.xml', 'xl/workbook.xml', 'xl/worksheets/_rels/sheet1.xml.rels', 'xl/worksheets/sheet1.xml'])
+      const sheet = files['xl/worksheets/sheet1.xml']
+      // Header row, bold, the same columns as the CSV.
+      for (const h of ['Date (UTC)', 'Status', 'Amount (NEAR)', 'Approved by', 'Explorer link', 'Note']) assert.match(sheet, new RegExp(`<c r="[A-J]1" s="1" t="inlineStr"><is><t xml:space="preserve">${h.replace(/[()]/g, '\\$&')}</t>`))
+      const rows = [...sheet.matchAll(/<row r="(\d+)">(.*?)<\/row>/g)]
+      assert.equal(rows.length, 3)
+      // Amounts are numbers, dates are date serials with the date style, and the explorer link is a hyperlink.
+      assert.match(sheet, /<c r="D\d"><v>0\.001<\/v><\/c>/)
+      assert.match(sheet, /<c r="D\d"><v>0\.003<\/v><\/c>/)
+      assert.match(sheet, /<c r="A2" s="2"><v>\d+\.\d+<\/v><\/c>/)
+      assert.match(files['xl/worksheets/_rels/sheet1.xml.rels'], new RegExp(`Target="https://testnet.nearblocks.io/txns/${sent.txHash}" TargetMode="External"`))
+      assert.match(sheet, /<hyperlinks><hyperlink ref="I\d" r:id="rId1"\/><\/hyperlinks>/)
+      // The note stays text (an inline string is never a formula) and is escaped.
+      assert.match(sheet, /<t xml:space="preserve">=1\+1 &lt;tag&gt; &amp; &quot;q&quot;<\/t>/)
+      assert.match(sheet, /refused by the wallet policy \(no money moved\)/)
+      assert.match(files['xl/workbook.xml'], /<sheet name="Payments" sheetId="1" r:id="rId1"\/>/)
+
+      assert.equal((await (await signIn()).call('GET', `/v1/minds/${mindId}/payments.xlsx`)).status, 404)
+      assert.equal((await client()('GET', `/v1/minds/${mindId}/payments.xlsx`)).status, 401)
+    } finally {
+      ;[config.shopPayTo, config.shopSellers] = saved
+    }
+  })
+
   test('Mind as Seller (#181): a Mind publishes an offer; another Mind pays the seller\'s own wallet and gets it, once', async () => {
     const a = await signIn()
     const seller = await walletMind(a)
