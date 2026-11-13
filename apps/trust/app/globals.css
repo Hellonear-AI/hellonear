@@ -294,13 +294,19 @@ a.yes:hover { box-shadow: 0 0 0 1px var(--ok); }
   .trust .topbar-links .btn:nth-child(3) { display: none; }
 }
 
-/* Header buttons: a quiet hover, the fill a shade toward the text colour and the edge a little firmer
-   (Ancung, 13 Nov: a black edge read harsh). */
+/* Header buttons: a soft lime hover, a pale lime fill and a lime edge (Ancung, 13 Nov: a black edge read
+   harsh, then asked for lime). */
 .btn, .theme-btn { transition: background-color 150ms ease-out, border-color 150ms ease-out; }
 @media (hover: hover) {
   .btn:hover, .theme-btn:hover {
-    background: color-mix(in oklab, var(--fg) 5%, var(--card));
-    border-color: color-mix(in oklab, var(--fg) 22%, var(--border));
+    background: color-mix(in oklab, var(--brand) 22%, var(--card));
+    border-color: color-mix(in oklab, var(--brand) 70%, var(--border));
   }
 }
 .btn:focus-visible, .theme-btn:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+@media (hover: hover) {
+  :root[data-theme="dark"] .btn:hover, :root[data-theme="dark"] .theme-btn:hover { background: color-mix(in oklab, var(--brand) 10%, var(--card)); border-color: color-mix(in oklab, var(--brand) 45%, var(--border)); }
+}
+@media (hover: hover) and (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .btn:hover, :root:not([data-theme="light"]) .theme-btn:hover { background: color-mix(in oklab, var(--brand) 10%, var(--card)); border-color: color-mix(in oklab, var(--brand) 45%, var(--border)); }
+}
