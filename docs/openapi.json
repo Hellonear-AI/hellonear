@@ -1289,6 +1289,43 @@
         ]
       }
     },
+    "/v1/minds/{mindId}/payments.xlsx": {
+      "get": {
+        "tags": [
+          "Wallet"
+        ],
+        "summary": "Every payment as an Excel workbook (opens in columns on any locale)",
+        "responses": {
+          "200": {
+            "description": "`application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, downloaded as `hellonear-{mindId}-payments.xlsx`. The same rows and columns as `payments.csv`, in one sheet `Payments` with typed cells: Date (UTC) is a date, Amount (NEAR) a number, Explorer link a hyperlink, everything else text (never a formula); bold frozen header with a filter. Use it where Excel's list separator is `;` (e.g. an Indonesian locale), which opens a comma CSV in one column. Newest first, up to 10,000 rows",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "`mind_not_found` (not yours)"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mindId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
     "/v1/minds/{mindId}/wallet/policy": {
       "post": {
         "tags": [
