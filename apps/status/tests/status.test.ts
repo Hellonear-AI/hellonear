@@ -14,6 +14,7 @@ test("ago and pct read like the page means", () => {
   assert.equal(ago("2026-11-12T23:57:00Z", now), "3 min ago");
   assert.equal(ago("2026-11-12T21:00:00Z", now), "3 h ago");
   assert.equal(ago(null, now), "never");
+  assert.equal(ago("2026-11-12T23:59:58Z", now), "just now");
   assert.equal(pct(99.954), "99.95% uptime");
   assert.equal(pct(null), "No data");
 });
