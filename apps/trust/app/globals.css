@@ -163,7 +163,8 @@ code, pre { font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, M
 .chips a:hover { border-color: var(--fg); }
 /* Updates: the category as a quiet label beside the date (Ancung, 13 Nov: the lime pill read casual). */
 .update-meta { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; font-size: 13px; color: var(--muted); }
-.tag { display: inline-block; padding: 1px 8px; border-radius: 6px; border: 1px solid var(--border); color: var(--fg); font-weight: 500; font-size: 12px; }
+.tag { display: inline-block; padding: 2px 9px; border-radius: 999px; background: color-mix(in oklab, var(--brand) 22%, var(--card)); color: var(--link); font-weight: 600; font-size: 12px; }
+@media (prefers-color-scheme: dark) { .tag { background: color-mix(in oklab, var(--brand) 12%, var(--card)); } }
 /* Overview cards: even heights, the excerpt clamped to three lines, "Read update" at the bottom. */
 .update-short { display: flex; flex-direction: column; }
 .update-short h3 { margin: 0 0 8px; font-size: 16px; line-height: 1.35; }
@@ -178,8 +179,14 @@ code, pre { font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, M
 .faq-q { background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 8px; }
 .faq-q summary { cursor: pointer; padding: 14px 16px; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
 .faq-q summary::-webkit-details-marker { display: none; }
-.faq-q summary::after { content: "+"; color: var(--muted); font-weight: 400; }
-.faq-q[open] summary::after { content: "−"; }
+.faq-q summary::after { content: "+"; color: var(--muted); font-weight: 400; font-size: 18px; line-height: 1; transition: transform 250ms cubic-bezier(0.23, 1, 0.32, 1); }
+.faq-q[open] summary::after { transform: rotate(45deg); }
+/* Opening and closing an answer slides (Ancung, 13 Nov), in browsers that can animate to auto height
+   (::details-content, interpolate-size); elsewhere it opens at once as before. */
+:root { interpolate-size: allow-keywords; }
+.faq-q::details-content { block-size: 0; overflow: hidden; transition: block-size 280ms cubic-bezier(0.23, 1, 0.32, 1), content-visibility 280ms allow-discrete; }
+.faq-q[open]::details-content { block-size: auto; }
+@media (prefers-reduced-motion: reduce) { .faq-q::details-content, .faq-q summary::after { transition: none; } }
 .faq-q summary .anchor { position: static; opacity: 0; margin-left: auto; }
 .faq-q summary:hover .anchor { opacity: 1; }
 .faq-q .prose { padding: 0 16px 6px; }
@@ -236,3 +243,16 @@ a.yes:hover { box-shadow: 0 0 0 1px var(--ok); }
 .ctl-icon { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--border); color: var(--fg); margin-bottom: 12px; }
 .ctl { transition: border-color 150ms ease-out; }
 .ctl:hover { border-color: color-mix(in oklab, var(--fg) 30%, var(--border)); }
+
+/* Subprocessors: each service's logo above its name (_components/SubLogo.tsx). */
+.sub-logo-wrap { display: block; height: 24px; margin-bottom: 12px; }
+.sub-logo { display: block; }
+.sub-word { height: 18px; width: auto; max-width: 140px; margin-top: 3px; }
+.sub-mark { height: 24px; width: 24px; }
+.sub-logo.on-dark { display: none; }
+@media (prefers-color-scheme: dark) {
+  .sub-logo.on-light { display: none; }
+  .sub-logo.on-dark { display: block; }
+  .invert-dark { filter: invert(1); }
+}
+.sub-initials { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-bottom: 12px; border-radius: 6px; border: 1px solid var(--border); font-size: 10px; font-weight: 700; letter-spacing: 0.3px; color: var(--muted); }
