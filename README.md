@@ -1,3 +1,5 @@
+> **Judging HelloNear?** Open [JUDGE.md](JUDGE.md) first. In about three minutes it shows what to open, the testnet transactions and verified contracts behind each claim, what to type in the live app and what should happen, and how to run it on your own machine.
+
 <div align="center">
 
 <img src="design/logo/favicon/icon-512.png" alt="HelloNear" width="120" height="120">
@@ -24,6 +26,7 @@ HelloNear gives a person a **Mind**: an AI agent with a persona, memory, skills 
 
 | | |
 |---|---|
+| **Guide for judges** | **[JUDGE.md](JUDGE.md)** |
 | **Demo video** (on X) | **[x.com/hellonearai/status/2121301045540450520](https://x.com/hellonearai/status/2121301045540450520)** |
 | **Web app** (no account needed: *Continue as guest*) | **[app.hellonear.xyz](https://app.hellonear.xyz)** |
 | **Landing page** | **[hellonear.xyz](https://hellonear.xyz)** |
