@@ -25,10 +25,10 @@ export default function TrustOverview() {
   // The numbers in the strip are counted from the content itself, so they can't drift from it.
   const proofs = table.rows.flat().filter((c) => c.text === "Yes" && c.href).length;
   const stats = [
-    { n: table.rows.length, label: "parts in scope" },
-    { n: proofs, label: "claims, each with a proof link" },
-    { n: controls.items.length, label: "controls in the code" },
-    { n: subs.length, label: "subprocessors listed" },
+    { n: table.rows.length, label: "Components in scope" },
+    { n: proofs, label: "Claims with a verifiable reference" },
+    { n: controls.items.length, label: "Documented controls" },
+    { n: subs.length, label: "Subprocessors" },
   ];
   return (
     <>

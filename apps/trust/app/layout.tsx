@@ -30,21 +30,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <a className="btn" href={DOCS_URL}>Docs</a>
             </div>
           </header>
-          {/* On the page's own background (Ancung, 13 Nov: the black band read like a template), with a
-              faint lime glow, the one accent. */}
+          {/* Formal and plain (Ancung, 13 Nov: a slogan headline and a glow read too casual for a trust page). */}
           <section className="hero">
             <div className="hero-inner">
-              <p className="eyebrow">Trust Center</p>
-              <h1>The rules about money stay out of the AI&apos;s reach.</h1>
+              <h1>HelloNear Trust Center</h1>
               <p>
-                HelloNear lets an AI agent pay for you. Here is what protects your data and funds, and a link to check each claim
-                yourself.
+                How HelloNear protects user data and funds, with a reference for each control that can be checked independently.
               </p>
-              <p className="hero-links">
+              <nav className="hero-links" aria-label="Related documents">
                 <a href={`${DOCS_URL}/privacy`}>Privacy</a>
                 <a href={`${REPO_URL}#security-model`}>Security model</a>
-                <a href={`${DOCS_URL}/contracts`}>Receipts</a>
-              </p>
+                <a href={`${DOCS_URL}/contracts`}>Transaction receipts</a>
+              </nav>
             </div>
           </section>
           <TrustTabs />
