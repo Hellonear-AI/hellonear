@@ -44,6 +44,10 @@ const { server } = await import('../src/server.ts')
 const { setProvider } = await import('../src/auth.ts')
 const { migrate, pool, query } = await import('../src/db.ts')
 const { config } = await import('../src/config.ts')
+// The local Postgres keeps the runs of earlier test and load runs, and every sign-in here comes from loopback: the
+// global run cap and the challenge limit are off for the suite, and their own tests ("limits for every user") set them.
+config.limits.runsPerDayGlobal = 0
+config.limits.challengesPerIpPerHour = Infinity
 
 // Accounts the fake RPC knows: accountId -> { publicKey -> permission }.
 const chain = new Map<string, Map<string, 'FullAccess' | { FunctionCall: object }>>()
@@ -1593,6 +1597,146 @@ describe('judge try-out mode (#43)', () => {
     const left = (await query('select id from users where id = any($1)', [[d.user.id, real.id, fresh.user.id]])).map((r) => r.id).sort()
     assert.deepEqual(left, [real.id, fresh.user.id].sort())
     assert.equal((await d.call('GET', '/v1/me')).status, 401)
+  })
+})
+
+describe('limits for every user', () => {
+  const origin = { origin: 'http://localhost:3000' }
+  const chat = (c: Client, mindId: string) => c.call('POST', `/v1/minds/${mindId}/chat`, { message: 'hi' }, origin)
+  const mindOf = async (c: Client) => (await (await c.call('POST', '/v1/minds', { templateId: 'general-assistant', name: `Limits ${randomBytes(3).toString('hex')}` }, origin)).json()).mind.id as string
+  const idOf = async (c: Client) => (await (await c.call('GET', '/v1/me')).json()).user.id as string
+  const ok = async (res: Response) => { assert.equal(res.status, 200, await res.clone().text()); await res.text() }
+  async function limited(fn: (reset: () => void) => Promise<void>) {
+    const { resetDemoWindows } = await import('../src/demo.ts')
+    const saved = { ...config.limits }
+    resetDemoWindows()
+    try { await fn(resetDemoWindows) } finally { Object.assign(config.limits, saved); resetDemoWindows() }
+  }
+
+  test('a wallet user gets 429 after the runs of an hour, on every kind of run; another user is not affected', () => limited(async (reset) => {
+    config.limits.runsPerUserPerHour = 2
+    const a = await signIn()
+    const b = await signIn()
+    const mindId = await mindOf(a)
+    await ok(await chat(a, mindId))
+    await ok(await chat(a, mindId))
+    const hour = { error: 'run_rate_limited', limit: 2, window: 'hour' }
+    let res = await chat(a, mindId)
+    assert.equal(res.status, 429)
+    assert.deepEqual(await res.json(), hour)
+    res = await a.call('POST', '/v1/attacks/direct-order/runs', {}, origin)
+    assert.equal(res.status, 429)
+    assert.deepEqual(await res.json(), hour)
+    const { runTelegramChat } = await import('../src/server.ts')
+    assert.equal((await runTelegramChat(mindId, undefined, 'hi')).error, 'run_rate_limited')
+    await ok(await chat(b, await mindOf(b)))
+
+    // The window slides: runs older than an hour no longer count (the in-memory window is cleared as a restart would).
+    await query(`update runs set started_at = now() - interval '61 minutes' where mind_id = $1`, [mindId])
+    reset()
+    await ok(await chat(a, mindId))
+
+    // Deleting the Mind deletes its runs, but not the hour's count in memory.
+    await ok(await chat(a, mindId))
+    assert.equal((await a.call('DELETE', `/v1/minds/${mindId}`, undefined, origin)).status, 204)
+    res = await chat(a, await mindOf(a))
+    assert.equal(res.status, 429)
+    assert.deepEqual(await res.json(), hour)
+  }))
+
+  test('runs per UTC day; a run from before today does not count', () => limited(async () => {
+    config.limits.runsPerUserPerHour = 100
+    config.limits.runsPerUserPerDay = 2
+    const a = await signIn()
+    const b = await signIn()
+    const mindId = await mindOf(a)
+    await ok(await chat(a, mindId))
+    await ok(await chat(a, mindId))
+    const res = await chat(a, mindId)
+    assert.equal(res.status, 429)
+    assert.deepEqual(await res.json(), { error: 'run_rate_limited', limit: 2, window: 'day' })
+    await ok(await chat(b, await mindOf(b)))
+    const [first] = await query<{ id: string }>('select id from runs where mind_id = $1 order by started_at limit 1', [mindId])
+    await query(`update runs set started_at = now() - interval '25 hours' where id = $1`, [first.id])
+    await ok(await chat(a, mindId))
+  }))
+
+  test('one cap on runs per UTC day for all users together; 0 turns it off', () => limited(async (reset) => {
+    const a = await signIn()
+    const b = await signIn()
+    const [mindA, mindB] = [await mindOf(a), await mindOf(b)]
+    const [{ n }] = await query<{ n: number }>(`select count(*)::int as n from runs where started_at >= $1`, [new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`)])
+    config.limits.runsPerDayGlobal = n + 1
+    reset()
+    await ok(await chat(a, mindA))
+    for (const [c, mindId] of [[b, mindB], [a, mindA]] as const) {
+      const res = await chat(c, mindId)
+      assert.equal(res.status, 429)
+      assert.deepEqual(await res.json(), { error: 'daily_capacity_reached', limit: n + 1 })
+    }
+    // A deleted Mind's runs do not give the capacity back.
+    assert.equal((await a.call('DELETE', `/v1/minds/${mindA}`, undefined, origin)).status, 204)
+    assert.equal((await chat(b, mindB)).status, 429)
+    config.limits.runsPerDayGlobal = 0
+    await ok(await chat(b, mindB))
+  }))
+
+  test('try-out users: their own limit answers first, and the limits for every user apply to them too', () => limited(async () => {
+    const guest = async () => {
+      const res = await client()('POST', '/v1/auth/demo', {}, { ...origin, 'cf-connecting-ip': `203.0.113.${1 + Math.floor(Math.random() * 250)}` })
+      assert.equal(res.status, 201, await res.clone().text())
+      const call = client(res.headers.get('set-cookie')!.split(';')[0])
+      return { cookie: '', accountId: '', call } as Client
+    }
+    const savedDemo = { ...config.demo }
+    try {
+      config.demo.runsPerUser = 1
+      config.limits.runsPerUserPerHour = 1
+      const d = await guest()
+      const mindId = await mindOf(d)
+      await ok(await chat(d, mindId))
+      let res = await chat(d, mindId)
+      assert.equal(res.status, 429)
+      assert.deepEqual(await res.json(), { error: 'demo_run_limit', limit: 1 })
+
+      config.demo.runsPerUser = 20
+      res = await chat(d, mindId)
+      assert.equal(res.status, 429)
+      assert.deepEqual(await res.json(), { error: 'run_rate_limited', limit: 1, window: 'hour' })
+    } finally {
+      Object.assign(config.demo, savedDemo)
+    }
+  }))
+
+  test('sign-in challenges per IP per hour', () => limited(async () => {
+    config.limits.challengesPerIpPerHour = 2
+    const from = (ip: string) => client()('POST', '/v1/auth/challenge', {}, { 'cf-connecting-ip': ip })
+    assert.equal((await from('192.0.2.10')).status, 200)
+    assert.equal((await from('192.0.2.10')).status, 200)
+    const before = await query<{ n: number }>('select count(*)::int as n from auth_nonces')
+    const res = await from('192.0.2.10')
+    assert.equal(res.status, 429)
+    assert.deepEqual(await res.json(), { error: 'auth_rate_limited' })
+    assert.deepEqual(await query('select count(*)::int as n from auth_nonces'), before, 'a refused challenge stores nothing')
+    assert.equal((await from('192.0.2.11')).status, 200)
+  }))
+
+  test('RUNS_PER_DAY_GLOBAL: default 3000, 0 is off, anything else than a whole number stops the start', async () => {
+    const { execFileSync } = await import('node:child_process')
+    const read = (value?: string) => execFileSync(process.execPath, ['--import', 'tsx', '-e', `import('./src/config.ts').then((m) => console.log(m.config.limits.runsPerDayGlobal), (e) => console.log('refused: ' + e.message))`], {
+      env: { ...process.env, ...(value === undefined ? {} : { RUNS_PER_DAY_GLOBAL: value }) }, encoding: 'utf8',
+    }).trim()
+    const env = process.env.RUNS_PER_DAY_GLOBAL
+    delete process.env.RUNS_PER_DAY_GLOBAL
+    try {
+      assert.equal(read(), '3000')
+      assert.equal(read('0'), '0')
+      assert.equal(read('500'), '500')
+      assert.match(read('lots'), /^refused: RUNS_PER_DAY_GLOBAL must be a whole number/)
+      assert.match(read('-1'), /^refused: /)
+    } finally {
+      if (env !== undefined) process.env.RUNS_PER_DAY_GLOBAL = env
+    }
   })
 })
 

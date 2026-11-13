@@ -26,6 +26,10 @@ process.env.TELEGRAM_WEBHOOK_BASE = 'https://load.hellonear.test'
 const { server } = await import('../src/server.ts')
 const { migrate, pool, query } = await import('../src/db.ts')
 const { newId, randomToken, sha256 } = await import('../src/crypto.ts')
+// A virtual user here makes far more runs in a few seconds than a person does in an hour, and the local Postgres keeps
+// the runs of earlier load and test runs. The limits are raised, not turned off, so their counting stays in the measured path.
+const { config } = await import('../src/config.ts')
+Object.assign(config.limits, { runsPerUserPerHour: Infinity, runsPerUserPerDay: Infinity, runsPerDayGlobal: Number.MAX_SAFE_INTEGER })
 await migrate()
 await new Promise<void>((r) => server.listen(0, r))
 const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`

@@ -14,6 +14,15 @@ function origins(): string[] {
 
 const feOrigins = origins()
 
+// A whole number >= 0 from the environment, or the default. A bad value stops the backend at start.
+function count(name: string, fallback: number): number {
+  const raw = process.env[name]
+  if (raw === undefined || raw.trim() === '') return fallback
+  const n = Number(raw)
+  if (!Number.isInteger(n) || n < 0) throw new Error(`${name} must be a whole number, 0 or more`)
+  return n
+}
+
 function masterKey(): Buffer {
   const key = Buffer.from(required('SECRETS_MASTER_KEY'), 'base64')
   if (key.length !== 32) throw new Error('SECRETS_MASTER_KEY must be 32 bytes, base64 (openssl rand -base64 32)')
@@ -46,6 +55,12 @@ export const config = {
   demoMode: process.env.DEMO_MODE === 'true',
   demoWalletKey: process.env.DEMO_OUTLAYER_API_KEY ?? '',
   demo: { runsPerUser: 20, runsPerIpPerHour: 60, signupsPerIpPerHour: 10, paymentsPerUser: 2, mailPerUser: 2, retentionDays: 7 },
+  // Run limits for every user, try-out or wallet (a wallet login only needs a free testnet account, so the try-out limits
+  // alone do not protect the shared NEAR AI credit): runs per user per hour and per UTC day, runs per UTC day across all
+  // users (RUNS_PER_DAY_GLOBAL, 0 turns that one off), and sign-in challenges per IP per hour. Enforced in src/demo.ts.
+  // Hackathon phase only: on testnet every run is paid from the team's shared credit. On mainnet owners pay for their own
+  // runs from their own credits (pay as you go), and the run limits are replaced by the owner's balance.
+  limits: { runsPerUserPerHour: 60, runsPerUserPerDay: 300, runsPerDayGlobal: count('RUNS_PER_DAY_GLOBAL', 3000), challengesPerIpPerHour: 60 },
   // OutLayer (#14, #15): the wallet API and the contract owners sign policy and freeze calls on.
   outlayerUrl: process.env.OUTLAYER_URL ?? 'https://testnet-api.outlayer.ai',
   outlayerContractId: process.env.OUTLAYER_CONTRACT_ID ?? 'outlayer.testnet',
