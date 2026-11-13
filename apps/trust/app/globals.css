@@ -95,7 +95,7 @@ code, pre { font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, M
 .topbar-links a { text-decoration: none; color: var(--muted); }
 .topbar-links a:hover { color: var(--fg); }
 .btn { border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; background: var(--card); color: var(--fg) !important; }
-.btn:hover { border-color: var(--fg); }
+
 .lede { margin: 0 0 28px; font-size: 17px; color: var(--muted); }
 
 /* Prose from Markdown */
@@ -279,7 +279,7 @@ a.yes:hover { box-shadow: 0 0 0 1px var(--ok); }
 
 /* Theme button in the header: a round icon button beside Docs. */
 .theme-btn { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border: 1px solid var(--border); border-radius: 999px; background: var(--card); color: var(--fg); cursor: pointer; }
-.theme-btn:hover { border-color: var(--fg); }
+
 .theme-btn .moon { display: none; }
 :root[data-theme="dark"] .theme-btn .sun { display: none; }
 :root[data-theme="dark"] .theme-btn .moon { display: block; }
@@ -293,3 +293,14 @@ a.yes:hover { box-shadow: 0 0 0 1px var(--ok); }
 @media (max-width: 440px) {
   .trust .topbar-links .btn:nth-child(3) { display: none; }
 }
+
+/* Header buttons: a quiet hover, the fill a shade toward the text colour and the edge a little firmer
+   (Ancung, 13 Nov: a black edge read harsh). */
+.btn, .theme-btn { transition: background-color 150ms ease-out, border-color 150ms ease-out; }
+@media (hover: hover) {
+  .btn:hover, .theme-btn:hover {
+    background: color-mix(in oklab, var(--fg) 5%, var(--card));
+    border-color: color-mix(in oklab, var(--fg) 22%, var(--border));
+  }
+}
+.btn:focus-visible, .theme-btn:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
