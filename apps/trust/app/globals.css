@@ -161,8 +161,15 @@ code, pre { font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, M
 .chips { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .chips a { display: inline-block; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--card); text-decoration: none; font-size: 14px; }
 .chips a:hover { border-color: var(--fg); }
-.update-meta { margin: 0 0 6px; font-size: 13px; }
-.tag { display: inline-block; padding: 1px 8px; border-radius: 999px; background: var(--brand); color: var(--brand-ink); font-weight: 600; font-size: 12px; }
+/* Updates: the category as a quiet label beside the date (Ancung, 13 Nov: the lime pill read casual). */
+.update-meta { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+.tag { display: inline-block; padding: 1px 8px; border-radius: 6px; border: 1px solid var(--border); color: var(--fg); font-weight: 500; font-size: 12px; }
+/* Overview cards: even heights, the excerpt clamped to three lines, "Read update" at the bottom. */
+.update-short { display: flex; flex-direction: column; }
+.update-short h3 { margin: 0 0 8px; font-size: 16px; line-height: 1.35; }
+.update-excerpt { margin: 0 0 16px; font-size: 14px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.update-more { margin-top: auto; font-size: 14px; font-weight: 500; color: var(--link); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in oklab, var(--link) 40%, transparent); }
+.update-more:hover { text-decoration-color: currentColor; }
 .faq-controls { display: flex; gap: 8px; justify-content: flex-end; margin: 0 0 12px; }
 .faq-controls button { font: inherit; font-size: 14px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--fg); cursor: pointer; }
 .faq-controls button:hover { border-color: var(--fg); }
