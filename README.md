@@ -28,6 +28,9 @@ HelloNear gives a person a **Mind**: an AI agent with a persona, memory, skills 
 | **Landing page** | **[hellonear.xyz](https://hellonear.xyz)** |
 | **API** (NEAR testnet) | **[api.hellonear.xyz/v1/health](https://api.hellonear.xyz/v1/health)** |
 | **Status** (HelloNear and every provider it uses, checked every 5 minutes) | **[status.hellonear.xyz](https://status.hellonear.xyz)** · raw: [api.hellonear.xyz/v1/status](https://api.hellonear.xyz/v1/status) |
+| **Docs** (guides, the API with a playground for every endpoint, `llms.txt` and an MCP server for agents) | **[docs.hellonear.xyz](https://docs.hellonear.xyz)** |
+| **Trust Center** (what protects users' data and funds, each claim linked to its proof) | **[trust.hellonear.xyz](https://trust.hellonear.xyz)** |
+| **X** | **[@hellonearai](https://x.com/hellonearai)** |
 | **Mind registry contract** | **[`hellonear-registry.testnet`](https://testnet.nearblocks.io/address/hellonear-registry.testnet)** (v0.3.0, NEP-330, [source verified](https://testnet.nearblocks.io/address/hellonear-registry.testnet?tab=contract)) |
 | **Swarm auction contract** | **[`auction.hellonear-swarm.testnet`](https://testnet.nearblocks.io/address/auction.hellonear-swarm.testnet?tab=contract)** (NEP-330, [source verified](https://testnet.nearblocks.io/address/auction.hellonear-swarm.testnet?tab=contract), [a real round](#the-swarm-auction-one-real-round-on-testnet)) |
 | **API reference** | **[OpenAPI spec](docs/openapi.json)** · [README section](#api-reference) |
