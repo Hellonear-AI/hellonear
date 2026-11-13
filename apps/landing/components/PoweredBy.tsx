@@ -28,6 +28,11 @@ const PARTNERS = [
   { file: "meteor-wallet-mark.svg", name: "Meteor Wallet", h: 40, label: "Meteor Wallet" },
   { file: "composio.svg", name: "Composio", h: 34 },
   { file: "zai.svg", name: "GLM by Z.ai", h: 40, label: "GLM" },
+  // NEAR AI Agent Market (#298): Minds find agents there and get real prices. market.near.ai's own
+  // favicon mark (design/brands/agent-market.svg) with the name beside it, like Meteor and GLM. Its
+  // dark-mode colours are left out here: inside an <img> they follow the visitor's OS, not this light
+  // section, so a dark OS would show a white circle on the light page.
+  { file: "agent-market.svg", name: "NEAR AI Agent Market", h: 40, label: "Agent Market" },
 ];
 
 // The rest of what HelloNear runs on, sliding in a loop. h tuned so the logos look the same size (wide
@@ -44,7 +49,8 @@ function Partners() {
   return (
     <ul className="grid w-full max-w-[1100px] grid-cols-2 items-center justify-items-center gap-x-6 gap-y-10 px-5 lg:flex lg:justify-between lg:gap-10">
       {PARTNERS.map((l) => (
-        <li key={l.file} className="flex h-14 items-center gap-3">
+        // Five on phones: the last one takes the whole row, centred, instead of sitting alone on the left.
+        <li key={l.file} className="flex h-14 items-center gap-3 max-lg:last:col-span-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={`/brands/powered/${l.file}`}
