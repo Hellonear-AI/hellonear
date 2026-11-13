@@ -116,13 +116,25 @@ html.dark {
 .hn-steps-alt { font-size: 12px; font-weight: 600; color: var(--hn-sub); padding-top: 4px; }
 .hn-steps-note { font-size: 13px; color: var(--hn-text); background: var(--hn-ours); border: 1px solid var(--hn-ours-line); border-radius: 10px; padding: 8px 12px; }
 
-/* Tech stack: a technology's logo above its name, where the README has one (the README keeps them in a
-   column of their own, mostly empty here, which read as missing). Wordmarks are short, square marks a
-   little taller; dark mode swaps in the white versions, and NEAR AI's black mark is turned white. */
-.hn-logo { display: block; width: auto; max-width: 140px; margin: 2px 0 8px; }
-.hn-word { height: 15px; }
-.hn-mark { height: 22px; }
+/* Tech stack: each technology's logo left of its name, where the README has one (Ancung, 13 Nov). The logo
+   sits in a box of fixed width, so every name starts at the same place, rows without a logo included
+   (hn-logo-space), and a name that wraps keeps that line (a hanging indent). Dark mode swaps in the white
+   versions; NEAR AI's black mark is inverted. */
+.hn-tech td:first-child { padding-left: 96px !important; text-indent: -84px; }
+.hn-logo, .hn-logo-space { display: inline-block; width: 72px; height: 18px; margin: 0 8px 0 0; vertical-align: -4px; text-indent: 0; }
+.hn-logo { object-fit: contain; object-position: left center; }
+.hn-word { height: 16px; vertical-align: -3px; }
+.hn-mark { height: 22px; vertical-align: -6px; }
 .hn-on-dark { display: none; }
 html.dark .hn-on-light { display: none; }
-html.dark .hn-on-dark { display: block; }
+html.dark .hn-on-dark { display: inline-block; }
 html.dark .hn-invert { filter: invert(1); }
+/* Phones: no room for a logo column, so the logo sits above the name and the spacer goes. */
+@media (max-width: 767px) {
+  .hn-tech td:first-child { padding-left: 12px !important; text-indent: 0; }
+  .hn-logo-space { display: none; }
+  .hn-logo { display: block; margin: 0 0 6px; }
+  .hn-logo.hn-on-dark { display: none; }
+  html.dark .hn-logo.hn-on-light { display: none; }
+  html.dark .hn-logo.hn-on-dark { display: block; }
+}
