@@ -538,6 +538,29 @@ Each layer stops an attack on its own; the ones further down do not trust the on
 **Why not a capped function-call key?** NEAR function-call access keys cannot transfer NEAR, and their `allowance` is a gas budget for the key's whole life, not a spending cap ([docs](https://docs.near.org/protocol/accounts-contracts/access-keys)). The spending rules therefore live in the wallet's policy, which OutLayer checks in its TEE before every signature.
 
 
+### Security review (14 Nov 2026, AI-assisted)
+
+On 14 Nov 2026 the team ran a read-only security review of this repository and the hosted API with Claude Code (Claude Opus 5.5 for the review, Claude Fable 5.2 for the fixes). **This is not an independent audit:** it is an AI-assisted review by the team's own tools, and a human approved every change. What it looked for: leaked secrets, what the public API gives away, and ways to exhaust the shared NEAR AI credit or overload the API.
+
+| Checked | Result |
+|---|---|
+| Secrets in the repository and its full git history | None found. No `.env` file was ever committed; each `.env.example` holds names only |
+| What the hosted API reveals (`/v1/health`, `/v1/status`, error answers) | Status, timings and error codes only: no keys, URLs or stack traces |
+| Cross-site requests (CSRF) | A state-changing request from another origin answers `403 bad_origin` (tried against the hosted API) |
+| Request size | Bodies over 256 KB answer `413` |
+| Sign-in | One-time nonce, consumed before the signature check; the signature must come from a full-access key of the account |
+| Internal payment and mail routes | Loopback only, plus the engine key and a per-Mind token |
+
+| Found | Fixed by |
+|---|---|
+| Only guests had run limits. A wallet sign-in needs just a free testnet account, so a script could start runs without limit on the shared credit | Run limits for every account: 60 an hour, 300 a day, and a daily total for all users (`429 run_rate_limited`, `429 daily_capacity_reached`) |
+| An Autopilot job could be scheduled every minute, and nothing limited how many jobs were on | At most every 15 minutes, 5 jobs on per Mind and 10 per owner, 100 scheduled runs a day per owner |
+| `POST /v1/auth/challenge` had no limit and stores a row per call | 60 per IP per hour (`429 auth_rate_limited`) |
+
+Each fix has tests (`limits for every user` in `apps/be/test/api.test.ts`, `engine/test/autopilot-limits.test.ts`) and ran under the load tests before merge. The limits belong to the [hackathon phase](#hackathon-phase-testnet).
+
+Not covered by this review: the hosted box's firewall and Cloudflare settings (the per-IP limits rely on them), a rate limit at the Cloudflare edge, and the smart contracts beyond their existing tests. No outside party has audited HelloNear.
+
 ### What is private, and what HelloNear keeps
 
 The TEE protects the model calls. It does not make HelloNear's own backend blind: a Mind that remembers its owner needs that memory stored somewhere. This table says exactly where the line is.
@@ -825,6 +848,7 @@ During the hackathon HelloNear runs on **NEAR testnet**, so judges can try every
 | **NEAR AI Agent Market (market.near.ai)** | Real agents and real prices (each agent's x402 answer); the Mind picks the cheapest within the owner's budget, but **hires no one**, because the market is paid in USDC on NEAR mainnet | The Mind **hires the agent for real**: one signed USDC transfer (NEP-366) behind the owner's approval card, and the agent's result comes back into the chat. Haggling then moves to the market's job board (post the job with a budget, compare bids, answer one counter) |
 | **Haggling** | One offer to the sellers of HelloNear's own testnet data shop (two sellers on the hosted demo) | The same playbook with real sellers and the job board above |
 | **Swarm auction** | Contract live and source verified at `auction.hellonear-swarm.testnet`; one round ran with scripted agent accounts, the 20-buyer simulation runs on a local sandbox | Minds join group-buying rounds from the app with their own wallets |
+| **Usage limits** | The AI runs on the team's own NEAR AI Cloud credit, shared by everyone, so runs are limited: a guest gets 20 messages; every account gets 60 runs an hour and 300 a day; all users together share a daily total; an Autopilot job runs at most every 15 minutes, with at most 5 jobs on per Mind and 100 scheduled runs a day per owner. Over a limit the API answers `429` | No such limits: each owner pays for their own Minds from their own credits (pay as you go), so usage is bounded by the owner's balance, not by a shared one |
 | **Relayer (NEP-366)** | **Live on the hosted demo** for two registry methods (`unequip_skill`, `set_wallet`), paid by `relayer.hellonear-swarm.testnet` | Pays the gas for owners' calls to HelloNear's contracts, so owners never need NEAR for gas |
 
 Also stated plainly:
@@ -838,12 +862,12 @@ Also stated plainly:
 
 **During the hackathon (now):** everything runs on NEAR testnet so judges can try it for free.
 - **Guest mode:** *Continue as guest* makes a temporary user with 20 messages, a Mind from any template, sample inbox and calendar data, and payments from a shared test wallet with HelloNear's limits. No wallet, account or payment needed; data is deleted after 7 days.
-- **The AI is on us:** every reply runs on NEAR AI Cloud with the team's own credits.
+- **The AI is on us:** every reply runs on NEAR AI Cloud with the team's own credits. Because that credit is shared, runs and Autopilot jobs have limits during the hackathon (see [Hackathon phase](#hackathon-phase-testnet)).
 - **Signing in with a NEAR wallet** (Meteor first) gives the full app: your own Mind wallet, limits, freeze, rules, connections and Autopilot.
 
 **After the hackathon:**
 - **Mainnet.** Deploy the registry and the Mind wallets on NEAR mainnet; cross-chain stablecoin payments through NEAR Intents can then be sent, not only quoted, under the same limits and approvals.
-- **Pay-as-you-go AI credits.** Owners top up credits and pay for what their Minds use. Each run already records its tokens and cost.
+- **Pay-as-you-go AI credits.** Owners top up credits and pay for what their Minds use. Each run already records its tokens and cost. The hackathon's run and Autopilot limits then go away: an owner's own balance is the limit.
 - **More Mind templates** beyond the three today, each starting with the skills for its job.
 - **Hiring on the Agent Market.** On mainnet a Mind can pay a market.near.ai agent itself: the payment is one signed delegate action (NEP-366) for the agent's quoted USDC price, behind the owner's approval card and wallet limits, and the agent's result comes back into the chat.
 - **Haggling through the Agent Market's job board.** The Mind posts the owner's job with their budget, compares the bids that come in, answers one counter, and funds the escrow only through the owner's approval card. Today it compares the fixed prices of several agents and picks the cheapest within the budget.

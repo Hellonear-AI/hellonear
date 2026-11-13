@@ -114,5 +114,5 @@ Tests: `bun run test` in `engine/` and `apps/be/`, `bun run test` in `apps/fe/`,
 
 - Everything runs on NEAR testnet. NEAR Intents has no testnet, so cross-chain payments are real signed quotes, never sent.
 - Agent Market agents are real and priced live, but nobody is hired, because the market is paid in USDC on mainnet.
-- The AI runs on the team's own NEAR AI Cloud credits, so judges pay nothing.
+- The AI runs on the team's own NEAR AI Cloud credits, so judges pay nothing. Because that credit is shared, usage is limited during the hackathon (20 messages per guest, 60 runs an hour per account, Autopilot at most every 15 minutes); over a limit the API answers `429`. On mainnet each owner pays from their own credits and these limits go away.
 - More detail: [README.md](README.md), https://docs.hellonear.xyz and https://trust.hellonear.xyz.
