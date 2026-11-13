@@ -1,0 +1,112 @@
+/* Mintlify loads every .css file in this folder on every page.
+
+   Quiet scrollbars, the same as apps/fe and the status page: a thin rounded thumb, no arrows, no track
+   (Ancung, 13 Nov: the system bar on Windows had arrows and a grey track). Chrome and Safari use
+   ::-webkit-scrollbar; setting scrollbar-width there makes Chrome fall back to the system bar, so only
+   Firefox gets those. Mintlify's dark mode puts `dark` on <html>. */
+:root {
+  --hn-scrollbar-thumb: rgb(22 22 20 / 0.22);
+  --hn-scrollbar-thumb-hover: rgb(22 22 20 / 0.38);
+}
+html.dark {
+  --hn-scrollbar-thumb: rgb(242 241 236 / 0.22);
+  --hn-scrollbar-thumb-hover: rgb(242 241 236 / 0.38);
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-button {
+  display: none;
+}
+::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: var(--hn-scrollbar-thumb);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--hn-scrollbar-thumb-hover);
+}
+@supports (-moz-appearance: none) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--hn-scrollbar-thumb) transparent;
+  }
+}
+
+/* The diagrams on "How it works" (snippets/how-it-works.jsx): SVG nodes and curved links, in the app's
+   Stone & Lime. HelloNear's own parts get a lime tint, outside services stay plain. */
+:root {
+  --hn-node: #ffffff;
+  --hn-node-line: #e0ded6;
+  --hn-ours: #f6fadf;
+  --hn-ours-line: #c4d968;
+  --hn-text: #161614;
+  --hn-sub: #5c5a54;
+  --hn-edge: #b9b6ad;
+  --hn-dot: #5b7a00;
+  --hn-pill: #f3f2ee;
+  --hn-group: rgb(22 22 20 / 0.03);
+  --hn-group-line: #d6d3c9;
+  --hn-bad: #bf3220;
+}
+html.dark {
+  --hn-node: #1a1a18;
+  --hn-node-line: #2e2e2b;
+  --hn-ours: rgb(216 240 74 / 0.07);
+  --hn-ours-line: rgb(216 240 74 / 0.35);
+  --hn-text: #f2f1ec;
+  --hn-sub: #a6a39b;
+  --hn-edge: #4c4b46;
+  --hn-dot: #d8f04a;
+  --hn-pill: #11110f;
+  --hn-group: rgb(242 241 236 / 0.025);
+  --hn-group-line: #2e2e2b;
+  --hn-bad: #ff6a55;
+}
+.hn-diagram { margin: 24px 0 8px; }
+.hn-canvas { display: block; width: 100%; height: auto; overflow: visible; font-family: inherit; }
+.hn-node { fill: var(--hn-node); stroke: var(--hn-node-line); stroke-width: 1; }
+.hn-ours { fill: var(--hn-ours); stroke: var(--hn-ours-line); }
+.hn-title { fill: var(--hn-text); font-size: 13px; font-weight: 600; }
+.hn-sub { fill: var(--hn-sub); font-size: 11px; }
+.hn-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; }
+.hn-edge { fill: none; stroke: var(--hn-edge); stroke-width: 1.5; }
+.hn-dashed { stroke-dasharray: 4 4; }
+.hn-head { fill: none; stroke: var(--hn-edge); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.hn-dot { fill: var(--hn-dot); }
+.hn-pill { fill: var(--hn-pill); stroke: var(--hn-node-line); stroke-width: 1; }
+.hn-label { fill: var(--hn-sub); font-size: 10.5px; font-weight: 500; }
+.hn-group { fill: var(--hn-group); stroke: var(--hn-group-line); stroke-width: 1; stroke-dasharray: 5 5; }
+.hn-glabel { fill: var(--hn-sub); font-size: 11px; font-weight: 600; }
+.hn-life { stroke: var(--hn-node-line); stroke-width: 1; stroke-dasharray: 3 5; }
+.hn-num { fill: var(--hn-node); stroke: var(--hn-edge); stroke-width: 1; }
+.hn-numtext { fill: var(--hn-sub); font-size: 9.5px; font-weight: 600; }
+.hn-note { fill: var(--hn-ours); stroke: var(--hn-ours-line); stroke-width: 1; }
+.hn-notetext { fill: var(--hn-text); font-size: 11px; font-weight: 500; }
+.hn-alt { fill: var(--hn-sub); font-size: 11px; font-weight: 600; }
+.hn-alt.hn-bad, .hn-steps .hn-bad { fill: var(--hn-bad); color: var(--hn-bad); }
+.hn-badline { stroke: var(--hn-bad); }
+@media (prefers-reduced-motion: reduce) { .hn-dot { display: none; } }
+
+/* Desktop gets the wide drawing, phones the narrow one (or the step list). */
+.hn-diagram .hn-narrow { display: none; }
+@media (max-width: 767px) {
+  .hn-diagram .hn-wide { display: none; }
+  .hn-diagram .hn-narrow { display: block; }
+  .hn-diagram .hn-steps.hn-narrow { display: flex; }
+}
+
+/* "One payment, call by call" on phones: one step per line, who to whom as two chips. */
+.hn-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; counter-reset: hn; }
+.hn-step { counter-increment: hn; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-left: 30px; position: relative; }
+.hn-step::before { content: counter(hn); position: absolute; left: 0; top: 1px; width: 20px; height: 20px; border-radius: 999px; border: 1px solid var(--hn-edge); color: var(--hn-sub); font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+.hn-chip { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--hn-node); border: 1px solid var(--hn-node-line); color: var(--hn-text); }
+.hn-chip-ours { background: var(--hn-ours); border-color: var(--hn-ours-line); }
+.hn-arrow { color: var(--hn-sub); font-size: 12px; }
+.hn-steptext { flex-basis: 100%; font-size: 14px; color: var(--hn-text); }
+.hn-steps-alt { font-size: 12px; font-weight: 600; color: var(--hn-sub); padding-top: 4px; }
+.hn-steps-note { font-size: 13px; color: var(--hn-text); background: var(--hn-ours); border: 1px solid var(--hn-ours-line); border-radius: 10px; padding: 8px 12px; }
