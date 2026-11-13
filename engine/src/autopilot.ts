@@ -7,6 +7,7 @@ import { builderNodeId, type BuilderStep } from './graph.ts'
 import { MIND_ID_KEY } from './mail.ts'
 import { TIME_ZONE_KEY } from './tools.ts'
 import { MIND_KEY, UNATTENDED_KEY, mastra, storage } from './mastra.ts'
+import { capFires, capIssue, cronIssue } from './autopilotLimits.ts'
 import { mindSchema, type Mind } from './mind.ts'
 import { missingTools } from './skills.ts'
 
@@ -19,13 +20,16 @@ export const autopilotSchema = z.object({
 export type AutopilotRequest = z.infer<typeof autopilotSchema>
 
 type Saved = { canvas: Canvas; tools: string[]; schedule: { cron: string; timezone?: string } | null; steps: Record<string, BuilderStep> }
-type Issue = { code: 'no_schedule' | 'uses_secrets' | 'missing_tools' | 'invalid_input' | 'invalid_schedule'; message: string; tools?: string[] }
+type Issue = { code: 'no_schedule' | 'uses_secrets' | 'missing_tools' | 'invalid_input' | 'invalid_schedule' | 'too_frequent' | 'too_many_schedules'; message: string; tools?: string[] }
 type Schedule = NonNullable<Awaited<ReturnType<typeof mastra.schedules.get>>> & { inputData?: unknown; requestContext?: Record<string, unknown> }
 
 // Why this workflow cannot run unattended for this Mind, if it cannot.
 function problems(saved: Saved, mind: Mind, input: Record<string, unknown>): Issue[] {
   const issues: Issue[] = []
   if (!saved.schedule) issues.push({ code: 'no_schedule', message: 'the trigger has no schedule' })
+  // The Builder saves any 5-field cron; how often it may run alone is decided here (src/autopilotLimits.ts).
+  const cron = saved.schedule ? cronIssue(saved.schedule.cron) : null
+  if (cron) issues.push(cron)
   // A schedule's requestContext is stored as plain JSON (spike 03), so secrets can never go there.
   if (/\{\{\s*secrets\./.test(JSON.stringify(saved.canvas))) issues.push({ code: 'uses_secrets', message: 'Autopilot cannot use {{secrets.…}} yet' })
   const missing = missingTools(mind.skills.map((s) => s.skillId), saved.tools)
@@ -41,6 +45,21 @@ function problems(saved: Saved, mind: Mind, input: Record<string, unknown>): Iss
 async function scheduleOf(mindId: string, workflowId: string): Promise<Schedule | null> {
   const [s] = await mastra.schedules.list({ workflowId: mastraWorkflowId(mindId, workflowId) })
   return (s as Schedule | undefined) ?? null
+}
+
+// Whose schedule it is, from what setAutopilot stored on it.
+const ownerOf = (s: Schedule) => {
+  const meta = (s.metadata?.hellonear ?? {}) as { mindId?: string }
+  const user = s.requestContext?.[USER_KEY] ?? s.resourceId
+  return { id: s.id, mindId: meta.mindId, userId: typeof user === 'string' ? user : undefined }
+}
+
+// At most 5 jobs on per Mind and 10 per owner (src/autopilotLimits.ts). Mastra lists every schedule in one query (its
+// store has no filter by resource for workflow schedules); fine at this size. Two turn-ons at the same moment can
+// both pass: the daily cap on fires is the hard stop.
+async function overCap(mindId: string, userId: string, except?: string): Promise<Issue | null> {
+  const active = ((await mastra.schedules.list({ status: 'active' })) as Schedule[]).filter((s) => s.metadata?.hellonear && s.id !== except)
+  return capIssue(active.map(ownerOf), mindId, userId)
 }
 
 const iso = (ms?: number) => (ms ? new Date(ms).toISOString() : null)
@@ -66,6 +85,10 @@ export async function setAutopilot(mindId: string, workflowId: string, saved: Sa
   const existing = await scheduleOf(mindId, workflowId)
   const issues = problems(saved, req.mind, req.input)
   if (issues.length) return { issues, autopilot: existing ? await pauseFor(existing, mindId, workflowId, issues) : null }
+  // Only when this call turns one more schedule on: a schedule that is already on keeps running when the backend
+  // sends the Mind again, also for a Mind that had more than the cap before the cap existed.
+  const full = req.enabled && existing?.status !== 'active' ? await overCap(mindId, req.userId, existing?.id) : null
+  if (full) return { issues: [full], autopilot: existing ? await pauseFor(existing, mindId, workflowId, [full]) : null }
   const fields = {
     cron: saved.schedule!.cron,
     // Explicit, so fire times never depend on where the engine runs.
@@ -111,6 +134,32 @@ export async function syncAutopilot(mindId: string, workflowId: string, saved: S
   } catch (e) {
     return pauseFor(s, mindId, workflowId, [{ code: 'invalid_schedule', message: e instanceof Error ? e.message : String(e) }])
   }
+}
+
+// Schedules turned on before the minimum interval existed: paused once at boot with the same pausedFor as a new one
+// would get, so the owner sees why and can pick a slower schedule. Nothing is deleted or rewritten.
+export async function pauseTooFrequent(): Promise<number> {
+  let paused = 0
+  for (const s of (await mastra.schedules.list({ status: 'active' })) as Schedule[]) {
+    const meta = s.metadata?.hellonear as { mindId?: string; workflowId?: string } | undefined
+    const issue = meta?.mindId && meta.workflowId ? cronIssue(s.cron) : null
+    if (!issue) continue
+    await pauseFor(s, meta!.mindId!, meta!.workflowId!, [issue])
+    paused++
+  }
+  return paused
+}
+
+// The daily cap on scheduled runs (src/autopilotLimits.ts), per owner, else per Mind. Call before startWorkers().
+export async function capScheduledFires() {
+  const store = await storage.getStore('schedules')
+  if (!store) throw new Error('storage has no schedules domain')
+  capFires(store as never, async (id) => {
+    const s = (await mastra.schedules.get(id)) as Schedule | null
+    if (!s?.metadata?.hellonear) return null
+    const { userId, mindId } = ownerOf(s)
+    return userId ? `user:${userId}` : `mind:${mindId}`
+  })
 }
 
 // Every s_<node> in a nested block's output, depth first (#164): the steps that ran inside it, in order.

@@ -2,6 +2,8 @@
 // with Autopilot (#21) on (cron every minute) and the run history read every second.
 // Local tools only (add_numbers), so it spends no NEAR AI credit and never hits a public RPC or httpbin.
 // -e AGENT=1 makes the else branch an agent step (real NEAR AI calls: keep VUS and DURATION small).
+// The engine under test must run with AUTOPILOT_MIN_GAP_MINUTES=1: by default Autopilot refuses a cron that fires
+// less than 15 minutes apart (src/autopilotLimits.ts), and setup() would stop with 409 too_frequent.
 // Run: k6 run -e BASE=http://localhost:4100 -e KEY=$ENGINE_API_KEY load/workflow.js
 import http from 'k6/http'
 import { check } from 'k6'

@@ -6,6 +6,7 @@ import type { AddressInfo } from 'node:net'
 import { randomUUID } from 'node:crypto'
 import { server } from '../src/server.ts'
 import { mastra } from '../src/mastra.ts'
+import { capScheduledFires } from '../src/autopilot.ts'
 import { mastraWorkflowId } from '../src/builder.ts'
 import { balanceAlert, balanceReport } from './fixtures/canvas.ts'
 
@@ -17,13 +18,17 @@ const account = 'hellonear-registry.testnet'
 before(async () => {
   await new Promise<void>((r) => server.listen(0, r))
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+  // These tests wait for a real cron fire, so this engine allows one a minute (the default is 15 minutes apart).
+  process.env.AUTOPILOT_MIN_GAP_MINUTES = '1'
   // The scheduler only ticks after startWorkers(), as in the server's main block.
+  await capScheduledFires()
   await mastra.startWorkers()
 })
 after(async () => {
   // A failed test stops before its own DELETE, which once left a per-minute schedule running in the dev database
   // (10 Nov). Remove every job this run made, whatever happened.
-  for (const id of ['report', 'alert', 'manual', 'mars', 'chain', 'tree']) await call('DELETE', path(id)).catch(() => {})
+  for (const id of ['report', 'alert', 'manual', 'mars', 'chain', 'tree', 'fast']) await call('DELETE', path(id)).catch(() => {})
+  for (let i = 1; i <= 6; i++) await call('DELETE', path(`job-${i}`, capMind)).catch(() => {})
   await mastra.stopWorkers()
   await new Promise<void>((r) => server.close(() => r()))
 })
@@ -33,7 +38,8 @@ const call = (method: string, path: string, body?: unknown) =>
   fetch(base + path, { method, headers: { 'content-type': 'application/json', 'x-engine-key': key }, body: body === undefined ? undefined : JSON.stringify(body) })
 // A run is listed as pending before it is running, so wait for an end state, not for "not running" (11 Nov).
 const DONE = new Set(['success', 'failed', 'canceled'])
-const path = (id: string) => `/v1/minds/${mindId}/workflows/${id}`
+const capMind = `cap-${randomUUID().slice(0, 8)}`
+const path = (id: string, mind = mindId) => `/v1/minds/${mind}/workflows/${id}`
 const penny = (skills = ['payments', 'near-account']) => ({ templateId: 'payments-mind', name: 'Penny', soul: { identity: 'Your name is Penny. Always end every reply with "[Penny]".' }, skills: skills.map((skillId) => ({ skillId })) })
 const on = (body: Record<string, unknown> = {}) => ({ userId: 'u1', mind: penny(), input: { account }, ...body })
 const json = async (res: Response, status: number) => {
@@ -63,6 +69,54 @@ describe('autopilot', () => {
     assert.equal((await call('DELETE', path('mars'))).status, 204)
     assert.deepEqual(await json(await call('GET', `${path('report')}/autopilot`), 200), { autopilot: null }, 'nothing was created')
     assert.equal((await call('PUT', `${path('nope')}/autopilot`, on())).status, 404)
+  })
+
+  // No model call and no fire: only saves and schedule rows.
+  test('limits: a schedule that runs too often is refused or paused', async () => {
+    delete process.env.AUTOPILOT_MIN_GAP_MINUTES
+    try {
+      // The Builder still saves it; only Autopilot refuses.
+      assert.equal((await json(await call('PUT', path('fast'), balanceReport('*/5 * * * *')), 200)).schedule.cron, '*/5 * * * *')
+      const refused = await json(await call('PUT', `${path('fast')}/autopilot`, on()), 409)
+      assert.deepEqual(refused.issues.map((i: Ev) => i.code), ['too_frequent'])
+      assert.match(refused.issues[0].message, /at most 4 times an hour, at least 15 minutes apart/)
+      assert.equal(refused.autopilot, null, 'nothing was created')
+      // On with a slow cron, then the canvas is saved with a fast one: the running schedule pauses and says why.
+      await json(await call('PUT', path('fast'), balanceReport('*/15 * * * *')), 200)
+      assert.equal((await json(await call('PUT', `${path('fast')}/autopilot`, on()), 200)).autopilot.status, 'active')
+      const paused = (await json(await call('PUT', path('fast'), balanceReport('* * * * *')), 200)).autopilot
+      assert.equal(paused.status, 'paused')
+      assert.equal(paused.nextFireAt, null)
+      assert.deepEqual(paused.pausedFor.map((i: Ev) => i.code), ['too_frequent'])
+      // Turning it on again is refused while the cron is fast, and works once it is slow.
+      assert.equal((await json(await call('PUT', `${path('fast')}/autopilot`, on()), 409)).autopilot.status, 'paused')
+      await json(await call('PUT', path('fast'), balanceReport('0,30 * * * *')), 200)
+      const back = (await json(await call('PUT', `${path('fast')}/autopilot`, on()), 200)).autopilot
+      assert.deepEqual([back.status, back.cron, back.pausedFor], ['active', '0,30 * * * *', []])
+      assert.equal((await call('DELETE', path('fast'))).status, 204)
+    } finally {
+      process.env.AUTOPILOT_MIN_GAP_MINUTES = '1'
+    }
+  })
+
+  test('limits: a Mind has at most 5 jobs on', async () => {
+    const job = (i: number) => path(`job-${i}`, capMind)
+    const owner = { userId: `cap-${randomUUID().slice(0, 8)}` }
+    for (let i = 1; i <= 6; i++) await json(await call('PUT', job(i), balanceReport('0 3 * * *')), 200)
+    for (let i = 1; i <= 5; i++) assert.equal((await json(await call('PUT', `${job(i)}/autopilot`, on(owner)), 200)).autopilot.status, 'active')
+    const sixth = await json(await call('PUT', `${job(6)}/autopilot`, on(owner)), 409)
+    assert.deepEqual(sixth.issues.map((i: Ev) => i.code), ['too_many_schedules'])
+    assert.equal(sixth.autopilot, null)
+    // The backend sends the Mind again for a job that is already on: never refused by the cap.
+    assert.equal((await json(await call('PUT', `${job(1)}/autopilot`, on(owner)), 200)).autopilot.status, 'active')
+    // Created paused is fine; turning it on is not, and the card can say why.
+    assert.equal((await json(await call('PUT', `${job(6)}/autopilot`, on({ ...owner, enabled: false })), 200)).autopilot.status, 'paused')
+    const still = await json(await call('PUT', `${job(6)}/autopilot`, on(owner)), 409)
+    assert.deepEqual([still.autopilot.status, still.autopilot.pausedFor.map((i: Ev) => i.code)], ['paused', ['too_many_schedules']])
+    // One off, and the sixth fits.
+    await json(await call('PUT', `${job(2)}/autopilot`, on({ ...owner, enabled: false })), 200)
+    assert.equal((await json(await call('PUT', `${job(6)}/autopilot`, on(owner)), 200)).autopilot.status, 'active')
+    for (let i = 1; i <= 6; i++) assert.equal((await call('DELETE', job(i))).status, 204)
   })
 
   test('a scheduled fire runs with the stored Mind config and shows up in the history', async () => {

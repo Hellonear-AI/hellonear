@@ -28,7 +28,7 @@ import { embedderReady, startEmbedderProbe } from './embedderHealth.ts'
 import { nearAiProbes } from './probes.ts'
 import { ruleFor } from './autoApprove.ts'
 import { clearWorkingMemory, readWorkingMemory, writeWorkingMemory } from './memory.ts'
-import { autopilotSchema, deleteAutopilot, getAutopilot, listRuns, setAutopilot } from './autopilot.ts'
+import { autopilotSchema, capScheduledFires, deleteAutopilot, getAutopilot, listRuns, pauseTooFrequent, setAutopilot } from './autopilot.ts'
 
 // `attackId` (#16): an Attack Playground run; the engine ends it with an `attack.verdict` event.
 const chatSchema = runRequestSchema.extend({ message: z.string().min(1), attackId: attackIdSchema.optional() })
@@ -365,7 +365,11 @@ export const warmModels = () => [config.defaultModel, ...templates.map((t) => t.
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   // startWorkers() loads the workflows saved in Postgres (#20); without it they vanish on restart.
+  // Autopilot limits (src/autopilotLimits.ts): the daily cap sits on the scheduler's claim, so it goes in first.
+  // A failure here must not keep the engine from starting: the minimum interval and the caps on schedules still hold.
+  await capScheduledFires().catch((e) => console.error('autopilot: daily cap on scheduled runs is off', e))
   await mastra.startWorkers()
+  await pauseTooFrequent().then((n) => n && console.log(`autopilot: paused ${n} schedule(s) that run too often`), (e) => console.error('autopilot: could not check existing schedules', e))
   server.listen(config.port, () => console.log(`engine listening on :${config.port}`))
   startEmbedderProbe(embedder)
   const warm = () => warmAttestation(warmModels()).then(() => console.log('attestation', JSON.stringify(attestationStatus())))
