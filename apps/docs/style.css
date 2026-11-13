@@ -138,3 +138,16 @@ html.dark .hn-invert { filter: invert(1); }
   html.dark .hn-logo.hn-on-light { display: none; }
   html.dark .hn-logo.hn-on-dark { display: block; }
 }
+
+/* Icon tables (The agent's skills, Connectors' apps): a small square icon left of the name, so a narrow
+   box (24 px) instead of the logos' 72, kept on the left on phones too. */
+.hn-icons td:first-child { padding-left: 48px !important; text-indent: -36px; }
+.hn-icons .hn-logo, .hn-icons .hn-logo-space { width: 24px; height: 24px; margin-right: 8px; vertical-align: -7px; }
+@media (max-width: 767px) {
+  .hn-icons td:first-child { padding-left: 48px !important; text-indent: -36px; }
+  .hn-icons .hn-logo, .hn-icons .hn-logo-space { display: inline-block; margin: 0 8px 0 0; }
+}
+
+/* Two-column tables of labels and values have no column titles: hide their empty header row instead of
+   showing a blank band (Introduction, The six tracks, Contracts). */
+table thead:not(:has(th:not(:empty))) { display: none; }

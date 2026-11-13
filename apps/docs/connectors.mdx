@@ -5,21 +5,25 @@ description: "The apps and services a Mind can use, and what each one is for."
 
 What a Mind can work with. Logos are the ones the web app shows on the Connections screen (rendered from `apps/fe/src/components/elements/AppLogos.tsx`); each is its owner's trademark, used to name the app.
 
-| | Connector | How it connects | What a Mind can do with it |
-|---|---|---|---|
-|  | **Gmail** | Composio (OAuth, the owner's account) | Read and search mail, save drafts, archive or label after approval. No send tool exists |
-|  | **Google Calendar** | Composio | Read events, find free time, add an event, move an event, all with times on the owner's clock |
-|  | **Google Meet** | Composio | Schedule a meeting with guests the owner named and a Meet link, after approval |
-|  | **Google Sheets** | Composio | Find and read sheets, add a row, change cells with the old value shown first |
-|  | **Google Drive** | Composio | Search files by name and content |
-|  | **Google Docs** | Composio | Read a Doc, create one, add text at the end (never replaces) |
-|  | **Notion** | Composio | Search and read pages and databases, add a page or a row, change a row's properties |
-|  | **Slack** | Composio | List channels, post a message the owner approved |
-|  | **Outlook** | Composio | Read mail and save reply drafts (no send) |
-|  | **Zoom** | Composio | List meetings, schedule one with a join link, read Zoom's AI summary of a past meeting |
-|  | **Telegram** | A bot per Mind, made by the owner with BotFather | Chat with the Mind, streamed replies, Approve / Decline buttons on cards; only the owner's chat is answered |
-|  | **The Mind's own email address** | AgentMail, one inbox per Mind | Send from `…@agentmail.to` after approval, only to addresses the owner typed; read its own inbox with spam and phishing warnings |
-|  | **NEAR wallet** (Meteor first) | NEAR Connect, NEP-413 sign-in | The owner signs in, sets the Mind wallet's limits and freezes it; the Mind never holds the owner's keys |
-|  | **HTTP request** (your own APIs) | API keys the owner saves in Connections, stored encrypted | Call any HTTPS API the owner uses (a store, a CRM, a webhook) with the owner's key, only on the hosts the owner listed; the Mind writes `{{secrets.NAME}}` and never sees the key |
+<div className="hn-tech hn-icons">
+
+| Connector | How it connects | What a Mind can do with it |
+|---|---|---|
+| <img src="/images/apps/gmail.svg" alt="" className="hn-logo hn-icon" noZoom /> **Gmail** | Composio (OAuth, the owner's account) | Read and search mail, save drafts, archive or label after approval. No send tool exists |
+| <img src="/images/apps/google-calendar.svg" alt="" className="hn-logo hn-icon" noZoom /> **Google Calendar** | Composio | Read events, find free time, add an event, move an event, all with times on the owner's clock |
+| <img src="/images/apps/google-meet.svg" alt="" className="hn-logo hn-icon" noZoom /> **Google Meet** | Composio | Schedule a meeting with guests the owner named and a Meet link, after approval |
+| <img src="/images/apps/google-sheets.svg" alt="" className="hn-logo hn-icon" noZoom /> **Google Sheets** | Composio | Find and read sheets, add a row, change cells with the old value shown first |
+| <img src="/images/apps/google-drive.svg" alt="" className="hn-logo hn-icon" noZoom /> **Google Drive** | Composio | Search files by name and content |
+| <img src="/images/apps/google-docs.svg" alt="" className="hn-logo hn-icon" noZoom /> **Google Docs** | Composio | Read a Doc, create one, add text at the end (never replaces) |
+| <img src="/images/apps/notion.svg" alt="" className="hn-logo hn-icon" noZoom /> **Notion** | Composio | Search and read pages and databases, add a page or a row, change a row's properties |
+| <img src="/images/apps/slack.svg" alt="" className="hn-logo hn-icon" noZoom /> **Slack** | Composio | List channels, post a message the owner approved |
+| <img src="/images/apps/outlook.svg" alt="" className="hn-logo hn-icon" noZoom /> **Outlook** | Composio | Read mail and save reply drafts (no send) |
+| <img src="/images/apps/zoom.svg" alt="" className="hn-logo hn-icon" noZoom /> **Zoom** | Composio | List meetings, schedule one with a join link, read Zoom's AI summary of a past meeting |
+| <img src="/images/apps/telegram.svg" alt="" className="hn-logo hn-icon" noZoom /> **Telegram** | A bot per Mind, made by the owner with BotFather | Chat with the Mind, streamed replies, Approve / Decline buttons on cards; only the owner's chat is answered |
+| <span className="hn-logo-space" /> **The Mind's own email address** | AgentMail, one inbox per Mind | Send from `…@agentmail.to` after approval, only to addresses the owner typed; read its own inbox with spam and phishing warnings |
+| <img src="/images/apps/meteor.svg" alt="" className="hn-logo hn-icon" noZoom /> **NEAR wallet** (Meteor first) | NEAR Connect, NEP-413 sign-in | The owner signs in, sets the Mind wallet's limits and freezes it; the Mind never holds the owner's keys |
+| <img src="/images/skills/http-request.svg" alt="" className="hn-logo hn-icon" noZoom /> **HTTP request** (your own APIs) | API keys the owner saves in Connections, stored encrypted | Call any HTTPS API the owner uses (a store, a CRM, a webhook) with the owner's key, only on the hosts the owner listed; the Mind writes `{{secrets.NAME}}` and never sees the key |
+
+</div>
 
 ---
