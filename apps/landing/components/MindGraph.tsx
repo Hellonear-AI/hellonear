@@ -181,6 +181,8 @@ export function MindGraph() {
     // ---- the view -----
     let size = { w: 0, h: 0, dpr: 1 };
     const view = { x: 0, y: 0, k: 1 };
+    // a two-finger pinch on a touch screen, outside Explore (see the touch listeners below)
+    let touchPinch: { d: number; k: number; wx: number; wy: number } | null = null;
     // phones start closer in on Penny, so its labels have room
     const zoomMin = 0.4;
     const homeK = () => (phone ? 0.55 : Math.max(zoomMin, Math.min(0.8, (size.w / 1500) * 0.75)));
@@ -254,7 +256,39 @@ export function MindGraph() {
       view.x = px - size.w / 2 - wx * k;
       view.y = py - size.h / 2 - wy * k;
     };
-    api.current = { zoom: (f) => zoomAt(size.w / 2, size.h / 2, f), reset };
+    // The − / + / Reset buttons glide to their view (ease-out quart, 450 ms) instead of jumping (Ancung,
+    // 13 Nov); any touch, drag or wheel stops a glide. Reduced motion jumps.
+    let glide: { from: { x: number; y: number; k: number }; to: { x: number; y: number; k: number }; t0: number } | null = null;
+    const GLIDE_MS = 450;
+    const glideTo = (to: { x: number; y: number; k: number }) => {
+      if (still) {
+        Object.assign(view, to);
+        return;
+      }
+      glide = { from: { ...view }, to, t0: performance.now() };
+    };
+    const stepGlide = (now: number) => {
+      if (!glide) return;
+      const t = Math.min(1, (now - glide.t0) / GLIDE_MS);
+      const e = 1 - Math.pow(1 - t, 4);
+      const { from, to } = glide;
+      // zoom eases in log space, so zooming in and out feel the same speed
+      view.k = from.k * Math.pow(to.k / from.k, e);
+      view.x = from.x + (to.x - from.x) * e;
+      view.y = from.y + (to.y - from.y) * e;
+      if (t >= 1) glide = null;
+    };
+    const zoomTarget = (f: number) => {
+      const saved = { ...view };
+      zoomAt(size.w / 2, size.h / 2, f);
+      const to = { ...view };
+      Object.assign(view, saved);
+      return to;
+    };
+    api.current = {
+      zoom: (f) => glideTo(zoomTarget(f)),
+      reset: () => glideTo({ x: 0, y: 0, k: homeK() }),
+    };
 
     const toWorld = (px: number, py: number) => ({ x: (px - size.w / 2 - view.x) / view.k, y: (py - size.h / 2 - view.y) / view.k });
     const hit = (px: number, py: number) => {
@@ -639,7 +673,8 @@ export function MindGraph() {
         }
       }
       // phones draw every other frame unless someone is touching the graph
-      if (visible && !document.hidden && (!phone || drag || pts.size || (frame & 1) === 0)) draw(now);
+      stepGlide(now);
+      if (visible && !document.hidden && (!phone || drag || pts.size || glide || touchPinch || (frame & 1) === 0)) draw(now);
       frame = requestAnimationFrame(loop);
     };
     frame = requestAnimationFrame(loop);
@@ -698,6 +733,7 @@ export function MindGraph() {
       return { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
     };
     const down = (e: PointerEvent) => {
+      glide = null;
       const p = local(e);
       if (e.pointerType === "touch" && !exploreRef.current) {
         tap = p;
@@ -786,9 +822,48 @@ export function MindGraph() {
       // a trackpad pinch arrives as Ctrl + wheel; plain wheel keeps scrolling the page
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
+      glide = null;
       const p = local(e);
       zoomAt(p.x, p.y, Math.exp(-Math.max(-50, Math.min(50, e.deltaY)) * 0.01));
     };
+    // Two fingers zoom and move the graph without Explore, like a map (Ancung, 13 Nov: pinching the graph
+    // did nothing); one finger still scrolls the page. touch-action pan-y keeps the browser's own pinch
+    // off the canvas, and cancelling the two-finger touch stops the page from scrolling under it.
+    const touchPoint = (t: Touch) => {
+      const r = cv.getBoundingClientRect();
+      return { x: t.clientX - r.left, y: t.clientY - r.top };
+    };
+    const pair = (e: TouchEvent) => {
+      const a = touchPoint(e.touches[0]);
+      const b = touchPoint(e.touches[1]);
+      return { d: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+    };
+    const touchStart = (e: TouchEvent) => {
+      if (exploreRef.current || e.touches.length !== 2) return;
+      if (e.cancelable) e.preventDefault();
+      glide = null;
+      tap = null;
+      const t = pair(e);
+      const w = toWorld(t.mx, t.my);
+      touchPinch = { d: t.d, k: view.k, wx: w.x, wy: w.y };
+    };
+    const touchMove = (e: TouchEvent) => {
+      if (!touchPinch || e.touches.length < 2) return;
+      if (e.cancelable) e.preventDefault();
+      const t = pair(e);
+      // keep the point that was between the fingers under them: zoom and move in one
+      const k = Math.min(ZOOM_MAX, Math.max(zoomMin, touchPinch.k * (t.d / touchPinch.d)));
+      view.k = k;
+      view.x = t.mx - size.w / 2 - touchPinch.wx * k;
+      view.y = t.my - size.h / 2 - touchPinch.wy * k;
+    };
+    const touchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) touchPinch = null;
+    };
+    cv.addEventListener("touchstart", touchStart, { passive: false });
+    cv.addEventListener("touchmove", touchMove, { passive: false });
+    cv.addEventListener("touchend", touchEnd);
+    cv.addEventListener("touchcancel", touchEnd);
     cv.addEventListener("pointerdown", down);
     cv.addEventListener("pointermove", move);
     cv.addEventListener("pointerup", up);
@@ -804,6 +879,10 @@ export function MindGraph() {
       nearIo.disconnect();
       worker?.terminate();
       runIo.disconnect();
+      cv.removeEventListener("touchstart", touchStart);
+      cv.removeEventListener("touchmove", touchMove);
+      cv.removeEventListener("touchend", touchEnd);
+      cv.removeEventListener("touchcancel", touchEnd);
       cv.removeEventListener("pointerdown", down);
       cv.removeEventListener("pointermove", move);
       cv.removeEventListener("pointerup", up);
@@ -847,7 +926,7 @@ export function MindGraph() {
         )}
       </div>
       <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-3 text-[12.5px] text-[#F2F1EC]/55">
-        <span className="hidden md:inline">Drag to move · pinch or ⌘/Ctrl + scroll to zoom</span>
+        <span className="hidden md:inline">Drag to move, pinch or ⌘/Ctrl + scroll to zoom</span>
         {/* touch screens: explore mode on and off */}
         <button
           type="button"
