@@ -110,8 +110,20 @@ code, pre { font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, M
 .trust .topbar-links { gap: 8px; }
 /* Hero: formal and plain (Ancung, 13 Nov). The page's own background, a title, one sentence and the
    related documents as text links. */
-.hero { border-bottom: 1px solid var(--border); }
-.hero-inner { max-width: 1080px; margin: 0 auto; padding: 48px 16px 36px; }
+.hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--border); background: linear-gradient(to bottom, color-mix(in oklab, var(--card) 55%, var(--bg)), var(--bg)); }
+/* A fine grid, like ruled paper, that shows on the right and fades out before the text (Ancung, 13 Nov:
+   the plain hero looked flat; this keeps it formal). */
+.hero::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--fg) 14%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--fg) 14%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-position: right -1px top -1px;
+  -webkit-mask-image: radial-gradient(ellipse 75% 140% at 100% 0%, #000 0%, transparent 72%);
+  mask-image: radial-gradient(ellipse 75% 140% at 100% 0%, #000 0%, transparent 72%);
+}
+.hero-inner { position: relative; max-width: 1080px; margin: 0 auto; padding: 48px 16px 36px; }
 .hero h1 { margin: 0 0 10px; font-size: 34px; line-height: 1.15; font-weight: 600; letter-spacing: -0.6px; }
 .hero p { margin: 0 0 18px; max-width: 640px; font-size: 16px; color: var(--muted); }
 .hero-links { display: flex; flex-wrap: wrap; gap: 4px 24px; font-size: 14px; }
