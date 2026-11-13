@@ -196,20 +196,26 @@ const STEPS = [
 ];
 
 export const PaymentSteps = () => {
-  const colX = (i) => 60 + i * 132;
-  const top = 64;
+  // Step numbers sit in a column of their own on the left; the actors start after it.
+  const W = 800;
+  const gutter = 40;
+  const colX = (i) => gutter + 64 + i * 128;
   const row = 34;
-  let y = top;
+  let y = 60;
   const rows = STEPS.map((s) => {
     const r = { s, y };
-    y += s.end ? 10 : s.alt ? 26 : row;
+    y += s.end ? 14 : s.alt ? 28 : row;
     return r;
   });
-  const height = y + 20;
+  const height = y + 16;
+  // The two ways a payment can go, framed like a sequence diagram's "alt" block.
+  const altStart = rows.find((r) => r.s.alt && !r.s.bad);
+  const altElse = rows.find((r) => r.s.alt && r.s.bad);
+  const altEnd = rows.find((r) => r.s.end);
   let n = 0;
   return (
     <div className="hn-diagram not-prose">
-      <svg viewBox={`0 0 780 ${height}`} className="hn-canvas hn-wide" role="img" aria-label="One payment, call by call: the steps listed below for phones and screen readers.">
+      <svg viewBox={`0 0 ${W} ${height}`} className="hn-canvas hn-wide" role="img" aria-label="One payment, call by call: the steps listed below for phones and screen readers.">
         {ACTORS.map((a, i) => (
           <g key={a}>
             <line x1={colX(i)} y1={42} x2={colX(i)} y2={height - 6} className="hn-life" />
@@ -219,11 +225,17 @@ export const PaymentSteps = () => {
             </text>
           </g>
         ))}
+        {altStart && altEnd ? (
+          <g>
+            <rect x={gutter + 4} y={altStart.y + 2} width={W - gutter - 8} height={altEnd.y - altStart.y + 4} rx="12" className="hn-frame" />
+            {altElse ? <line x1={gutter + 4} y1={altElse.y + 2} x2={W - 4} y2={altElse.y + 2} className="hn-frame-split" /> : null}
+          </g>
+        ) : null}
         {rows.map(({ s, y }, i) => {
           if (s.end) return null;
           if (s.alt)
             return (
-              <text key={i} x={8} y={y + 16} className={s.bad ? "hn-alt hn-bad" : "hn-alt"}>
+              <text key={i} x={gutter + 16} y={y + 19} className={s.bad ? "hn-alt hn-bad" : "hn-alt"}>
                 {s.bad ? "Otherwise: " : ""}
                 {s.alt}
               </text>
@@ -231,23 +243,27 @@ export const PaymentSteps = () => {
           if (s.note !== undefined)
             return (
               <g key={i}>
-                <rect x={colX(s.note) - 50} y={y + 3} width={560} height="22" rx="8" className="hn-note" />
-                <text x={colX(s.note) - 38} y={y + 18} className="hn-notetext">
+                <rect x={colX(s.note) - 56} y={y + 5} width={W - colX(s.note) + 56 - 120} height="24" rx="8" className="hn-note" />
+                <text x={colX(s.note) - 44} y={y + 21} className="hn-notetext">
                   {s.text}
                 </text>
               </g>
             );
           n += 1;
-          const x1 = colX(s.f), x2 = colX(s.t), dir = x2 > x1 ? 1 : -1, yy = y + 20;
+          const x1 = colX(s.f), x2 = colX(s.t), dir = x2 > x1 ? 1 : -1, yy = y + 24;
+          // The label sits over its arrow, kept inside the drawing when the arrow is short.
+          const w = s.text.length * 5.7;
+          const cx = Math.min(W - 6 - w / 2, Math.max(gutter + 8 + w / 2, (x1 + x2) / 2));
           return (
             <g key={i}>
-              <line x1={x1} y1={yy} x2={x2 - dir * 2} y2={yy} className={`hn-edge ${s.back ? "hn-dashed" : ""} ${s.bad ? "hn-badline" : ""}`} />
-              <path d={`M${x2 - dir * 8},${yy - 4} L${x2},${yy} L${x2 - dir * 8},${yy + 4}`} className={`hn-head ${s.bad ? "hn-badline" : ""}`} />
-              <circle cx={x1} cy={yy} r="8" className="hn-num" />
-              <text x={x1} y={yy + 3.5} textAnchor="middle" className="hn-numtext">
+              <circle cx={gutter / 2} cy={yy - 4} r="9" className="hn-num" />
+              <text x={gutter / 2} y={yy - 0.5} textAnchor="middle" className="hn-numtext">
                 {n}
               </text>
-              <text x={(x1 + x2) / 2} y={yy - 11} textAnchor="middle" className="hn-label">
+              <circle cx={x1} cy={yy} r="3" className={s.bad ? "hn-start hn-badfill" : "hn-start"} />
+              <line x1={x1} y1={yy} x2={x2 - dir * 2} y2={yy} className={`hn-edge ${s.back ? "hn-dashed" : ""} ${s.bad ? "hn-badline" : ""}`} />
+              <path d={`M${x2 - dir * 8},${yy - 4} L${x2},${yy} L${x2 - dir * 8},${yy + 4}`} className={`hn-head ${s.bad ? "hn-badline" : ""}`} />
+              <text x={cx} y={yy - 8} textAnchor="middle" className={s.bad ? "hn-label hn-bad" : "hn-label"}>
                 {s.text}
               </text>
             </g>

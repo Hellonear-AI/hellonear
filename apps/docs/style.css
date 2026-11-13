@@ -90,6 +90,11 @@ html.dark {
 .hn-alt { fill: var(--hn-sub); font-size: 11px; font-weight: 600; }
 .hn-alt.hn-bad, .hn-steps .hn-bad { fill: var(--hn-bad); color: var(--hn-bad); }
 .hn-badline { stroke: var(--hn-bad); }
+.hn-label.hn-bad { fill: var(--hn-bad); }
+.hn-start { fill: var(--hn-edge); }
+.hn-badfill { fill: var(--hn-bad); }
+.hn-frame { fill: var(--hn-group); stroke: var(--hn-group-line); stroke-width: 1; stroke-dasharray: 5 5; }
+.hn-frame-split { stroke: var(--hn-group-line); stroke-width: 1; stroke-dasharray: 5 5; }
 @media (prefers-reduced-motion: reduce) { .hn-dot { display: none; } }
 
 /* Desktop gets the wide drawing, phones the narrow one (or the step list). */
