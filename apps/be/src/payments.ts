@@ -6,6 +6,7 @@ import { newId } from './crypto.ts'
 import { pool, query } from './db.ts'
 import { HttpError, UPSTREAM_ERROR } from './http.ts'
 import { keyOf, outlayerRaw, toNear, toYocto } from './wallets.ts'
+import { xlsx } from './xlsx.ts'
 
 export const sendPaymentSchema = z.object({
   to: z.string().toLowerCase().regex(/^(?=.{2,64}$)(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/, 'a NEAR account id'),
@@ -125,7 +126,9 @@ export function csvCell(v: string): string {
   const safe = /^[=+\-@\t\r]/.test(v) ? `'${v}` : v
   return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
 }
-export async function paymentsCsv(mindId: string, limit = 10_000): Promise<string> {
+export interface PaymentRow { at: Date; status: string; direction: 'out'; amountNear: string; counterparty: string; purpose: string; approvedBy: string; txHash: string; explorer: string; note: string }
+// The rows behind both downloads (CSV and Excel), newest first.
+export async function paymentRows(mindId: string, limit = 10_000): Promise<PaymentRow[]> {
   // One pass: the payment calls in this Mind's runs, then who approved each, then the rows (no per-row subqueries).
   const rows = await query<{ id: string; created_at: Date; status: PaymentStatus; amount_yocto: string; to_account: string; tx_hash: string | null; message: string | null; shop_item: string | null; offer_item: string | null; approved_by: string | null }>(
     `with calls as (
@@ -146,18 +149,40 @@ export async function paymentsCsv(mindId: string, limit = 10_000): Promise<strin
      left join (select distinct on (payment_id) payment_id, item from shop_purchases where mind_id = $1) s on s.payment_id = p.id
      left join (select distinct on (payment_id) payment_id, item from offer_purchases where buyer_mind_id = $1) o on o.payment_id = p.id
      where p.mind_id = $1 order by p.created_at desc limit $2`, [mindId, limit])
-  const lines = [CSV_HEADER, ...rows.map((p) => [
-    p.created_at.toISOString().replace('T', ' ').slice(0, 19),
-    CSV_STATUS[p.status] ?? p.status,
-    'out',
-    toNear(BigInt(p.amount_yocto)),
-    p.to_account,
-    p.shop_item ? `data report: ${p.shop_item}` : p.offer_item ? `bought from another Mind: ${p.offer_item}` : '',
-    p.approved_by ?? '',
-    p.tx_hash ?? '',
-    p.tx_hash ? `https://testnet.nearblocks.io/txns/${encodeURIComponent(p.tx_hash)}` : '',
-    p.message ?? '',
+  return rows.map((p) => ({
+    at: p.created_at,
+    status: CSV_STATUS[p.status] ?? p.status,
+    direction: 'out' as const,
+    amountNear: toNear(BigInt(p.amount_yocto)),
+    counterparty: p.to_account,
+    purpose: p.shop_item ? `data report: ${p.shop_item}` : p.offer_item ? `bought from another Mind: ${p.offer_item}` : '',
+    approvedBy: p.approved_by ?? '',
+    txHash: p.tx_hash ?? '',
+    explorer: p.tx_hash ? `https://testnet.nearblocks.io/txns/${encodeURIComponent(p.tx_hash)}` : '',
+    note: p.message ?? '',
+  }))
+}
+
+export async function paymentsCsv(mindId: string, limit = 10_000): Promise<string> {
+  const lines = [CSV_HEADER, ...(await paymentRows(mindId, limit)).map((p) => [
+    p.at.toISOString().replace('T', ' ').slice(0, 19), p.status, p.direction, p.amountNear, p.counterparty, p.purpose, p.approvedBy, p.txHash, p.explorer, p.note,
   ])]
   // A BOM so Excel opens it as UTF-8; CRLF line ends per RFC 4180.
   return '﻿' + lines.map((l) => l.map(csvCell).join(',')).join('\r\n') + '\r\n'
+}
+
+// The same rows as an Excel workbook (#298): typed cells, so the columns, the amounts and the dates come out right in
+// any locale, which a CSV can't do (Excel on a comma-decimal locale splits on `;`). An amount that a JS number can't
+// hold exactly (more than ~15 significant digits) stays text rather than being rounded.
+export async function paymentsXlsx(mindId: string, limit = 10_000): Promise<Buffer> {
+  const amount = (s: string) => (String(Number(s)) === s ? Number(s) : s)
+  return xlsx({
+    name: 'Payments',
+    header: CSV_HEADER,
+    widths: [20, 30, 10, 14, 28, 34, 12, 48, 60, 40],
+    rows: (await paymentRows(mindId, limit)).map((p) => [
+      p.at, p.status, p.direction, amount(p.amountNear), p.counterparty, p.purpose, p.approvedBy, p.txHash,
+      p.explorer ? { text: p.explorer, link: p.explorer } : '', p.note,
+    ]),
+  })
 }

@@ -5,7 +5,7 @@ description: "A file of every payment a Mind made or tried, with who approved it
 
 **Track:** `realworld`.
 
-The Wallet page has **Download CSV** beside Recent activity. The file has one row per payment attempt: date, status in words, amount, counterparty, purpose, who approved, tx hash and NearBlocks link.
+The Wallet page has **Download CSV** and **Excel** beside Recent activity. The file has one row per payment attempt: date, status in words, amount, counterparty, purpose, who approved, tx hash and NearBlocks link.
 
 ## Try it
 
@@ -15,6 +15,7 @@ Through the API (owner only, with the session cookie):
 
 ```sh
 curl -s -b jar $B/v1/minds/$MIND/payments.csv
+curl -s -b jar -o payments.xlsx $B/v1/minds/$MIND/payments.xlsx
 ```
 
 ## Details
@@ -23,4 +24,6 @@ curl -s -b jar $B/v1/minds/$MIND/payments.csv
 - Refused payments are listed too, with their reason and no tx hash, because a payment the policy refuses has no transaction.
 - Cells that start like a spreadsheet formula get a leading `'`, so opening the file cannot run a formula.
 
-Source: `paymentsCsv` in `apps/be/src/payments.ts`.
+- **Excel** has the same rows as an `.xlsx` with typed cells: the date is a date, the amount a number, the NearBlocks link a hyperlink. Excel on a locale whose list separator is `;` (Indonesian, most of Europe) opens a comma CSV in one column; the Excel file opens in columns everywhere.
+
+Source: `paymentsCsv` and `paymentsXlsx` in `apps/be/src/payments.ts`.

@@ -15,7 +15,7 @@ import { explorerReport, quotesOf } from './teeExplorer.ts'
 import { relay } from './relay.ts'
 import { deleteSecret, listSecrets, putSecret, putSecretSchema, secretNameSchema, secretsForRun } from './secrets.ts'
 import { addressRuleOf, assertWalletEmpty, createWallet, freezeTransaction, getWallet, hasWallet, isDemoMind, policySchema, policyTransaction } from './wallets.ts'
-import { listPayments, paymentsCsv, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
+import { listPayments, paymentsCsv, paymentsXlsx, sendPayment, sendPaymentSchema, walletBalance } from './payments.ts'
 import { itemSchema, offerNearSchema, sellerSchema, shop, txHashSchema } from './shop.ts'
 import { buyOffer, offerItemSchema, putOffer, putOfferSchema } from './offers.ts'
 import { issueMailToken, issueWalletToken, verifyMailToken, verifyWalletToken } from './walletToken.ts'
@@ -460,6 +460,12 @@ export const server = createServer(async (req, res) => {
       if (sub === '/payments.csv' && req.method === 'GET') {
         const csv = await paymentsCsv(mind.id)
         res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="hellonear-${mind.id}-payments.csv"`, 'cache-control': 'no-store', 'access-control-expose-headers': 'content-disposition' }).end(csv)
+        return
+      }
+      // The same as an Excel workbook, for a spreadsheet on any locale (#298).
+      if (sub === '/payments.xlsx' && req.method === 'GET') {
+        const file = await paymentsXlsx(mind.id)
+        res.writeHead(200, { 'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'content-disposition': `attachment; filename="hellonear-${mind.id}-payments.xlsx"`, 'cache-control': 'no-store', 'access-control-expose-headers': 'content-disposition' }).end(file)
         return
       }
       if (sub === '/wallet/policy' && req.method === 'POST') denyDemo(user, 'set_policy')

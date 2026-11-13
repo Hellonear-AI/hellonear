@@ -87,6 +87,7 @@ The web app is a client of a public HTTP API, and everything it does can be done
 | `GET` | `/v1/minds/{mindId}/wallet` | Balance, spent today, frozen, and the policy | 200 | yes |
 | `GET` | `/v1/minds/{mindId}/wallet/payments` | Payment receipts, refused ones included | 200 | yes |
 | `GET` | `/v1/minds/{mindId}/payments.csv` | Every payment as a CSV an accountant can open (date UTC, status in words, amount, counterparty, purpose, who approved, tx hash, NearBlocks link) | 200 `text/csv` | yes |
+| `GET` | `/v1/minds/{mindId}/payments.xlsx` | The same rows as an Excel workbook with typed cells (date, number, hyperlink), so it opens in columns on any locale | 200 `.xlsx` | yes |
 | `GET` | `/v1/status` | Public status of HelloNear and its providers (NEAR AI chat and embeddings, 1Click quotes, OutLayer, NEAR RPC, Agent Market, TEE Explorer): status, latency, uptime, 48 half-hour buckets and incidents of the last 7 days. CORS `*`, cached 30 s | 200 | |
 | `POST` | `/v1/relay` | Relay a NEP-366 signed delegate action to the registry (only `unequip_skill` / `set_wallet`, exactly 1 yoctoNEAR); the relayer pays the gas, never a deposit. Not for try-out users | 200, `503 relay_not_configured` until the relayer is set | |
 | `POST` | `/v1/minds/{mindId}/wallet/policy` | Build a store_wallet_policy transaction for the owner to sign | 200 |  |

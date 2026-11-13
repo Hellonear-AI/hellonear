@@ -1,6 +1,6 @@
 // Short local load test of the paths the track work changed: the paid-data shop's price list and negotiation
 // (`/internal/v1/shop/{item}?quotes=1` and `?seller=&offer=`, with the run's wallet token, as the engine calls them) and
-// the payments CSV (`GET /v1/minds/{id}/payments.csv`, each Mind holding 200 payments with their runs' events). Every
+// the payments CSV and Excel file (`GET /v1/minds/{id}/payments.csv` and `.xlsx`, each Mind holding 200 payments with their runs' events). Every
 // answer must be 200 with the right shape: an offer is accepted or countered at the expected price, and the CSV has one
 // line per payment. Fake engine and fake OutLayer, local Postgres. Never point this at a public endpoint.
 // Run: bun run load:shop   (env: VUS=10, DURATION_S=10)
@@ -58,7 +58,7 @@ async function user() {
 }
 
 const users = await Promise.all(Array.from({ length: VUS }, user))
-const latencies: Record<string, number[]> = { quotes: [], offer: [], csv: [] }
+const latencies: Record<string, number[]> = { quotes: [], offer: [], csv: [], xlsx: [] }
 let errors = 0
 const fail = (what: string) => { if (errors++ < 5) console.error(what) }
 async function timed(name: string, f: () => Promise<boolean>) {
@@ -92,6 +92,12 @@ await Promise.all(users.map(async (u, n) => {
       const text = await r.text()
       const lines = text.trimEnd().split('\r\n')
       return r.status === 200 && lines.length === PAYMENTS_PER_MIND + 1 && lines.filter((l) => l.includes(',your rule,')).length === PAYMENTS_PER_MIND / 2
+    })
+    if (i % 3 === 1) await timed('xlsx', async () => {
+      const r = await fetch(`${base}/v1/minds/${u.mindId}/payments.xlsx`, { headers: { cookie: u.cookie } })
+      const buf = Buffer.from(await r.arrayBuffer())
+      // A zip (PK) holding one row per payment plus the header.
+      return r.status === 200 && buf.subarray(0, 2).toString() === 'PK' && (buf.toString('latin1').match(/<row r="/g)?.length ?? 0) === PAYMENTS_PER_MIND + 1
     })
   }
 }))
