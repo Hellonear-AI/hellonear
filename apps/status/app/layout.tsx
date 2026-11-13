@@ -8,9 +8,10 @@ const DESCRIPTION = "Live status of HelloNear and the services it runs on: NEAR 
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://status.hellonear.xyz"),
-  title: "HelloNear Status",
+  // "Status | HelloNear", like the web app's "Chat | HelloNear" (Ancung, 13 Nov).
+  title: "Status | HelloNear",
   description: DESCRIPTION,
-  openGraph: { type: "website", siteName: "HelloNear", url: "/", title: "HelloNear Status", description: DESCRIPTION },
+  openGraph: { type: "website", siteName: "HelloNear", url: "/", title: "Status | HelloNear", description: DESCRIPTION },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
