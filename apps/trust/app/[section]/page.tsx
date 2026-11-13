@@ -4,6 +4,7 @@ import { getPage, sections } from "@/lib/content";
 import { render } from "@/lib/markdown";
 import { FaqControls } from "../_components/Faq";
 import { UpdateCard } from "../_components/UpdateCard";
+import { SubLogo } from "../_components/SubLogo";
 
 const SECTIONS = ["resources", "subprocessors", "faq", "updates"] as const;
 type Props = { params: Promise<{ section: string }> };
@@ -51,6 +52,7 @@ function Cards({ markdown, className }: { markdown: string; className: string })
       <div className="cards">
         {s.items.map((c) => (
           <div key={c.id} id={c.id} className={`tcard ${className}`}>
+            {className === "sub" ? <SubLogo name={c.title} /> : null}
             <h3>{c.title}</h3>
             <div className="prose" dangerouslySetInnerHTML={{ __html: render(c.body) }} />
           </div>

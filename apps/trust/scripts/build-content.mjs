@@ -7,7 +7,9 @@ import { fileURLToPath } from 'node:url'
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const contentDir = join(root, 'content')
 
-export function parsePage(file, text) {
+export function parsePage(file, raw) {
+  // Windows checkouts get CRLF line ends (git autocrlf); read them as plain newlines.
+  const text = raw.replace(/\r\n/g, '\n')
   const m = /^---\n([\s\S]*?)\n---\n/.exec(text)
   if (!m) throw new Error(`${file}: missing frontmatter`)
   const meta = Object.fromEntries(

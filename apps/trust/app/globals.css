@@ -15,8 +15,23 @@
   --ok-soft: #E3F2E8;
   color-scheme: light;
 }
+/* Dark follows the OS unless the header's theme button picked one (data-theme on <html>, saved on this device). */
+:root[data-theme="dark"] {
+    --bg: #11110F;
+    --fg: #F2F1EC;
+    --muted: #A6A39B;
+    --card: #1A1A18;
+    --border: #2C2C29;
+    --code-bg: #222220;
+    --hero-bg: #1F2408;
+    --hero-fg: #F2F1EC;
+    --link: #D8F04A;
+    --ok: #46C27A;
+    --ok-soft: #12261A;
+    color-scheme: dark;
+}
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #11110F;
     --fg: #F2F1EC;
     --muted: #A6A39B;
@@ -33,6 +48,22 @@
 }
 
 * { box-sizing: border-box; }
+
+/* Quiet scrollbars, the same as apps/fe and the status page: a thin rounded thumb, no arrows, no track
+   (Ancung, 13 Nov). Chrome and Safari use ::-webkit-scrollbar; setting scrollbar-width there makes Chrome
+   fall back to the system bar, so only Firefox gets those. */
+:root {
+  --scrollbar-thumb: color-mix(in oklab, var(--fg) 22%, transparent);
+  --scrollbar-thumb-hover: color-mix(in oklab, var(--fg) 38%, transparent);
+}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-button { display: none; }
+::-webkit-scrollbar-thumb { border-radius: 9999px; background: var(--scrollbar-thumb); }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+@supports (-moz-appearance: none) {
+  * { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
+}
 html, body { margin: 0; }
 html { scroll-padding-top: 72px; }
 body {
@@ -64,7 +95,7 @@ code, pre { font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, M
 .topbar-links a { text-decoration: none; color: var(--muted); }
 .topbar-links a:hover { color: var(--fg); }
 .btn { border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; background: var(--card); color: var(--fg) !important; }
-.btn:hover { border-color: var(--fg); }
+
 .lede { margin: 0 0 28px; font-size: 17px; color: var(--muted); }
 
 /* Prose from Markdown */
@@ -92,12 +123,31 @@ code, pre { font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, M
 
 /* Trust Center */
 .trust .topbar-links { gap: 8px; }
-.hero { background: var(--hero-bg); color: var(--hero-fg); border-bottom: 4px solid var(--brand); }
-.hero-inner { max-width: 1080px; margin: 0 auto; padding: 48px 16px 40px; }
-.hero h1 { margin: 0 0 12px; font-size: 36px; line-height: 1.15; letter-spacing: -0.8px; max-width: 760px; }
-.hero p { margin: 0 0 12px; max-width: 720px; font-size: 17px; opacity: 0.9; }
-.hero-links a { color: var(--brand); font-weight: 600; }
+/* Hero: formal and plain (Ancung, 13 Nov). The page's own background, a title, one sentence and the
+   related documents as text links. */
+.hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--border); background: linear-gradient(to bottom, color-mix(in oklab, var(--card) 55%, var(--bg)), var(--bg)); }
+/* A fine grid, like ruled paper, that shows on the right and fades out before the text (Ancung, 13 Nov:
+   the plain hero looked flat; this keeps it formal). */
+.hero::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--fg) 14%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--fg) 14%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-position: right -1px top -1px;
+  -webkit-mask-image: radial-gradient(ellipse 75% 140% at 100% 0%, #000 0%, transparent 72%);
+  mask-image: radial-gradient(ellipse 75% 140% at 100% 0%, #000 0%, transparent 72%);
+}
+.hero-inner { position: relative; max-width: 1080px; margin: 0 auto; padding: 48px 16px 36px; }
+.hero h1 { margin: 0 0 10px; font-size: 34px; line-height: 1.15; font-weight: 600; letter-spacing: -0.6px; }
+.hero p { margin: 0 0 18px; max-width: 640px; font-size: 16px; color: var(--muted); }
+.hero-links { display: flex; flex-wrap: wrap; gap: 4px 24px; font-size: 14px; }
+.hero-links a { color: var(--link); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in oklab, var(--link) 40%, transparent); }
+.hero-links a:hover { text-decoration-color: currentColor; }
 .tabs { border-bottom: 1px solid var(--border); background: var(--bg); position: sticky; top: 60px; z-index: 10; }
+/* Phones: the tabs scroll sideways; a fade at the right edge says there are more. */
+.tabs::after { content: ""; position: absolute; top: 0; right: 0; bottom: 1px; width: 40px; background: linear-gradient(to left, var(--bg), transparent); pointer-events: none; }
+@media (min-width: 700px) { .tabs::after { display: none; } }
 .tabs-inner { max-width: 1080px; margin: 0 auto; padding: 0 16px; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
 .tabs a { padding: 14px 12px; text-decoration: none; color: var(--muted); font-weight: 500; border-bottom: 2px solid transparent; white-space: nowrap; }
 .tabs a:hover { color: var(--fg); }
@@ -126,18 +176,33 @@ code, pre { font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, M
 .chips { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .chips a { display: inline-block; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--card); text-decoration: none; font-size: 14px; }
 .chips a:hover { border-color: var(--fg); }
-.update-meta { margin: 0 0 6px; font-size: 13px; }
-.tag { display: inline-block; padding: 1px 8px; border-radius: 999px; background: var(--brand); color: var(--brand-ink); font-weight: 600; font-size: 12px; }
+/* Updates: the category as a quiet label beside the date (Ancung, 13 Nov: the lime pill read casual). */
+.update-meta { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+.tag { display: inline-block; padding: 2px 9px; border-radius: 999px; background: color-mix(in oklab, var(--brand) 22%, var(--card)); color: var(--link); font-weight: 600; font-size: 12px; }
+:root[data-theme="dark"] .tag { background: color-mix(in oklab, var(--brand) 12%, var(--card)); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tag { background: color-mix(in oklab, var(--brand) 12%, var(--card)); } }
+/* Overview cards: even heights, the excerpt clamped to three lines, "Read update" at the bottom. */
+.update-short { display: flex; flex-direction: column; }
+.update-short h3 { margin: 0 0 8px; font-size: 16px; line-height: 1.35; }
+.update-excerpt { margin: 0 0 16px; font-size: 14px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.update-more { margin-top: auto; font-size: 14px; font-weight: 500; color: var(--link); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in oklab, var(--link) 40%, transparent); }
+.update-more:hover { text-decoration-color: currentColor; }
 .faq-controls { display: flex; gap: 8px; justify-content: flex-end; margin: 0 0 12px; }
 .faq-controls button { font: inherit; font-size: 14px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--fg); cursor: pointer; }
 .faq-controls button:hover { border-color: var(--fg); }
 .faq-cat { margin-bottom: 28px; }
-.faq-cat > h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); }
+.faq-cat > h3 { margin: 0 0 10px; font-size: 15px; color: var(--muted); }
 .faq-q { background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 8px; }
 .faq-q summary { cursor: pointer; padding: 14px 16px; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
 .faq-q summary::-webkit-details-marker { display: none; }
-.faq-q summary::after { content: "+"; color: var(--muted); font-weight: 400; }
-.faq-q[open] summary::after { content: "−"; }
+.faq-q summary::after { content: "+"; color: var(--muted); font-weight: 400; font-size: 18px; line-height: 1; transition: transform 250ms cubic-bezier(0.23, 1, 0.32, 1); }
+.faq-q[open] summary::after { transform: rotate(45deg); }
+/* Opening and closing an answer slides (Ancung, 13 Nov), in browsers that can animate to auto height
+   (::details-content, interpolate-size); elsewhere it opens at once as before. */
+:root { interpolate-size: allow-keywords; }
+.faq-q::details-content { block-size: 0; overflow: hidden; transition: block-size 280ms cubic-bezier(0.23, 1, 0.32, 1), content-visibility 280ms allow-discrete; }
+.faq-q[open]::details-content { block-size: auto; }
+@media (prefers-reduced-motion: reduce) { .faq-q::details-content, .faq-q summary::after { transition: none; } }
 .faq-q summary .anchor { position: static; opacity: 0; margin-left: auto; }
 .faq-q summary:hover .anchor { opacity: 1; }
 .faq-q .prose { padding: 0 16px 6px; }
@@ -145,11 +210,103 @@ code, pre { font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, M
 @media (max-width: 860px) {
   .anchor { display: none; }
   .topbar-links { gap: 12px; }
-  .hero h1 { font-size: 28px; }
+  .hero h1 { font-size: 30px; }
 }
 @media (max-width: 520px) {
   .topbar-links:not(.buttons) a:last-child { display: none; }
   .trust .topbar-links .btn:nth-child(2) { display: none; }
   .brand-sub { display: none; }
   .cards { grid-template-columns: 1fr; }
+}
+
+/* Overview: the strip of numbers, counted from the content (app/page.tsx). */
+.stats { list-style: none; margin: 0 0 32px; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--border); border-radius: 16px; background: var(--card); overflow: hidden; }
+.stats li { display: flex; flex-direction: column; gap: 2px; padding: 16px 20px; border-left: 1px solid var(--border); }
+.stats li:first-child { border-left: 0; }
+.stat-n { font-size: 28px; font-weight: 600; letter-spacing: -0.6px; font-variant-numeric: tabular-nums; }
+.stat-l { font-size: 13px; color: var(--muted); line-height: 1.35; }
+.lead-note { color: var(--muted); max-width: 760px; }
+
+/* Scope and controls: a table on wide screens, one card per part on phones. */
+.scope-table { overflow-x: auto; border: 1px solid var(--border); border-radius: 16px; background: var(--card); margin: 0 0 12px; }
+.scope-table table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.scope-table th, .scope-table td { padding: 14px 16px; border-top: 1px solid var(--border); text-align: center; vertical-align: middle; }
+.scope-table thead th { border-top: 0; font-size: 13px; font-weight: 600; color: var(--muted); line-height: 1.35; }
+.scope-table tbody th { text-align: left; font-weight: 600; min-width: 190px; }
+.scope-table thead th:first-child { text-align: left; }
+.scope-table tbody tr:hover { background: color-mix(in oklab, var(--fg) 3%, transparent); }
+.yes { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; background: var(--ok-soft); color: var(--ok); font-weight: 600; font-size: 13px; text-decoration: none; white-space: nowrap; transition: box-shadow 150ms ease-out; }
+a.yes:hover { box-shadow: 0 0 0 1px var(--ok); }
+.na { color: var(--muted); font-size: 13px; opacity: 0.7; }
+.scope-after { margin-top: 4px; }
+.scope-cards { display: none; }
+@media (max-width: 700px) {
+  .scope-table { display: none; }
+  .scope-cards { display: flex; flex-direction: column; gap: 12px; margin: 0 0 12px; }
+  .scope-card { border: 1px solid var(--border); border-radius: 16px; background: var(--card); padding: 14px 16px; }
+  .scope-card-title { margin: 0 0 8px; font-weight: 600; }
+  .scope-card ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .scope-card li { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; }
+  .scope-card li.is-na span:first-child { color: var(--muted); }
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .stats li:nth-child(3) { border-left: 0; }
+  .stats li:nth-child(n + 3) { border-top: 1px solid var(--border); }
+  .hero h1 { font-size: 26px; letter-spacing: -0.4px; }
+  .hero-inner { padding: 32px 16px 26px; }
+}
+
+/* Control cards: a small icon in a tinted tile above the title. */
+.ctl-icon { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--border); color: var(--fg); margin-bottom: 12px; }
+.ctl { transition: border-color 150ms ease-out; }
+.ctl:hover { border-color: color-mix(in oklab, var(--fg) 30%, var(--border)); }
+
+/* Subprocessors: each service's logo above its name (_components/SubLogo.tsx). */
+.sub-logo-wrap { display: block; height: 24px; margin-bottom: 12px; }
+.sub-logo { display: block; }
+.sub-word { height: 18px; width: auto; max-width: 140px; margin-top: 3px; }
+.sub-mark { height: 24px; width: 24px; border-radius: 6px; object-fit: contain; }
+.sub-wide { height: 24px; width: auto; }
+.sub-logo.on-dark { display: none; }
+:root[data-theme="dark"] .sub-logo.on-light { display: none; }
+:root[data-theme="dark"] .sub-logo.on-dark { display: block; }
+:root[data-theme="dark"] .invert-dark { filter: invert(1); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .sub-logo.on-light { display: none; }
+  :root:not([data-theme="light"]) .sub-logo.on-dark { display: block; }
+  :root:not([data-theme="light"]) .invert-dark { filter: invert(1); }
+}
+.sub-initials { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-bottom: 12px; border-radius: 6px; border: 1px solid var(--border); font-size: 10px; font-weight: 700; letter-spacing: 0.3px; color: var(--muted); }
+
+/* Theme button in the header: a round icon button beside Docs. */
+.theme-btn { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border: 1px solid var(--border); border-radius: 999px; background: var(--card); color: var(--fg); cursor: pointer; }
+
+.theme-btn .moon { display: none; }
+:root[data-theme="dark"] .theme-btn .sun { display: none; }
+:root[data-theme="dark"] .theme-btn .moon { display: block; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-btn .sun { display: none; }
+  :root:not([data-theme="light"]) .theme-btn .moon { display: block; }
+}
+/* Phones: the header buttons stay on one line; below 440 px Docs gives way to the theme button (Privacy and
+   Transaction receipts in the hero open the docs too). */
+.btn { white-space: nowrap; }
+@media (max-width: 440px) {
+  .trust .topbar-links .btn:nth-child(3) { display: none; }
+}
+
+/* Header buttons: a soft lime hover, a pale lime fill and a lime edge (Ancung, 13 Nov: a black edge read
+   harsh, then asked for lime). */
+.btn, .theme-btn { transition: background-color 150ms ease-out, border-color 150ms ease-out; }
+@media (hover: hover) {
+  .btn:hover, .theme-btn:hover {
+    background: color-mix(in oklab, var(--brand) 22%, var(--card));
+    border-color: color-mix(in oklab, var(--brand) 70%, var(--border));
+  }
+}
+.btn:focus-visible, .theme-btn:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+@media (hover: hover) {
+  :root[data-theme="dark"] .btn:hover, :root[data-theme="dark"] .theme-btn:hover { background: color-mix(in oklab, var(--brand) 10%, var(--card)); border-color: color-mix(in oklab, var(--brand) 45%, var(--border)); }
+}
+@media (hover: hover) and (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .btn:hover, :root:not([data-theme="light"]) .theme-btn:hover { background: color-mix(in oklab, var(--brand) 10%, var(--card)); border-color: color-mix(in oklab, var(--brand) 45%, var(--border)); }
 }

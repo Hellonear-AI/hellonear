@@ -32,3 +32,21 @@ export function renderMatrix(markdown: string): string {
     .replace(/<td([^>]*)>Yes<\/td>/g, '<td$1 class="cell-yes"><span class="check"><span aria-hidden="true">✓</span> Yes</span></td>')
     .replace(/<td([^>]*)>N\/A<\/td>/g, '<td$1 class="cell-na">N/A</td>')
 }
+
+export type Cell = { text: string; href?: string }
+
+/**
+ * A Markdown table's header and rows, each cell's text and its link (a "[Yes](url)" cell becomes
+ * { text: "Yes", href }). The Overview draws the scope table itself from this, as a table on wide screens
+ * and as one card per part on phones.
+ */
+export function parseTable(markdown: string): { head: string[]; rows: Cell[][] } {
+  const lines = markdown.split('\n').filter((l) => l.trim().startsWith('|'))
+  const split = (l: string) => l.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim())
+  const cell = (c: string): Cell => {
+    const m = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(c)
+    return m ? { text: m[1], href: m[2] } : { text: c }
+  }
+  const [head, , ...rows] = lines
+  return { head: head ? split(head) : [], rows: rows.map((r) => split(r).map(cell)) }
+}
