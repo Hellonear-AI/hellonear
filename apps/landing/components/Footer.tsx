@@ -9,7 +9,8 @@ const REPO = "https://github.com/Hellonear-AI/hellonear";
 
 const COLUMNS: [string, [string, string][]][] = [
   ["Product", [["Open app", APP_URL], ["Minds", "#minds"], ["How it works", "#how-it-works"], ["Safety", "#safety"], ["Mind Graph", "#skills"]]],
-  ["Project", [["GitHub", REPO], ["README", `${REPO}#readme`], ["Demo video", "#demo"]]],
+  // Docs, Status and Trust open in a new tab (#307, Axel).
+  ["Project", [["GitHub", REPO], ["README", `${REPO}#readme`], ["Docs", "https://docs.hellonear.xyz"], ["Status", "https://status.hellonear.xyz"], ["Trust", "https://trust.hellonear.xyz"], ["Demo video", "#demo"]]],
   ["Built on", [["NEAR", "https://near.org"], ["NEAR AI Cloud", "https://cloud.near.ai"], ["Mastra", "https://mastra.ai"]]],
 ];
 
@@ -89,7 +90,7 @@ function Links({ className, head }: { className: string; head: string }) {
         <div key={title} className="flex flex-col gap-2.5">
           <span className={`font-medium ${head}`}>{title}</span>
           {links.map(([label, href]) => (
-            <a key={label} href={href} {...(href.startsWith("http") ? { target: "_blank", rel: "noopener" } : {})} className={`${className} transition-colors hover:text-[var(--color-accent)]`}>
+            <a key={label} href={href} {...(href.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})} className={`${className} transition-colors hover:text-[var(--color-accent)]`}>
               {label}
             </a>
           ))}
