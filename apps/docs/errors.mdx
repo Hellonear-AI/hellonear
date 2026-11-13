@@ -16,7 +16,7 @@ Every error is JSON: `{ "error": "<code>", ...details }` with an HTTP status. Th
 | `409` | A conflict with the current state, such as `not_awaiting_approval`, `not_running`, `thread_busy`, `wallet_not_empty`, `already_connected` |
 | `413` | `body_too_large` (bodies are at most 256 KB) |
 | `422` | `not_a_quote` (TEE Explorer upload of anything but a hex quote) |
-| `429` | A rate limit: `demo_run_limit`, `demo_rate_limited`, `relay_rate_limited`, `mail_rate_limited` |
+| `429` | A rate limit: `demo_run_limit`, `demo_rate_limited`, `run_rate_limited` (runs per user per hour or day), `daily_capacity_reached` (runs per day for everyone), `auth_rate_limited`, `relay_rate_limited`, `mail_rate_limited` |
 | `503` | A service HelloNear depends on failed |
 
 ## Why 503 and never 502

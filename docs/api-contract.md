@@ -248,7 +248,8 @@ A workflow whose trigger has a `schedule` can run on that cron with nobody watch
 `autopilot` = `{ status: "active" | "paused", cron, timezone, nextFireAt, lastFireAt, lastRunId, pausedFor: [issue] }` (times are ISO strings or `null`).
 
 - **The backend owns the Mind config.** `PUT …/autopilot` stores a copy of `mind` and `input`; send it again whenever the Mind changes (persona, model, skills). If the new config cannot run the workflow, the engine pauses the schedule and returns `409` with the reasons.
-- Issue codes: `no_schedule`, `uses_secrets` (the canvas contains `{{secrets.…}}`: the schedule is stored as plain JSON, so secrets cannot go there yet), `missing_tools`, `invalid_input` (trigger inputs missing or wrong type), `invalid_schedule` (cron/timezone rejected).
+- Issue codes: `no_schedule`, `uses_secrets` (the canvas contains `{{secrets.…}}`: the schedule is stored as plain JSON, so secrets cannot go there yet), `missing_tools`, `invalid_input` (trigger inputs missing or wrong type), `invalid_schedule` (cron/timezone rejected, or a minute field that is not numbers, lists, ranges or steps), `too_frequent`, `too_many_schedules`. Show `message` for a code the app does not know: it is written for the owner.
+- **Limits (14 Nov, engine):** a schedule may fire at most 4 times an hour, at least 15 minutes apart, judged from the cron's minute field alone (so `*/15 * * * *` and `0,30 * * * *` pass; `* * * * *`, `*/5 * * * *` and `0,10 9 * * 1-5` are `too_frequent`). Saving a canvas with such a cron still answers `200`; turning Autopilot on answers `409`, and a job that was on comes back `paused` with `pausedFor: [too_frequent]`. At most 5 jobs on per Mind and 10 per `userId`: one more answers `409` with `too_many_schedules` (a paused job does not count). At most 100 scheduled runs start per `userId` and UTC day (counted in the engine's memory, so a restart starts the day again); a fire over that is skipped without a run or a history entry, though `lastFireAt` / `lastRunId` move on. Jobs turned on before the limits with a faster cron are paused when the engine starts.
 - Saving the canvas again updates the cron of an existing schedule, or pauses it with `pausedFor` if the new canvas cannot run unattended. `enabled: false` pauses; `PUT` again with `enabled: true` resumes.
 - Delivery is best-effort (Mastra docs, checked 4 Nov 2026): a fire can be skipped and is not replayed. The history shows what really ran (from run snapshots).
 - Scheduled runs send no SSE events; show them from `GET …/runs` (poll while a run is `running`). Node ids match the Mind Graph (§4). There is no private badge for scheduled runs: the engine verifies completions only while it reads a live stream.
@@ -401,13 +402,22 @@ Implemented in `apps/be` (#8). Base URL `http://localhost:4000` locally. JSON bo
 
 | Method and path | Body | Response |
 |---|---|---|
-| `POST /v1/auth/challenge` | | `{ message: "Sign in to HelloNear", recipient, nonce }` (`nonce` = 32 bytes base64, single use, 5 min) |
+| `POST /v1/auth/challenge` | | `{ message: "Sign in to HelloNear", recipient, nonce }` (`nonce` = 32 bytes base64, single use, 5 min); `429 auth_rate_limited` after 60 per IP per hour (in memory) **[tested]** |
 | `POST /v1/auth/login` | `{ accountId, publicKey: "ed25519:…", signature: base64, nonce }` | `200 { user: { id, nearAccountId } }` + `Set-Cookie: hn_session` (7 days), or `401 invalid_nonce \| invalid_signature` |
 | `POST /v1/auth/demo` | `{}` | Judge try-out mode (#43), only when the backend runs with `DEMO_MODE=true` (else `404`): `201 { user: { id, nearAccountId: "demo:…", demo: true } }` + the same cookie. A new user each time; `429 demo_rate_limited` after 10 per IP per hour **[tested]** |
 | `POST /v1/auth/logout` | | `204` |
 | `GET /v1/me` | | `{ user }` or `401`; `user.demo: true` for a try-out user |
 
 **Try-out users (#43)** have no wallet login. Their limits: 20 runs each (chat, approve/decline, builder runs; then `429 demo_run_limit { limit }`), 60 runs per IP per hour (`429 demo_rate_limited`), at most 2 sent payments each. Owner actions answer `403 { error: "demo_not_allowed", action }` with `action` = `secrets` \| `create_wallet` \| `set_policy` \| `freeze` \| `autopilot`: show "connect a wallet to do this". Their Minds pay from one shared demo wallet (`GET …/wallet` shows `shared: true`; it already has policy v2). Demo users and everything they made are deleted after 7 days.
+
+**Run limits for every user**, try-out or wallet (a wallet login only needs a free testnet account, so these protect the shared NEAR AI credit). They belong to the hackathon phase on testnet, where the team pays for every run; on mainnet owners pay from their own credits and the owner's balance replaces them. Checked before every chat, approve/decline, builder workflow run, Attack Playground run and Telegram message, after the try-out's own limits:
+
+- `429 { error: "run_rate_limited", limit, window: "hour" | "day" }`: 60 runs per user in the last hour, 300 per user per UTC day. Counted from the user's stored runs; the hourly limit is also counted in memory, where approve/decline answers count too and deleting a Mind gives nothing back.
+- `429 { error: "daily_capacity_reached", limit }`: all users together have used the runs of this UTC day (`RUNS_PER_DAY_GLOBAL`, default 3000, `0` = no cap). It resets at 00:00 UTC. The count is refreshed every 5 seconds, so a burst can pass it by a few runs.
+- Over Telegram the owner gets the bot's usual "couldn't answer that (`<code>`)" message.
+- Autopilot's scheduled runs start inside the engine and never pass the backend, so none of these limits count or stop them.
+
+**[tested: `limits for every user` in `apps/be/test/api.test.ts`, fake engine]**
 
 The FE asks the wallet (NEAR Connect `signMessage`, Meteor first) to sign exactly `{ message, recipient, nonce }` from the challenge, then posts the wallet's `accountId`, `publicKey` and `signature` with the same `nonce`. The key must be a full-access key of the account (checked on the RPC). Login is tested with real NEP-413 signatures and a faked RPC lookup; a Meteor (testnet) login from the FE against the hosted API is proven (8 Nov, Chrome on `http://localhost:3000`, #73), and the session survives a reload. Not checked yet: Safari, other wallets, and the hosted FE calling the API directly (`NEXT_PUBLIC_API_URL`).
 
