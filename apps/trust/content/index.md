@@ -3,7 +3,7 @@ title: Trust Center
 description: How HelloNear keeps an AI agent's money rules out of the model's reach, with every claim linked to something you can check yourself.
 ---
 
-HelloNear gives a person an AI agent that can pay, so the limits that matter sit outside the model: the owner approves, the wallet's policy is checked in a TEE before signing, and every reply carries a proof from NEAR AI Cloud's TEE. This Trust Center lists what is protected, how, and where to check it, without asking you to take our word for it.
+HelloNear gives a person an AI agent that can pay, so the limits that matter sit outside the model: the owner approves, the wallet's policy is checked in a TEE before signing, and every reply carries a proof from NEAR AI Cloud's TEE. This Trust Center lists what is protected, how it is protected, and where each claim can be verified.
 
 ## Scope and controls
 
