@@ -1,5 +1,6 @@
 import { AutoRefresh } from "./AutoRefresh";
-import { GROUPS, HEADLINE, LABEL, ago, bucketLines, duration, incidentDays, incidents, loadStatus, pct, type Service, type Status } from "@/lib/status";
+import { BarSheet } from "./BarSheet";
+import { GROUP_LABEL, GROUPS, HEADLINE, LABEL, ago, bucketLines, duration, incidentDays, incidents, loadStatus, pct, type Service, type Status } from "@/lib/status";
 
 // Rendered on the server and revalidated with the data (lib/status.ts), so the page works without JavaScript.
 export const revalidate = 30;
@@ -9,6 +10,7 @@ export default async function Page() {
   return (
     <main className="wrap">
       <AutoRefresh />
+      <BarSheet />
       <header className="top">
         <a className="brand" href="https://hellonear.xyz">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -16,6 +18,9 @@ export default async function Page() {
           <span>
             HelloNear <span className="muted">Status</span>
           </span>
+        </a>
+        <a className="openapp" href="https://app.hellonear.xyz" target="_blank" rel="noopener noreferrer">
+          Open app
         </a>
       </header>
       {status ? <Board status={status} /> : <Unreachable />}
@@ -47,7 +52,10 @@ function Board({ status }: { status: Status }) {
     <>
       <section className={`banner ${status.overall}`}>
         <h1>{HEADLINE[status.overall]}</h1>
-        <p className="sub">Updated {ago(status.updatedAt)}</p>
+        <p className="sub">
+          <span className="live">Live</span>
+          Updated {ago(status.updatedAt)}, checked every 5 minutes
+        </p>
         {open.length > 0 && (
           <ul className="incidents">
             {open.map((s) => (
@@ -65,7 +73,7 @@ function Board({ status }: { status: Status }) {
         if (services.length === 0) return null;
         return (
           <section key={g} className="group">
-            <h2>{g}</h2>
+            <h2>{GROUP_LABEL[g]}</h2>
             <div className="card">
               {services.map((s) => (
                 <Row key={s.id} s={s} />
@@ -120,12 +128,15 @@ function Row({ s }: { s: Service }) {
     <div className="row">
       <div className="rowtop">
         <span className="name">{s.name}</span>
-        <span className={`state ${s.status}`}>
-          {LABEL[s.status]}
-          {s.latencyMs !== null && s.status !== "down" ? <span className="muted"> · {s.latencyMs} ms</span> : null}
+        {/* The latency in grey, then the state in its colour (no "·" separators, no dots). */}
+        <span className="stateline">
+          {s.latencyMs !== null && s.status !== "down" ? <span className="latency">{s.latencyMs} ms</span> : null}
+          <span className={`state ${s.status}`}>
+            {LABEL[s.status]}
+          </span>
         </span>
       </div>
-      <div className="bars" role="img" aria-label={`${s.name}: last 24 hours, ${pct(s.uptime24h)}`}>
+      <div className="bars" data-service={s.name} role="img" aria-label={`${s.name}: last 24 hours, ${pct(s.uptime24h)}`}>
         {s.history.map((b, i) => {
           const l = bucketLines(b, "en-GB");
           // Tooltips near the edges open inward, so they never run off the card.
@@ -138,7 +149,6 @@ function Row({ s }: { s: Service }) {
                   <span className="tipok">No downtime recorded in this half hour.</span>
                 ) : (
                   <span className={`tipstate ${l.level}`}>
-                    <span className="dot" aria-hidden="true" />
                     {l.state}
                     {l.minutes ? <span className="tipmin">about {l.minutes} min</span> : null}
                   </span>
@@ -160,7 +170,7 @@ function Row({ s }: { s: Service }) {
       {s.status === "down" ? <p className="impact">{s.impact}</p> : null}
       <p className="meta">
         Checked {ago(s.checkedAt)}
-        {s.uptime7d !== null ? ` · 7 days: ${s.uptime7d.toFixed(2)}%` : ""}
+        {s.uptime7d !== null ? `, ${s.uptime7d.toFixed(2)}% over 7 days` : ""}
       </p>
     </div>
   );

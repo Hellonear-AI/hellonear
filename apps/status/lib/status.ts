@@ -26,6 +26,10 @@ export type Status = { updatedAt: string; overall: "operational" | "degraded" | 
 
 export const GROUPS: Service["group"][] = ["HelloNear", "NEAR AI", "NEAR", "Partners"]
 
+// The heading each group shows. The backend's "Partners" group reads "Other services": HelloNear uses these
+// services but has no partnership with them, and the page is public (Axel on the landing's "Our partners", #275).
+export const GROUP_LABEL: Record<Service["group"], string> = { HelloNear: "HelloNear", "NEAR AI": "NEAR AI", NEAR: "NEAR", Partners: "Other services" }
+
 // Read when the page is rendered, so a deploy can point it elsewhere (STATUS_API_URL) without a rebuild of the code.
 export const statusUrl = () => process.env.STATUS_API_URL ?? "https://api.hellonear.xyz/v1/status"
 
@@ -63,6 +67,8 @@ export function incidents(s: Status): Service[] {
 export function ago(iso: string | null, now = Date.now()): string {
   if (!iso) return "never"
   const s = Math.max(0, Math.round((now - Date.parse(iso)) / 1000))
+  // Under 10 s reads "just now" (Ancung, 13 Nov: "Updated 0 s ago" read odd).
+  if (s < 10) return "just now"
   if (s < 60) return `${s} s ago`
   const m = Math.round(s / 60)
   if (m < 60) return `${m} min ago`
