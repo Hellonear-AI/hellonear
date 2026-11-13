@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { TABS, getPage, llmsTxt, normalize, pageMarkdown, pages, sections, slugify } from '../lib/content'
-import { render, renderMatrix } from '../lib/markdown'
+import { parseTable, render, renderMatrix } from '../lib/markdown'
 import { rewriteTarget, wantsMarkdown } from '../proxy'
 
 test('every content page is a tab exactly once', () => {
@@ -68,6 +68,12 @@ test('the scope table renders Yes as a linked check and N/A dimmed', () => {
   const html = renderMatrix('| Scope | X | Y |\n|---|---|---|\n| Chat | [Yes](https://e.test) | N/A |')
   assert.match(html, /class="cell-yes"><a href="https:\/\/e.test"[^>]*class="check"/)
   assert.match(html, /class="cell-na">N\/A</)
+})
+
+test('the Overview reads the scope table cell by cell, keeping each Yes with its proof', () => {
+  const t = parseTable('| Scope | X | Y |\n|---|---|---|\n| Chat | [Yes](https://e.test) | N/A |')
+  assert.deepEqual(t.head, ['Scope', 'X', 'Y'])
+  assert.deepEqual(t.rows, [[{ text: 'Chat' }, { text: 'Yes', href: 'https://e.test' }, { text: 'N/A' }]])
 })
 
 test('proxy: .md and Accept: text/markdown read /md', () => {
