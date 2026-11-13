@@ -9,8 +9,8 @@ const REPO = "https://github.com/Hellonear-AI/hellonear";
 
 const COLUMNS: [string, [string, string][]][] = [
   ["Product", [["Open app", APP_URL], ["Minds", "#minds"], ["How it works", "#how-it-works"], ["Safety", "#safety"], ["Mind Graph", "#skills"]]],
-  // Docs, Status and Trust open in a new tab (#307, Axel).
-  ["Project", [["GitHub", REPO], ["README", `${REPO}#readme`], ["Docs", "https://docs.hellonear.xyz"], ["Status", "https://status.hellonear.xyz"], ["Trust", "https://trust.hellonear.xyz"], ["Demo video", "#demo"]]],
+  // Docs, Status and Trust open in a new tab (#307, Axel); so does HelloNear's X account (#316, Axel).
+  ["Project", [["GitHub", REPO], ["README", `${REPO}#readme`], ["Docs", "https://docs.hellonear.xyz"], ["Status", "https://status.hellonear.xyz"], ["Trust", "https://trust.hellonear.xyz"], ["X", "https://x.com/hellonearai"], ["Demo video", "#demo"]]],
   ["Built on", [["NEAR", "https://near.org"], ["NEAR AI Cloud", "https://cloud.near.ai"], ["Mastra", "https://mastra.ai"]]],
 ];
 
