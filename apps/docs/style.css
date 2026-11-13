@@ -115,3 +115,14 @@ html.dark {
 .hn-steptext { flex-basis: 100%; font-size: 14px; color: var(--hn-text); }
 .hn-steps-alt { font-size: 12px; font-weight: 600; color: var(--hn-sub); padding-top: 4px; }
 .hn-steps-note { font-size: 13px; color: var(--hn-text); background: var(--hn-ours); border: 1px solid var(--hn-ours-line); border-radius: 10px; padding: 8px 12px; }
+
+/* Tech stack: a technology's logo above its name, where the README has one (the README keeps them in a
+   column of their own, mostly empty here, which read as missing). Wordmarks are short, square marks a
+   little taller; dark mode swaps in the white versions, and NEAR AI's black mark is turned white. */
+.hn-logo { display: block; width: auto; max-width: 140px; margin: 2px 0 8px; }
+.hn-word { height: 15px; }
+.hn-mark { height: 22px; }
+.hn-on-dark { display: none; }
+html.dark .hn-on-light { display: none; }
+html.dark .hn-on-dark { display: block; }
+html.dark .hn-invert { filter: invert(1); }
