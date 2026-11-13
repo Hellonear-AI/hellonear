@@ -10,7 +10,8 @@ const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono"
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { default: "HelloNear Trust Center", template: "%s · HelloNear Trust Center" },
+  // "Trust | HelloNear" and "FAQ | Trust | HelloNear", like the web app's "Chat | HelloNear" (Ancung, 13 Nov).
+  title: { default: "Trust | HelloNear", template: "%s | Trust | HelloNear" },
   description: "What protects your data and funds on HelloNear, with a link to check each claim yourself.",
   openGraph: { type: "website", siteName: "HelloNear Trust Center" },
   alternates: { types: { "text/plain": "/llms.txt" } },
@@ -29,15 +30,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <a className="btn" href={DOCS_URL}>Docs</a>
             </div>
           </header>
+          {/* On the page's own background (Ancung, 13 Nov: the black band read like a template), with a
+              faint lime glow, the one accent. */}
           <section className="hero">
             <div className="hero-inner">
-              <h1>Welcome to the HelloNear Trust Center</h1>
+              <p className="eyebrow">Trust Center</p>
+              <h1>The rules about money stay out of the AI&apos;s reach.</h1>
               <p>
-                HelloNear lets an AI agent pay for you while the rules about money stay out of its reach. Here is what protects your data
-                and funds, and a link to check each claim yourself.
+                HelloNear lets an AI agent pay for you. Here is what protects your data and funds, and a link to check each claim
+                yourself.
               </p>
               <p className="hero-links">
-                <a href={`${DOCS_URL}/privacy`}>Privacy</a> · <a href={`${REPO_URL}#security-model`}>Security model</a> ·{" "}
+                <a href={`${DOCS_URL}/privacy`}>Privacy</a>
+                <a href={`${REPO_URL}#security-model`}>Security model</a>
                 <a href={`${DOCS_URL}/contracts`}>Receipts</a>
               </p>
             </div>

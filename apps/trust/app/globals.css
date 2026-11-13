@@ -33,6 +33,22 @@
 }
 
 * { box-sizing: border-box; }
+
+/* Quiet scrollbars, the same as apps/fe and the status page: a thin rounded thumb, no arrows, no track
+   (Ancung, 13 Nov). Chrome and Safari use ::-webkit-scrollbar; setting scrollbar-width there makes Chrome
+   fall back to the system bar, so only Firefox gets those. */
+:root {
+  --scrollbar-thumb: color-mix(in oklab, var(--fg) 22%, transparent);
+  --scrollbar-thumb-hover: color-mix(in oklab, var(--fg) 38%, transparent);
+}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-button { display: none; }
+::-webkit-scrollbar-thumb { border-radius: 9999px; background: var(--scrollbar-thumb); }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+@supports (-moz-appearance: none) {
+  * { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
+}
 html, body { margin: 0; }
 html { scroll-padding-top: 72px; }
 body {
@@ -92,12 +108,21 @@ code, pre { font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, M
 
 /* Trust Center */
 .trust .topbar-links { gap: 8px; }
-.hero { background: var(--hero-bg); color: var(--hero-fg); border-bottom: 4px solid var(--brand); }
-.hero-inner { max-width: 1080px; margin: 0 auto; padding: 48px 16px 40px; }
-.hero h1 { margin: 0 0 12px; font-size: 36px; line-height: 1.15; letter-spacing: -0.8px; max-width: 760px; }
-.hero p { margin: 0 0 12px; max-width: 720px; font-size: 17px; opacity: 0.9; }
-.hero-links a { color: var(--brand); font-weight: 600; }
+/* Hero on the page's own background, a faint lime glow behind it (Ancung, 13 Nov: the black band read
+   like a template). */
+.hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--border); }
+.hero::before { content: ""; position: absolute; inset: -40% -10% auto auto; width: 70%; height: 180%; background: radial-gradient(closest-side, color-mix(in oklab, var(--brand) 22%, transparent), transparent); pointer-events: none; }
+.hero-inner { position: relative; max-width: 1080px; margin: 0 auto; padding: 56px 16px 40px; }
+.eyebrow { margin: 0 0 12px; font-size: 13px; font-weight: 600; color: var(--link); }
+.hero h1 { margin: 0 0 14px; font-size: 44px; line-height: 1.08; letter-spacing: -1.4px; max-width: 760px; }
+.hero p { margin: 0 0 20px; max-width: 620px; font-size: 17px; color: var(--muted); }
+.hero-links { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 !important; }
+.hero-links a { padding: 7px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); text-decoration: none; font-size: 14px; font-weight: 600; color: var(--fg); transition: border-color 150ms ease-out; }
+.hero-links a:hover { border-color: var(--fg); }
 .tabs { border-bottom: 1px solid var(--border); background: var(--bg); position: sticky; top: 60px; z-index: 10; }
+/* Phones: the tabs scroll sideways; a fade at the right edge says there are more. */
+.tabs::after { content: ""; position: absolute; top: 0; right: 0; bottom: 1px; width: 40px; background: linear-gradient(to left, var(--bg), transparent); pointer-events: none; }
+@media (min-width: 700px) { .tabs::after { display: none; } }
 .tabs-inner { max-width: 1080px; margin: 0 auto; padding: 0 16px; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
 .tabs a { padding: 14px 12px; text-decoration: none; color: var(--muted); font-weight: 500; border-bottom: 2px solid transparent; white-space: nowrap; }
 .tabs a:hover { color: var(--fg); }
@@ -132,7 +157,7 @@ code, pre { font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, M
 .faq-controls button { font: inherit; font-size: 14px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--fg); cursor: pointer; }
 .faq-controls button:hover { border-color: var(--fg); }
 .faq-cat { margin-bottom: 28px; }
-.faq-cat > h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); }
+.faq-cat > h3 { margin: 0 0 10px; font-size: 15px; color: var(--muted); }
 .faq-q { background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 8px; }
 .faq-q summary { cursor: pointer; padding: 14px 16px; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
 .faq-q summary::-webkit-details-marker { display: none; }
@@ -145,7 +170,7 @@ code, pre { font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, M
 @media (max-width: 860px) {
   .anchor { display: none; }
   .topbar-links { gap: 12px; }
-  .hero h1 { font-size: 28px; }
+  .hero h1 { font-size: 38px; }
 }
 @media (max-width: 520px) {
   .topbar-links:not(.buttons) a:last-child { display: none; }
@@ -153,3 +178,45 @@ code, pre { font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, M
   .brand-sub { display: none; }
   .cards { grid-template-columns: 1fr; }
 }
+
+/* Overview: the strip of numbers, counted from the content (app/page.tsx). */
+.stats { list-style: none; margin: 0 0 32px; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--border); border-radius: 16px; background: var(--card); overflow: hidden; }
+.stats li { display: flex; flex-direction: column; gap: 2px; padding: 16px 20px; border-left: 1px solid var(--border); }
+.stats li:first-child { border-left: 0; }
+.stat-n { font-size: 28px; font-weight: 600; letter-spacing: -0.6px; font-variant-numeric: tabular-nums; }
+.stat-l { font-size: 13px; color: var(--muted); line-height: 1.35; }
+.lead-note { color: var(--muted); max-width: 760px; }
+
+/* Scope and controls: a table on wide screens, one card per part on phones. */
+.scope-table { overflow-x: auto; border: 1px solid var(--border); border-radius: 16px; background: var(--card); margin: 0 0 12px; }
+.scope-table table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.scope-table th, .scope-table td { padding: 14px 16px; border-top: 1px solid var(--border); text-align: center; vertical-align: middle; }
+.scope-table thead th { border-top: 0; font-size: 13px; font-weight: 600; color: var(--muted); line-height: 1.35; }
+.scope-table tbody th { text-align: left; font-weight: 600; min-width: 190px; }
+.scope-table thead th:first-child { text-align: left; }
+.scope-table tbody tr:hover { background: color-mix(in oklab, var(--fg) 3%, transparent); }
+.yes { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; background: var(--ok-soft); color: var(--ok); font-weight: 600; font-size: 13px; text-decoration: none; white-space: nowrap; transition: box-shadow 150ms ease-out; }
+a.yes:hover { box-shadow: 0 0 0 1px var(--ok); }
+.na { color: var(--muted); font-size: 13px; opacity: 0.7; }
+.scope-after { margin-top: 4px; }
+.scope-cards { display: none; }
+@media (max-width: 700px) {
+  .scope-table { display: none; }
+  .scope-cards { display: flex; flex-direction: column; gap: 12px; margin: 0 0 12px; }
+  .scope-card { border: 1px solid var(--border); border-radius: 16px; background: var(--card); padding: 14px 16px; }
+  .scope-card-title { margin: 0 0 8px; font-weight: 600; }
+  .scope-card ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .scope-card li { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; }
+  .scope-card li.is-na span:first-child { color: var(--muted); }
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .stats li:nth-child(3) { border-left: 0; }
+  .stats li:nth-child(n + 3) { border-top: 1px solid var(--border); }
+  .hero h1 { font-size: 32px; letter-spacing: -0.9px; }
+  .hero-inner { padding: 36px 16px 28px; }
+}
+
+/* Control cards: a small icon in a tinted tile above the title. */
+.ctl-icon { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px; background: color-mix(in oklab, var(--brand) 28%, var(--card)); color: var(--brand-ink); margin-bottom: 12px; }
+@media (prefers-color-scheme: dark) { .ctl-icon { background: color-mix(in oklab, var(--brand) 16%, var(--card)); color: var(--brand); } }
+.ctl { transition: border-color 150ms ease-out; }
+.ctl:hover { border-color: color-mix(in oklab, var(--fg) 30%, var(--border)); }
