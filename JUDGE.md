@@ -83,6 +83,26 @@ Check the registry's code hash without a browser (public RPC, no key). It should
 curl -s https://test.rpc.fastnear.com -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"view_account","finality":"final","account_id":"hellonear-registry.testnet"}}' | jq -r .result.code_hash
 ```
 
+## Security check (14 Nov)
+
+Before submission the team audited HelloNear itself and then attacked the hosted API from outside. It is the team's own work, done with Claude Code; no outside party has audited HelloNear.
+
+| What was done | Result |
+|---|---|
+| Review of the repository, its git history and the public API | No secrets found. Three ways to use up the shared AI credit were found and fixed (run limits for every account, Autopilot limits, a sign-in challenge limit) |
+| Hosting check | The firewall lets only the tunnel host reach the app; Cloudflare DDoS protection and an edge rate limit are on |
+| Threat model | 16 threats mapped to STRIDE and the OWASP Top 10:2025, as a Threagile model that runs, with Sigma detection rules |
+| Attack test from outside, about 220 requests | Reading another user's Mind, forged sessions, CSRF, the internal routes, sign-up and sign-in floods, spoofed IP headers and a prompt injection that orders a payment were all refused. One gap was found (IPv6 addresses were counted one by one by the per-IP limits) and fixed |
+
+Try one yourself, without an account. The first should print `401`, the second `403`:
+
+```sh
+curl -s -o /dev/null -w '%{http_code}\n' https://api.hellonear.xyz/v1/minds
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://api.hellonear.xyz/v1/auth/demo -H 'content-type: application/json' -H 'origin: https://evil.example' -d '{}'
+```
+
+Every attack and the API's answer: [README: Security audit by the team](README.md#security-audit-by-the-team-14-nov-2026-ai-assisted). The threat model, rules and attack templates: [`docs/security/`](docs/security/README.md).
+
 ## Try it through the API
 
 Everything the web app does is a public HTTP API on `https://api.hellonear.xyz`:
