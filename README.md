@@ -559,7 +559,9 @@ On 14 Nov 2026 the team ran a read-only security review of this repository and t
 
 Each fix has tests (`limits for every user` in `apps/be/test/api.test.ts`, `engine/test/autopilot-limits.test.ts`) and ran under the load tests before merge. The limits belong to the [hackathon phase](#hackathon-phase-testnet).
 
-Not covered by this review: the hosted box's firewall and Cloudflare settings (the per-IP limits rely on them), a rate limit at the Cloudflare edge, and the smart contracts beyond their existing tests. No outside party has audited HelloNear.
+The hosting side was checked by the team on 13 and 14 Nov ([#327](https://github.com/Hellonear-AI/hellonear/issues/327)): the box's firewall lets only the tunnel host reach the app ports, so the per-IP limits see the real visitor; Cloudflare's DDoS protection and managed ruleset are on; and an edge rate limit blocks an IP for 10 seconds after 60 API requests in 10 seconds.
+
+Known limits: scheduled Autopilot runs do not count toward the daily total for all users; they are capped at 100 a day per owner by the engine. The smart contracts were not reviewed beyond their existing tests. No outside party has audited HelloNear.
 
 ### What is private, and what HelloNear keeps
 
