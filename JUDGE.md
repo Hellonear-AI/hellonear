@@ -74,6 +74,7 @@ Every step of the swarm auction round (joins with escrow, sealed asks, reveals, 
 | A verified reply's TEE report (NEAR AI Cloud) | [proof.t16z.com/reports/1b374e5b…](https://proof.t16z.com/reports/1b374e5b10031496c6c45bc7749038d7e7cd26a16996455f893b6b5dd44a9db2) |
 | How each track's requirements are met, with how to check | [README: Tracks](README.md#tracks) |
 | Every security layer, with "do this, see that" | [README: Security model](README.md#security-model) |
+| The team's own security audit (14 Nov): what was reviewed, the threat model, the attacks tried against the hosted API and what they found | [README: Security audit by the team](README.md#security-audit-by-the-team-14-nov-2026-ai-assisted) · [`docs/security/`](docs/security/README.md) |
 | What stops one step short of real money on testnet, and why | [README: Hackathon phase](README.md#hackathon-phase-testnet) |
 
 Check the registry's code hash without a browser (public RPC, no key). It should print `GUxsMNJdJKoFq7VJawNeCwW7GjGZE6TpURPj13ojEnub`:
