@@ -1,0 +1,18 @@
+id: hn-t07-internal-routes
+info:
+  name: HelloNear - an internal route answers from the internet
+  author: hellonear-team
+  severity: critical
+  description: T-07. /internal/v1/* must answer 404 to anything that is not loopback. Any other status means cloudflared runs inside the container or the loopback check is gone.
+  tags: hellonear,t07
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/internal/v1/shop/gas-report"
+      - "{{BaseURL}}/internal/v1/wallet/balance"
+      - "{{BaseURL}}/internal/v1/mail/messages"
+    stop-at-first-match: true
+    matchers:
+      - type: dsl
+        dsl:
+          - "status_code != 404"

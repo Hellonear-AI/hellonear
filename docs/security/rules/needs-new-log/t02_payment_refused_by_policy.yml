@@ -1,0 +1,51 @@
+title: HelloNear Payment Refused By The Wallet Policy
+name: hellonear_payment_refused
+id: c77c38ad-e8e2-4ed0-afb4-da4f6b7ec4c7
+status: experimental
+description: DRAFT, needs a log that does not exist yet. Base rule, one event per payment OutLayer refused (policy_denied or wallet_frozen). Refusals are stored in the wallet_payments table but not printed to the journal. Needs one journal line per payment attempt (fields mindId, status, error; no amounts or addresses needed).
+references:
+    - T-02
+author: HelloNear team
+date: 2026-11-14
+tags:
+    - attack.impact
+    - attack.t1657
+logsource:
+    category: application
+    product: hellonear
+    definition: 'Proposed backend line: payment {"mindId","status":"refused","error":"policy_denied"}'
+detection:
+    selection:
+        event: payment
+        status: refused
+        error:
+            - policy_denied
+            - wallet_frozen
+    condition: selection
+falsepositives:
+    - An owner testing their own limits; the README tells judges to try a payment over the limit
+level: low
+---
+title: HelloNear Repeated Refused Payments From One Mind
+id: 86314119-4130-4a4e-a7cb-8006006d464f
+status: experimental
+description: DRAFT. Five or more refused payments from one Mind in an hour. A Mind that keeps trying to pay past its policy may be following injected instructions from an email or a web page.
+references:
+    - T-02
+author: HelloNear team
+date: 2026-11-14
+tags:
+    - attack.impact
+    - attack.t1657
+correlation:
+    type: event_count
+    rules:
+        - hellonear_payment_refused
+    group-by:
+        - mindId
+    timespan: 1h
+    condition:
+        gte: 5
+falsepositives:
+    - The Attack playground, which tries refused payments on purpose
+level: high

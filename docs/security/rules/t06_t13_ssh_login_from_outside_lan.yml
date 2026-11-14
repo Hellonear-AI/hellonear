@@ -1,0 +1,35 @@
+title: SSH Login To The HelloNear Container From A Public Address
+id: 37efbc6e-c2d8-4b46-8abc-f267a7db21fe
+status: experimental
+description: sshd accepted a login from an address that is not private. The container firewall allows SSH from the LAN only, so any accepted login from a public address means the firewall changed or a forward was added. be.env and the deploy path are reachable from that shell.
+references:
+    - T-06
+    - T-13
+author: HelloNear team
+date: 2026-11-14
+tags:
+    - attack.initial-access
+    - attack.t1078
+    - attack.t1021.004
+logsource:
+    product: linux
+    service: sshd
+detection:
+    accepted:
+        - 'Accepted publickey'
+        - 'Accepted password'
+    lan:
+        - ' from 10.'
+        - ' from 192.168.'
+        - ' from 172.16.'
+        - ' from 172.17.'
+        - ' from 172.18.'
+        - ' from 172.19.'
+        - ' from 172.2'
+        - ' from 172.30.'
+        - ' from 172.31.'
+        - ' from 127.0.0.1'
+    condition: accepted and not lan
+falsepositives:
+    - None expected while the firewall rule (SSH from the LAN only) is in place
+level: critical

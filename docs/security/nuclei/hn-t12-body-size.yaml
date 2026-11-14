@@ -1,0 +1,21 @@
+id: hn-t12-body-size
+info:
+  name: HelloNear - a body over 256 KB is accepted
+  author: hellonear-team
+  severity: medium
+  description: T-12. A request body over 256 KB must answer 413. One request of about 300 KB to a route that reads its body (the challenge route ignores the body, so it cannot be used for this check).
+  tags: hellonear,t12
+variables:
+  big: "{{repeat('A', 300000)}}"
+http:
+  - raw:
+      - |
+        POST /v1/auth/login HTTP/1.1
+        Host: {{Hostname}}
+        Content-Type: application/json
+
+        {"pad":"{{big}}"}
+    matchers:
+      - type: dsl
+        dsl:
+          - "status_code != 413"

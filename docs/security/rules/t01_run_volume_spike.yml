@@ -1,0 +1,46 @@
+title: HelloNear Run Volume Spike On The Shared AI Credit
+name: hellonear_run_finished
+id: e939266f-0a6a-4bfe-a06a-c63c4e22cde7
+status: experimental
+description: Base rule. One event per finished run. The backend prints a "run usage" line (tokens and cost, no content) for every run. Used by the correlation rule in this file.
+references:
+    - T-01
+author: HelloNear team
+date: 2026-11-14
+tags:
+    - attack.impact
+    - attack.t1496
+logsource:
+    product: linux
+    service: hellonear-be
+    definition: 'journald, unit hellonear-be.service (journalctl -u hellonear-be)'
+detection:
+    keywords:
+        - 'run usage'
+    condition: keywords
+falsepositives:
+    - None for the base rule; it only counts runs
+level: informational
+---
+title: HelloNear More Than 400 Runs In One Hour
+id: ec828634-3997-44d4-be2c-fa81cd29484f
+status: experimental
+description: More than 400 runs finished in one hour across all users. The daily cap for all users is 3000 (RUNS_PER_DAY_GLOBAL), so this pace would use it up in under 8 hours and lock everyone out with 429 daily_capacity_reached.
+references:
+    - T-01
+author: HelloNear team
+date: 2026-11-14
+tags:
+    - attack.impact
+    - attack.t1496
+correlation:
+    type: event_count
+    rules:
+        - hellonear_run_finished
+    timespan: 1h
+    condition:
+        gte: 400
+falsepositives:
+    - A real traffic peak, for example right after a post about the demo
+    - The backend load test run against the hosted demo by mistake
+level: high
