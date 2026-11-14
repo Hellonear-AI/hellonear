@@ -74,7 +74,7 @@ Every step of the swarm auction round (joins with escrow, sealed asks, reveals, 
 | A verified reply's TEE report (NEAR AI Cloud) | [proof.t16z.com/reports/1b374e5b…](https://proof.t16z.com/reports/1b374e5b10031496c6c45bc7749038d7e7cd26a16996455f893b6b5dd44a9db2) |
 | How each track's requirements are met, with how to check | [README: Tracks](README.md#tracks) |
 | Every security layer, with "do this, see that" | [README: Security model](README.md#security-model) |
-| The team's own security audit (14 Nov): what was reviewed, the threat model, the attacks tried against the hosted API and what they found | [README: Security audit by the team](README.md#security-audit-by-the-team-14-nov-2026-ai-assisted) · [`docs/security/`](docs/security/README.md) |
+| The team's own security audit: what was reviewed, the threat model, the attacks tried against the hosted API and what they found | [README: Security audit by the team](README.md#security-audit-by-the-team-ai-assisted) · [`docs/security/`](docs/security/README.md) |
 | What stops one step short of real money on testnet, and why | [README: Hackathon phase](README.md#hackathon-phase-testnet) |
 
 Check the registry's code hash without a browser (public RPC, no key). It should print `GUxsMNJdJKoFq7VJawNeCwW7GjGZE6TpURPj13ojEnub`:
@@ -83,7 +83,7 @@ Check the registry's code hash without a browser (public RPC, no key). It should
 curl -s https://test.rpc.fastnear.com -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"view_account","finality":"final","account_id":"hellonear-registry.testnet"}}' | jq -r .result.code_hash
 ```
 
-## Security check (14 Nov)
+## Security check
 
 Before submission the team audited HelloNear itself and then attacked the hosted API from outside. It is the team's own work, done with Claude Code; no outside party has audited HelloNear.
 
@@ -101,7 +101,7 @@ curl -s -o /dev/null -w '%{http_code}\n' https://api.hellonear.xyz/v1/minds
 curl -s -o /dev/null -w '%{http_code}\n' -X POST https://api.hellonear.xyz/v1/auth/demo -H 'content-type: application/json' -H 'origin: https://evil.example' -d '{}'
 ```
 
-Every attack and the API's answer: [README: Security audit by the team](README.md#security-audit-by-the-team-14-nov-2026-ai-assisted). The threat model, rules and attack templates: [`docs/security/`](docs/security/README.md).
+Every attack and the API's answer: [README: Security audit by the team](README.md#security-audit-by-the-team-ai-assisted). The threat model, rules and attack templates: [`docs/security/`](docs/security/README.md).
 
 ## Try it through the API
 

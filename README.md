@@ -48,7 +48,7 @@ HelloNear gives a person a **Mind**: an AI agent with a persona, memory, skills 
 **[API reference](#api-reference)** ·
 **[Hackathon phase](#hackathon-phase-testnet)**
 
-Built at **NEAR HACKATHON** (1 to 14 Nov 2026) for six tracks: `security`, `privacy`, `agents`, `swarms`, `business`, `realworld`.<br>1,000+ commits and 189 merged pull requests since the hackathon started.
+Built at **NEAR HACKATHON** (1 to 14 Nov 2026) for six tracks: `security`, `privacy`, `agents`, `swarms`, `business`, `realworld`.<br>1,000+ commits and 210+ merged pull requests since the hackathon started.
 
 <br>
 
@@ -258,7 +258,7 @@ To rebuild it yourself (needs Docker): `git checkout 95c2b3d && cd sc && cargo n
 
 ### The swarm auction: one real round on testnet
 
-The group-buying auction contract (`sc/swarm`, rules in [`RULES.md`](sc/swarm/RULES.md)) is deployed at **[`auction.hellonear-swarm.testnet`](https://testnet.nearblocks.io/address/auction.hellonear-swarm.testnet?tab=contract)**. It was built reproducibly from commit `64c9278`, and its **source is verified** through SourceScan (code hash `6Wn9K6b3DtoH4TnoXs2jx6zFzihdzFDQGw4ae2dzcCv1`, deploy [`FkvHpxf9…`](https://testnet.nearblocks.io/txns/FkvHpxf9ff8LBeMcLEqSbhmFUbhcx5PebyG3qzJdQAwo)). Every agent is its own sub-account of `hellonear-swarm.testnet`. Round 0 (13 Nov 2026) had 3 buyers wanting 6 "gpu-hours", a ceiling of 0.01 NEAR per unit, and 2 sellers bidding sealed asks:
+The group-buying auction contract (`sc/swarm`, rules in [`RULES.md`](sc/swarm/RULES.md)) is deployed at **[`auction.hellonear-swarm.testnet`](https://testnet.nearblocks.io/address/auction.hellonear-swarm.testnet?tab=contract)**. It was built reproducibly from commit `64c9278`, and its **source is verified** through SourceScan (code hash `6Wn9K6b3DtoH4TnoXs2jx6zFzihdzFDQGw4ae2dzcCv1`, deploy [`FkvHpxf9…`](https://testnet.nearblocks.io/txns/FkvHpxf9ff8LBeMcLEqSbhmFUbhcx5PebyG3qzJdQAwo)). Every agent is its own sub-account of `hellonear-swarm.testnet`. Round 0 had 3 buyers wanting 6 "gpu-hours", a ceiling of 0.01 NEAR per unit, and 2 sellers bidding sealed asks:
 
 | Step | Who | Transaction | What it shows |
 |---|---|---|---|
@@ -538,11 +538,11 @@ Each layer stops an attack on its own; the ones further down do not trust the on
 **Why not a capped function-call key?** NEAR function-call access keys cannot transfer NEAR, and their `allowance` is a gas budget for the key's whole life, not a spending cap ([docs](https://docs.near.org/protocol/accounts-contracts/access-keys)). The spending rules therefore live in the wallet's policy, which OutLayer checks in its TEE before every signature.
 
 
-### Security audit by the team (14 Nov 2026, AI-assisted)
+### Security audit by the team (AI-assisted)
 
 **HelloNear was audited by its own team before submission, and the hosted API was then attacked from outside to check that the defences hold.** Everything is in this repository so anyone can repeat it: the threat model, the detection rules, the attack templates and the results are in [`docs/security/`](docs/security/README.md).
 
-It was done on 14 Nov 2026 with Claude Code (Claude Opus 5.5 for the review, Claude Fable 5.2 for the fixes, the threat model and the attack test), and a human approved every change. It is an internal audit: **no outside party has audited HelloNear.** It has three parts:
+It was done before submission with Claude Code (Claude Opus 5.5 for the review, Claude Fable 5.2 for the fixes, the threat model and the attack test), and a human approved every change. It is an internal audit: **no outside party has audited HelloNear.** It has three parts:
 
 1. **Review** of this repository and the hosted API: leaked secrets, what the public API gives away, and ways to exhaust the shared NEAR AI credit or overload the API (the two tables below).
 2. **Threat model** of the hosted demo: 16 threats mapped to STRIDE and the OWASP Top 10:2025, as a [Threagile](https://threagile.io) model that runs (`docs/security/threagile.yaml`), with Sigma detection rules for the high ones.
@@ -566,7 +566,7 @@ It was done on 14 Nov 2026 with Claude Code (Claude Opus 5.5 for the review, Cla
 
 Each fix has tests (`limits for every user` in `apps/be/test/api.test.ts`, `engine/test/autopilot-limits.test.ts`) and ran under the load tests before merge. The limits belong to the [hackathon phase](#hackathon-phase-testnet).
 
-| Attack tried from outside (14 Nov) | What the hosted API answered |
+| Attack tried from outside | What the hosted API answered |
 |---|---|
 | One guest reads, changes, deletes or chats with another guest's Mind (7 routes) | `404` every time |
 | A forged, missing or SQL-like session cookie | `401` |
@@ -582,7 +582,7 @@ Each fix has tests (`limits for every user` in `apps/be/test/api.test.ts`, `engi
 
 The attack test found one real gap (the IPv6 row above), which is fixed. It also showed what is still missing: these refusals are not written to a log the team can query, because the backend logs only its `5xx` answers. An access log is planned for after judging.
 
-The hosting side was checked by the team on 13 and 14 Nov ([#327](https://github.com/Hellonear-AI/hellonear/issues/327)): the box's firewall lets only the tunnel host reach the app ports, so the per-IP limits see the real visitor; Cloudflare's DDoS protection and managed ruleset are on; and an edge rate limit blocks an IP for 10 seconds after 60 API requests in 10 seconds.
+The hosting side was checked by the team ([#327](https://github.com/Hellonear-AI/hellonear/issues/327)): the box's firewall lets only the tunnel host reach the app ports, so the per-IP limits see the real visitor; Cloudflare's DDoS protection and managed ruleset are on; and an edge rate limit blocks an IP for 10 seconds after 60 API requests in 10 seconds.
 
 Known limits: scheduled Autopilot runs do not count toward the daily total for all users; they are capped at 100 a day per owner by the engine. A client with both IPv4 and IPv6 gets two per-IP allowances. Requests the API refuses (`4xx`) are not logged yet. The smart contracts were not reviewed beyond their existing tests. No outside party has audited HelloNear.
 
@@ -715,7 +715,7 @@ The web app is a client of a public HTTP API, and everything it does can be done
 - **Auth:** a session cookie, `hn_session`. Get one with `POST /v1/auth/demo` (guest, no wallet) or with a NEAR wallet: `POST /v1/auth/challenge`, sign the message (NEP-413), then `POST /v1/auth/login`. `curl` works as is (no `Origin` header); a browser page on another site gets `403` for any call that changes something (CSRF protection).
 - **Streams:** chat, approve/decline, workflow runs and attack runs answer `text/event-stream`: `run.started`, `text.delta`, `tool.called`, `tool.result`, `tool.approval_required`, `run.finished`, `run.verified` and more.
 - **Guests** get `403 demo_not_allowed` for owner actions (wallet policy, freeze, memory edits, rules, schedules); everything else works.
-- **Checked live:** the last column marks the endpoints called against the hosted API with a guest session on 12 Nov 2026 and answered as documented (owner-only and money-moving endpoints are covered by the backend's integration tests instead).
+- **Checked live:** the last column marks the endpoints called against the hosted API with a guest session and answered as documented (owner-only and money-moving endpoints are covered by the backend's integration tests instead).
 
 **System**
 
@@ -938,7 +938,7 @@ Payments also need `DEMO_OUTLAYER_API_KEY` (an OutLayer wallet's agent key) in `
 
 All code in this repository was written from 25 Oct 2026 (first commit), after the hackathon was announced on 19 Oct. There is no earlier baseline.
 
-**1,000+ commits since the hackathon started:** on 13 Nov 2026, `main` had 1,188 commits since 1 Nov (945 without merge commits) and 189 merged pull requests, each reviewed and tested before merge. Check it with `git rev-list --count --since=2026-11-01 main`.
+**1,000+ commits since the hackathon started:** at submission, `main` had more than 1,290 commits since the hackathon started (more than 1,020 without merge commits) and more than 210 merged pull requests, each reviewed and tested before merge. Check it with `git rev-list --count --since=2026-11-01 main`.
 
 **Libraries:** `@mastra/core` 1.81, `@mastra/memory`, `@mastra/pg`, `@ai-sdk/openai-compatible`, `@nearai/inference-sdk`, `@defuse-protocol/one-click-sdk-typescript` 0.1.26 (engine); `near-api-js` 7.4, `pg`, `zod` (backend); Next.js 16, React 19, `@hot-labs/near-connect`, `near-connect-hooks`, `@xyflow/react`, GSAP, shadcn (web app); `near-sdk` 5.29, `near-sandbox`, `near-api` (contract tests).
 
