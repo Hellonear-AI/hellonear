@@ -210,7 +210,13 @@ function HeroCopy() {
                   </svg>
                 </span>
               </a>
-              <a href="#demo" className="hero-btn hero-btn-ghost hero-btn-lg justify-center">
+              {/* The demo post on X, in a new tab (#334): the "Two minutes with a Mind" card has no video yet. */}
+              <a
+                href="https://x.com/hellonearai/status/2121301045540450520"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hero-btn hero-btn-ghost hero-btn-lg justify-center"
+              >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <path d="M7 4.5v15l13-7.5z" />
                 </svg>
