@@ -22,6 +22,10 @@ function hit(key: string, max: number, now = Date.now()): boolean {
   windows.set(key, recent)
   return true
 }
+// True when the window is already at `max`; records nothing.
+function full(key: string, max: number, now = Date.now()): boolean {
+  return (windows.get(key) ?? []).filter((t) => t > now - 3600_000).length >= max
+}
 export const resetDemoWindows = () => { windows.clear(); today = { day: '', n: 0, at: 0 } }
 // Drops keys with no hit in the last hour, so one-off visitors do not stay in memory until a restart.
 export function sweepDemoWindows(now = Date.now()): number {
@@ -82,8 +86,13 @@ export async function assertRunAllowed(user: User, req: IncomingMessage) {
   if (mine.hour >= limits.runsPerUserPerHour) throw new HttpError(429, 'run_rate_limited', { limit: limits.runsPerUserPerHour, window: 'hour' })
   if (mine.day >= limits.runsPerUserPerDay) throw new HttpError(429, 'run_rate_limited', { limit: limits.runsPerUserPerDay, window: 'day' })
   if (limits.runsPerDayGlobal > 0 && (await runsToday(now)) >= limits.runsPerDayGlobal) throw new HttpError(429, 'daily_capacity_reached', { limit: limits.runsPerDayGlobal })
-  if (user.demo && !hit(`run:${clientIp(req)}`, config.demo.runsPerIpPerHour)) throw new HttpError(429, 'demo_rate_limited')
-  if (!hit(`user-run:${user.id}`, limits.runsPerUserPerHour)) throw new HttpError(429, 'run_rate_limited', { limit: limits.runsPerUserPerHour, window: 'hour' })
+  // Check both windows before recording either, so a refused run uses up no slot.
+  const ipKey = `run:${clientIp(req)}`
+  const userKey = `user-run:${user.id}`
+  if (user.demo && full(ipKey, config.demo.runsPerIpPerHour, now)) throw new HttpError(429, 'demo_rate_limited')
+  if (full(userKey, limits.runsPerUserPerHour, now)) throw new HttpError(429, 'run_rate_limited', { limit: limits.runsPerUserPerHour, window: 'hour' })
+  if (user.demo) hit(ipKey, config.demo.runsPerIpPerHour, now)
+  hit(userKey, limits.runsPerUserPerHour, now)
   today.n++
 }
 

@@ -1708,6 +1708,33 @@ describe('limits for every user', () => {
     }
   }))
 
+  test('a run refused by the per-user window uses no slot of the per-IP window', () => limited(async () => {
+    const guest = async () => {
+      const res = await client()('POST', '/v1/auth/demo', {}, { ...origin, 'cf-connecting-ip': `203.0.113.${1 + Math.floor(Math.random() * 250)}` })
+      assert.equal(res.status, 201, await res.clone().text())
+      return { cookie: '', accountId: '', call: client(res.headers.get('set-cookie')!.split(';')[0]) } as Client
+    }
+    const fromIp = (c: Client, mindId: string) => c.call('POST', `/v1/minds/${mindId}/chat`, { message: 'hi' }, { ...origin, 'cf-connecting-ip': '192.0.2.77' })
+    const savedDemo = { ...config.demo }
+    try {
+      config.demo.runsPerIpPerHour = 2
+      config.limits.runsPerUserPerHour = 1
+      const g1 = await guest()
+      const g2 = await guest()
+      const [m1, m2] = [await mindOf(g1), await mindOf(g2)]
+      await ok(await fromIp(g1, m1))
+      // Without the stored run (as after deleting a Mind) only the in-memory per-user window refuses.
+      await query('delete from runs where mind_id = $1', [m1])
+      const res = await fromIp(g1, m1)
+      assert.equal(res.status, 429)
+      assert.deepEqual(await res.json(), { error: 'run_rate_limited', limit: 1, window: 'hour' })
+      // The refused run above did not take the IP's second slot.
+      await ok(await fromIp(g2, m2))
+    } finally {
+      Object.assign(config.demo, savedDemo)
+    }
+  }))
+
   test('sign-in challenges per IP per hour', () => limited(async () => {
     config.limits.challengesPerIpPerHour = 2
     const from = (ip: string) => client()('POST', '/v1/auth/challenge', {}, { 'cf-connecting-ip': ip })
