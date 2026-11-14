@@ -3,7 +3,7 @@ title: "API overview"
 description: "How the public HTTP API works, every route, and where the OpenAPI spec lives."
 ---
 
-The web app is a client of a public HTTP API, and everything it does can be done with `curl`. The full spec is **[`docs/openapi.json`](https://github.com/Hellonear-AI/hellonear/blob/main/docs/openapi.json)** (OpenAPI 3.1, 63 operations): open it in [Swagger Editor](https://editor.swagger.io/?url=https://raw.githubusercontent.com/Hellonear-AI/hellonear/main/docs/openapi.json) or any OpenAPI viewer to read every route and try it against the hosted API. Every server-sent event type is described in [`docs/api-contract.md`](https://github.com/Hellonear-AI/hellonear/blob/main/docs/api-contract.md) §3.
+The web app is a client of a public HTTP API, and everything it does can be done with `curl`. The full spec is **[`docs/openapi.json`](https://github.com/Hellonear-AI/hellonear/blob/main/docs/openapi.json)** (OpenAPI 3.1, 64 operations): open it in [Swagger Editor](https://editor.swagger.io/?url=https://raw.githubusercontent.com/Hellonear-AI/hellonear/main/docs/openapi.json) or any OpenAPI viewer to read every route and try it against the hosted API. Every server-sent event type is described in [`docs/api-contract.md`](https://github.com/Hellonear-AI/hellonear/blob/main/docs/api-contract.md) §3.
 
 - **Base URL:** `https://api.hellonear.xyz` (NEAR testnet), or `http://localhost:4000`.
 - **Auth:** a session cookie, `hn_session`. Get one with `POST /v1/auth/demo` (guest, no wallet) or with a NEAR wallet: `POST /v1/auth/challenge`, sign the message (NEP-413), then `POST /v1/auth/login`. `curl` works as is (no `Origin` header); a browser page on another site gets `403` for any call that changes something (CSRF protection).
