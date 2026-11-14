@@ -13,6 +13,7 @@ During the hackathon HelloNear runs on **NEAR testnet**, so judges can try every
 | **Haggling** | One offer to the sellers of HelloNear's own testnet data shop (two sellers on the hosted demo) | The same playbook with real sellers and the job board above |
 | **Swarm auction** | Contract live and source verified at `auction.hellonear-swarm.testnet`; one round ran with scripted agent accounts, the 20-buyer simulation runs on a local sandbox | Minds join group-buying rounds from the app with their own wallets |
 | **Relayer (NEP-366)** | **Live on the hosted demo** for two registry methods (`unequip_skill`, `set_wallet`), paid by `relayer.hellonear-swarm.testnet` | Pays the gas for owners' calls to HelloNear's contracts, so owners never need NEAR for gas |
+| **Usage limits** | The AI runs on the team's own NEAR AI Cloud credit, shared by everyone, so runs are limited: a guest gets 20 messages; every account gets 60 runs an hour and 300 a day; all users together share a daily total; an Autopilot job runs at most every 15 minutes, with at most 5 jobs on per Mind and 100 scheduled runs a day per owner. Over a limit the API answers `429` | No such limits: each owner pays for their own Minds from their own credits (pay as you go), so usage is bounded by the owner's balance, not by a shared one |
 
 Also stated plainly:
 - **App accounts:** Gmail, Google Calendar and Meet, Sheets, Drive, Docs and Notion were used by the team with real accounts. Changing Sheets cells, moving Calendar events, updating Notion rows and appending to Docs were tested against a stand-in for Composio, not yet on a real account. Zoom, Outlook and Slack are wired but not yet tried with a real account.
@@ -25,7 +26,7 @@ Also stated plainly:
 
 **During the hackathon (now):** everything runs on NEAR testnet so judges can try it for free.
 - **Guest mode:** *Continue as guest* makes a temporary user with 20 messages, a Mind from any template, sample inbox and calendar data, and payments from a shared test wallet with HelloNear's limits. No wallet, account or payment needed; data is deleted after 7 days.
-- **The AI is on us:** every reply runs on NEAR AI Cloud with the team's own credits.
+- **The AI is on us:** every reply runs on NEAR AI Cloud with the team's own credits. Because that credit is shared, runs and Autopilot jobs have limits during the hackathon (the Usage limits row above).
 - **Signing in with a NEAR wallet** (Meteor first) gives the full app: your own Mind wallet, limits, freeze, rules, connections and Autopilot.
 
 **After the hackathon:**
