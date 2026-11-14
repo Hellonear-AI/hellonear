@@ -4,5 +4,10 @@ next-env.d.ts
 *.tsbuildinfo
 .env
 
-# the demo video is large: host it (NEXT_PUBLIC_DEMO_VIDEO_URL) or add it on purpose
-public/demo/
+# The demo film is committed on purpose (#334): demo-1080.webm, demo-720.webm, demo-720.mp4 and
+# demo-poster.webp. Anything else dropped in public/demo/ (old drafts, big masters) stays local.
+public/demo/*
+!public/demo/demo-1080.webm
+!public/demo/demo-720.webm
+!public/demo/demo-720.mp4
+!public/demo/demo-poster.webp
