@@ -3,6 +3,7 @@
 // demo wallet alive: runs per demo user, runs and sign-ups per IP per hour, sent payments per demo user.
 // The run limits for every user (try-out or wallet) and the sign-in challenge limit live here too (`config.limits`).
 import type { IncomingMessage } from 'node:http'
+import { isIPv6 } from 'node:net'
 import { config } from './config.ts'
 import { newId, randomToken, sha256 } from './crypto.ts'
 import { query } from './db.ts'
@@ -11,7 +12,19 @@ import type { User } from './auth.ts'
 
 // Behind the Cloudflare Tunnel the visitor's address is in CF-Connecting-IP; the container firewall only lets the
 // tunnel host reach the backend, so the header cannot be set by anyone else there.
-export const clientIp = (req: IncomingMessage) => String(req.headers['cf-connecting-ip'] ?? req.socket.remoteAddress ?? 'unknown')
+// What the per-IP limits count. An IPv6 customer gets a whole /64 (2^64 addresses) and can send each request from a
+// new one, so an IPv6 address counts as its /64. IPv4, and IPv4 written as ::ffff:a.b.c.d, count as the address.
+export function ipKey(ip: string): string {
+  const addr = ip.split('%')[0]
+  if (!isIPv6(addr)) return ip
+  const mapped = addr.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i)
+  if (mapped) return mapped[1]
+  const [head, tail] = addr.split('::')
+  const h = head ? head.split(':') : []
+  const groups = tail === undefined ? h : [...h, ...Array(Math.max(0, 8 - h.length - (tail ? tail.split(':').length : 0))).fill('0'), ...(tail ? tail.split(':') : [])]
+  return `${groups.slice(0, 4).map((g) => g.toLowerCase().replace(/^0+(?=.)/, '')).join(':')}::/64`
+}
+export const clientIp = (req: IncomingMessage) => ipKey(String(req.headers['cf-connecting-ip'] ?? req.socket.remoteAddress ?? 'unknown'))
 
 // In memory: one backend instance. A restart forgets the hourly windows, the per-user limits are in the DB.
 const windows = new Map<string, number[]>()

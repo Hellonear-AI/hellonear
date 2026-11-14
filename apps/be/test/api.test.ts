@@ -1735,6 +1735,26 @@ describe('limits for every user', () => {
     }
   }))
 
+  test('per-IP limits count an IPv6 address as its /64, so a new address in the same network is the same client', () => limited(async () => {
+    const { ipKey } = await import('../src/demo.ts')
+    assert.equal(ipKey('203.0.113.9'), '203.0.113.9')
+    assert.equal(ipKey('::ffff:203.0.113.9'), '203.0.113.9')
+    assert.equal(ipKey('2001:db8:1:2:aaaa:bbbb:cccc:dddd'), '2001:db8:1:2::/64')
+    assert.equal(ipKey('2001:0DB8:0001:0002::1'), '2001:db8:1:2::/64')
+    assert.equal(ipKey('2001:db8::1'), '2001:db8:0:0::/64')
+    assert.equal(ipKey('::1'), '0:0:0:0::/64')
+    assert.equal(ipKey('unknown'), 'unknown')
+
+    config.limits.challengesPerIpPerHour = 2
+    const from = (ip: string) => client()('POST', '/v1/auth/challenge', {}, { 'cf-connecting-ip': ip })
+    assert.equal((await from('2001:db8:7:7::1')).status, 200)
+    assert.equal((await from('2001:db8:7:7:1234:5678:9abc:def0')).status, 200)
+    const res = await from('2001:db8:7:7::beef')
+    assert.equal(res.status, 429, 'a third address in the same /64 is refused')
+    assert.deepEqual(await res.json(), { error: 'auth_rate_limited' })
+    assert.equal((await from('2001:db8:7:8::1')).status, 200, 'another /64 is another client')
+  }))
+
   test('sign-in challenges per IP per hour', () => limited(async () => {
     config.limits.challengesPerIpPerHour = 2
     const from = (ip: string) => client()('POST', '/v1/auth/challenge', {}, { 'cf-connecting-ip': ip })
