@@ -264,6 +264,9 @@
         "responses": {
           "200": {
             "description": "`{ message, recipient, nonce }` (nonce: 32 bytes base64, single use, 5 minutes)"
+          },
+          "429": {
+            "description": "`auth_rate_limited` (60 challenges per IP per hour)"
           }
         },
         "security": []
@@ -619,6 +622,9 @@
           },
           "401": {
             "description": "Not signed in"
+          },
+          "429": {
+            "description": "`run_rate_limited { limit, window: \"hour\" | \"day\" }` (60 runs per user per hour, 300 per UTC day) | `daily_capacity_reached { limit }` (all users together, per UTC day) | try-out users: `demo_run_limit { limit }`, `demo_rate_limited`"
           }
         },
         "parameters": [
@@ -989,6 +995,9 @@
           },
           "401": {
             "description": "Not signed in"
+          },
+          "429": {
+            "description": "`run_rate_limited { limit, window: \"hour\" | \"day\" }` (60 runs per user per hour, 300 per UTC day) | `daily_capacity_reached { limit }` (all users together, per UTC day) | try-out users: `demo_run_limit { limit }`, `demo_rate_limited`"
           }
         },
         "parameters": [
@@ -1043,6 +1052,9 @@
           },
           "401": {
             "description": "Not signed in"
+          },
+          "429": {
+            "description": "`run_rate_limited { limit, window: \"hour\" | \"day\" }` (60 runs per user per hour, 300 per UTC day) | `daily_capacity_reached { limit }` (all users together, per UTC day) | try-out users: `demo_run_limit { limit }`, `demo_rate_limited`"
           }
         },
         "parameters": [
@@ -1806,6 +1818,9 @@
           },
           "401": {
             "description": "Not signed in"
+          },
+          "429": {
+            "description": "`run_rate_limited { limit, window: \"hour\" | \"day\" }` (60 runs per user per hour, 300 per UTC day) | `daily_capacity_reached { limit }` (all users together, per UTC day) | try-out users: `demo_run_limit { limit }`, `demo_rate_limited`"
           }
         },
         "parameters": [
@@ -2293,6 +2308,9 @@
           },
           "401": {
             "description": "Not signed in"
+          },
+          "429": {
+            "description": "`run_rate_limited { limit, window: \"hour\" | \"day\" }` (60 runs per user per hour, 300 per UTC day) | `daily_capacity_reached { limit }` (all users together, per UTC day) | try-out users: `demo_run_limit { limit }`, `demo_rate_limited`"
           }
         },
         "parameters": [

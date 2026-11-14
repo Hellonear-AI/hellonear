@@ -22,7 +22,7 @@ import { issueMailToken, issueWalletToken, verifyMailToken, verifyWalletToken } 
 import { EMAIL_SKILL, ensureInbox, inboxOf, listMail, listSends, mailEnabled, messageIdSchema, ownerMailSchema, readMail, releaseInbox, sendMail, sendMailSchema, sendMailToOwner } from './mail.ts'
 import { deleteThread, listThreads, parseCursor, renameThread, sweepDeletedThreads, threadExists, threadMessages, threadTitleSchema } from './threads.ts'
 import { connectTelegram, disconnectTelegram, outcomeOf, registerTelegramWebhooks, startTelegramPolling, telegramStatus, telegramTokenSchema, telegramWebhook, type MindRunner } from './telegram.ts'
-import { assertDemoRunAllowed, cleanupDemoUsers, createDemoUser, demoPaymentCap, denyDemo } from './demo.ts'
+import { assertChallengeAllowed, assertRunAllowed, cleanupDemoUsers, createDemoUser, demoPaymentCap, denyDemo } from './demo.ts'
 import type { User } from './auth.ts'
 import { EventEmitter } from 'node:events'
 import type { IncomingMessage, ServerResponse } from 'node:http'
@@ -112,7 +112,7 @@ async function withInbox(user: User, mind: Mind): Promise<{ mind: Mind; inboxErr
 async function resumeRun(user: User, found: { runId: string; mindId: string; threadId: string | null }, action: 'approve' | 'decline', body: z.infer<typeof resumeSchema>, req: IncomingMessage, res: ServerResponse) {
   if (!(await isAwaiting(found.runId, body.toolCallId))) throw new HttpError(409, 'not_awaiting_approval')
   const mind = await requireMind(user.id, found.mindId)
-  await assertDemoRunAllowed(user, req)
+  await assertRunAllowed(user, req)
   const claimed = await query(`update runs set status = 'running' where id = $1 and status = 'awaiting_approval' returning 1`, [found.runId])
   if (!claimed.length) throw new HttpError(409, 'not_awaiting_approval')
   const release = () => query(`update runs set status = 'awaiting_approval' where id = $1 and status = 'running'`, [found.runId])
@@ -179,7 +179,7 @@ export const runTelegramChat: MindRunner['chat'] = async (mindId, threadId, text
   const mind = await requireMind(user.id, mindId)
   const fakeReq = telegramReq(user, mindId)
   try {
-    await assertDemoRunAllowed(user, fakeReq)
+    await assertRunAllowed(user, fakeReq)
   } catch (e) {
     return failedRun(thread, e instanceof HttpError ? e.message : 'error')
   }
@@ -227,7 +227,10 @@ export const server = createServer(async (req, res) => {
     }
 
     // Auth (#8)
-    if (route('POST', /^\/v1\/auth\/challenge$/)) return sendJson(res, 200, await createChallenge())
+    if (route('POST', /^\/v1\/auth\/challenge$/)) {
+      assertChallengeAllowed(req)
+      return sendJson(res, 200, await createChallenge())
+    }
     if (route('POST', /^\/v1\/auth\/login$/)) {
       const { user, token } = await login(await readBody(req, loginSchema))
       setCookie(res, SESSION_COOKIE, token, config.sessionTtlMs)
@@ -397,7 +400,7 @@ export const server = createServer(async (req, res) => {
         throw new HttpError(404, 'unknown_attack')
       }
       const mind = await playgroundMind(user.id, attack)
-      await assertDemoRunAllowed(user, req)
+      await assertRunAllowed(user, req)
       const threadId = `thr_${newId('x').slice(2)}`
       // Stop (#121) works on attack runs too.
       const controller = new AbortController()
@@ -526,7 +529,7 @@ export const server = createServer(async (req, res) => {
           throw new HttpError(404, 'thread_not_found')
         }
         const threadId = body.threadId ?? `thr_${newId('x').slice(2)}`
-        await assertDemoRunAllowed(user, req)
+        await assertRunAllowed(user, req)
         const controller = new AbortController()
         const engineRes = await engineFetch(`/v1/minds/${encodeURIComponent(mind.id)}/chat`, {
           method: 'POST', signal: controller.signal,
@@ -584,7 +587,7 @@ export const server = createServer(async (req, res) => {
         }
         if (wf[2] === '/runs' && req.method === 'POST') {
           const body = await readBody(req, runSchema)
-          await assertDemoRunAllowed(user, req)
+          await assertRunAllowed(user, req)
           const controller = new AbortController()
           const engineRes = await engineFetch(`${p}/runs`, { method: 'POST', signal: controller.signal, body: { userId: user.id, mind: mindConfig(mind), secrets: await secretsForRun(user.id), input: body.input, ...timeZoneOf(body), ...(await runExtras(user, mind.id)) } })
           return relayRun(req, res, engineRes, { mindId: mind.id, workflowId: id.data, controller })
