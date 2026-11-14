@@ -5,7 +5,7 @@ description: "What the team reviewed before submission, the threat model, every 
 
 **HelloNear was audited by its own team before submission, and the hosted API was then attacked from outside to check that the defences hold.** Everything is in the public repository so anyone can repeat it: the threat model, the detection rules, the attack templates and the results are in [`docs/security/`](https://github.com/Hellonear-AI/hellonear/tree/main/docs/security).
 
-It was done on 14 Nov 2026 with Claude Code (Claude Opus 5.5 for the review, Claude Fable 5.2 for the fixes, the threat model and the attack test), and a human approved every change. It is an internal audit: **no outside party has audited HelloNear.** It has three parts:
+It was done before submission with Claude Code (Claude Opus 5.5 for the review, Claude Fable 5.2 for the fixes, the threat model and the attack test), and a human approved every change. It is an internal audit: **no outside party has audited HelloNear.** It has three parts:
 
 1. **Review** of the repository and the hosted API: leaked secrets, what the public API gives away, and ways to exhaust the shared NEAR AI credit or overload the API (the two tables below).
 2. **Threat model** of the hosted demo: 16 threats mapped to STRIDE and the OWASP Top 10:2025, as a [Threagile](https://threagile.io) model that runs ([`threagile.yaml`](https://github.com/Hellonear-AI/hellonear/blob/main/docs/security/threagile.yaml)), with Sigma detection rules for the high ones.
@@ -29,7 +29,7 @@ It was done on 14 Nov 2026 with Claude Code (Claude Opus 5.5 for the review, Cla
 
 Each fix has tests (`limits for every user` in `apps/be/test/api.test.ts`, `engine/test/autopilot-limits.test.ts`) and ran under the load tests before merge. The limits belong to the [hackathon phase](/hackathon-phase).
 
-| Attack tried from outside (14 Nov) | What the hosted API answered |
+| Attack tried from outside | What the hosted API answered |
 |---|---|
 | One guest reads, changes, deletes or chats with another guest's Mind (7 routes) | `404` every time |
 | A forged, missing or SQL-like session cookie | `401` |
@@ -45,7 +45,7 @@ Each fix has tests (`limits for every user` in `apps/be/test/api.test.ts`, `engi
 
 The attack test found one real gap (the IPv6 row above), which is fixed. It also showed what is still missing: these refusals are not written to a log the team can query, because the backend logs only its `5xx` answers. An access log is planned for after judging.
 
-The hosting side was checked by the team on 13 and 14 Nov ([#327](https://github.com/Hellonear-AI/hellonear/issues/327)): the box's firewall lets only the tunnel host reach the app ports, so the per-IP limits see the real visitor; Cloudflare's DDoS protection and managed ruleset are on; and an edge rate limit blocks an IP for 10 seconds after 60 API requests in 10 seconds.
+The hosting side was checked by the team ([#327](https://github.com/Hellonear-AI/hellonear/issues/327)): the box's firewall lets only the tunnel host reach the app ports, so the per-IP limits see the real visitor; Cloudflare's DDoS protection and managed ruleset are on; and an edge rate limit blocks an IP for 10 seconds after 60 API requests in 10 seconds.
 
 Known limits: scheduled Autopilot runs do not count toward the daily total for all users; they are capped at 100 a day per owner by the engine. A client with both IPv4 and IPv6 gets two per-IP allowances. Requests the API refuses (`4xx`) are not logged yet. The smart contracts were not reviewed beyond their existing tests. No outside party has audited HelloNear.
 
