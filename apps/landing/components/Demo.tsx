@@ -5,11 +5,13 @@ import { useEffect, useRef, useState } from "react";
 // "Two minutes with a Mind": the heading slides up word by word and the steps rise in when the
 // section comes into view (like the Minds heading). The video plays on its own, muted and looping,
 // like a moving picture; a click opens it full screen from the start with sound, and leaving full
-// screen mutes it and lets it loop again. Until the real video is in `public/demo/` (or DEMO_SRC
-// points to where it is hosted), a placeholder shows instead. Reduced motion: no autoplay, no
-// slide-ups.
+// screen mutes it and lets it loop again. The film (48 s) is in `public/demo/` (#334): WebM (VP9)
+// at 1080p from 768 px up and 720p on phones, an H.264 MP4 for browsers without WebM (older
+// iPhones), and a poster frame. NEXT_PUBLIC_DEMO_VIDEO_URL, when set, replaces all of them. If no
+// source plays, a placeholder shows instead. Reduced motion: no autoplay, no slide-ups.
 
-const DEMO_SRC = process.env.NEXT_PUBLIC_DEMO_VIDEO_URL || "/demo/demo.mp4";
+const DEMO_URL = process.env.NEXT_PUBLIC_DEMO_VIDEO_URL;
+const POSTER = "/demo/demo-poster.webp";
 const TITLE = "Two minutes with a Mind";
 const HOW = [
   ["Pick a Mind", "Choose a personality and give it a name."],
@@ -111,21 +113,33 @@ export function Demo() {
         type="button"
         onClick={open}
         disabled={missing}
-        aria-label={missing ? "The demo video is coming soon" : "Play the two-minute demo full screen, with sound"}
-        className={`group relative aspect-video max-h-[600px] w-full overflow-hidden rounded-[24px] bg-[#161614] ${seen ? "fade-in" : "opacity-0"}`}
+        aria-label={missing ? "The demo video is coming soon" : "Play the demo full screen, with sound"}
+        // Always 16:9 so nothing of the film is cut: as wide as the column, at most 1067 px (600 px
+        // tall), centred. (A 600 px height cap on a full-width frame used to crop the top and bottom.)
+        className={`group relative mx-auto aspect-video w-full max-w-[1067px] overflow-hidden rounded-[18px] bg-[#161614] md:rounded-[24px] ${seen ? "fade-in" : "opacity-0"}`}
         style={{ animationDelay: `${words.length * 70 + 150}ms` }}
       >
         {!missing && (
           <video
             ref={video}
-            src={DEMO_SRC}
+            src={DEMO_URL}
+            poster={POSTER}
             muted
             loop
             playsInline
             preload="none"
-            onError={() => setMissing(true)}
+            onError={DEMO_URL ? () => setMissing(true) : undefined}
             className="absolute inset-0 h-full w-full object-cover"
-          />
+          >
+            {!DEMO_URL && (
+              <>
+                <source src="/demo/demo-1080.webm" type="video/webm" media="(min-width: 768px)" />
+                <source src="/demo/demo-720.webm" type="video/webm" />
+                {/* the last source failing means nothing can play */}
+                <source src="/demo/demo-720.mp4" type="video/mp4" onError={() => setMissing(true)} />
+              </>
+            )}
+          </video>
         )}
         {/* No video hosted yet (NEXT_PUBLIC_DEMO_VIDEO_URL unset and public/demo/ is not deployed): a still of
             the lawn and a quiet "coming soon", never a developer note or a play button that does nothing. */}
