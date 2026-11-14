@@ -1,0 +1,23 @@
+title: HelloNear Autopilot Daily Cap Reached
+id: a8c3863d-63c9-4371-a620-82a8831c462f
+status: experimental
+description: The engine skipped a scheduled Autopilot run because one owner reached 100 scheduled runs in a UTC day. Scheduled runs are not counted by the backend daily total, so this line is the only sign of Autopilot being used to spend the shared credit.
+references:
+    - T-01
+    - T-14
+author: HelloNear team
+date: 2026-11-14
+tags:
+    - attack.impact
+    - attack.t1496
+logsource:
+    product: linux
+    service: hellonear-engine
+    definition: 'journald, unit hellonear-engine.service'
+detection:
+    keywords:
+        - 'autopilot: daily limit of scheduled runs reached'
+    condition: keywords
+falsepositives:
+    - An owner with many legitimate schedules (5 jobs every 15 minutes reaches 100 in about 5 hours)
+level: high

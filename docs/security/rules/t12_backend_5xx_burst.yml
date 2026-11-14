@@ -1,0 +1,47 @@
+title: HelloNear Backend 5xx Answer
+name: hellonear_http_5xx
+id: 715e0b35-afde-41f4-86b2-0d481be0d557
+status: experimental
+description: Base rule. The backend prints one "http error" line for every 5xx answer (route without query, error code, upstream status; never keys or bodies).
+references:
+    - T-12
+author: HelloNear team
+date: 2026-11-14
+tags:
+    - attack.impact
+    - attack.t1499
+logsource:
+    product: linux
+    service: hellonear-be
+    definition: 'journald, unit hellonear-be.service'
+detection:
+    keywords:
+        '|all':
+            - 'http error'
+            - '"status":5'
+    condition: keywords
+falsepositives:
+    - A single upstream timeout (NEAR AI, OutLayer, Composio, AgentMail)
+level: low
+---
+title: HelloNear Burst Of Backend 5xx Answers
+id: a2fd5984-a0e9-43c7-bf59-0624585bad70
+status: experimental
+description: 20 or more 5xx answers in 10 minutes. Either an upstream is down or someone is driving requests into a failing path. 4xx answers (401, 403, 404, 429) are not logged by the backend, so this is the only request-level signal the journal has.
+references:
+    - T-12
+author: HelloNear team
+date: 2026-11-14
+tags:
+    - attack.impact
+    - attack.t1499
+correlation:
+    type: event_count
+    rules:
+        - hellonear_http_5xx
+    timespan: 10m
+    condition:
+        gte: 20
+falsepositives:
+    - A provider outage (check status.hellonear.xyz first)
+level: high

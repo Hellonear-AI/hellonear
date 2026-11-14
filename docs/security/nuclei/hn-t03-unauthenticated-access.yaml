@@ -1,0 +1,19 @@
+id: hn-t03-unauthenticated-access
+info:
+  name: HelloNear - a private route answers without a session
+  author: hellonear-team
+  severity: high
+  description: T-03/T-04. Every route except health, status and the three sign-in routes must answer 401 without the hn_session cookie.
+  tags: hellonear,t03
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/v1/me"
+      - "{{BaseURL}}/v1/minds"
+      - "{{BaseURL}}/v1/secrets"
+      - "{{BaseURL}}/v1/connections"
+    stop-at-first-match: true
+    matchers:
+      - type: dsl
+        dsl:
+          - "status_code != 401"

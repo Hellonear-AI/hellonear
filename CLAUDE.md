@@ -48,7 +48,7 @@ HelloNear is an AI agent persona platform on NEAR, built for NEAR HACKATHON (1â€
 | `sc` | Mind registry contract (Rust `near-sdk`) | Axel |
 | `apps/docs` | Docs site, docs.hellonear.xyz: a Mintlify project deployed from `main` (Endpoints tab from `docs/openapi.json`; llms.txt, Markdown, skill.md and MCP from Mintlify) | Axel |
 | `apps/trust` | Trust Center, trust.hellonear.xyz (Vercel): what protects users' data and funds, each claim linked to its proof | Axel |
-| `docs` | Shared technical docs, incl. `api-contract.md` | James + Axel |
+| `docs` | Shared technical docs, incl. `api-contract.md`, and `security/` (threat model, Sigma rules, Nuclei templates and the 14 Nov attack test; see its README before running anything against the hosted demo) | James + Axel |
 | `design` | Design tokens, screens, Mind characters (`hellonear.pen`, pen.dev) | Nabil |
 | `deploy` | Hosted demo: systemd units + `deploy.sh` for one Proxmox LXC, and the automatic deploy after a merge (`deploy/autodeploy/`) (#22) | James |
 

@@ -1,0 +1,51 @@
+title: HelloNear Many 429 Answers To One Client
+name: hellonear_429
+id: ddd60c1d-57b6-48e6-a0b5-869e440ed8d0
+status: experimental
+description: DRAFT, needs a log that does not exist yet. Base rule, one event per 429 answer (run_rate_limited, daily_capacity_reached, auth_rate_limited, demo_rate_limited). The backend does not log 4xx answers. Needs the proposed access log or Cloudflare HTTP request logs.
+references:
+    - T-01
+    - T-05
+    - T-11
+author: HelloNear team
+date: 2026-11-14
+tags:
+    - attack.impact
+    - attack.t1499.003
+logsource:
+    category: webserver
+    product: hellonear
+    definition: 'Proposed backend access log as JSON: {"event":"access","method","path","status","client"} where client is a salted hash of CF-Connecting-IP'
+detection:
+    selection:
+        status: 429
+    condition: selection
+falsepositives:
+    - A person who really used their 60 runs in an hour
+level: low
+---
+title: HelloNear Client Keeps Hitting The Limits
+id: de05ae08-3616-4156-bb82-36b77d85cde2
+status: experimental
+description: DRAFT. 30 or more 429 answers to one client in 10 minutes means a script, not a person.
+references:
+    - T-01
+    - T-05
+    - T-11
+author: HelloNear team
+date: 2026-11-14
+tags:
+    - attack.impact
+    - attack.t1499.003
+correlation:
+    type: event_count
+    rules:
+        - hellonear_429
+    group-by:
+        - client
+    timespan: 10m
+    condition:
+        gte: 30
+falsepositives:
+    - Many people behind one shared address (an event venue, a university)
+level: high

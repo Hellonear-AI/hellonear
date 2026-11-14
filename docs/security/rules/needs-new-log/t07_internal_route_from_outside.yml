@@ -1,0 +1,23 @@
+title: HelloNear Internal Route Requested Through The Tunnel
+id: 6a07a052-dd02-48aa-a5e5-fbe6a899e8cb
+status: experimental
+description: DRAFT, needs a log that does not exist yet. A request for /internal/v1/* that arrived with a CF-Connecting-IP header came from the internet. The backend answers 404 and logs nothing today. Needs one access-log line per request from the backend (fields method, path, status, via_tunnel) or Cloudflare HTTP request logs.
+references:
+    - T-07
+author: HelloNear team
+date: 2026-11-14
+tags:
+    - attack.discovery
+    - attack.t1595.003
+logsource:
+    category: webserver
+    product: hellonear
+    definition: 'Proposed backend access log as JSON: {"event":"access","method","path","status","via_tunnel"}'
+detection:
+    selection:
+        path|startswith: '/internal/'
+        via_tunnel: true
+    condition: selection
+falsepositives:
+    - None expected; the engine calls these routes on loopback, never through the tunnel
+level: high

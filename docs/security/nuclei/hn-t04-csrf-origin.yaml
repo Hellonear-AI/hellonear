@@ -1,0 +1,20 @@
+id: hn-t04-csrf-origin
+info:
+  name: HelloNear - a state-changing request from another origin is accepted
+  author: hellonear-team
+  severity: high
+  description: T-04. A POST with an Origin that is not in FE_ORIGIN must answer 403 bad_origin. Creates nothing either way (a refused request stores nothing; an accepted one would create one guest user, which is the finding).
+  tags: hellonear,t04
+http:
+  - raw:
+      - |
+        POST /v1/auth/demo HTTP/1.1
+        Host: {{Hostname}}
+        Origin: https://not-hellonear.example
+        Content-Type: application/json
+
+        {}
+    matchers:
+      - type: dsl
+        dsl:
+          - "status_code != 403"

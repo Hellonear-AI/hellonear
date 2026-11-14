@@ -1,0 +1,72 @@
+# Osmedeus v5 module (schema read from docs.osmedeus.org/reference/workflow-schema on 14 Nov 2026).
+# Recon of HelloNear's own attack surface, then one Nuclei template per threat ID from the threat model.
+# Run only against hellonear.xyz. The first step stops the run for any other target.
+kind: module
+name: hellonear-verify
+description: "HelloNear: recon of our own hosts, then verify threats T-03, T-04, T-07, T-12 with custom Nuclei templates"
+tags: "hellonear, recon, verify"
+
+params:
+  # Folder that holds the hn-*.yaml templates of this pack.
+  - name: templates
+    default: "{{Workflows}}/hellonear/nuclei"
+    required: true
+  # Requests per second for every active step. Cloudflare blocks an IP for 10 s after 60 requests in 10 s on /v1/,
+  # so 3 per second stays well under it and does not look like an attack to our own edge.
+  - name: rate
+    default: "3"
+
+dependencies:
+  binaries:
+    - subfinder
+    - httpx
+    - nuclei
+
+steps:
+  # 1. Scope guard. The only allowed target is hellonear.xyz; anything else ends the run here.
+  - name: scope-guard
+    type: bash
+    command: "test '{{Target}}' = 'hellonear.xyz' || { echo 'out of scope: {{Target}}'; exit 1; }"
+
+  # 2. The hosts we may actively test. Written by hand, never taken from discovery:
+  #    api, app and the apex run on our own container behind our Cloudflare zone.
+  #    docs (Mintlify), trust and status (Vercel) are hosted by third parties: they are probed once in step 4
+  #    and never scanned.
+  - name: write-scope
+    type: bash
+    commands:
+      - "mkdir -p {{Output}}"
+      - "printf '%s\\n' https://api.hellonear.xyz https://app.hellonear.xyz https://hellonear.xyz > {{Output}}/active-scope.txt"
+      - "printf '%s\\n' https://docs.hellonear.xyz https://trust.hellonear.xyz https://status.hellonear.xyz > {{Output}}/passive-scope.txt"
+      - "printf '%s\\n' https://api.hellonear.xyz > {{Output}}/api.txt"
+
+  # 3. Passive subdomain discovery (public sources only, no request reaches our hosts).
+  #    The result is a report of what is publicly known. It is NOT fed into any later step.
+  - name: passive-subdomains
+    type: bash
+    command: "subfinder -d {{Target}} -silent -o {{Output}}/subdomains-passive.txt"
+    timeout: 10m
+
+  # 4. Anything discovered that is not in our two lists is written out for a human to look at
+  #    (a forgotten host is a finding by itself). Nothing is sent to those hosts.
+  - name: unknown-hosts
+    type: bash
+    command: "cat {{Output}}/active-scope.txt {{Output}}/passive-scope.txt | sed 's#https://##' | sort -u > {{Output}}/known.txt; sort -u {{Output}}/subdomains-passive.txt | grep -vxFf {{Output}}/known.txt > {{Output}}/unknown-hosts.txt || true"
+
+  # 5. One GET per known host: status, title, server, TLS. Shows what the edge reveals.
+  - name: probe-known-hosts
+    type: bash
+    command: "cat {{Output}}/active-scope.txt {{Output}}/passive-scope.txt | httpx -silent -status-code -title -web-server -tls-grab -rate-limit {{rate}} -json -o {{Output}}/httpx.json"
+    timeout: 10m
+
+  # 6. Verify the threat model on the API host only, one template per threat ID.
+  #    A match means the control is missing (the templates match on the wrong answer).
+  - name: verify-threats
+    type: bash
+    command: "nuclei -l {{Output}}/api.txt -t {{templates}} -tags hellonear -rate-limit {{rate}} -no-interactsh -disable-update-check -jsonl -o {{Output}}/nuclei-hellonear.jsonl"
+    timeout: 15m
+
+  # 7. Summary for the report: how many controls failed, and which.
+  - name: summary
+    type: bash
+    command: "echo \"failed controls: $(wc -l < {{Output}}/nuclei-hellonear.jsonl 2>/dev/null || echo 0)\"; cut -c1-300 {{Output}}/nuclei-hellonear.jsonl 2>/dev/null || true; echo \"unknown hosts: $(wc -l < {{Output}}/unknown-hosts.txt)\""

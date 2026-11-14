@@ -1,0 +1,27 @@
+title: HelloNear Upstream Rejects A Service Key
+id: ba5a85f0-0f4c-48a9-9cca-652e5a5a2775
+status: experimental
+description: The backend answered 503 because AgentMail, OutLayer or Composio answered with an error. For AgentMail the code agentmail_error covers a wrong key. A service key that stops working without a planned rotation can mean it was revoked or changed by someone else.
+references:
+    - T-06
+author: HelloNear team
+date: 2026-11-14
+tags:
+    - attack.credential-access
+    - attack.t1552.001
+logsource:
+    product: linux
+    service: hellonear-be
+    definition: 'journald, unit hellonear-be.service'
+detection:
+    http_error:
+        - 'http error'
+    key_codes:
+        - '"error":"agentmail_error"'
+        - '"error":"outlayer_error"'
+        - '"error":"composio_error"'
+    condition: http_error and key_codes
+falsepositives:
+    - A provider incident that answers with an unexpected status
+    - A planned key rotation
+level: high

@@ -1,0 +1,24 @@
+title: HelloNear Backend Or Engine Started
+id: dfa0543c-2881-4c5f-9ddf-67fb1dfc5ac0
+status: experimental
+description: The backend or the engine started. Expected once after each merge to main (automatic deploy). A start with no merge and no deploy comment on a pull request means a manual change on the box or a crash loop.
+references:
+    - T-13
+author: HelloNear team
+date: 2026-11-14
+tags:
+    - attack.persistence
+    - attack.t1543.002
+logsource:
+    product: linux
+    service: hellonear-be
+    definition: 'journald, units hellonear-be.service and hellonear-engine.service'
+detection:
+    keywords:
+        - 'backend listening on :'
+        - 'engine listening on :'
+    condition: keywords
+falsepositives:
+    - Every automatic deploy after a merge to main (compare with the deploy comment on the merged pull request)
+    - systemd restarting the service after a crash (Restart=on-failure)
+level: medium

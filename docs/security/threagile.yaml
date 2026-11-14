@@ -1,0 +1,902 @@
+threagile_version: 1.0.0
+title: HelloNear hosted demo
+date: 2026-11-14
+author:
+  name: HelloNear team
+  homepage: https://hellonear.xyz
+management_summary_comment: Threat model of the hosted hackathon demo. Built from the repository (docs/openapi.json, deploy/README.md, apps/be/CLAUDE.md) and issue 327. Everything runs on NEAR testnet; no real money moves.
+business_criticality: important
+business_overview:
+  description: 'HelloNear gives each owner a Mind: an AI assistant that reads email, works in apps and pays from its own wallet. Limits sit outside the model: owner approval and an OutLayer policy checked in a TEE.'
+  images: []
+technical_overview:
+  description: Browser to Cloudflare to a Cloudflare Tunnel on a LAN host to one LXC container (web app, backend, engine, Postgres). The backend relays runs to the engine on loopback; the engine calls NEAR AI Cloud.
+  images: []
+questions:
+  Is disk encryption on for the Proxmox node?: ''
+  Who else on the LAN can reach SSH on the container?: ''
+  Does the engine block private and loopback addresses in the http-request skill?: ''
+abuse_cases:
+  Credit exhaustion: An attacker creates free testnet accounts and starts runs until the shared NEAR AI credit or the daily cap is used up.
+  Injected payment: An email or web page read by a Mind tells it to pay an attacker.
+  Key theft: An attacker reads be.env or the database and decrypts wallet keys.
+security_requirements:
+  Limits outside the model: Every payment needs the owner approval or an owner rule, and the OutLayer policy is checked in a TEE.
+  Internal routes on loopback only: cloudflared must not run inside the container.
+  Secrets only in env files: Never in code, logs, issues or prompts.
+tags_available: []
+data_assets:
+  Session Cookie:
+    id: session-cookie
+    description: hn_session cookie; only sha256(token) is stored
+    usage: business
+    tags: []
+    origin: Owner
+    owner: HelloNear team
+    quantity: many
+    confidentiality: confidential
+    integrity: critical
+    availability: operational
+    justification_cia_rating: hn_session cookie; only sha256(token) is stored
+  Chat and Memory:
+    id: chat-memory
+    description: Messages, run events and Mind memory (may hold email and calendar content)
+    usage: business
+    tags: []
+    origin: Owner
+    owner: HelloNear team
+    quantity: many
+    confidentiality: confidential
+    integrity: important
+    availability: operational
+    justification_cia_rating: Messages, run events and Mind memory (may hold email and calendar content)
+  Stored Secrets:
+    id: stored-secrets
+    description: OutLayer wallet keys, user API keys, Telegram bot tokens; AES-256-GCM with SECRETS_MASTER_KEY
+    usage: business
+    tags: []
+    origin: Owner
+    owner: HelloNear team
+    quantity: many
+    confidentiality: strictly-confidential
+    integrity: critical
+    availability: important
+    justification_cia_rating: OutLayer wallet keys, user API keys, Telegram bot tokens; AES-256-GCM with SECRETS_MASTER_KEY
+  Service Keys:
+    id: service-keys
+    description: 'be.env and engine.env: NEAR AI, Composio, AgentMail, demo wallet key, master key'
+    usage: business
+    tags: []
+    origin: HelloNear team
+    owner: HelloNear team
+    quantity: very-few
+    confidentiality: strictly-confidential
+    integrity: critical
+    availability: critical
+    justification_cia_rating: 'be.env and engine.env: NEAR AI, Composio, AgentMail, demo wallet key, master key'
+  Payment Records:
+    id: payment-records
+    description: wallet_payments rows and receipts (testnet NEAR)
+    usage: business
+    tags: []
+    origin: Owner
+    owner: HelloNear team
+    quantity: many
+    confidentiality: restricted
+    integrity: critical
+    availability: operational
+    justification_cia_rating: wallet_payments rows and receipts (testnet NEAR)
+  AI Credit:
+    id: ai-credit
+    description: The shared NEAR AI Cloud credit of the team, spent by every run
+    usage: business
+    tags: []
+    origin: HelloNear team
+    owner: HelloNear team
+    quantity: very-few
+    confidentiality: internal
+    integrity: important
+    availability: critical
+    justification_cia_rating: The shared NEAR AI Cloud credit of the team, spent by every run
+  Public Status:
+    id: public-status
+    description: "/v1/health and /v1/status answers"
+    usage: business
+    tags: []
+    origin: Owner
+    owner: HelloNear team
+    quantity: many
+    confidentiality: public
+    integrity: operational
+    availability: operational
+    justification_cia_rating: "/v1/health and /v1/status answers"
+  Source Code:
+    id: source-code
+    description: Public GitHub repository; main is deployed automatically
+    usage: business
+    tags: []
+    origin: HelloNear team
+    owner: HelloNear team
+    quantity: few
+    confidentiality: public
+    integrity: critical
+    availability: important
+    justification_cia_rating: Public GitHub repository; main is deployed automatically
+technical_assets:
+  Owner Browser:
+    id: owner-browser
+    description: The owner or a guest in a browser, with a NEAR wallet (Meteor)
+    type: external-entity
+    usage: business
+    used_as_client_by_human: true
+    out_of_scope: true
+    justification_out_of_scope: Third-party service, not operated by HelloNear
+    size: component
+    technology: browser
+    tags: []
+    internet: true
+    machine: physical
+    encryption: none
+    owner: Third party
+    confidentiality: confidential
+    integrity: important
+    availability: operational
+    justification_cia_rating: The owner or a guest in a browser, with a NEAR wallet (Meteor)
+    multi_tenant: true
+    redundant: false
+    custom_developed_parts: false
+    data_assets_processed:
+    - session-cookie
+    - chat-memory
+    data_assets_stored: []
+    data_formats_accepted:
+    - json
+    communication_links:
+      Browser to Edge:
+        target: cloudflare-edge
+        description: All web app and API traffic
+        protocol: https
+        authentication: session-id
+        authorization: enduser-identity-propagation
+        tags: []
+        vpn: false
+        ip_filtered: false
+        readonly: false
+        usage: business
+        data_assets_sent:
+        - session-cookie
+        - chat-memory
+        data_assets_received:
+        - chat-memory
+        - payment-records
+        - public-status
+  Cloudflare Edge:
+    id: cloudflare-edge
+    description: 'Cloudflare proxy for hellonear.xyz: TLS, DDoS protection, managed ruleset, one rate-limit rule on /v1/ (60 requests per 10 s per IP)'
+    type: process
+    usage: business
+    used_as_client_by_human: false
+    out_of_scope: true
+    justification_out_of_scope: Third-party service, not operated by HelloNear
+    size: service
+    technology: waf
+    tags: []
+    internet: true
+    machine: virtual
+    encryption: none
+    owner: Third party
+    confidentiality: confidential
+    integrity: critical
+    availability: critical
+    justification_cia_rating: 'Cloudflare proxy for hellonear.xyz: TLS, DDoS protection, managed ruleset, one rate-limit rule on /v1/ (60 requests per 10 s per IP)'
+    multi_tenant: true
+    redundant: false
+    custom_developed_parts: false
+    data_assets_processed:
+    - session-cookie
+    - chat-memory
+    data_assets_stored: []
+    data_formats_accepted:
+    - json
+    communication_links:
+      Edge to Tunnel:
+        target: tunnel-host
+        description: Cloudflare Tunnel
+        protocol: https
+        authentication: token
+        authorization: technical-user
+        tags: []
+        vpn: false
+        ip_filtered: false
+        readonly: false
+        usage: business
+        data_assets_sent:
+        - session-cookie
+        - chat-memory
+        data_assets_received:
+        - chat-memory
+        - payment-records
+        - public-status
+  Tunnel Host:
+    id: tunnel-host
+    description: cloudflared on a LAN machine separate from the app container; forwards to ports 4000, 3000, 3100
+    type: process
+    usage: business
+    used_as_client_by_human: false
+    out_of_scope: false
+    justification_out_of_scope: ''
+    size: service
+    technology: reverse-proxy
+    tags: []
+    internet: false
+    machine: physical
+    encryption: none
+    owner: HelloNear team
+    confidentiality: confidential
+    integrity: critical
+    availability: critical
+    justification_cia_rating: cloudflared on a LAN machine separate from the app container; forwards to ports 4000, 3000, 3100
+    multi_tenant: false
+    redundant: false
+    custom_developed_parts: false
+    data_assets_processed:
+    - session-cookie
+    - chat-memory
+    data_assets_stored: []
+    data_formats_accepted:
+    - json
+    communication_links:
+      Tunnel to Backend:
+        target: backend-api
+        description: HTTP on the LAN; the CF-Connecting-IP header carries the visitor IP
+        protocol: http
+        authentication: none
+        authorization: none
+        tags: []
+        vpn: false
+        ip_filtered: true
+        readonly: false
+        usage: business
+        data_assets_sent:
+        - session-cookie
+        - chat-memory
+        data_assets_received:
+        - chat-memory
+        - payment-records
+        - public-status
+      Tunnel to Web App:
+        target: web-app
+        description: HTTP on the LAN
+        protocol: http
+        authentication: none
+        authorization: none
+        tags: []
+        vpn: false
+        ip_filtered: true
+        readonly: true
+        usage: business
+        data_assets_sent: []
+        data_assets_received: []
+  Web App:
+    id: web-app
+    description: Next.js web app (apps/fe), port 3000; the browser calls api.hellonear.xyz directly
+    type: process
+    usage: business
+    used_as_client_by_human: false
+    out_of_scope: false
+    justification_out_of_scope: ''
+    size: application
+    technology: web-application
+    tags: []
+    internet: false
+    machine: container
+    encryption: none
+    owner: HelloNear team
+    confidentiality: internal
+    integrity: important
+    availability: operational
+    justification_cia_rating: Next.js web app (apps/fe), port 3000; the browser calls api.hellonear.xyz directly
+    multi_tenant: false
+    redundant: false
+    custom_developed_parts: true
+    data_assets_processed: []
+    data_assets_stored: []
+    data_formats_accepted:
+    - json
+    communication_links: {}
+  Backend API:
+    id: backend-api
+    description: 'apps/be on node:http, port 4000: sessions, NEP-413 login, run relay, limits, secrets, wallets'
+    type: process
+    usage: business
+    used_as_client_by_human: false
+    out_of_scope: false
+    justification_out_of_scope: ''
+    size: application
+    technology: web-service-rest
+    tags: []
+    internet: false
+    machine: container
+    encryption: none
+    owner: HelloNear team
+    confidentiality: strictly-confidential
+    integrity: critical
+    availability: critical
+    justification_cia_rating: 'apps/be on node:http, port 4000: sessions, NEP-413 login, run relay, limits, secrets, wallets'
+    multi_tenant: false
+    redundant: false
+    custom_developed_parts: true
+    data_assets_processed:
+    - session-cookie
+    - chat-memory
+    - stored-secrets
+    - service-keys
+    - payment-records
+    - ai-credit
+    - public-status
+    data_assets_stored: []
+    data_formats_accepted:
+    - json
+    communication_links:
+      Backend to Postgres:
+        target: postgres
+        description: Loopback SQL
+        protocol: jdbc
+        authentication: credentials
+        authorization: technical-user
+        tags: []
+        vpn: false
+        ip_filtered: false
+        readonly: false
+        usage: business
+        data_assets_sent:
+        - chat-memory
+        - stored-secrets
+        - payment-records
+        - session-cookie
+        data_assets_received:
+        - chat-memory
+        - stored-secrets
+        - payment-records
+        - session-cookie
+      Backend to Engine:
+        target: engine
+        description: Loopback HTTP with X-Engine-Key; the Mind config and secrets go with each run
+        protocol: http
+        authentication: token
+        authorization: technical-user
+        tags: []
+        vpn: false
+        ip_filtered: false
+        readonly: false
+        usage: business
+        data_assets_sent:
+        - chat-memory
+        - stored-secrets
+        data_assets_received:
+        - chat-memory
+      Backend to OutLayer:
+        target: outlayer
+        description: Wallet API (testnet) with the Mind wallet key
+        protocol: https
+        authentication: token
+        authorization: technical-user
+        tags: []
+        vpn: false
+        ip_filtered: false
+        readonly: false
+        usage: business
+        data_assets_sent:
+        - stored-secrets
+        - payment-records
+        data_assets_received:
+        - payment-records
+      Backend to Composio:
+        target: composio
+        description: Connect Links and connection status
+        protocol: https
+        authentication: token
+        authorization: technical-user
+        tags: []
+        vpn: false
+        ip_filtered: false
+        readonly: false
+        usage: business
+        data_assets_sent:
+        - service-keys
+        data_assets_received:
+        - chat-memory
+      Backend to AgentMail:
+        target: agentmail
+        description: Mind inboxes and sends
+        protocol: https
+        authentication: token
+        authorization: technical-user
+        tags: []
+        vpn: false
+        ip_filtered: false
+        readonly: false
+        usage: business
+        data_assets_sent:
+        - chat-memory
+        data_assets_received:
+        - chat-memory
+      Backend to Telegram:
+        target: telegram
+        description: Bot API with the bot token of each Mind
+        protocol: https
+        authentication: token
+        authorization: technical-user
+        tags: []
+        vpn: false
+        ip_filtered: false
+        readonly: false
+        usage: business
+        data_assets_sent:
+        - chat-memory
+        - stored-secrets
+        data_assets_received:
+        - chat-memory
+      Backend to NEAR RPC:
+        target: near-rpc
+        description: Access-key lookup at login, transaction checks
+        protocol: https
+        authentication: none
+        authorization: none
+        tags: []
+        vpn: false
+        ip_filtered: false
+        readonly: true
+        usage: business
+        data_assets_sent: []
+        data_assets_received:
+        - payment-records
+  Engine:
+    id: engine
+    description: 'Mastra engine, port 4100 (no firewall allow rule): agent runs, tools, Autopilot schedules'
+    type: process
+    usage: business
+    used_as_client_by_human: false
+    out_of_scope: false
+    justification_out_of_scope: ''
+    size: application
+    technology: ai
+    tags: []
+    internet: false
+    machine: container
+    encryption: none
+    owner: HelloNear team
+    confidentiality: strictly-confidential
+    integrity: critical
+    availability: critical
+    justification_cia_rating: 'Mastra engine, port 4100 (no firewall allow rule): agent runs, tools, Autopilot schedules'
+    multi_tenant: false
+    redundant: false
+    custom_developed_parts: true
+    data_assets_processed:
+    - chat-memory
+    - stored-secrets
+    - service-keys
+    - ai-credit
+    data_assets_stored: []
+    data_formats_accepted:
+    - json
+    communication_links:
+      Engine to NEAR AI:
+        target: near-ai-cloud
+        description: Model calls in a TEE, paid from the shared credit
+        protocol: https
+        authentication: token
+        authorization: technical-user
+        tags: []
+        vpn: false
+        ip_filtered: false
+        readonly: false
+        usage: business
+        data_assets_sent:
+        - chat-memory
+        - ai-credit
+        data_assets_received:
+        - chat-memory
+      Engine to Backend Internal:
+        target: backend-api
+        description: "/internal/v1/* on loopback: engine key plus a per-Mind wallet or mail token"
+        protocol: http
+        authentication: token
+        authorization: technical-user
+        tags: []
+        vpn: false
+        ip_filtered: false
+        readonly: false
+        usage: business
+        data_assets_sent:
+        - payment-records
+        data_assets_received:
+        - payment-records
+      Engine to Postgres:
+        target: postgres
+        description: Mastra storage and vectors
+        protocol: jdbc
+        authentication: credentials
+        authorization: technical-user
+        tags: []
+        vpn: false
+        ip_filtered: false
+        readonly: false
+        usage: business
+        data_assets_sent:
+        - chat-memory
+        data_assets_received:
+        - chat-memory
+      Engine to Composio:
+        target: composio
+        description: Tool execution in a per-user session (Gmail, Calendar and others)
+        protocol: https
+        authentication: token
+        authorization: technical-user
+        tags: []
+        vpn: false
+        ip_filtered: false
+        readonly: false
+        usage: business
+        data_assets_sent:
+        - chat-memory
+        data_assets_received:
+        - chat-memory
+  Postgres:
+    id: postgres
+    description: Postgres 17 + pgvector, loopback only, same container
+    type: datastore
+    usage: business
+    used_as_client_by_human: false
+    out_of_scope: false
+    justification_out_of_scope: ''
+    size: component
+    technology: database
+    tags: []
+    internet: false
+    machine: container
+    encryption: data-with-symmetric-shared-key
+    owner: HelloNear team
+    confidentiality: strictly-confidential
+    integrity: critical
+    availability: critical
+    justification_cia_rating: Postgres 17 + pgvector, loopback only, same container
+    multi_tenant: false
+    redundant: false
+    custom_developed_parts: false
+    data_assets_processed:
+    - chat-memory
+    - stored-secrets
+    - payment-records
+    - session-cookie
+    data_assets_stored:
+    - chat-memory
+    - stored-secrets
+    - payment-records
+    - session-cookie
+    data_formats_accepted:
+    - json
+    communication_links: {}
+  Autodeploy Machine:
+    id: autodeploy-machine
+    description: 'LAN machine with the poller: after CI passes on main it builds and deploys over SSH'
+    type: process
+    usage: devops
+    used_as_client_by_human: false
+    out_of_scope: false
+    justification_out_of_scope: ''
+    size: service
+    technology: build-pipeline
+    tags: []
+    internet: false
+    machine: physical
+    encryption: none
+    owner: HelloNear team
+    confidentiality: strictly-confidential
+    integrity: critical
+    availability: important
+    justification_cia_rating: 'LAN machine with the poller: after CI passes on main it builds and deploys over SSH'
+    multi_tenant: false
+    redundant: false
+    custom_developed_parts: false
+    data_assets_processed:
+    - source-code
+    - service-keys
+    data_assets_stored: []
+    data_formats_accepted:
+    - json
+    communication_links:
+      Autodeploy to GitHub:
+        target: github
+        description: 'gh CLI: read main, post the deploy comment'
+        protocol: https
+        authentication: token
+        authorization: technical-user
+        tags: []
+        vpn: false
+        ip_filtered: false
+        readonly: false
+        usage: devops
+        data_assets_sent: []
+        data_assets_received:
+        - source-code
+      Autodeploy to Container:
+        target: backend-api
+        description: SSH through the Proxmox node, runs deploy.sh
+        protocol: ssh
+        authentication: client-certificate
+        authorization: technical-user
+        tags: []
+        vpn: false
+        ip_filtered: false
+        readonly: false
+        usage: devops
+        data_assets_sent:
+        - source-code
+        data_assets_received: []
+  GitHub:
+    id: github
+    description: Public repository and Actions CI (no secrets in CI)
+    type: datastore
+    usage: devops
+    used_as_client_by_human: false
+    out_of_scope: true
+    justification_out_of_scope: Third-party service, not operated by HelloNear
+    size: service
+    technology: sourcecode-repository
+    tags: []
+    internet: true
+    machine: virtual
+    encryption: none
+    owner: Third party
+    confidentiality: public
+    integrity: critical
+    availability: important
+    justification_cia_rating: Public repository and Actions CI (no secrets in CI)
+    multi_tenant: true
+    redundant: false
+    custom_developed_parts: false
+    data_assets_processed:
+    - source-code
+    data_assets_stored:
+    - source-code
+    data_formats_accepted:
+    - file
+    communication_links: {}
+  NEAR AI Cloud:
+    id: near-ai-cloud
+    description: Model inference in a TEE
+    type: process
+    usage: business
+    used_as_client_by_human: false
+    out_of_scope: true
+    justification_out_of_scope: Third-party service, not operated by HelloNear
+    size: service
+    technology: ai
+    tags: []
+    internet: true
+    machine: virtual
+    encryption: none
+    owner: Third party
+    confidentiality: confidential
+    integrity: important
+    availability: critical
+    justification_cia_rating: Model inference in a TEE
+    multi_tenant: true
+    redundant: false
+    custom_developed_parts: false
+    data_assets_processed:
+    - chat-memory
+    - ai-credit
+    data_assets_stored: []
+    data_formats_accepted:
+    - json
+    communication_links: {}
+  OutLayer:
+    id: outlayer
+    description: Mind wallets; policy checked in a TEE before signing (testnet)
+    type: process
+    usage: business
+    used_as_client_by_human: false
+    out_of_scope: true
+    justification_out_of_scope: Third-party service, not operated by HelloNear
+    size: service
+    technology: web-service-rest
+    tags: []
+    internet: true
+    machine: virtual
+    encryption: none
+    owner: Third party
+    confidentiality: strictly-confidential
+    integrity: critical
+    availability: important
+    justification_cia_rating: Mind wallets; policy checked in a TEE before signing (testnet)
+    multi_tenant: true
+    redundant: false
+    custom_developed_parts: false
+    data_assets_processed:
+    - stored-secrets
+    - payment-records
+    data_assets_stored:
+    - payment-records
+    data_formats_accepted:
+    - json
+    communication_links: {}
+  Composio:
+    id: composio
+    description: OAuth connections and app tools
+    type: process
+    usage: business
+    used_as_client_by_human: false
+    out_of_scope: true
+    justification_out_of_scope: Third-party service, not operated by HelloNear
+    size: service
+    technology: web-service-rest
+    tags: []
+    internet: true
+    machine: virtual
+    encryption: none
+    owner: Third party
+    confidentiality: confidential
+    integrity: important
+    availability: operational
+    justification_cia_rating: OAuth connections and app tools
+    multi_tenant: true
+    redundant: false
+    custom_developed_parts: false
+    data_assets_processed:
+    - chat-memory
+    data_assets_stored:
+    - chat-memory
+    data_formats_accepted:
+    - json
+    communication_links: {}
+  AgentMail:
+    id: agentmail
+    description: Mind email inboxes
+    type: process
+    usage: business
+    used_as_client_by_human: false
+    out_of_scope: true
+    justification_out_of_scope: Third-party service, not operated by HelloNear
+    size: service
+    technology: web-service-rest
+    tags: []
+    internet: true
+    machine: virtual
+    encryption: none
+    owner: Third party
+    confidentiality: confidential
+    integrity: important
+    availability: operational
+    justification_cia_rating: Mind email inboxes
+    multi_tenant: true
+    redundant: false
+    custom_developed_parts: false
+    data_assets_processed:
+    - chat-memory
+    data_assets_stored:
+    - chat-memory
+    data_formats_accepted:
+    - json
+    communication_links: {}
+  Telegram:
+    id: telegram
+    description: Bot API; calls POST /v1/telegram/{mindId}/webhook through the edge with a secret-token header
+    type: process
+    usage: business
+    used_as_client_by_human: false
+    out_of_scope: true
+    justification_out_of_scope: Third-party service, not operated by HelloNear
+    size: service
+    technology: web-service-rest
+    tags: []
+    internet: true
+    machine: virtual
+    encryption: none
+    owner: Third party
+    confidentiality: confidential
+    integrity: important
+    availability: operational
+    justification_cia_rating: Bot API; calls POST /v1/telegram/{mindId}/webhook through the edge with a secret-token header
+    multi_tenant: true
+    redundant: false
+    custom_developed_parts: false
+    data_assets_processed:
+    - chat-memory
+    data_assets_stored: []
+    data_formats_accepted:
+    - json
+    communication_links:
+      Telegram Webhook:
+        target: cloudflare-edge
+        description: Webhook updates
+        protocol: https
+        authentication: token
+        authorization: technical-user
+        tags: []
+        vpn: false
+        ip_filtered: false
+        readonly: false
+        usage: business
+        data_assets_sent:
+        - chat-memory
+        data_assets_received: []
+  NEAR RPC:
+    id: near-rpc
+    description: FastNear testnet RPC
+    type: process
+    usage: business
+    used_as_client_by_human: false
+    out_of_scope: true
+    justification_out_of_scope: Third-party service, not operated by HelloNear
+    size: service
+    technology: web-service-rest
+    tags: []
+    internet: true
+    machine: virtual
+    encryption: none
+    owner: Third party
+    confidentiality: public
+    integrity: important
+    availability: operational
+    justification_cia_rating: FastNear testnet RPC
+    multi_tenant: true
+    redundant: false
+    custom_developed_parts: false
+    data_assets_processed:
+    - payment-records
+    data_assets_stored: []
+    data_formats_accepted:
+    - json
+    communication_links: {}
+trust_boundaries:
+  Internet:
+    id: internet
+    description: Public internet and third-party services
+    type: network-dedicated-hoster
+    tags: []
+    technical_assets_inside:
+    - cloudflare-edge
+    - github
+    - near-ai-cloud
+    - outlayer
+    - composio
+    - agentmail
+    - telegram
+    - near-rpc
+    trust_boundaries_nested: []
+  Home LAN:
+    id: home-lan
+    description: 'LAN behind the router: tunnel host and autodeploy machine'
+    type: network-on-prem
+    tags: []
+    technical_assets_inside:
+    - tunnel-host
+    - autodeploy-machine
+    trust_boundaries_nested:
+    - app-container
+  App Container:
+    id: app-container
+    description: Debian 13 LXC on Proxmox; firewall inbound DROP, ports 4000, 3000 and 3100 only from the tunnel host, SSH from the LAN
+    type: network-virtual-lan
+    tags: []
+    technical_assets_inside:
+    - web-app
+    - backend-api
+    - engine
+    - postgres
+    trust_boundaries_nested: []
+shared_runtimes:
+  App Container Runtime:
+    id: app-container-runtime
+    description: One LXC container runs the web app, backend, engine and Postgres
+    tags: []
+    technical_assets_running:
+    - web-app
+    - backend-api
+    - engine
+    - postgres
+individual_risk_categories: {}
+risk_tracking: {}
