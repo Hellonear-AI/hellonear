@@ -226,6 +226,12 @@ Every link opens a public explorer or report. Nothing here needs an account.
 
 A payment the policy refuses has **no transaction at all**: OutLayer refuses it in the TEE before signing. The app and the Mind never show a tx link for one.
 
+NearBlocks answers a script (`curl`) with `403`, so to check a transaction without a browser, ask a public archival RPC (no key). Put any hash from this page in `tx_hash`. This one is the first row above and prints `SuccessValue`, the Mind wallet `83e05486…` as `from`, `lin1er.testnet` as `to`, and a `Transfer` of 0.01 NEAR (`10000000000000000000000` yoctoNEAR):
+
+```sh
+curl -s https://archival-rpc.testnet.fastnear.com -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"EXPERIMENTAL_tx_status","params":{"tx_hash":"AKYYpkLq8XxjL4GKJqdGF5CVTLmjNh3AGEpz2rbcfyYT","sender_account_id":"lin1er.testnet","wait_until":"NONE"}}' | jq '.result | {status, from: .transaction.signer_id, to: .transaction.receiver_id, actions: .transaction.actions}'
+```
+
 ### The registry contract's source is verified
 
 `hellonear-registry.testnet` runs exactly the code in this repository at commit `95c2b3d`. It was built reproducibly (NEP-330) and verified through SourceScan, so anyone can rebuild it and get the same hash.
@@ -709,7 +715,7 @@ Every route and event is in [`docs/api-contract.md`](docs/api-contract.md).
 
 ## API reference
 
-The web app is a client of a public HTTP API, and everything it does can be done with `curl`. The full spec is **[`docs/openapi.json`](docs/openapi.json)** (OpenAPI 3.1, 63 operations): open it in [Swagger Editor](https://editor.swagger.io/?url=https://raw.githubusercontent.com/Hellonear-AI/hellonear/main/docs/openapi.json) or any OpenAPI viewer to read every route and try it against the hosted API. Every server-sent event type is described in [`docs/api-contract.md`](docs/api-contract.md) §3.
+The web app is a client of a public HTTP API, and everything it does can be done with `curl`. The full spec is **[`docs/openapi.json`](docs/openapi.json)** (OpenAPI 3.1, 64 operations): open it in [Swagger Editor](https://editor.swagger.io/?url=https://raw.githubusercontent.com/Hellonear-AI/hellonear/main/docs/openapi.json) or any OpenAPI viewer to read every route and try it against the hosted API. Every server-sent event type is described in [`docs/api-contract.md`](docs/api-contract.md) §3.
 
 - **Base URL:** `https://api.hellonear.xyz` (NEAR testnet), or `http://localhost:4000`.
 - **Auth:** a session cookie, `hn_session`. Get one with `POST /v1/auth/demo` (guest, no wallet) or with a NEAR wallet: `POST /v1/auth/challenge`, sign the message (NEP-413), then `POST /v1/auth/login`. `curl` works as is (no `Origin` header); a browser page on another site gets `403` for any call that changes something (CSRF protection).
@@ -793,6 +799,7 @@ The web app is a client of a public HTTP API, and everything it does can be done
 | `GET` | `/v1/minds/{mindId}/wallet` | Balance, spent today, frozen, and the policy | 200 | yes |
 | `GET` | `/v1/minds/{mindId}/wallet/payments` | Payment receipts, refused ones included | 200 | yes |
 | `GET` | `/v1/minds/{mindId}/payments.csv` | Every payment as a CSV an accountant can open (date UTC, status in words, amount, counterparty, purpose, who approved, tx hash, NearBlocks link) | 200 `text/csv` | yes |
+| `GET` | `/v1/minds/{mindId}/payments.xlsx` | The same rows as an Excel workbook with typed cells (date, number, hyperlink), so it opens in columns on any locale | 200 `.xlsx` | yes |
 | `GET` | `/v1/status` | Public status of HelloNear and its providers (NEAR AI chat and embeddings, 1Click quotes, OutLayer, NEAR RPC, Agent Market, TEE Explorer): status, latency, uptime, 48 half-hour buckets and incidents of the last 7 days. CORS `*`, cached 30 s | 200 | |
 | `POST` | `/v1/relay` | Relay a NEP-366 signed delegate action to the registry (only `unequip_skill` / `set_wallet`, exactly 1 yoctoNEAR); the relayer pays the gas, never a deposit. Not for try-out users | 200, `503 relay_not_configured` until the relayer is set | |
 | `POST` | `/v1/minds/{mindId}/wallet/policy` | Build a store_wallet_policy transaction for the owner to sign | 200 |  |
@@ -914,12 +921,18 @@ bun install && bun run dev                          # http://localhost:4100/v1/h
 cd ../apps/be && cp .env.example .env               # same ENGINE_API_KEY; SECRETS_MASTER_KEY=$(openssl rand -base64 32); DEMO_MODE=true
 bun install && bun run migrate && bun run dev       # http://localhost:4000/v1/health → {"ok":true,"engine":true}
 
-cd ../fe && NEXT_PUBLIC_API_URL=http://localhost:4000 bun run dev   # http://localhost:3000
+cd ../fe && bun install && NEXT_PUBLIC_API_URL=http://localhost:4000 bun run dev   # http://localhost:3000
 ```
 
 Payments also need `DEMO_OUTLAYER_API_KEY` (an OutLayer wallet's agent key) in `apps/be/.env`. `docker compose stop` when done.
 
-**Tests:** `bun run test` in `engine/` and `apps/be/` (integration: real NEAR AI + local Postgres), `bun run test` in `apps/fe/`, `cargo test` in `sc/` (unit + local NEAR sandbox). Load: `k6 run engine/load/chat.js`, `k6 run engine/load/workflow.js`, `bun run load` in `apps/be/`. Each package has a GitHub Actions workflow.
+**Tests that need no API key and no `.env`** (after `bun install` in each folder):
+- `bun run test:unit` in `engine/`: 198 tests, offline.
+- `bun run test` in `apps/be/`: 166 tests against local Postgres (`docker compose up -d postgres`) and a fake engine; they make their own keys and never call NEAR AI or the NEAR RPC.
+- `bun run test` in `apps/fe/`: 280 tests, offline.
+- `cargo test` in `sc/` and in `sc/swarm/`: unit tests and a local NEAR sandbox.
+
+**With a NEAR AI Cloud API key:** `bun run test` in `engine/` adds the live prompt tests (real NEAR AI Cloud, local Postgres). Load: `k6 run engine/load/chat.js`, `k6 run engine/load/workflow.js`, `bun run load` in `apps/be/`. Each package has a GitHub Actions workflow.
 
 | Folder | What |
 |---|---|

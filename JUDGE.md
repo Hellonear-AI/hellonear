@@ -63,6 +63,8 @@ Every link opens the public NEAR testnet explorer. Nothing here needs an account
 
 A payment the policy refuses has **no transaction at all**: OutLayer refuses it in the TEE before signing.
 
+NearBlocks answers a script (`curl`) with `403`. To check a transaction without a browser, use the public RPC command in [README: On NEAR testnet](README.md#on-near-testnet).
+
 Every step of the swarm auction round (joins with escrow, sealed asks, reveals, withdrawals) is in the README: [The swarm auction: one real round on testnet](README.md#the-swarm-auction-one-real-round-on-testnet).
 
 ## Contracts and proofs
@@ -119,7 +121,7 @@ The full walkthrough is in [README: Through the API](README.md#through-the-api),
 
 Needs Node 24.22.1 or later, Bun, Docker and a NEAR AI Cloud API key. The commands are in [README: Run locally](README.md#run-locally).
 
-Tests: `bun run test` in `engine/` and `apps/be/`, `bun run test` in `apps/fe/`, `cargo test` in `sc/`. The swarm simulation (20 buyers, 5 sellers) runs on a local sandbox: `cd sc/swarm && cargo test --test simulation -- --nocapture`.
+Tests that need no API key and no `.env`: `bun run test:unit` in `engine/`, `bun run test` in `apps/be/` (local Postgres and a fake engine) and in `apps/fe/`, `cargo test` in `sc/`. With a NEAR AI Cloud API key, `bun run test` in `engine/` adds the live prompt tests. The swarm simulation (20 buyers, 5 sellers) runs on a local sandbox: `cd sc/swarm && cargo test --test simulation -- --nocapture`.
 
 ## If something doesn't work
 
